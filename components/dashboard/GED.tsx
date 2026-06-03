@@ -7,6 +7,16 @@ import {
   Eye, RotateCcw, History, Check, AlertTriangle, Clock,
   ThumbsUp, ThumbsDown, GitBranch, Archive, RefreshCw, Lock, Unlock,
 } from 'lucide-react';
+import { logAudit, type AuditType } from '@/lib/auditStore';
+
+/** Journalise une action GED dans le journal d'audit (CCF ADM-03 · GED-03). */
+function gedAudit(action: string, objet: string, detail?: string, type: AuditType = 'document'): void {
+  try {
+    const u = JSON.parse(localStorage.getItem('sigepp_dpe_user') || 'null');
+    logAudit({ utilisateur: u ? `${u.prenom} ${u.nom}` : 'Système', email: u?.email, role: u?.role,
+      action, objet, type, detail, direction: u?.direction });
+  } catch { /* noop */ }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    TYPES & MOCK DATA
@@ -301,6 +311,7 @@ export default function GED() {
       if (d.id !== id) return d;
       const idx = WF_STEPS.indexOf(d.statut as WFStatut);
       const next = WF_STEPS[Math.min(idx + 1, WF_STEPS.length - 1)];
+      gedAudit('Changement de statut document', d.nom, `${d.statut} → ${next}`);
       return { ...d, statut: next as StatutValidation };
     }));
     setWfComment('');
@@ -788,7 +799,7 @@ export default function GED() {
         );
       })()}
 
-      {showUpload && <UploadModal onClose={() => setShowUpload(false)} onAdd={(doc) => { setDocs(prev => [doc, ...prev]); setShowUpload(false); }} />}
+      {showUpload && <UploadModal onClose={() => setShowUpload(false)} onAdd={(doc) => { setDocs(prev => [doc, ...prev]); gedAudit('Dépôt de document (GED)', doc.nom, `v${doc.version} · ${doc.type}`); setShowUpload(false); }} />}
     </div>
   );
 }

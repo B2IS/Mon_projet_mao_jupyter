@@ -103,17 +103,27 @@ export function computeVisibilityScope(
   // Départements visibles.
   let departements = dir ? dir.departements.map(d => d.code) : [];
 
-  // NIVEAU 2 (département / chef de cellule) : on RESTREINT au seul département de l'agent
-  // (+ ses unités projet) — il ne voit pas les autres départements de sa direction.
-  if (niveau >= 2 && profile.departement) {
+  let programmes = dir ? (dir.scopeProgrammes.length ? dir.scopeProgrammes : dir.programmes) : [];
+  let domaines = dir ? dir.domaine : [];
+  let typesProjets = dir ? dir.typesProjets : [];
+
+  // ── AFFECTATION (clé de la MMH : Poste + Unité + Affectation + Niveau) ──
+  // Dès qu'un agent est AFFECTÉ à un département précis (DPT, DPD, DEP_PEC…), il est
+  // RESTREINT à CE département — quel que soit son niveau. C'est ce qui distingue
+  // « Chef Projet DPT » de « Chef Projet DPD » : mêmes modules, données différentes.
+  // Un Directeur de direction (DER/DEP/DGC/DIT) n'a PAS de département affecté → il
+  // conserve la vision de toute sa direction (DER ⊃ DPT + DPD, mais jamais DEP).
+  if (profile.departement) {
     departements = [profile.departement];
     const deptUnites = DEPT_TO_UNITES[profile.departement];
     if (deptUnites && deptUnites.length) unites = deptUnites;
+    // IMPORTANT : on neutralise les filtres LARGES (programme / domaine / type) de la
+    // direction, sinon un agent DPD matcherait des projets DPT via le programme
+    // « BEST » ou le domaine partagé. Le rattachement DÉPARTEMENT + UNITÉ suffit.
+    programmes = [];
+    domaines = [];
+    typesProjets = [];
   }
-
-  const programmes = dir ? (dir.scopeProgrammes.length ? dir.scopeProgrammes : dir.programmes) : [];
-  const domaines = dir ? dir.domaine : [];
-  const typesProjets = dir ? dir.typesProjets : [];
 
   return { niveau, all: false, directions, departements, unites, programmes, domaines, typesProjets };
 }

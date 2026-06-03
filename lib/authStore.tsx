@@ -593,6 +593,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(found);
     localStorage.setItem(LS_KEY, JSON.stringify(found));
+    // Journal d'audit (CCF ADM-03) — traçabilité des connexions.
+    try {
+      const { logAudit } = require('./auditStore') as typeof import('./auditStore');
+      logAudit({ utilisateur: `${found.prenom} ${found.nom}`, email: found.email, role: found.role,
+        action: 'Connexion à la plateforme', objet: found.email, type: 'connexion', direction: found.direction });
+    } catch { /* noop */ }
     return { success: true, mustChangePassword };
   }, []);
 

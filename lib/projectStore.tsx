@@ -10,6 +10,16 @@ import React, { createContext, useContext, useState, useCallback, useMemo } from
 import { useAuth, type RoleCode } from '@/lib/authStore';
 import { computeVisibilityScope, isProjectVisible, type UserOrgProfile } from '@/lib/accessEngine';
 import { PERSONNEL_DPE } from '@/lib/dpePersonnel';
+import { logAudit, type AuditType } from '@/lib/auditStore';
+
+/** Journalise une action dans le journal d'audit (CCF ADM-03), avec l'utilisateur courant. */
+function auditLog(action: string, objet: string, type: AuditType, detail?: string, direction?: string): void {
+  try {
+    const u = JSON.parse(localStorage.getItem('sigepp_dpe_user') || 'null');
+    logAudit({ utilisateur: u ? `${u.prenom} ${u.nom}` : 'Système', email: u?.email, role: u?.role,
+      action, objet, type, detail, direction: direction ?? u?.direction });
+  } catch { /* SSR / pas d'utilisateur */ }
+}
 
 /** Normalise un nom de personne : minuscules, sans accents, espaces compactés. */
 function normalizeName(s: string | undefined): string {
@@ -759,11 +769,17 @@ export function ProjectStoreProvider({ children }: { children: React.ReactNode }
       dateModification: now,
     };
     setProjets(prev => [...prev, newP]);
+    auditLog('Création de projet', `${newP.code || newP.id} — ${newP.nom}`, 'projet', undefined, newP.departement);
     return newP;
   }, []);
 
   const updateProjet = useCallback((id: string, patch: Partial<Projet>) => {
-    setProjets(prev => prev.map(p => p.id === id ? { ...p, ...patch, dateModification: now } : p));
+    setProjets(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const changed = Object.keys(patch).filter(k => (p as any)[k] !== (patch as any)[k]);
+      auditLog('Mise à jour de projet', `${p.code || p.id} — ${p.nom}`, 'projet', changed.join(', '), p.departement);
+      return { ...p, ...patch, dateModification: now };
+    }));
   }, []);
 
   const deleteProjet = useCallback((id: string) => {
@@ -991,7 +1007,9 @@ export function useProjectStore(): ProjectStore {
     //    seulement les siens — surtout pas PADERAU s'il n'y est pas affecté.
     //    Les rôles de PILOTAGE (chef de dépt, finance, logistique) gardent la
     //    vision complète de leur périmètre.
-    const rolesImplication: RoleCode[] = ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHARGE', 'EXPERT', 'ASSISTANT'];
+    // S&E (EXPERT/CHARGE) NON inclus : ils suivent les KPI de TOUT leur département
+    // (Responsable S&E DPD = tous les projets DPD), pas seulement ceux qui leur sont affectés.
+    const rolesImplication: RoleCode[] = ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'ASSISTANT'];
     if (rolesImplication.includes(user.role)) {
       const assignedIds = new Set(user.projetsAssignes ?? []);
       const myName = normalizeName(`${user.prenom} ${user.nom}`);

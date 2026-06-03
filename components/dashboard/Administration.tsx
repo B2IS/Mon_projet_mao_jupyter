@@ -213,7 +213,7 @@ const MODULES_LIST = [
 /* ═══════════════════════════════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════════════════════════════ */
-type TabAdminType = 'utilisateurs' | 'tenants' | 'roles' | 'modules' | 'securite' | 'calculs' | 'criteres' | 'dashboard_builder' | 'integrations' | 'alertes' | 'terrain';
+type TabAdminType = 'utilisateurs' | 'tenants' | 'roles' | 'modules' | 'securite' | 'calculs' | 'criteres' | 'dashboard_builder' | 'integrations' | 'alertes' | 'terrain' | 'audit';
 function pillRole(role: RoleCode) {
   const r = ROLES_LIST.find(x => x.id === role);
   if (!r) return null;
@@ -608,6 +608,7 @@ export default function Administration() {
               { key: 'terrain',      label: '🏗️ Phases & Canevas terrain', badge: 0 },
               { key: 'dashboard_builder', label: '📈 Dashboard Builder', badge: customDashboards.length },
               { key: 'securite',     label: '🔒 Sécurité',      badge: 0 },
+              { key: 'audit',        label: '📋 Journal d\'audit', badge: 0 },
               { key: 'integrations', label: '🌐 Intégrations',  badge: 0 },
               { key: 'alertes',      label: '🚨 Alertes & canaux', badge: 0 },
             ] as { key: TabAdminType; label: string; badge: number }[]).map(t => (
@@ -1686,8 +1687,79 @@ export default function Administration() {
       )}
 
       {tab === 'alertes' && <AlertesConfigPanel />}
+      {tab === 'audit' && <JournalAuditPanel />}
 
       {showInvite && <InviterModal onClose={() => setShowInvite(false)} onSend={inv => setPendingInvitations(p => [...p, inv])} />}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   JOURNAL D'AUDIT — CCF MVP · ADM-03
+   « date · heure · utilisateur · action · objet concerné · export CSV »
+═══════════════════════════════════════════════════════════════════════ */
+function JournalAuditPanel() {
+  const entries = useAuditStore(s => s.entries);
+  const [q, setQ] = useState('');
+  const [type, setType] = useState<string>('tous');
+  const TYPES = ['tous', 'connexion', 'projet', 'document', 'workflow', 'planning', 'finance', 'administration', 'export', 'sig', 'autre'];
+  const TYPE_COLOR: Record<string, string> = {
+    connexion: '#0E7490', projet: '#1B4F8A', document: '#7C3AED', workflow: '#16A34A',
+    planning: '#D97706', finance: '#B45309', administration: '#475569', export: '#0891B2', sig: '#059669', autre: '#64748B',
+  };
+  const filtered = entries.filter(e =>
+    (type === 'tous' || e.type === type) &&
+    (!q || `${e.utilisateur} ${e.action} ${e.objet} ${e.detail ?? ''} ${e.email ?? ''}`.toLowerCase().includes(q.toLowerCase())),
+  );
+  const exportCSV = () => {
+    const csv = auditToCSV(filtered);
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `journal_audit_sigepp_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="card">
+      <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <span className="card-title">📋 Journal d&apos;audit — {filtered.length} événement(s)</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input className="form-input" style={{ width: 200 }} placeholder="Rechercher (utilisateur, action, objet…)" value={q} onChange={e => setQ(e.target.value)} />
+          <select className="form-input" style={{ width: 'auto' }} value={type} onChange={e => setType(e.target.value)}>
+            {TYPES.map(t => <option key={t} value={t}>{t === 'tous' ? 'Tous les types' : t}</option>)}
+          </select>
+          <button className="btn btn-navy btn-sm" onClick={exportCSV} disabled={!filtered.length}>⬇ Export CSV</button>
+        </div>
+      </div>
+      <div style={{ padding: '8px 14px 4px', fontSize: 11.5, color: '#64748B' }}>
+        Traçabilité inaltérable (append-only) de toutes les actions — conforme au CCF MVP (ADM-03). Aucune entrée ne peut être supprimée.
+      </div>
+      <div style={{ overflowX: 'auto', padding: '0 0 12px' }}>
+        <table className="tbl">
+          <thead>
+            <tr><th>Date</th><th>Heure</th><th>Utilisateur</th><th>Rôle</th><th>Type</th><th>Action</th><th>Objet</th><th>Détail</th></tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#94A3B8' }}>Aucun événement journalisé pour ce filtre. Connectez-vous, créez un projet ou déposez un document pour générer des entrées.</td></tr>
+            ) : filtered.slice(0, 500).map(e => {
+              const d = new Date(e.date);
+              return (
+                <tr key={e.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{d.toLocaleDateString('fr-FR')}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: 11 }}>{d.toLocaleTimeString('fr-FR')}</td>
+                  <td style={{ fontWeight: 600 }}>{e.utilisateur}</td>
+                  <td><span style={{ fontSize: 10, color: '#64748B' }}>{e.role ?? '—'}</span></td>
+                  <td><span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: TYPE_COLOR[e.type] ?? '#64748B', borderRadius: 6, padding: '2px 7px' }}>{e.type}</span></td>
+                  <td>{e.action}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{e.objet}</td>
+                  <td style={{ fontSize: 11, color: '#64748B' }}>{e.detail ?? ''}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
