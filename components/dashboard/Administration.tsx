@@ -17,6 +17,7 @@ import { usePermissionStore } from '@/lib/permissionStore';
 import { DPE_ORG } from '@/lib/dpeOrgStructure';
 import { useAuth } from '@/lib/authStore';
 import { useCriteriaStore, type CritereGroup } from '@/lib/criteriaStore';
+import { useAuditStore, auditToCSV, logAudit } from '@/lib/auditStore';
 import { usePasswordPolicyStore } from '@/lib/passwordPolicyStore';
 import CalculBuilder from './CalculBuilder';
 import { useTerrainConfigStore, type IndicateurUnite as TerrainIndUnite, type PhaseKey as TerrainPhaseKey } from '@/lib/terrainConfigStore';
