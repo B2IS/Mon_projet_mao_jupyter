@@ -5,7 +5,7 @@ import {
   FileText, File, Image, Download, Share2, Plus, Search, Upload,
   Folder, FolderOpen, ChevronRight, Grid, List, X, CheckCircle,
   Eye, RotateCcw, History, Check, AlertTriangle, Clock,
-  ThumbsUp, ThumbsDown, GitBranch, Archive, RefreshCw, Lock, Unlock,
+  ThumbsUp, ThumbsDown, GitBranch, Archive, RefreshCw, Lock, Unlock, Edit2, Save,
 } from 'lucide-react';
 import { logAudit, type AuditType } from '@/lib/auditStore';
 
@@ -286,6 +286,75 @@ function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Doc
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   MODALE — MODIFIER UN DOCUMENT (métadonnées + remplacement de fichier)
+═══════════════════════════════════════════════════════════════════════ */
+function EditDocModal({ doc, onClose, onSave }: { doc: Document; onClose: () => void; onSave: (d: Document) => void }) {
+  const [form, setForm] = useState<Document>({ ...doc });
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const TYPES: TypeDoc[] = ['PDF', 'Word', 'Excel', 'Image', 'SHP'];
+  const STATUTS: StatutValidation[] = ['En attente', 'Soumis', 'En révision', 'Publié'];
+
+  const replaceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const ext = (f.name.split('.').pop() ?? '').toLowerCase();
+    const type: TypeDoc = ['png','jpg','jpeg','gif','webp','bmp','svg'].includes(ext) ? 'Image'
+      : ext === 'pdf' ? 'PDF' : ['doc','docx'].includes(ext) ? 'Word' : ['xls','xlsx','csv'].includes(ext) ? 'Excel' : ['shp','kml','geojson'].includes(ext) ? 'SHP' : form.type;
+    const sizeKb = f.size / 1024; const taille = sizeKb > 1024 ? `${(sizeKb/1024).toFixed(1)} Mo` : `${Math.round(sizeKb)} Ko`;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === 'string' ? reader.result : URL.createObjectURL(f);
+      const [maj, min] = (form.version.replace(/^v/i, '').split('.').map(Number));
+      const nextVer = `v${maj || 1}.${(min ?? 0) + 1}`;
+      setForm(prev => ({ ...prev, nom: f.name, type, taille, fileUrl: url, fileExt: ext, version: nextVer }));
+    };
+    reader.readAsDataURL(f);
+    e.target.value = '';
+  };
+
+  const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 };
+  const lbl: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', display: 'block', marginBottom: 4 };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 340, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+      <div style={{ width: '100%', maxWidth: 480, background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '14px 18px', background: 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}><Edit2 size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />Modifier le document</span>
+          <button onClick={onClose} className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={12} /></button>
+        </div>
+        <div style={{ padding: 18, overflowY: 'auto' }}>
+          <label style={lbl}>Nom du document</label>
+          <input style={inp} value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value })} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={lbl}>Type</label>
+              <select style={inp} value={form.type} onChange={e => setForm({ ...form, type: e.target.value as TypeDoc })}>{TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+            <div><label style={lbl}>Statut</label>
+              <select style={inp} value={form.statut} onChange={e => setForm({ ...form, statut: e.target.value as StatutValidation })}>{STATUTS.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={lbl}>Catégorie</label><input style={inp} value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} /></div>
+            <div><label style={lbl}>Sous-catégorie</label><input style={inp} value={form.sousCat} onChange={e => setForm({ ...form, sousCat: e.target.value })} /></div>
+          </div>
+          <label style={lbl}>Projet</label>
+          <input style={inp} value={form.projet} onChange={e => setForm({ ...form, projet: e.target.value })} />
+          <label style={lbl}>Tags (séparés par des virgules)</label>
+          <input style={inp} value={form.tags.join(', ')} onChange={e => setForm({ ...form, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })} />
+
+          <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={replaceFile}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.shp,.kml,.geojson,.txt,.ppt,.pptx,.dwg" />
+          <button onClick={() => fileRef.current?.click()} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', borderRadius: 7, border: '1.5px dashed var(--navy)', background: 'rgba(27,79,138,0.05)', color: 'var(--navy)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <RefreshCw size={13} /> Remplacer le fichier {form.fileExt ? `(actuel : ${form.fileExt}, ${form.version})` : ''}
+          </button>
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid #E2E8F0', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
+          <button className="btn btn-primary btn-sm" disabled={!form.nom.trim()} onClick={() => onSave(form)}><Save size={12} /> Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════════════════════ */
 export default function GED() {
@@ -299,6 +368,14 @@ export default function GED() {
   const [expanded, setExpanded] = useState<string[]>(['Études']);
   const [showUpload, setShowUpload] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<string | null>(null);
+  const [editDoc, setEditDoc] = useState<Document | null>(null);
+
+  /** Enregistre les modifications de métadonnées d'un document (modifiable). */
+  const saveEditDoc = (updated: Document) => {
+    setDocs(prev => prev.map(d => d.id === updated.id ? { ...updated, date: new Date().toLocaleDateString('fr-FR') } : d));
+    gedAudit('Modification de document (GED)', updated.nom, `type ${updated.type} · statut ${updated.statut}`);
+    setEditDoc(null);
+  };
   const [showVersions, setShowVersions] = useState<string | null>(null);
   const [showWorkflow, setShowWorkflow] = useState<string | null>(null);
   const [wfComment, setWfComment] = useState('');
@@ -539,6 +616,7 @@ export default function GED() {
                         <td>
                           <div style={{ display: 'flex', gap: 3 }}>
                             <button className="btn btn-ghost btn-xs" title="Visualiser" onClick={() => setViewerDoc(d.id)}><Eye size={10} /></button>
+                            <button className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
                             <button className="btn btn-ghost btn-xs" title="Télécharger" onClick={() => {
                               const a = document.createElement('a');
                               if (d.fileUrl) { a.href = d.fileUrl; a.download = d.nom; }
@@ -581,6 +659,7 @@ export default function GED() {
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => setViewerDoc(d.id)}><Eye size={10} /> Voir</button>
+                        <button className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => {
                           const a = document.createElement('a');
                           if (d.fileUrl) { a.href = d.fileUrl; a.download = d.nom; }
@@ -800,6 +879,8 @@ export default function GED() {
       })()}
 
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onAdd={(doc) => { setDocs(prev => [doc, ...prev]); gedAudit('Dépôt de document (GED)', doc.nom, `v${doc.version} · ${doc.type}`); setShowUpload(false); }} />}
+
+      {editDoc && <EditDocModal doc={editDoc} onClose={() => setEditDoc(null)} onSave={saveEditDoc} />}
     </div>
   );
 }

@@ -58,7 +58,12 @@ export default function Programmes() {
   /* Grouper projets en programmes fictifs */
   const programmes: Programme[] = useMemo(() => {
     const p = store.projets;
-    const dom = ['production', 'transport', 'distribution', 'commercial', 'genie_civil'] as Domaine[];
+    // SCOPE DOMAINE (MMH) : on ne montre QUE les programmes des domaines réellement
+    // présents dans le périmètre de l'utilisateur (store.projets est déjà scopé).
+    // Un agent DPD (distribution) ne voit donc PAS de programme transport/production/commercial.
+    const allDom = ['production', 'transport', 'distribution', 'commercial', 'genie_civil'] as Domaine[];
+    const present = new Set(p.map(pr => pr.domaine));
+    const dom = allDom.filter(d => present.has(d));
 
     return dom.map((d, i) => {
       const projets = p.filter(pr => pr.domaine === d);
@@ -122,7 +127,7 @@ export default function Programmes() {
               }}
             >
               <option value="tous">Tous les domaines</option>
-              {Object.entries(DOMAINE_CFG).map(([k, v]) => (
+              {Object.entries(DOMAINE_CFG).filter(([k]) => store.projets.some(p => p.domaine === k)).map(([k, v]) => (
                 <option key={k} value={k}>{v.emoji} {v.label}</option>
               ))}
             </select>

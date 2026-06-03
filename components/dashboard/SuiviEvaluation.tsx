@@ -144,7 +144,18 @@ export default function SuiviEvaluation() {
   const validerKPI = (id: string) =>
     setIndicateurs(prev => prev.map(k => k.id === id ? { ...k, statut: 'valide', anomalie: undefined, relance: false } : k));
 
-  const selKPI = indicateurs.find(k => k.id === selectedKPI);
+  // ── SCOPE DOMAINE (MMH) ──────────────────────────────────────────────
+  // Un agent ne voit QUE les KPI des domaines de SON périmètre. Un DPD
+  // (distribution) ne voit JAMAIS les KPI transport / production / commercial.
+  // Les domaines visibles dérivent des projets réellement scopés (store.projets).
+  // Seuls les profils « vue globale » (DG/PMO/Audit) voient tous les domaines.
+  const visibleDomaines = useMemo(() => new Set(store.projets.map(p => p.domaine)), [store.projets]);
+  const scopedIndicateurs = useMemo(
+    () => canGlobal ? indicateurs : indicateurs.filter(k => visibleDomaines.has(k.domaine)),
+    [indicateurs, visibleDomaines, canGlobal],
+  );
+
+  const selKPI = scopedIndicateurs.find(k => k.id === selectedKPI) ?? scopedIndicateurs[0];
 
   /* KPI depuis store si disponible */
   const kpiTop = useMemo(() => {
@@ -153,16 +164,16 @@ export default function SuiviEvaluation() {
     const avgPhys = Math.round(p.reduce((s, x) => s + x.avancement, 0) / p.length);
     const avgFin  = Math.round(p.reduce((s, x) => s + (x.budgetDecaisse / (x.budget || 1)) * 100, 0) / p.length);
     const anomaliesStore = p.filter(x => x.spi < 0.85 || x.cpi < 0.90).length;
-    const kpiValides = indicateurs.filter(k => k.statut === 'valide').length;
-    const anomaliesKpi = indicateurs.filter(k => k.statut === 'anomalie').length;
+    const kpiValides = scopedIndicateurs.filter(k => k.statut === 'valide').length;
+    const anomaliesKpi = scopedIndicateurs.filter(k => k.statut === 'anomalie').length;
     return [
       { label: 'Exécution physique',   value: `${avgPhys}%`, color: NAVY,   desc: 'Moyenne portefeuille' },
       { label: 'Exécution financière', value: `${avgFin}%`,  color: GREEN,  desc: 'Taux décaissement'    },
-      { label: 'KPI validés',          value: `${kpiValides}/${indicateurs.length}`, color: PURPLE, desc: 'Indicateurs confirmés' },
+      { label: 'KPI validés',          value: `${kpiValides}/${scopedIndicateurs.length}`, color: PURPLE, desc: 'Indicateurs confirmés' },
       { label: 'Rapports à publier',   value: '4',           color: AMBER,  desc: 'En attente diffusion'  },
       { label: 'Anomalies',            value: String(anomaliesStore + anomaliesKpi), color: RED, desc: 'À traiter', alert: true },
     ] as typeof KPI_TOP;
-  }, [store.projets, refreshKey, indicateurs]);
+  }, [store.projets, refreshKey, scopedIndicateurs]);
 
   function handleConsolider() {
     setConsolidating(true);
@@ -209,7 +220,7 @@ export default function SuiviEvaluation() {
                 title: 'Suivi & Évaluation — Indicateurs DPE',
                 subtitle: 'SENELEC · Direction Principale Équipement',
                 headers: ['Lot', 'Domaine', 'Taux physique %', 'Taux financier %', 'Source', 'Date', 'Statut'],
-                rows: indicateurs.map(k => [k.lot, k.domaine, k.txPhysique, k.txFinancier, k.source, k.sourceDate, k.statut]),
+                rows: scopedIndicateurs.map(k => [k.lot, k.domaine, k.txPhysique, k.txFinancier, k.source, k.sourceDate, k.statut]),
               });
             }} style={{
               display: 'flex', alignItems: 'center', gap: 6,
@@ -281,10 +292,15 @@ export default function SuiviEvaluation() {
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>
                   Indicateurs à contrôler
                 </span>
-                <span style={{ fontSize: 11, color: '#94A3B8' }}>{indicateurs.length} indicateurs</span>
+                <span style={{ fontSize: 11, color: '#94A3B8' }}>{scopedIndicateurs.length} indicateurs</span>
               </div>
 
-              {indicateurs.map((kpi, i) => {
+              {scopedIndicateurs.length === 0 && (
+                <div style={{ padding: 24, textAlign: 'center', color: '#94A3B8', fontSize: 12.5 }}>
+                  Aucun indicateur dans votre périmètre métier.
+                </div>
+              )}
+              {scopedIndicateurs.map((kpi, i) => {
                 const dcfg  = DOMAINE_CFG[kpi.domaine];
                 const scfg  = KPI_STATUT[kpi.statut];
                 const isSel = selectedKPI === kpi.id;
@@ -294,7 +310,7 @@ export default function SuiviEvaluation() {
                     onClick={() => setSelectedKPI(kpi.id)}
                     style={{
                       padding: '14px 16px',
-                      borderBottom: i < indicateurs.length - 1 ? '1px solid #F1F5F9' : 'none',
+                      borderBottom: i < scopedIndicateurs.length - 1 ? '1px solid #F1F5F9' : 'none',
                       cursor: 'pointer',
                       background: isSel ? '#EFF6FF' : (kpi.anomalie ? '#FFF8F8' : '#fff'),
                       borderLeft: isSel ? `3px solid ${NAVY}` : `3px solid ${kpi.anomalie ? RED : 'transparent'}`,
@@ -547,7 +563,7 @@ export default function SuiviEvaluation() {
                 <AlertTriangle size={14} style={{ color: RED }} />
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#7F1D1D' }}>Anomalies détectées</span>
               </div>
-              {indicateurs.filter(k => k.statut === 'anomalie').map((k, i, arr) => {
+              {scopedIndicateurs.filter(k => k.statut === 'anomalie').map((k, i, arr) => {
                 const dcfg = DOMAINE_CFG[k.domaine];
                 return (
                   <div key={k.id} style={{
@@ -573,7 +589,7 @@ export default function SuiviEvaluation() {
                   </div>
                 );
               })}
-              {indicateurs.filter(k => k.statut === 'anomalie').length === 0 && (
+              {scopedIndicateurs.filter(k => k.statut === 'anomalie').length === 0 && (
                 <div style={{ padding: 24, textAlign: 'center', color: GREEN, fontSize: 13 }}>
                   ✅ Aucune anomalie détectée
                 </div>

@@ -999,7 +999,7 @@ export default function Terrain() {
           { icon: <Activity size={14} color="#16A34A" />, label: 'Postes transfo',   val: `${kpis.postes}`,             sub: `/${kpis.postesPrevu} prévus`, color: '#16A34A' },
           { icon: <Zap size={14} color="#D97706" />,      label: 'MW installés',    val: `${kpis.mwInstalle.toFixed(1)} MW`, sub: `/${kpis.mwPrevu} MW`, color: '#D97706' },
           { icon: <BarChart2 size={14} color="#8B5CF6" />,label: 'Compteurs',       val: `${kpis.compteurs}`,          sub: `/${kpis.compteursPrevu} prévus`, color: '#8B5CF6' },
-          { icon: <Wind size={14} color="#0EA5E9" />,     label: 'Éco. énergie',    val: `${kpis.consoEco} GWh`,       sub: 'économisés/an', color: '#0EA5E9' },
+          { icon: <Wind size={14} color="#0EA5E9" />,     label: 'Pertes techn. évitées', val: `${kpis.consoEco} GWh`,  sub: 'par an (écart conso. prévue/réelle)', color: '#0EA5E9' },
           { icon: <Shield size={14} color="#F47920" />,   label: 'Conformité DPE', val: `${kpis.conformiteMoy}%`,      sub: `Eff. moy. +${kpis.efficaciteMoy}%`, color: kpis.conformiteMoy >= 80 ? '#16A34A' : '#EF3340' },
         ].map(k => (
           <div key={k.label} style={{ background: '#fff', borderRadius: 8, border: '1px solid #E2E8F0', padding: '10px 12px', borderTop: `3px solid ${k.color}`, boxShadow: '0 1px 3px rgba(0,0,0,.05)' }}>

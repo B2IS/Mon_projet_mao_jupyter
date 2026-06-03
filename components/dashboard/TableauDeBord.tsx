@@ -300,10 +300,12 @@ export default function TableauDeBord() {
     const kmReseau   = distrib.reduce((s, p) => s + (p.budget * 0.025 * p.avancement / 100), 0);
     const mwInstalle = prod.reduce((s, p) => s + (p.budget * 0.01 * p.avancement / 100), 0);
     const compteurs  = Math.round(distrib.reduce((s, p) => s + (p.budget * 1.0 * p.avancement / 100), 0));
-    const consoEco   = metrics.filtered.reduce((s, p) => s + (p.budget * 0.0008 * p.avancement / 100), 0);
+    // Pertes techniques évitées (GWh/an) — impact RÉEL des renforcements réseau (distribution + transport),
+    // pas une « économie d'énergie » (hors mission DPE). Seuls les projets réseau contribuent.
+    const pertesEvitees = [...distrib, ...trans].reduce((s, p) => s + (p.budget * 0.0012 * p.avancement / 100), 0);
     const conformite = Math.round(metrics.filtered.reduce((s, p) => s + (p.avancement >= 80 ? 92 : p.avancement >= 50 ? 75 : 55), 0) / Math.max(1, metrics.filtered.length));
     const postes     = Math.round(distrib.reduce((s, p) => s + (p.budget * 0.08 * p.avancement / 100), 0) + trans.reduce((s, p) => s + (p.budget * 0.02 * p.avancement / 100), 0));
-    return { kmReseau, mwInstalle, compteurs, consoEco, conformite, postes };
+    return { kmReseau, mwInstalle, compteurs, pertesEvitees, conformite, postes };
   }, [metrics.filtered]);
 
   // Indicateurs SENELEC officiels + cartes du cockpit ADAPTÉES AU PROFIL (Accueil intelligent).
@@ -555,7 +557,7 @@ export default function TableauDeBord() {
               { icon: '🏗️', label: 'Postes transfo',    val: String(dpeKpis.postes),                    sub: 'installés',       color: '#34D399' },
               { icon: '⚡', label: 'MW installés',      val: `${dpeKpis.mwInstalle.toFixed(0)} MW`,    sub: 'production',      color: '#FCD34D' },
               { icon: '📊', label: 'Compteurs posés',   val: dpeKpis.compteurs.toLocaleString('fr'),   sub: 'actifs',          color: '#C084FC' },
-              { icon: '🌿', label: 'Éco. énergie',      val: `${dpeKpis.consoEco.toFixed(1)} GWh`,    sub: 'évité/an',        color: '#6EE7B7' },
+              { icon: '🔌', label: 'Pertes techn. évitées', val: `${dpeKpis.pertesEvitees.toFixed(1)} GWh`, sub: 'par an (réseau renforcé)', color: '#6EE7B7' },
               { icon: '✅', label: 'Conformité DPE',    val: `${dpeKpis.conformite}%`,                 sub: 'moy. portefeuille', color: dpeKpis.conformite >= 80 ? '#4ADE80' : '#F87171' },
             ].map(k => (
               <div key={k.label} style={{ textAlign: 'center', padding: '8px 6px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>

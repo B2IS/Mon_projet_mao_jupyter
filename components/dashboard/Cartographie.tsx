@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Layers, MapPin, Download, CheckCircle2, Clock, ChevronRight, X, RefreshCw, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { useProjectStore, DOMAINE_CFG } from '@/lib/projectStore';
+import { useZonesStore } from '@/lib/zonesQuantitesStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import { MapContainer, TileLayer, Polygon, CircleMarker, Popup, useMapEvent } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -146,7 +147,30 @@ function computeRegionProjetCounts(pins: { region: string }[]): Record<string, n
 
 export default function Cartographie() {
   const store = useProjectStore();
+  const zonesByProjet = useZonesStore(s => s.byProjet);
   const router = useRouter();
+
+  // ── Localités CHARGÉES dans « Zones & Quantités » (BEST ou import Excel) ──
+  // Dès qu'un fichier est chargé avec des coordonnées, ses localités apparaissent
+  // automatiquement sur la carte (couche « Localités chargées »).
+  const loadedZones = useMemo(() => {
+    const out: { lat: number; lng: number; localite: string; lot: string; statut: string; region: string; departement: string; code: string }[] = [];
+    const seen = new Set<string>();
+    Object.values(zonesByProjet ?? {}).forEach(pz => {
+      (pz?.zones ?? []).forEach(z => {
+        if (typeof z.lat === 'number' && typeof z.lng === 'number' && !Number.isNaN(z.lat) && !Number.isNaN(z.lng)) {
+          const key = `${z.lat},${z.lng},${z.localite}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push({
+            lat: z.lat, lng: z.lng, localite: z.localite || z.code || '—',
+            lot: z.lot || '', statut: z.statut || '', region: z.region || '', departement: z.departement || '', code: z.code || '',
+          });
+        }
+      });
+    });
+    return out;
+  }, [zonesByProjet]);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>('');
 
@@ -234,7 +258,15 @@ export default function Cartographie() {
     { id: 'projets', label: 'Projets actifs', count: 11, active: true, color: 'var(--green)' },
     { id: 'mes', label: 'Localités MES', count: 84, active: false, color: 'var(--red)' },
     { id: 'best', label: 'Localités BEST (1041)', count: 1041, active: false, color: '#0EA5E9' },
+    { id: 'chargees', label: 'Localités chargées', count: 0, active: true, color: '#F47920' },
   ]);
+
+  // Synchronise le compteur de la couche « chargées » avec les zones réellement chargées.
+  useEffect(() => {
+    setCouches(cs => cs.map(c => c.id === 'chargees' ? { ...c, count: loadedZones.length } : c));
+  }, [loadedZones.length]);
+  const loadedActive = couches.find(c => c.id === 'chargees')?.active ?? true;
+  const statutColor = (s: string) => /termin|réalis|realis|mes/i.test(s) ? '#16A34A' : /cours/i.test(s) ? '#F59E0B' : /retard|suspend/i.test(s) ? '#EF3340' : '#0EA5E9';
 
   // Couche « Localités BEST » : 1041 localités réelles, chargées en lazy-import à l'activation.
   const bestActive = couches.find(c => c.id === 'best')?.active ?? false;
@@ -560,6 +592,23 @@ export default function Cartographie() {
                       <div style={{ fontSize: 12, fontWeight: 700, color: '#0E3460' }}>{z.localite}</div>
                       <div style={{ fontSize: 10, color: '#64748B' }}>{z.departement} · {z.region}</div>
                       <div style={{ fontSize: 10, color: lotColor(z.lot), fontWeight: 700 }}>{z.lot} — {z.statut}</div>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+              {/* Couche « Localités chargées » — issues de Zones & Quantités (BEST / import Excel) */}
+              {loadedActive && loadedZones.map((z, i) => (
+                <CircleMarker
+                  key={`loaded-${i}`}
+                  center={[z.lat, z.lng]}
+                  radius={4}
+                  pathOptions={{ fillColor: statutColor(z.statut), fillOpacity: 0.9, color: '#fff', weight: 1 }}>
+                  <Popup>
+                    <div style={{ fontFamily: 'Inter,sans-serif', minWidth: 160 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#0E3460' }}>{z.localite}</div>
+                      <div style={{ fontSize: 10, color: '#64748B' }}>{[z.departement, z.region].filter(Boolean).join(' · ')}</div>
+                      {z.code && <div style={{ fontSize: 9.5, color: '#94A3B8', fontFamily: 'monospace' }}>{z.code}</div>}
+                      <div style={{ fontSize: 10, color: statutColor(z.statut), fontWeight: 700 }}>{[z.lot, z.statut].filter(Boolean).join(' — ')}</div>
                     </div>
                   </Popup>
                 </CircleMarker>

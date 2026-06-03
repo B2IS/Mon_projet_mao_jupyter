@@ -12,7 +12,7 @@ import * as XLSX from 'xlsx';
 /** Extrait le texte d'un PDF natif (texte sélectionnable) via pdf.js, page par page. */
 export async function extractPdfText(file: File): Promise<string | undefined> {
   try {
-    const pdfjs: typeof import('pdfjs-dist') = await import('pdfjs-dist');
+    const pdfjs = await import('pdfjs-dist/build/pdf');
     try {
       pdfjs.GlobalWorkerOptions.workerSrc = new URL(
         'pdfjs-dist/build/pdf.worker.min.js',
