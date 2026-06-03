@@ -1,0 +1,45 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type KpiGQL {
+  cible: Float!
+  code: String!
+  consolide: Boolean!
+  id: ID!
+  libelle: String!
+  valeur: Float!
+}
+
+type OrgUnitGQL {
+  code: String!
+  id: ID!
+  label: String!
+  path: String!
+  type: String!
+}
+
+type ProjetGQL {
+  avancement: Int!
+  budgetMfcfa: Float!
+  codeBit: String
+  cpi: Float
+  domaine: String!
+  id: ID!
+  nom: String!
+  orgPath: String!
+  spi: Float
+  statut: String!
+}
+
+type Query {
+  kpi: [KpiGQL!]!
+  meScope: ScopeGQL!
+  orgTree: [OrgUnitGQL!]!
+  projets(programme: String): [ProjetGQL!]!
+}
+
+type ScopeGQL {
+  consolide: Boolean!
+  visiblePaths: [String!]!
+}

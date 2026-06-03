@@ -1,0 +1,38 @@
+{
+  "name": "sigepp-dpe-backend",
+  "version": "1.0.0",
+  "description": "SIGEPP-DPE — Backend Enterprise (NestJS / DDD / CQRS / PostgreSQL / Camunda 8 / Keycloak)",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "test": "jest",
+    "test:security": "ts-node --transpile-only test/org-scope.spec.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.3.0",
+    "@nestjs/core": "^10.3.0",
+    "@nestjs/cqrs": "^10.2.7",
+    "@nestjs/platform-express": "^10.3.0",
+    "@nestjs/graphql": "^12.0.0",
+    "@nestjs/apollo": "^12.0.0",
+    "@nestjs/passport": "^10.0.3",
+    "@prisma/client": "^5.9.0",
+    "graphql": "^16.8.1",
+    "nest-keycloak-connect": "^1.10.0",
+    "passport": "^0.7.0",
+    "reflect-metadata": "^0.2.1",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.3.0",
+    "@nestjs/testing": "^10.3.0",
+    "prisma": "^5.9.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

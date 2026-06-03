@@ -1,0 +1,502 @@
+// SIGEPP-DPE — Schéma Prisma (PostgreSQL) — Organization-Driven
+// Miroir du modèle SQL docs/architecture/01_data_model.sql.
+// L'organisation est le référentiel maître ; org_path porte l'héritage de sécurité.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgType {
+  DPE
+  DIRECTION
+  DEPARTEMENT
+  SERVICE
+  CELLULE
+  PROGRAMME
+  UAGL
+}
+
+model OrgUnit {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  label       String
+  type        OrgType
+  parentId    String?
+  parent      OrgUnit?  @relation("OrgTree", fields: [parentId], references: [id])
+  children    OrgUnit[] @relation("OrgTree")
+  path        String // ex. "DPE.DER.DPT" — sous-arbre = LIKE path || '.%'
+  isProgramme Boolean   @default(false)
+  domaines    String[]
+  actif       Boolean   @default(true)
+  users       AppUser[]
+  projetsDir  Projet[]  @relation("ProjetDirection")
+  projetsDept Projet[]  @relation("ProjetDepartement")
+
+  @@index([path])
+  @@index([parentId])
+}
+
+model Poste {
+  id                String    @id @default(uuid())
+  code              String    @unique
+  label             String
+  niveauFonctionnel Int       @default(3)
+  users             AppUser[]
+}
+
+model AppUser {
+  id                 String            @id @default(uuid())
+  matricule          String            @unique
+  prenom             String
+  nom                String
+  email              String            @unique
+  keycloakSub        String?           @unique
+  posteId            String?
+  poste              Poste?            @relation(fields: [posteId], references: [id])
+  fonction           String?
+  orgUnitId          String
+  orgUnit            OrgUnit           @relation(fields: [orgUnitId], references: [id])
+  superieurId        String?
+  niveauHierarchique Int               @default(3)
+  actif              Boolean           @default(true)
+  affectations       UserAffectation[]
+}
+
+model UserAffectation {
+  userId    String
+  user      AppUser @relation(fields: [userId], references: [id])
+  orgUnitId String
+  roleCode  String
+
+  @@id([userId, orgUnitId, roleCode])
+}
+
+model Projet {
+  id            String   @id @default(uuid())
+  codeBit       String?
+  nom           String
+  domaine       String
+  directionId   String
+  direction     OrgUnit  @relation("ProjetDirection", fields: [directionId], references: [id])
+  departementId String?
+  departement   OrgUnit? @relation("ProjetDepartement", fields: [departementId], references: [id])
+  programme     String?
+  bailleur      String?
+  zone          String?
+  orgPath       String // héritage de sécurité (RLS)
+  chefProjetId  String?
+  budgetMfcfa   Decimal  @default(0)
+  decaisseMfcfa Decimal  @default(0)
+  avancement    Int      @default(0)
+  cpi           Decimal?
+  spi           Decimal?
+  statut        String   @default("en_cours")
+  lotParentId   String?
+  createdAt     DateTime @default(now())
+
+  @@index([orgPath])
+}
+
+// ─── PHASE 2 — Cœur projet : Programmes, Planning, Marchés, Attachements BOQ ───
+
+model Programme {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  label       String
+  bailleur    String?
+  orgUnitId   String?
+  budgetMfcfa Decimal @default(0)
+}
+
+model Tache {
+  id             String        @id @default(uuid())
+  projetId       String
+  wbs            String?
+  nom            String
+  duree          Int           @default(1)
+  dateDebut      DateTime?
+  dateFin        DateTime?
+  // Baseline (planning de référence) pour EVM / écarts
+  dateDebutRef   DateTime?
+  dateFinRef     DateTime?
+  coutPrevu      Decimal       @default(0) // BCWS (PV) de la tâche
+  coutReel       Decimal       @default(0) // ACWP (AC)
+  avancement     Int           @default(0) // % → BCWP (EV) = coutPrevu * avancement/100
+  predecesseurId String?
+  depType        String        @default("FS") // FS/SS/FF/SF
+  affectations   Affectation[]
+
+  @@index([projetId])
+}
+
+model Ressource {
+  id           String        @id @default(uuid())
+  nom          String
+  type         String        @default("Travail")
+  tauxHoraire  Decimal       @default(0)
+  orgUnitId    String?
+  capaciteMax  Int           @default(100)
+  affectations Affectation[]
+}
+
+model Affectation {
+  tacheId     String
+  tache       Tache     @relation(fields: [tacheId], references: [id], onDelete: Cascade)
+  ressourceId String
+  ressource   Ressource @relation(fields: [ressourceId], references: [id])
+  allocation  Int       @default(100) // % allocation (surcharge si Σ > 100)
+
+  @@id([tacheId, ressourceId])
+}
+
+model Marche {
+  id           String  @id @default(uuid())
+  projetId     String
+  orgPath      String // héritage de sécurité
+  numero       String?
+  objet        String?
+  attributaire String?
+  montant      Decimal @default(0)
+  statut       String  @default("en_cours")
+
+  @@index([orgPath])
+}
+
+enum AttachementStatut {
+  brouillon
+  soumis
+  valide
+  rejete
+}
+
+model AttachementPaiement {
+  id             String             @id @default(uuid())
+  projetId       String
+  orgPath        String // héritage de sécurité
+  numero         Int
+  periode        String?
+  entreprise     String?
+  statut         AttachementStatut  @default(soumis)
+  soumisPar      String?
+  validePar      String?
+  motifRejet     String?
+  dateSoumission DateTime?
+  lignes         AttachementLigne[]
+
+  @@index([orgPath])
+}
+
+model AttachementLigne {
+  id               String              @id @default(uuid())
+  attachementId    String
+  attachement      AttachementPaiement @relation(fields: [attachementId], references: [id], onDelete: Cascade)
+  designation      String
+  unite            String?
+  prixUnitaire     Decimal             @default(0)
+  qteContractuelle Decimal             @default(0)
+  qteRealisee      Decimal             @default(0) // saisie entreprise
+  qteValidee       Decimal? // ajustée par le chef de projet
+}
+
+// ─── PHASE 3 — Finances & patrimoine ───
+
+model Budget {
+  id       String  @id @default(uuid())
+  projetId String
+  orgPath  String
+  annee    Int
+  rubrique String
+  dotation Decimal @default(0) // budget alloué (CBS)
+  engage   Decimal @default(0)
+  decaisse Decimal @default(0)
+
+  @@index([orgPath])
+}
+
+model Decaissement {
+  id        String   @id @default(uuid())
+  projetId  String
+  orgPath   String
+  date      DateTime @default(now())
+  montant   Decimal  @default(0)
+  nature    String?
+  reference String?
+
+  @@index([orgPath])
+}
+
+enum ImmoStatut {
+  pre_immobilisation
+  mise_en_service
+  capitalise
+  amorti
+}
+
+model Immobilisation {
+  id                 String     @id @default(uuid())
+  projetId           String?
+  orgPath            String
+  designation        String
+  categorie          String?
+  valeurAcquisition  Decimal    @default(0)
+  dateMiseService    DateTime?
+  dureeAmortissement Int        @default(10) // années
+  statut             ImmoStatut @default(pre_immobilisation)
+
+  @@index([orgPath])
+}
+
+// ─── PHASE 4 — Transverses : UAGL, GED, GIS ───
+
+enum MissionStatut {
+  brouillon
+  soumis
+  valide
+  rejete
+  cloture
+}
+
+model Mission {
+  id          String        @id @default(uuid())
+  orgPath     String
+  objet       String
+  agent       String?
+  destination String?
+  dateDepart  DateTime?
+  dateRetour  DateTime?
+  vehiculeId  String?
+  chauffeurId String?
+  perdiem     Decimal       @default(0)
+  statut      MissionStatut @default(soumis)
+
+  @@index([orgPath])
+}
+
+model Vehicule {
+  id      String  @id @default(uuid())
+  orgPath String
+  immat   String  @unique
+  marque  String?
+  type    String?
+  actif   Boolean @default(true)
+
+  @@index([orgPath])
+}
+
+model Pointage {
+  id      String   @id @default(uuid())
+  orgPath String
+  agent   String
+  date    DateTime
+  heures  Decimal  @default(0)
+  motif   String?
+  statut  String   @default("soumis")
+
+  @@index([orgPath])
+}
+
+model Reservation {
+  id        String   @id @default(uuid())
+  orgPath   String
+  salle     String
+  demandeur String
+  debut     DateTime
+  fin       DateTime
+  objet     String?
+  statut    String   @default("demande")
+
+  @@index([orgPath])
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  orgPath   String
+  projetId  String?
+  nom       String
+  type      String?
+  version   Int      @default(1)
+  minioKey  String?
+  ocrText   String? // texte OCR → indexable Elasticsearch
+  signe     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([orgPath])
+}
+
+model Site {
+  id       String  @id @default(uuid())
+  orgPath  String
+  projetId String?
+  nom      String
+  lat      Float?
+  lng      Float?
+  geojson  String?
+
+  @@index([orgPath])
+}
+
+model Fournisseur {
+  id    String  @id @default(uuid())
+  nom   String
+  ninea String?
+  score Decimal @default(0)
+}
+
+model Bailleur {
+  id   String @id @default(uuid())
+  code String @unique
+  nom  String
+}
+
+// ─── PHASE 5 — Pilotage : KPI, Risques, S&E ───
+
+model Kpi {
+  id        String  @id @default(uuid())
+  orgPath   String // héritage : KPI suit la visibilité de son unité
+  code      String
+  libelle   String
+  cible     Decimal @default(0)
+  valeur    Decimal @default(0)
+  unite     String?
+  consolide Boolean @default(false) // true ⇒ réservé DPE/CSE
+  periode   String?
+
+  @@index([orgPath])
+}
+
+model Risque {
+  id          String  @id @default(uuid())
+  projetId    String
+  orgPath     String
+  libelle     String
+  probabilite Int     @default(1) // 1..5
+  impact      Int     @default(1) // 1..5
+  parade      String?
+  statut      String  @default("ouvert")
+
+  @@index([orgPath])
+}
+
+// ─── PHASE 6 — Workflow (Camunda 8) ───
+
+model WorkflowDef {
+  id        String             @id @default(uuid())
+  cle       String // ex. "decompte", "aps", "bit"
+  version   Int                @default(1)
+  libelle   String
+  bpmnXml   String?
+  actif     Boolean            @default(true)
+  instances WorkflowInstance[]
+
+  @@unique([cle, version])
+}
+
+model WorkflowInstance {
+  id             String      @id @default(uuid())
+  defId          String
+  def            WorkflowDef @relation(fields: [defId], references: [id])
+  orgPath        String // héritage de sécurité
+  objetType      String // "attachement" | "projet" | ...
+  objetId        String
+  etape          String
+  statut         String      @default("en_cours")
+  candidateGroup String? // dérivé de orgPath + roleCode
+  createdAt      DateTime    @default(now())
+
+  @@index([orgPath])
+}
+
+// ─── Audit — append-only (UPDATE/DELETE révoqués au niveau base) ───
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  orgPath   String?
+  action    String
+  objetType String?
+  objetId   String?
+  payload   Json?
+  at        DateTime @default(now())
+
+  @@index([orgPath])
+  @@index([at])
+}
+
+// ─── MODULE 18 — Administration (config ; permissions calculées, jamais saisies) ───
+
+model Role {
+  id     String  @id @default(uuid())
+  code   String  @unique
+  label  String
+  niveau Int     @default(3) // 0=DG/Directeur … 3=agent (dérivé du poste)
+  actif  Boolean @default(true)
+}
+
+model ModuleDef {
+  id    String  @id @default(uuid())
+  key   String  @unique // ex. "projets", "marches", "finances"
+  label String
+  ordre Int     @default(0)
+  actif Boolean @default(true)
+}
+
+model AppSetting {
+  key   String @id // ex. "password.policy.minLength"
+  value String
+  scope String @default("global")
+}
+
+model Delegation {
+  id         String   @id @default(uuid())
+  orgPath    String
+  fromUserId String
+  toUserId   String
+  motif      String?
+  debut      DateTime
+  fin        DateTime
+  actif      Boolean  @default(true)
+
+  @@index([orgPath])
+}
+
+// ─── MODULE 15 — Low-Code Studio (formulaires / tableaux / dashboards / rapports) ───
+
+model FormDef {
+  id      String  @id @default(uuid())
+  key     String  @unique
+  label   String
+  orgPath String? // null = global ; sinon hérite de la sécurité org
+  schema  Json // champs, validations, layout
+  version Int     @default(1)
+  actif   Boolean @default(true)
+
+  @@index([orgPath])
+}
+
+model DashboardDef {
+  id      String  @id @default(uuid())
+  key     String  @unique
+  label   String
+  orgPath String?
+  profil  String? // cockpit cible : DG/Directeur/ChefProjet/Finance…
+  layout  Json
+  version Int     @default(1)
+
+  @@index([orgPath])
+}
+
+model ReportDef {
+  id         String  @id @default(uuid())
+  key        String  @unique
+  label      String
+  orgPath    String?
+  definition Json
+  version    Int     @default(1)
+
+  @@index([orgPath])
+}
