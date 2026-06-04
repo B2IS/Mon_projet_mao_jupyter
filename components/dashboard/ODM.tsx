@@ -452,10 +452,6 @@ function generateODMDocument(odm: ODMItem): void {
         <span class="field-value">${odm.destination} — ${odm.region}</span>
       </div>
       <div class="field">
-        <span class="field-label">Agent demandeur</span>
-        <span class="field-value">${odm.agentDemandeur}</span>
-      </div>
-      <div class="field">
         <span class="field-label">Date de départ</span>
         <span class="field-value">${odm.dateDepart}</span>
       </div>
@@ -510,10 +506,6 @@ function generateODMDocument(odm: ODMItem): void {
 </div>
 
 <div class="signatures">
-  <div class="sig-box">
-    <div class="sig-title">Agent demandeur</div>
-    <div class="sig-line">${odm.agentDemandeur}<br>Date : ___/___/______</div>
-  </div>
   <div class="sig-box">
     <div class="sig-title">Chef de Service</div>
     <div class="sig-line">Signature & cachet<br>Date : ___/___/______</div>
@@ -607,7 +599,7 @@ ${cloture ? `
 <div class="signatures">
   <div class="sig-box">
     <div class="sig-title">Rédacteur du rapport</div>
-    <div class="sig-line">${odm.agentDemandeur}<br>Date : ___/___/______</div>
+    <div class="sig-line">${odm.participants[0] ?? 'Nom & cachet'}<br>Date : ___/___/______</div>
   </div>
   <div class="sig-box">
     <div class="sig-title">Validé par Chef de Service</div>
@@ -1302,7 +1294,6 @@ export default function ODM() {
                     { label: 'Région', field: 'region' as keyof ODMItem },
                     { label: 'Date départ', field: 'dateDepart' as keyof ODMItem },
                     { label: 'Date retour', field: 'dateRetour' as keyof ODMItem },
-                    { label: 'Agent demandeur', field: 'agentDemandeur' as keyof ODMItem },
                   ].map(({ label, field }) => (
                     <div key={field} style={{ background: '#fff', borderRadius: 8, padding: '10px 14px', border: editMode ? '1.5px solid #E2E8F0' : '1px solid #E2E8F0' }}>
                       <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
@@ -1564,8 +1555,6 @@ export default function ODM() {
                     { label: 'Destination', value: `${extracted.destination} — ${extracted.region}`, editable: false },
                     { label: 'Date départ', value: extracted.dateDepart, editable: false },
                     { label: 'Date retour', value: extracted.dateRetour, editable: false },
-                    { label: 'Agent demandeur', value: extracted.agentDemandeur, editable: false },
-                    { label: 'Budget', value: `${extracted.budget.toLocaleString('fr-FR')} FCFA`, editable: false },
                   ].map(item => (
                     <div key={item.label} style={{ background: '#F8FAFC', borderRadius: 7, padding: '10px 12px', border: '1px solid #E2E8F0' }}>
                       <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{item.label}</div>
@@ -1744,7 +1733,7 @@ export default function ODM() {
                   <div>
                     <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#64748B' }}>{odm.ref}</div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--navy)', margin: '3px 0' }}>{odm.objet}</div>
-                    <div style={{ fontSize: 11, color: '#64748B' }}>Agent : <strong>{odm.agentDemandeur}</strong> · Projet : <strong>{odm.projet}</strong> · {odm.participants.length} participant(s)</div>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Projet : <strong>{odm.projet}</strong> · {odm.participants.length} participant(s)</div>
                   </div>
                   <div style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#FEF3C7', color: '#92400E' }}>En attente</div>
                 </div>

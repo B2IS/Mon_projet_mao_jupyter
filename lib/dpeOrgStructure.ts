@@ -211,8 +211,10 @@ export const DPE_ORG: DirectionCoordination[] = [
     label: 'Coordination PAMACEL & Efficacité Énergétique',
     shortLabel: 'CPAMACEL & EE',
     niveau: 1,
-    // Domaine officiel SENELEC : distribution (accès, efficacité énergétique)
-    domaine: ['distribution', 'pamacel', 'efficacite_energetique'],
+    // Cellule de coordination : son périmètre est défini par son PROGRAMME
+    // (PAMACEL), PAS par le domaine « distribution » — sinon elle verrait à tort
+    // TOUS les projets DPD (distribution). On retire donc le domaine large.
+    domaine: ['pamacel', 'efficacite_energetique'],
     typesProjets: ['PAMACEL', 'Efficacité Énergétique', 'Accès Électricité'],
     programmes: ['PAMACEL'],
     departements: [],
@@ -224,8 +226,9 @@ export const DPE_ORG: DirectionCoordination[] = [
     label: "Coordination Programme PADERAU (AFD/BEI)",
     shortLabel: 'CPADERAU',
     niveau: 1,
-    // Domaine officiel SENELEC : distribution (accès universel, électrification rurale)
-    domaine: ['distribution', 'paderau'],
+    // Cellule de coordination : périmètre défini par son PROGRAMME (PADERAU),
+    // PAS par le domaine « distribution » (sinon elle verrait tous les projets DPD).
+    domaine: ['paderau'],
     typesProjets: ['Électrification Rurale', 'Accès Universel', 'Mini-réseau Solaire', 'PADERAU'],
     programmes: ['PADERAU'],
     departements: [],

@@ -284,16 +284,18 @@ function DocPreview({ doc }: { doc: AnnotatedDoc }) {
       );
     }
     if (e === 'pdf') {
-      return <iframe src={doc.url} title={doc.nom} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', background: '#fff' }} />;
+      // pointerEvents:none → indispensable : sinon l'iframe capture tous les clics
+      // et la couche d'annotation (surlignage, commentaire…) ne reçoit jamais d'événement.
+      return <iframe src={doc.url} title={doc.nom} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', background: '#fff', pointerEvents: 'none' }} />;
     }
     // autres formats (docx, xlsx…) : pas de rendu navigateur natif → aperçu + lien d'ouverture
     return (
-      <div style={{ ...base, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, pointerEvents: 'auto' }}>
+      <div style={{ ...base, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, pointerEvents: 'none' }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: NAVY }}>{doc.nom}</div>
         <div style={{ fontSize: 12, color: '#64748B', textAlign: 'center', maxWidth: 360 }}>
           Ce format ({doc.ext.toUpperCase()}) ne s&apos;affiche pas nativement dans le navigateur. Vous pouvez annoter par-dessus, ou ouvrir le fichier d&apos;origine.
         </div>
-        <a href={doc.url} download={doc.nom} style={{ padding: '8px 16px', borderRadius: 8, background: NAVY, color: '#fff', fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>Ouvrir / Télécharger le fichier</a>
+        <a href={doc.url} download={doc.nom} style={{ padding: '8px 16px', borderRadius: 8, background: NAVY, color: '#fff', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', pointerEvents: 'auto' }}>Ouvrir / Télécharger le fichier</a>
       </div>
     );
   }
