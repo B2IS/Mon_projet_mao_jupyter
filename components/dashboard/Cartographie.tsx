@@ -46,19 +46,9 @@ const DEFAULT_ARCGIS: ArcgisConfig = {
   layers: 'HTA, BT, Postes, Compteurs',
 };
 
-const PIN_PROJETS: PinProjet[] = [
-  { id: 'p1', code: 'PRJ-DER-2024-001', nom: 'Électrification Casamance', region: 'Ziguinchor', lat: 12.55, lng: -16.25, status: 'en_cours', description: '24 localités · AFD · 65%' },
-  { id: 'p2', code: 'PRJ-DER-2023-005', nom: 'HTA Kaolack', region: 'Kaolack', lat: 14.15, lng: -16.05, status: 'ok', description: 'Poste 90/30kV · BM · 78%' },
-  { id: 'p3', code: 'PRJ-DER-2026-008', nom: 'Électrification Mbour', region: 'Thiès', lat: 14.50, lng: -17.05, status: 'critique', description: 'Zones périurbaines · SPI=0.68 · 12%' },
-  { id: 'p4', code: 'PRJ-DIT-2024-003', nom: 'Smartgrid Dakar', region: 'Dakar', lat: 14.72, lng: -17.47, status: 'critique', description: 'Pilote Plateau · BEI · 55%' },
-  { id: 'p5', code: 'PRJ-DGC-2025-001', nom: 'Centre Thiès', region: 'Thiès', lat: 14.80, lng: -16.93, status: 'en_cours', description: 'Génie civil · SENELEC · 30%' },
-  { id: 'p6', code: 'PRJ-DEP-2024-007', nom: 'Solaire Hybride Touba', region: 'Diourbel', lat: 14.65, lng: -16.22, status: 'ok', description: 'Centrale hybride · BM · 80%' },
-  { id: 'p7', code: 'PRJ-DER-2026-014', nom: 'Sédhiou Électrification', region: 'Sédhiou', lat: 12.71, lng: -15.56, status: 'critique', description: '18 localités · SPI=0.72 · 22%' },
-  { id: 'p8', code: 'PRJ-DER-2025-022', nom: 'Kédougou BT', region: 'Kédougou', lat: 12.55, lng: -12.18, status: 'critique', description: 'Extension BT · BAD · CPI=0.81' },
-  { id: 'p9', code: 'PRJ-CC26-2024-001', nom: 'MCA Ligne 225kV', region: 'Thiès', lat: 14.85, lng: -16.85, status: 'en_cours', description: 'Transport · MCA · 45%' },
-  { id: 'p10', code: 'PRJ-DEP-2025-003', nom: 'Parc Éolien Taiba', region: 'Thiès', lat: 14.90, lng: -16.70, status: 'ok', description: 'Extension · BEI · 92%' },
-  { id: 'p11', code: 'PRJ-DGC-2024-002', nom: 'Réhabilitation St-Louis', region: 'Saint-Louis', lat: 16.02, lng: -16.49, status: 'ok', description: 'Bâtiments · SENELEC · 58%' },
-];
+// NB : plus aucune donnée projet codée en dur ici. La carte est alimentée
+// EXCLUSIVEMENT par `store.projets` (déjà filtré par la MMH : unité + affectation
+// + implication), afin qu'aucun profil ne voie les projets d'autres unités.
 
 const SAISIES: SaisiesTerrain[] = [
   { id: 's1', code: 'SAI-2026-047', projet: 'PRJ-DER-2024-001', localite: 'Niaguis', typeHTA: 2.4, postes: 2, dateMES: '15/05/2026', statut: 'a_promouvoir' },
@@ -150,6 +140,22 @@ export default function Cartographie() {
   const zonesByProjet = useZonesStore(s => s.byProjet);
   const router = useRouter();
 
+  // Pins de la carte issus EXCLUSIVEMENT du store déjà filtré par la MMH
+  // (unité + affectation + implication) → aucun profil ne voit d'autres unités.
+  const storePins: PinProjet[] = useMemo(() =>
+    store.projets.map((p, i) => {
+      // Décalage DÉTERMINISTE (pas de Math.random : sinon les marqueurs « sautent » à chaque rendu).
+      const center = REGION_CENTERS[p.region] ?? { lat: 14.5 + ((i % 7) - 3) * 0.25, lng: -14.5 + ((i % 5) - 2) * 0.25 };
+      const jitter = { lat: center.lat + (i % 5 - 2) * 0.12, lng: center.lng + (Math.floor(i / 3) % 3 - 1) * 0.12 };
+      const status: RagStatus = p.statut === 'en_retard' ? 'critique' : p.statut === 'termine' ? 'ok' : 'en_cours';
+      const cfg = DOMAINE_CFG[p.domaine];
+      return {
+        id: p.id, code: p.code, nom: p.nom.substring(0, 30), region: p.region,
+        lat: p.lat ?? jitter.lat, lng: p.lng ?? jitter.lng, status,
+        description: `${cfg.emoji} ${cfg.label} · ${p.avancement}% · ${p.budget.toFixed(0)} MFCFA`,
+      };
+    }), [store.projets]);
+
   // ── Localités CHARGÉES dans « Zones & Quantités » (BEST ou import Excel) ──
   // Dès qu'un fichier est chargé avec des coordonnées, ses localités apparaissent
   // automatiquement sur la carte (couche « Localités chargées »).
@@ -231,7 +237,7 @@ export default function Cartographie() {
       <h1>Rapport SIG — Carte Portefeuille Projets</h1>
       <div style="font-size:12px;color:#64748B;margin-bottom:20px">Généré le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
       <div>
-        <div class="kpi"><div class="kpi-val">${store.projets.length + PIN_PROJETS.length}</div><div class="kpi-lbl">Projets cartographiés</div></div>
+        <div class="kpi"><div class="kpi-val">${store.projets.length}</div><div class="kpi-lbl">Projets cartographiés</div></div>
         <div class="kpi"><div class="kpi-val">14</div><div class="kpi-lbl">Régions couvertes</div></div>
         <div class="kpi"><div class="kpi-val">6</div><div class="kpi-lbl">Saisies terrain</div></div>
         <div class="kpi"><div class="kpi-val">89%</div><div class="kpi-lbl">SLA cartographie OK</div></div>
@@ -240,7 +246,7 @@ export default function Cartographie() {
       <table>
         <thead><tr><th>Code</th><th>Projet</th><th>Région</th><th>Statut</th><th>Description</th></tr></thead>
         <tbody>
-          ${PIN_PROJETS.map(p => `<tr><td>${p.code}</td><td>${p.nom}</td><td>${p.region}</td><td>${p.status}</td><td>${p.description}</td></tr>`).join('')}
+          ${store.projets.map(p => { const c = DOMAINE_CFG[p.domaine]; return `<tr><td>${p.code || '—'}</td><td>${p.nom}</td><td>${p.region}</td><td>${p.statut}</td><td>${c?.label ?? ''} · ${p.avancement}% · ${p.budget.toFixed(0)} MFCFA</td></tr>`; }).join('')}
         </tbody>
       </table>
       <h2>Saisies terrain en attente de promotion</h2>
@@ -260,7 +266,7 @@ export default function Cartographie() {
   const handleExportShapefile = useCallback(() => {
     // Génère un CSV géocodé (remplace shapefile en environnement web)
     const headers = ['code,nom,region,statut,description,latitude,longitude'];
-    const rows = PIN_PROJETS.map(p => {
+    const rows = storePins.map(p => {
       return `${p.code},"${p.nom}",${p.region},${p.status},"${p.description}",${p.lat},${p.lng}`;
     });
     const csv = [...headers, ...rows].join('\n');
@@ -268,7 +274,7 @@ export default function Cartographie() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `SIGEPP-DPE_Cartographie_${new Date().toISOString().split('T')[0]}.csv`; a.click();
     URL.revokeObjectURL(url);
-  }, []);
+  }, [storePins]);
 
   const handleExportPNG = useCallback(() => {
     alert('Export PNG de la carte — Cette fonctionnalité requiert ArcGIS Enterprise connecté. En mode démo, utilisez Export PDF pour un rendu imprimable.');
@@ -332,22 +338,10 @@ export default function Cartographie() {
     setCouches(c => c.map(x => x.id === id ? { ...x, active: !x.active } : x));
   }
 
-  // Convert store projects to map pins (lat/lng)
-  const storePins: PinProjet[] = useMemo(() =>
-    store.projets.map((p, i) => {
-      // Décalage DÉTERMINISTE (pas de Math.random : sinon les marqueurs « sautent » à chaque rendu).
-      const center = REGION_CENTERS[p.region] ?? { lat: 14.5 + ((i % 7) - 3) * 0.25, lng: -14.5 + ((i % 5) - 2) * 0.25 };
-      const jitter = { lat: center.lat + (i % 5 - 2) * 0.12, lng: center.lng + (Math.floor(i / 3) % 3 - 1) * 0.12 };
-      const status: RagStatus = p.statut === 'en_retard' ? 'critique' : p.statut === 'termine' ? 'ok' : 'en_cours';
-      const cfg = DOMAINE_CFG[p.domaine];
-      return {
-        id: p.id, code: p.code, nom: p.nom.substring(0, 30), region: p.region,
-        lat: p.lat ?? jitter.lat, lng: p.lng ?? jitter.lng, status,
-        description: `${cfg.emoji} ${cfg.label} · ${p.avancement}% · ${p.budget.toFixed(0)} MFCFA`,
-      };
-    }), [store.projets]);
-
-  const allPins = [...PIN_PROJETS, ...(showStorePins ? storePins : [])];
+  // Périmètre MMH : la carte n'affiche QUE les projets visibles par l'utilisateur
+  // (store.projets est déjà filtré par unité/affectation/implication). Aucune donnée
+  // codée en dur d'autres unités (production, transport…) n'est exposée.
+  const allPins = showStorePins ? storePins : [];
 
   const filteredPins = allPins.filter(p => {
     if (filterStatut !== 'tous' && p.status !== filterStatut) return false;
@@ -437,7 +431,7 @@ export default function Cartographie() {
               <label className="form-label">Projet</label>
               <select className="form-input" style={{ fontSize: 11 }} value={filterProjet} onChange={e => setFilterProjet(e.target.value)}>
                 <option value="tous">Tous les projets</option>
-                {PIN_PROJETS.map(p => <option key={p.id} value={p.code}>{p.code.replace('PRJ-','')}</option>)}
+                {storePins.map(p => <option key={p.id} value={p.code}>{(p.code || p.nom).replace('PRJ-','').slice(0, 32)}</option>)}
               </select>
             </div>
           </div>

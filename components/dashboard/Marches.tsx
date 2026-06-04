@@ -5,6 +5,8 @@ import { X, ChevronUp, ChevronDown, Star, CheckCircle, Circle, Clock, AlertCircl
 import { useCriteriaStore } from '@/lib/criteriaStore';
 import { useDecompteCircuit } from '@/lib/decompteCircuitStore';
 import { useAuth } from '@/lib/authStore';
+import { computeVisibilityScope, type UserOrgProfile } from '@/lib/accessEngine';
+import { canonDirectionKey } from '@/lib/dpeOrgStructure';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -490,8 +492,16 @@ function MarchePanel({ marche, onClose }: { marche: Marche; onClose: () => void 
 
 export default function Marches() {
   const supplierCriteres = useCriteriaStore(s => s.supplier);
-  const { isRole } = useAuth();
+  const { isRole, user } = useAuth();
   const canEditCircuit = isRole('DIR_DPE', 'PMO', 'CTRL_FIN', 'ADMIN');
+  // Périmètre MMH : un profil ne voit que les marchés de SA direction (pas DEP/DIT/DGC… pour un DER).
+  const marcheScope = useMemo(() => {
+    if (!user) return { all: false, dirs: new Set<string>() };
+    const profile: UserOrgProfile = { role: user.role, direction: user.direction, departement: user.departement, cellule: user.cellule, poste: user.poste };
+    const s = computeVisibilityScope(profile);
+    if (s.all || s.directions.includes('*')) return { all: true, dirs: new Set<string>() };
+    return { all: false, dirs: new Set(s.directions.map(d => canonDirectionKey(d))) };
+  }, [user]);
   const circuit = useDecompteCircuit(s => s.circuit);
   const [showCircuitConfig, setShowCircuitConfig] = useState(false);
   const [marches,      setMarches]      = useState<Marche[]>(MARCHES_INIT);
@@ -558,6 +568,8 @@ export default function Marches() {
 
   const filtered = useMemo(() => {
     let rows = [...marches];
+    // 0) Périmètre MMH par direction (sauf super-rôles / vision globale).
+    if (!marcheScope.all) rows = rows.filter(m => marcheScope.dirs.has(canonDirectionKey(m.direction)));
     if (filterStatut   !== 'Tous') rows = rows.filter(m => m.statut    === filterStatut);
     if (filterDir      !== 'Tous') rows = rows.filter(m => m.direction === filterDir);
     if (filterType     !== 'Tous') rows = rows.filter(m => m.type      === filterType);
@@ -569,7 +581,7 @@ export default function Marches() {
       return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
     return rows;
-  }, [marches, filterStatut, filterDir, filterType, filterBailleur, sortCol, sortAsc]);
+  }, [marches, marcheScope, filterStatut, filterDir, filterType, filterBailleur, sortCol, sortAsc]);
 
   function toggleSort(col: keyof Marche) {
     if (sortCol === col) setSortAsc(v => !v);
