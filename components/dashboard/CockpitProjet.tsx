@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { extractFileText } from '@/lib/docText';
+import { extractStructuredFields, isCopilotLinked } from '@/lib/ai/aiEngine';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2, Clock, AlertTriangle, Circle, ChevronDown,
@@ -629,7 +630,41 @@ export default function CockpitProjet() {
         toast.error('Aucun document lisible (scans/images) — un OCR est nécessaire.', { id: 'imp-fiche' });
         return;
       }
+      // 1) Extraction déterministe locale (toujours disponible).
       const parsed = parseFicheProjet(text);
+      // 2) Si un compte Microsoft Copilot est lié → extraction IA experte, qui
+      //    PRIME sur les valeurs locales (lecture fine de plusieurs documents).
+      if (isCopilotLinked()) {
+        toast.loading('Extraction experte via Microsoft Copilot…', { id: 'imp-fiche' });
+        const ai = await extractStructuredFields(text, [
+          { key: 'nom', description: "Intitulé exact du projet" },
+          { key: 'description', description: "Description synthétique de l'objet du projet (2-4 phrases)" },
+          { key: 'contexte', description: "Contexte et justification (problématique, cadre du financement)" },
+          { key: 'chefProjet', description: "Nom complet du chef de projet (Prénom NOM)" },
+          { key: 'region', description: "Région(s) d'intervention principale(s)" },
+          { key: 'localisation', description: "Localisation / siège du projet" },
+          { key: 'budgetMFCFA', description: "Budget total en MILLIONS de FCFA (nombre seul, convertir si en USD au taux indiqué)" },
+          { key: 'dateDebut', description: "Date de démarrage au format AAAA-MM-JJ" },
+          { key: 'dateFinPrevue', description: "Date de fin prévue au format AAAA-MM-JJ" },
+          { key: 'objectifs', description: "Objectifs du projet, séparés par des points-virgules" },
+          { key: 'livrables', description: "Livrables attendus, séparés par des points-virgules" },
+        ], 'Direction Principale Équipement SENELEC');
+        if (ai) {
+          const splitList = (s?: string) => (s ?? '').split(/[;\n]/).map(x => x.trim()).filter(Boolean);
+          const num = (s?: string) => { const n = parseFloat((s ?? '').replace(/[^\d.]/g, '')); return Number.isFinite(n) && n > 0 ? n : undefined; };
+          if (ai.nom?.trim()) parsed.nom = ai.nom.trim();
+          if (ai.description?.trim()) parsed.description = ai.description.trim();
+          if (ai.contexte?.trim()) parsed.contexte = ai.contexte.trim();
+          if (ai.chefProjet?.trim()) parsed.chefProjet = ai.chefProjet.trim();
+          if (ai.region?.trim()) parsed.region = ai.region.trim();
+          if (ai.localisation?.trim()) parsed.localisation = ai.localisation.trim();
+          const b = num(ai.budgetMFCFA); if (b) parsed.budget = Math.round(b);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(ai.dateDebut ?? '')) parsed.dateDebut = ai.dateDebut;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(ai.dateFinPrevue ?? '')) parsed.dateFinPrevue = ai.dateFinPrevue;
+          const objs = splitList(ai.objectifs); if (objs.length) parsed.objectifs = objs;
+          const livs = splitList(ai.livrables); if (livs.length) parsed.livrables = livs;
+        }
+      }
       const nb = Object.keys(parsed).length;
       if (nb === 0) {
         toast.error('Aucune information exploitable détectée dans les documents.', { id: 'imp-fiche' });

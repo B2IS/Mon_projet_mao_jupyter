@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { useOdmConfig, tauxHoraire, coutHeuresSup, perdiemFCFA } from '@/lib/odmConfigStore';
+import { isCopilotLinked } from '@/lib/ai/aiEngine';
 import toast from 'react-hot-toast';
 import {
   FileText, Clock, MapPin, Truck,
@@ -348,14 +349,27 @@ async function performAIExtraction(file: File, engineId = 'local-rules'): Promis
   // Extraction PROPRE via le backend (pdfplumber/OCR). On ne lit JAMAIS les
   // octets bruts du PDF côté navigateur (cela produit du charabia FlateDecode).
   let result: ExtractedODM | null = null;
+  let rawText = '';
   try {
     const { extractTextViaBackend } = await import('@/lib/migration/backend');
     const { text } = await extractTextViaBackend(file);
-    if (text && text.trim().length > 20) result = parseExtractionText(text);
+    if (text && text.trim().length > 20) { rawText = text; result = parseExtractionText(text); }
   } catch {
     /* backend indisponible → repli saisie manuelle */
   }
   if (!result) return emptyExtraction();
+  // Compte Microsoft Copilot lié → relecture experte de la LISTE DES PARTICIPANTS
+  // (tableau « Prénoms et Nom / Matricule / Unité »), souvent mal lue par les règles.
+  if (rawText && isCopilotLinked()) {
+    try {
+      const { extractStructuredFields } = await import('@/lib/ai/aiEngine');
+      const ai = await extractStructuredFields(rawText, [
+        { key: 'participants', description: "Liste COMPLÈTE des participants de la mission (colonne « Prénoms et Nom » du tableau), noms complets séparés par des points-virgules. N'inclus pas les en-têtes ni les matricules." },
+      ], 'Ordre de Mission SENELEC');
+      const noms = (ai?.participants ?? '').split(/[;\n]/).map(s => s.replace(/^\d+[.\s-]*/, '').trim()).filter(n => n.length >= 4);
+      if (noms.length) result = { ...result, participants: [...new Set(noms)].slice(0, 40), confidence: Math.min(99, result.confidence + 12), engineLabel: 'Microsoft Copilot' };
+    } catch { /* repli sur l'extraction locale */ }
+  }
   // Un moteur LLM open-source (non « local-rules ») apporte un gain de confiance
   // sur les champs ambigus (mise en page, noms en police non-unicode).
   const engine = EXTRACTION_ENGINES.find(e => e.id === engineId);

@@ -7,6 +7,41 @@
 
 import { getCopilotConfig } from '@/lib/integrationConfigStore';
 
+/**
+ * Extraction STRUCTURÉE par IA (Copilot) depuis un ou plusieurs documents.
+ * Renvoie un objet { clé: valeur } ou null si Copilot indisponible / échec
+ * (l'appelant peut alors retomber sur un extracteur local déterministe).
+ */
+export async function extractStructuredFields(
+  combinedText: string,
+  fields: { key: string; description: string }[],
+  context?: string,
+): Promise<Record<string, string> | null> {
+  if (!isCopilotLinked() || !combinedText.trim()) return null;
+  const sys =
+    `Tu es un analyste expert de la Direction Principale Équipement de SENELEC. ` +
+    `Tu extrais des informations PERTINENTES depuis des documents de projet (fiches, rapports, ODM, Excel). ` +
+    `Réponds UNIQUEMENT par un objet JSON valide (aucun texte autour, pas de balises markdown), ` +
+    `avec EXACTEMENT ces clés : ${fields.map(f => f.key).join(', ')}. ` +
+    `Si une information est absente des documents, mets une chaîne vide "". ` +
+    `N'invente jamais de valeur.` + (context ? ` Contexte : ${context}.` : '');
+  const user =
+    `DOCUMENTS FOURNIS (concaténés) :\n"""\n${combinedText.slice(0, 28000)}\n"""\n\n` +
+    `CHAMPS À EXTRAIRE :\n${fields.map(f => `- ${f.key} : ${f.description}`).join('\n')}\n\n` +
+    `Réponds en JSON strict.`;
+  const raw = await callCopilotAPI(
+    [{ role: 'system', content: sys }, { role: 'user', content: user }],
+    { temperature: 0.1, maxTokens: 1800 },
+  );
+  if (!raw) return null;
+  try {
+    const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+    if (a < 0 || b <= a) return null;
+    const obj = JSON.parse(raw.slice(a, b + 1));
+    return obj && typeof obj === 'object' ? obj as Record<string, string> : null;
+  } catch { return null; }
+}
+
 /** Vrai si l'utilisateur a lié son compte Microsoft Copilot (endpoint + clé). */
 export function isCopilotLinked(): boolean {
   try {

@@ -270,7 +270,7 @@ function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSele
     return DOMAINES.map(d => {
       const group = projets.filter(p => p.domaine === d);
       const avg = group.length ? Math.round(group.reduce((s, p) => s + p.avancement, 0) / group.length) : 0;
-      return { name: DOMAINE_CFG[d].label.split(' ')[0], avancement: avg, color: DOMAINE_CFG[d].color };
+      return { name: DOMAINE_CFG[d].label, avancement: avg, color: DOMAINE_CFG[d].color };
     });
   }, [projets]);
 
@@ -281,7 +281,7 @@ function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSele
       const decaisse = group.reduce((s, p) => s + p.budgetDecaisse, 0);
       const engage = group.reduce((s, p) => s + Math.max(0, p.budgetEngage - p.budgetDecaisse), 0);
       const restant = group.reduce((s, p) => s + Math.max(0, p.budget - p.budgetEngage), 0);
-      return { name: DOMAINE_CFG[d].label.split(' ')[0], decaisse, engage, restant };
+      return { name: DOMAINE_CFG[d].label, decaisse, engage, restant };
     });
   }, [projets]);
 
@@ -436,7 +436,7 @@ function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSele
             {DOMAINES.map(d => (
               <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: DOMAINE_CFG[d].color }} />
-                <span style={{ fontSize: 10, color: '#64748B' }}>{DOMAINE_CFG[d].label.split(' ')[0]}</span>
+                <span style={{ fontSize: 10, color: '#64748B' }}>{DOMAINE_CFG[d].label}</span>
               </div>
             ))}
           </div>
@@ -527,7 +527,7 @@ function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSele
                 <th style={{ padding: '8px 12px', color: '#94A3B8', fontWeight: 700, textAlign: 'left', borderBottom: '2px solid #F1F5F9', minWidth: 120 }}></th>
                 {DOMAINES.map(d => (
                   <th key={d} style={{ padding: '8px 16px', color: DOMAINE_CFG[d].color, fontWeight: 700, textAlign: 'center', borderBottom: '2px solid #F1F5F9', whiteSpace: 'nowrap', fontSize: 11 }}>
-                    {DOMAINE_CFG[d].emoji} {DOMAINE_CFG[d].label.split(' ')[0]}
+                    {DOMAINE_CFG[d].emoji} {DOMAINE_CFG[d].label}
                   </th>
                 ))}
               </tr>
@@ -536,7 +536,7 @@ function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSele
               {correlationMatrix.map((row, ri) => (
                 <tr key={row.domaine}>
                   <td style={{ padding: '8px 12px', fontWeight: 700, color: DOMAINE_CFG[row.domaine].color, borderBottom: '1px solid #F8FAFC', whiteSpace: 'nowrap', fontSize: 11 }}>
-                    {DOMAINE_CFG[row.domaine].emoji} {DOMAINE_CFG[row.domaine].label.split(' ')[0]}
+                    {DOMAINE_CFG[row.domaine].emoji} {DOMAINE_CFG[row.domaine].label}
                   </td>
                   {row.cols.map((val, ci) => {
                     if (val === -1) {
@@ -745,7 +745,7 @@ function VueOperationnelle({ projets, onSelectProjet }: { projets: Projet[]; onS
               key={d}
               onClick={() => setFilterDomaine(d)}
               style={{ padding: '4px 10px', borderRadius: 20, border: `1.5px solid ${filterDomaine === d ? DOMAINE_CFG[d].color : '#E2E8F0'}`, background: filterDomaine === d ? DOMAINE_CFG[d].color : '#fff', color: filterDomaine === d ? '#fff' : '#374151', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-            >{DOMAINE_CFG[d].emoji} {DOMAINE_CFG[d].label.split(' ')[0]}</button>
+            >{DOMAINE_CFG[d].emoji} {DOMAINE_CFG[d].label}</button>
           ))}
         </div>
 

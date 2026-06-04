@@ -39,6 +39,9 @@ function LoginInner() {
   const [newPwd, setNewPwd] = useState('');
   const [newPwd2, setNewPwd2] = useState('');
   const [cpError, setCpError] = useState('');
+  // Sélecteur de compte accessible sur TOUTES les tailles (tablette/mobile : le
+  // panneau de gauche est masqué → on peut taper le profil pour en changer).
+  const [showAccts, setShowAccts] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,30 +277,59 @@ function LoginInner() {
                 </div>
               </div>
 
-              {/* Selected account preview */}
+              {/* Selected account preview — TAPABLE pour changer de compte (tablette/mobile) */}
               {selectedUser && (
-                <div style={{
-                  padding: '10px 12px', background: '#F5F3FF',
-                  borderRadius: 9, border: '1px solid #DDD6FE',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                }}>
-                  <div style={{
-                    width: 30, height: 30, borderRadius: 7,
-                    background: selectedUser.avatarColor,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0,
-                  }}>{selectedUser.initials}</div>
-                  <div>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#3D1A6B' }}>
-                      {selectedUser.prenom} {selectedUser.nom}
+                <div style={{ position: 'relative' }}>
+                  <button type="button" onClick={() => setShowAccts(v => !v)} style={{
+                    width: '100%', textAlign: 'left', cursor: 'pointer',
+                    padding: '10px 12px', background: '#F5F3FF',
+                    borderRadius: 9, border: '1px solid #DDD6FE',
+                    display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit',
+                  }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: 7,
+                      background: selectedUser.avatarColor,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0,
+                    }}>{selectedUser.initials}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#3D1A6B' }}>
+                        {selectedUser.prenom} {selectedUser.nom}
+                      </div>
+                      <div style={{ fontSize: 9.5, color: '#7C3AED', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ROLES[selectedUser.role].icon} {selectedUser.poste || ROLES[selectedUser.role].label}
+                      </div>
+                      <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1 }}>
+                        {getDirectionLabel(selectedUser.direction)}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 9.5, color: '#7C3AED', marginTop: 1 }}>
-                      {ROLES[selectedUser.role].icon} {selectedUser.poste || ROLES[selectedUser.role].label}
+                    <span style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, flexShrink: 0 }}>
+                      changer ▾
+                    </span>
+                  </button>
+                  {showAccts && (
+                    <div style={{
+                      position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 30,
+                      background: '#fff', border: '1px solid #DDD6FE', borderRadius: 9,
+                      boxShadow: '0 12px 32px rgba(61,26,107,0.18)', maxHeight: 280, overflowY: 'auto',
+                    }}>
+                      {quickUsers.map(acc => (
+                        <button key={acc.email} type="button"
+                          onClick={() => { setEmail(acc.email); setPassword('dpe2026'); setShowAccts(false); }}
+                          style={{
+                            width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none',
+                            borderBottom: '1px solid #F5F3FF', background: acc.email === email ? '#F5F3FF' : '#fff',
+                            display: 'flex', alignItems: 'center', gap: 9, padding: '8px 11px', fontFamily: 'inherit',
+                          }}>
+                          <div style={{ width: 26, height: 26, borderRadius: 6, background: acc.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{acc.initials}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.prenom} {acc.nom}</div>
+                            <div style={{ fontSize: 9, color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.poste || ROLES[acc.role].label}</div>
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1 }}>
-                      {getDirectionLabel(selectedUser.direction)}
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 

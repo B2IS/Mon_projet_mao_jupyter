@@ -231,7 +231,7 @@ export default function MatriceExport({
               >Tous combinés</button>
               {domainesPresents.map(d => (
                 <button key={d} onClick={() => setDomaine(d)} style={chip(domaine === d, DOMAINE_CFG[d].color)}>
-                  {DOMAINE_CFG[d].emoji} {DOMAINE_CFG[d].label.split(' ')[0]}
+                  {DOMAINE_CFG[d].emoji} {DOMAINE_CFG[d].label}
                 </button>
               ))}
             </div>
