@@ -70,9 +70,18 @@ export default function SearchableSelect({
     const onDoc = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
+    // Comme chez les grands éditeurs : on referme aussi au défilement de la page.
+    const onScroll = (e: Event) => {
+      if (rootRef.current && e.target instanceof Node && rootRef.current.contains(e.target)) return; // scroll interne à la liste
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onDoc);
+    window.addEventListener('scroll', onScroll, true);
     setTimeout(() => inputRef.current?.focus(), 30);
-    return () => document.removeEventListener('mousedown', onDoc);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('scroll', onScroll, true);
+    };
   }, [open]);
 
   useEffect(() => setHi(0), [q]);

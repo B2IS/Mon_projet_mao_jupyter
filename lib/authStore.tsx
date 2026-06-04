@@ -305,7 +305,7 @@ export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
   CONTROLEUR:['accueil', 'mes_projets', 'execution', 'finances', 'transverses'],  // équipe chef de projet
   CHARGE:    ['accueil', 'mes_projets', 'execution', 'transverses'],
   ASSISTANT: ['accueil', 'mes_projets', 'execution', 'logistique', 'transverses'],  // Projets/Exécution réservés à l'assistant CHEF DE PROJET (ABAC poste) ; l'assistante de direction = support admin (courriers, agenda/réunions, GED, workflow)
-  SECRETAIRE:['accueil', 'portefeuille', 'logistique', 'transverses'],    // admin département : courriers, réunions, GED + liste projets EN LECTURE
+  SECRETAIRE:['accueil', 'logistique', 'transverses'],    // admin département : courriers, réunions, GED — PAS de gestion de projet
   CHAUFFEUR: ['accueil', 'logistique'],                                     // portail ULTRA-SIMPLE : mes missions · mon véhicule · réservation · pointage (aucun module métier/IA)
   CTRL_FIN:  ['accueil', 'finances', 'transverses'],
   RESP_LOG:  ['accueil', 'logistique', 'finances', 'transverses'],  // UAGL : logistique + patrimoine/réceptions + courriers/GED
@@ -375,7 +375,7 @@ export const ROLE_ROUTES: Record<RoleCode, string[]> = {
   // ASSISTANT : périmètre partagé ; la distinction Assistant CHEF DE PROJET (détail projet)
   // vs Assistante de DIRECTION (admin) est faite par POSTE (ABAC) — cf. isAssistantProjet().
   ASSISTANT: [R_TBL, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
-  SECRETAIRE:[R_TBL, '/projets', ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
+  SECRETAIRE:[R_TBL, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
   CHAUFFEUR: [R_TBL, '/odm', '/flotte'],
   CTRL_FIN:  [R_TBL, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0,2), ...R_RPT],
   RESP_LOG:  [R_TBL, ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/courriers', ...R_GED, '/reporting'],
@@ -399,7 +399,7 @@ export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
   CONTROLEUR:[...R_CHEF_TEAM, '/agents-ia', '/courriers', '/workflows'],   // équipe du chef de projet : même périmètre, contrôle
   CHARGE:    [R_TBL, ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1,3), ...R_RPT, '/courriers', '/workflows'],
   ASSISTANT: [R_TBL, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'], // détail projet/KPI/carto filtrés par poste (ABAC) — base = support admin
-  SECRETAIRE:[R_TBL, '/projets', ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'], // /projets EN LECTURE (liste/statuts)
+  SECRETAIRE:[R_TBL, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'], // /projets EN LECTURE (liste/statuts)
   MARCHES:   [R_TBL, '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
   SIG:       [R_TBL, ...R_CARTO, '/projets', ...R_GED, '/courriers', '/workflows'],
   IMMO:      [R_TBL, '/immobilisations', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
@@ -464,7 +464,12 @@ const ASSISTANT_DETAIL_ROUTES = [
 ];
 export function isAssistantProjet(user: TestUser | null): boolean {
   if (!user || user.role !== 'ASSISTANT') return false;
-  return /projet/i.test(`${user.poste ?? ''}`);
+  const p = `${user.poste ?? ''}`.toLowerCase();
+  // Une ASSISTANTE DE DIRECTION ou une SECRÉTAIRE n'est JAMAIS assistante projet,
+  // même si « Projet(s) » figure dans l'intitulé de son rattachement.
+  if (/direction|directeur|secr[ée]tar|administrati/.test(p)) return false;
+  // Seul l'assistant rattaché à l'ÉQUIPE PROJET (chef de projet / gestion de projet) l'est.
+  return /\bprojet/.test(p);
 }
 
 export function canAccess(role: RoleCode, route: string): boolean {

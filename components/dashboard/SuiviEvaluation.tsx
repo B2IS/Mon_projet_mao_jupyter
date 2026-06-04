@@ -259,10 +259,10 @@ export default function SuiviEvaluation() {
         </div>
 
         {/* Onglets */}
-        <div style={{ display: 'flex' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', scrollbarWidth: 'thin' }}>
           {ONGLETS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-              padding: '8px 16px', border: 'none',
+              padding: '8px 16px', border: 'none', flexShrink: 0, whiteSpace: 'nowrap',
               borderBottom: activeTab === t.id ? `2px solid ${ORANGE}` : '2px solid transparent',
               background: 'transparent', fontSize: 13,
               fontWeight: activeTab === t.id ? 700 : 400,

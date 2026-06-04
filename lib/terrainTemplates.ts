@@ -24,12 +24,12 @@ export interface PhaseDef {
 
 /** Pondération par défaut, conforme à l'onglet « Pondérations » des matrices DPD & DPT. */
 export const DEFAULT_PHASE_WEIGHTS: PhaseDef[] = [
-  { key: 'passation',       label: 'Passation',       poids: 10 },
-  { key: 'etudes',          label: 'Études',          poids: 10 },
-  { key: 'fournitures',     label: 'Fournitures',     poids: 20 },
-  { key: 'travaux',         label: 'Travaux',         poids: 52 },
-  { key: 'mise_en_service', label: 'Mise en service', poids: 5 },
-  { key: 'cloture',         label: 'Clôture',         poids: 3 },
+  { key: 'passation',       label: 'Préparation',      poids: 10 },
+  { key: 'etudes',          label: 'Études',           poids: 10 },
+  { key: 'fournitures',     label: 'Approvisionnement', poids: 20 },
+  { key: 'travaux',         label: 'Travaux',          poids: 52 },
+  { key: 'mise_en_service', label: 'Mise en service',  poids: 5 },
+  { key: 'cloture',         label: 'Clôture',          poids: 3 },
 ];
 
 /* ─── Indicateurs physiques pertinents par type de projet ─────────────────── */

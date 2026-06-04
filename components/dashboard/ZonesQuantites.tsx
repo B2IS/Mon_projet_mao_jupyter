@@ -24,6 +24,7 @@ import {
   type ZoneRow, type QtyItem, type StatutZone,
 } from '@/lib/zonesQuantitesStore';
 import { downloadExcel, printBranded, fmtNombre } from '@/lib/exportUtils';
+import toast from 'react-hot-toast';
 
 const ProjetsCarteLeaflet = dynamic(() => import('@/components/ui/ProjetsCarteLeaflet'), {
   ssr: false,
@@ -81,8 +82,9 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
     if (data) return; // déjà initialisé (persisté)
     if (isProjetBEST(programme, projetNom, projetCode)) {
       store.ensure(projetCode, false); // pas de zones d'exemple
-      import('@/lib/zonesBEST').then(({ zonesBESTToRows }) =>
-        store.setZones(projetCode, zonesBESTToRows() as ZoneRow[]));
+      import('@/lib/zonesBEST')
+        .then(({ zonesBESTToRows }) => store.setZones(projetCode, zonesBESTToRows() as ZoneRow[]))
+        .catch(() => { /* chunk indisponible (HMR) — le bouton manuel reste possible */ });
     } else {
       store.ensure(projetCode, true);
     }
@@ -348,17 +350,23 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
               <button
                 onClick={async () => {
                   // Lazy-load du référentiel (220 Ko) : chargé uniquement au clic, hors bundle principal.
-                  const { zonesBESTToRows } = await import('@/lib/zonesBEST');
-                  const cible = filterLot === 'Tous' ? undefined : filterLot;
-                  const rows = zonesBESTToRows(cible);
-                  if (d.zones.length && !window.confirm(
-                    `Charger les ${rows.length} localités BEST${cible ? ` (${cible})` : ' (1041)'} ? Cela remplace les zones actuelles de ${projetCode}.`
-                  )) return;
-                  store.setZones(projetCode, rows as ZoneRow[]);
+                  // Robustesse : si le chunk échoue à se charger (cache/HMR), on n'écroule pas l'app.
+                  try {
+                    const { zonesBESTToRows } = await import('@/lib/zonesBEST');
+                    const cible = filterLot === 'Tous' ? undefined : filterLot;
+                    const rows = zonesBESTToRows(cible);
+                    if (d.zones.length && !window.confirm(
+                      `Charger les ${rows.length} localités${cible ? ` (${cible})` : ''} ? Cela remplace les zones actuelles de ${projetCode}.`
+                    )) return;
+                    store.setZones(projetCode, rows as ZoneRow[]);
+                    toast.success(`${rows.length} localités chargées — visibles dans la Cartographie.`);
+                  } catch {
+                    toast.error('Échec du chargement des localités. Rechargez la page (Cmd+Shift+R) puis réessayez.');
+                  }
                 }}
-                title="Importer le référentiel officiel des 1041 localités du Programme BEST"
+                title="Importer les localités du projet (référentiel des localités à électrifier)"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 7, border: `1px solid ${C.navy}`, background: '#fff', color: C.navy, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                <MapPin size={12} /> Charger 1041 BEST
+                <MapPin size={12} /> Charger les localités du projet
               </button>
             )}
             {canEdit && <button onClick={() => setZoneEdit(blankZone())} style={primaryBtn}><Plus size={12} /> Ajouter zone</button>}

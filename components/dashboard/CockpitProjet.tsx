@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { extractFileText } from '@/lib/docText';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2, Clock, AlertTriangle, Circle, ChevronDown,
@@ -115,10 +116,14 @@ function PlanCell({ val }: { val: 0 | 1 | 2 }) {
 }
 
 /* ─── KPI Chip ─────────────────────────────────────────── */
-function KpiChip({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
+function KpiChip({ label, value, color, sub, text }: { label: string; value: string; color: string; sub?: string; text?: boolean }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 70 }}>
-      <div style={{ fontSize: 17, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: text ? 90 : 70, maxWidth: text ? 150 : undefined }}>
+      <div style={{
+        fontSize: text ? 12.5 : 17, fontWeight: text ? 700 : 800, color, lineHeight: 1.15,
+        whiteSpace: text ? 'normal' : 'nowrap',
+        overflowWrap: 'anywhere', textAlign: 'center',
+      }}>{value}</div>
       {sub && <div style={{ fontSize: 9.5, color: sub.startsWith('+') ? C.green : C.red, fontWeight: 600, marginTop: 1 }}>{sub}</div>}
       <div style={{ fontSize: 9.5, color: '#94A3B8', marginTop: 2, whiteSpace: 'nowrap' }}>{label}</div>
     </div>
@@ -193,6 +198,105 @@ function criticiteColor(c: number) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   PARSEUR IA — Extraction des champs d'une fiche projet (texte brut → champs).
+   Heuristiques FR robustes (libellés + ponctuation), validation humaine ensuite.
+═══════════════════════════════════════════════════════ */
+const MOIS_FR: Record<string, string> = {
+  janvier: '01', 'février': '02', fevrier: '02', mars: '03', avril: '04', mai: '05', juin: '06',
+  juillet: '07', 'août': '08', aout: '08', septembre: '09', octobre: '10', novembre: '11', 'décembre': '12', decembre: '12',
+};
+
+function parseFicheProjet(raw: string): Record<string, string | number | string[]> {
+  const t = raw.replace(/\s+/g, ' ').trim();
+  const out: Record<string, string | number | string[]> = {};
+
+  // ── BUDGET — gère FCFA / MFCFA / Md FCFA / USD (taux ~600) ──
+  const bM = t.match(/([\d][\d\s.]{2,18})\s*(Md\s?FCFA|MFCFA|M\s?FCFA|millions?\s+(?:de\s+)?FCFA|F\s?CFA|FCFA|USD|\$)/i);
+  if (bM) {
+    let n = parseFloat(bM[1].replace(/[\s.]/g, '').replace(',', '.'));
+    const unit = bM[2].toUpperCase().replace(/\s/g, '');
+    if (!isNaN(n) && n > 0) {
+      if (/^MD/.test(unit)) n = n * 1000;                       // milliards FCFA → MFCFA
+      else if (/^M/.test(unit) || /MILLION/.test(unit)) { /* déjà en MFCFA */ }
+      else if (unit === 'USD' || unit === '$') n = (n * 600) / 1e6; // USD → MFCFA
+      else n = n / 1e6;                                          // FCFA brut → MFCFA
+      out.budget = Math.round(n);
+    }
+  }
+
+  // ── CHEF DE PROJET — gère « Nom du Chef de Projet … Lot 1 Et 2 : M. MAODO SENE, PMP® » ──
+  const chef = t.match(/(?:nom\s+du\s+)?chef\s+de\s+projet[^:]{0,40}:?\s*(?:Lot[^:]{0,12}:\s*)?(?:M\.?|Mme|Mr\.?|Dr\.?)\s*([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.\- ]{2,38})/i)
+    || t.match(/(?:nom\s+du\s+)?chef\s+de\s+projet\s*:?\s*([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.\- ]{2,38})/i)
+    || t.match(/responsable\s*(?:du\s+projet)?\s*:?\s*([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.\- ]{2,38})/i);
+  if (chef) {
+    const nom = chef[1].trim().replace(/\s{2,}/g, ' ')
+      .replace(/\s*(PMP|PMI|Ing|Lot|Et)\b.*$/i, '').replace(/[,.;].*$/, '').trim();
+    if (nom.length >= 3) out.chefProjet = nom;
+  }
+
+  // ── AVANCEMENT % ──
+  const av = t.match(/avancement\s*(?:physique|global)?\s*:?\s*(\d{1,3})\s*%/i)
+    || t.match(/(\d{1,3})\s*%\s*(?:d['’]?avancement|r[ée]alis)/i);
+  if (av) { const n = +av[1]; if (n >= 0 && n <= 100) out.avancement = n; }
+
+  // ── DATES — formats dd/mm/yyyy ET « 07 février 2023 » ──
+  const toIso = (s: string) => {
+    let m = s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+    if (m) { let y = m[3]; if (y.length === 2) y = '20' + y; return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+    m = s.match(/(\d{1,2})\s+([a-zà-ÿ]+)\.?\s+(\d{4})/i);
+    if (m) { const mo = MOIS_FR[m[2].toLowerCase()]; if (mo) return `${m[3]}-${mo}-${m[1].padStart(2, '0')}`; }
+    return undefined;
+  };
+  const datePat = '(\\d{1,2}[\\/\\-.]\\d{1,2}[\\/\\-.]\\d{2,4}|\\d{1,2}\\s+[a-zà-ÿ]+\\.?\\s+\\d{4})';
+  const deb = t.match(new RegExp('(?:lancement\\s+effectif|ouverture\\s+chantier|d[ée]marrage|date\\s+de\\s+d[ée]but|d[ée]but)[^0-9]{0,25}' + datePat, 'i'));
+  if (deb) { const iso = toIso(deb[1]); if (iso) out.dateDebut = iso; }
+  const fin = t.match(new RegExp('(?:fin\\s+pr[ée]visionnelle(?:\\s+actualis[ée]e)?|fin\\s+pr[ée]vue|date\\s+de\\s+fin)[^0-9]{0,25}' + datePat, 'i'));
+  if (fin) { const iso = toIso(fin[1]); if (iso) out.dateFinPrevue = iso; }
+
+  // ── LOCALISATION / SIÈGE / RÉGION ──
+  const loc = t.match(/(?:si[èe]ge\s+du\s+projet|localisation|r[ée]gion|zone\s+d['’]intervention)\s*:?\s*([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.\- ]{2,40})/i);
+  if (loc) { const v = loc[1].trim().replace(/[,.;].*$/, '').replace(/\b(Production|Transport|Distribution|Commercial)\b.*$/i, '').trim(); if (v.length >= 3) out.localisation = v; }
+
+  // ── DESCRIPTION — priorité à « Présentation du projet », sinon Problématique/Objet ──
+  const pres = t.match(/pr[ée]sentation\s+du\s+projet\s*:?\s*(.{40,650}?)\s*(?:composantes?\s*\d|composante\s*1|probl[ée]matique\s*:)/i);
+  const desc = t.match(/(?:probl[ée]matique|pr[ée]sentation\s+du\s+projet|objet|objectif\s+(?:global|de\s+d[ée]veloppement|du\s+projet)|description|consistance)\s*:?\s*([^.]{25,500}\.)/i);
+  if (pres) out.description = pres[1].trim();
+  else if (desc) out.description = desc[1].trim();
+
+  // ── CONTEXTE & JUSTIFICATION — bloc « Problématique » jusqu'à « Présentation » ──
+  const ctx = t.match(/probl[ée]matique\s*:?\s*(.{60,1100}?)\s*pr[ée]sentation\s+du\s+projet/i);
+  if (ctx) out.contexte = ctx[1].trim();
+
+  // ── OBJECTIFS (liste) — phrases « objectif de développement … » / « a pour objectif … » ──
+  const objs: string[] = [];
+  let mo: RegExpMatchArray | null;
+  if ((mo = t.match(/l['’]objectif\s+de\s+d[ée]veloppement\s+du\s+projet\s+est\s+d?['’]?\s*(.{15,260}?)\s*[\.;]/i)))
+    objs.push(('Objectif de développement : ' + mo[1].trim()).replace(/\s+/g, ' '));
+  if ((mo = t.match(/a\s+pour\s+objectif\s+de\s+(.{15,260}?)\s*[\.;]/i)))
+    objs.push(mo[1].trim().replace(/\s+/g, ' '));
+  if (objs.length) out.objectifs = [...new Set(objs)];
+
+  // ── LIVRABLES (liste) — « Portée indicative » : lignes MT/BT, postes, connexions ──
+  const liv: string[] = [];
+  const grab = (re: RegExp, label: string) => {
+    const m = t.match(re);
+    if (m) {
+      // Les chiffres du .docx sont parfois fractionnés (« 1 25 6 ») → on recompacte.
+      const num = m[1].replace(/\s+/g, '');
+      const pretty = num.replace(/\B(?=(\d{3})+(?!\d))/g, ' '); // 1256 → « 1 256 »
+      liv.push(`${label} : ${pretty}`);
+    }
+  };
+  grab(/lignes?\s+MT\s*:?\s*([\d][\d\s]{1,9})\s*km/i, 'Lignes MT (km)');
+  grab(/lignes?\s+BT\s*:?\s*([\d][\d\s]{1,9})\s*km/i, 'Lignes BT (km)');
+  grab(/postes?\s+MT\s*\/\s*BT\s*:?\s*([\d][\d\s]{1,9})/i, 'Postes MT/BT');
+  grab(/nombre\s+de\s+connexions?\s*:?\s*([\d][\d\s]{1,9})/i, 'Connexions / abonnés');
+  if (liv.length) out.livrables = liv;
+
+  return out;
+}
+
+/* ═══════════════════════════════════════════════════════
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════ */
 export default function CockpitProjet() {
@@ -216,6 +320,22 @@ export default function CockpitProjet() {
   const [activeOnglet, setActiveOnglet]            = useState('fiche-executive');
   const [showSelector, setShowSelector]            = useState(false);
   const [selectorQuery, setSelectorQuery]          = useState('');
+  const selectorRef = useRef<HTMLDivElement | null>(null);
+  // Fermeture auto du sélecteur projet : clic extérieur, défilement, touche Échap.
+  useEffect(() => {
+    if (!showSelector) return;
+    const close = () => { setShowSelector(false); setSelectorQuery(''); };
+    const onDown = (e: MouseEvent) => { if (selectorRef.current && !selectorRef.current.contains(e.target as Node)) close(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [showSelector]);
   const [filterStatut, setFilterStatut]            = useState<StatutTache | 'all'>('all');
   const [expandedTaches, setExpandedTaches]        = useState<Set<string>>(new Set());
   /* ── Edit state ─────────────────────────────────────── */
@@ -226,6 +346,8 @@ export default function CockpitProjet() {
   const [tacheForm, setTacheForm]                  = useState({ nom: '', type: 'Normale' as TypeTache, priorite: 'Moyenne' as Priorite, dateDebut: '', dateFin: '', duree: '5', avancement: 0, statutTache: 'a_faire' as StatutTache, commentaire: '', predId: '', predType: 'FS' as DepType, predLag: 0, coutPrevu: '' as number | '', coutReel: '' as number | '' });
   const [showJalonModal, setShowJalonModal]        = useState(false);
   const [jalonForm, setJalonForm]                  = useState({ label: '', date: '' });
+  const [importingFiche, setImportingFiche]        = useState(false);
+  const ficheFileRef                               = useRef<HTMLInputElement | null>(null);
   const [showUploadModal, setShowUploadModal]      = useState(false);
   const [uploadForm, setUploadForm]               = useState({ nom: '', type: 'Rapport', commentaire: '' });
   const [gedDocs, setGedDocs]                     = useState(GED_DOCS);
@@ -456,8 +578,16 @@ export default function CockpitProjet() {
       },
     };
     const d = parDomaine[dom] ?? parDomaine.distribution;
+    // Cadre de référence PROPRE au projet (pas de « PSE » plaqué partout) :
+    // on s'appuie sur le programme réel du projet (BEST/ECOWAS-REAP, etc.).
+    const prog = `${projet.programme ?? ''} ${projet.nom ?? ''} ${projet.code ?? ''}`.toLowerCase();
+    const cadre = /\b(best|ecowas|reap)\b/.test(prog)
+      ? `du Projet Régional d'Accès à l'Électricité de la CEDEAO (ECOWAS-REAP / BEST)`
+      : projet.programme
+        ? `du programme ${projet.programme}`
+        : `de la stratégie d'équipement et d'électrification de SENELEC`;
     const description = `Le projet « ${projet.nom} » (${projet.code}) porte sur la ${d.objet}. Piloté par ${projet.chefProjet} pour un montant de ${budgetTxt}, il est financé par ${bailleur}. Avancement actuel : ${Math.round(projet.avancement)}%.`;
-    const contexte = `Dans le cadre du Plan Sénégal Émergent (PSE) et de la stratégie d'équipement de SENELEC, ce projet répond aux besoins identifiés dans ${reg}. Il est porté par ${chefInfo.direction} et financé par ${bailleur} pour un montant global de ${budgetTxt}, avec un achèvement prévisionnel en ${anneeFin}.`;
+    const contexte = `Ce projet s'inscrit dans le cadre ${cadre} et répond aux besoins d'électrification identifiés dans ${reg}. Il est porté par ${chefInfo.direction} et financé par ${bailleur} pour un montant global de ${budgetTxt}, avec un achèvement prévisionnel en ${anneeFin}.`;
     return { description, contexte, objectifs: d.objectifs, livrables: d.livrables };
   }, [projet, chefInfo.direction]);
 
@@ -473,6 +603,57 @@ export default function CockpitProjet() {
       cpi: projet.cpi, spi: projet.spi,
     });
     setShowEditModal(true);
+  };
+
+  // ── IMPORT FICHE PROJET → MISE À JOUR IA DE LA FICHE EXÉCUTIVE ──────────
+  // L'utilisateur charge une fiche projet (PDF/Word/Excel) ; l'IA extrait les
+  // informations clés et PRÉ-REMPLIT le formulaire d'édition. L'utilisateur
+  // VÉRIFIE puis enregistre (validation humaine obligatoire).
+  const handleImportFiche = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []); e.target.value = '';
+    if (!files.length || !projet) return;
+    setImportingFiche(true);
+    toast.loading(`Analyse IA de ${files.length} document(s) (fiche, rapports, Excel)…`, { id: 'imp-fiche' });
+    try {
+      // On lit TOUS les documents (fiche projet + rapports mensuels/trimestriels + Excel)
+      // et on les concatène pour que l'IA dispose du maximum de contexte.
+      const parts: string[] = [];
+      const lus: string[] = []; const illisibles: string[] = [];
+      for (const f of files) {
+        const t = await extractFileText(f).catch(() => undefined);
+        if (t && !t.startsWith('⚠️')) { parts.push(`\n===== DOCUMENT : ${f.name} =====\n${t}`); lus.push(f.name); }
+        else illisibles.push(f.name);
+      }
+      const text = parts.join('\n');
+      if (!text) {
+        toast.error('Aucun document lisible (scans/images) — un OCR est nécessaire.', { id: 'imp-fiche' });
+        return;
+      }
+      const parsed = parseFicheProjet(text);
+      const nb = Object.keys(parsed).length;
+      if (nb === 0) {
+        toast.error('Aucune information exploitable détectée dans les documents.', { id: 'imp-fiche' });
+        return;
+      }
+      if (illisibles.length) toast(`${illisibles.length} document(s) illisible(s) ignoré(s) : ${illisibles.join(', ')}`, { icon: '⚠️', duration: 4000 });
+      // On ouvre le formulaire pré-rempli (valeurs actuelles + extractions IA) pour revue.
+      setEditForm({
+        nom: projet.nom, description: projet.description, objectif: projet.objectif ?? '',
+        contexte: projet.contexte ?? '', objectifs: projet.objectifs ?? [], livrables: projet.livrables ?? [],
+        chefProjet: projet.chefProjet, region: projet.region, localisation: projet.localisation,
+        budget: projet.budget, budgetEngage: projet.budgetEngage, budgetDecaisse: projet.budgetDecaisse,
+        dateDebut: projet.dateDebut, dateFinPrevue: projet.dateFinPrevue, dateFinEstimee: projet.dateFinEstimee,
+        priorite: projet.priorite, avancement: projet.avancement, avancementPlanifie: projet.avancementPlanifie,
+        cpi: projet.cpi, spi: projet.spi,
+        ...(parsed as Partial<typeof projet>),
+      });
+      setShowEditModal(true);
+      toast.success(`${nb} champ(s) extrait(s) à partir de ${lus.length} document(s) — vérifiez puis « Enregistrer ».`, { id: 'imp-fiche', duration: 5000 });
+    } catch {
+      toast.error('Échec de l\'analyse du document.', { id: 'imp-fiche' });
+    } finally {
+      setImportingFiche(false);
+    }
   };
 
   const handleSaveProjet = () => {
@@ -644,7 +825,7 @@ export default function CockpitProjet() {
         {/* Row 1: sélecteur + actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 0 0' }}>
           {/* Sélecteur projet */}
-          <div style={{ position: 'relative' }}>
+          <div ref={selectorRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setShowSelector(v => !v)}
               style={{
@@ -745,6 +926,25 @@ export default function CockpitProjet() {
               </span>
             )}
             {canEditFiche && (
+              <>
+                <input ref={ficheFileRef} type="file" multiple style={{ display: 'none' }} onChange={handleImportFiche}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md" />
+                <button
+                  onClick={() => ficheFileRef.current?.click()}
+                  disabled={importingFiche}
+                  title="Importer la fiche projet + rapports + Excel (sélection multiple) — l'IA pré-remplit les champs"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
+                    borderRadius: 7, border: `1px solid ${C.navy}`, background: `${C.navy}0D`,
+                    fontSize: 12, color: C.navy, cursor: importingFiche ? 'wait' : 'pointer', fontFamily: 'inherit', fontWeight: 600,
+                    opacity: importingFiche ? 0.6 : 1,
+                  }}
+                >
+                  {importingFiche ? '⏳ Analyse IA…' : '📄 Importer fiche + rapports (IA)'}
+                </button>
+              </>
+            )}
+            {canEditFiche && (
               <button
                 onClick={openEditModal}
                 style={{
@@ -771,11 +971,12 @@ export default function CockpitProjet() {
           </div>
         </div>
 
-        {/* Row 2: KPI bar */}
+        {/* Row 2: KPI bar — défilable horizontalement (pas de débordement de page) */}
         <div style={{
           display: 'flex', gap: 0, alignItems: 'center',
           padding: '12px 0',
           borderBottom: `1px solid ${C.border}`,
+          overflowX: 'auto', scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch',
         }}>
           {[
             {
@@ -792,27 +993,27 @@ export default function CockpitProjet() {
             { label: 'CPI',               value: projet.cpi.toFixed(2),     color: projet.cpi >= 0.90 ? C.green : C.red },
             { label: 'SPI',               value: projet.spi.toFixed(2),     color: projet.spi >= 0.85 ? C.green : C.amber },
             { label: 'Budget décaissé',   value: `${Math.round(projet.budgetDecaisse / (projet.budget||1) * 100)}%`, color: C.navy },
-            { label: 'Chef de projet',    value: projet.chefProjet.split(' ')[0], color: '#475569' },
+            { label: 'Chef de projet',    value: projet.chefProjet, color: '#475569', text: true },
           ].map((k, i, arr) => (
             <div key={k.label} style={{
-              flex: 1, textAlign: 'center',
+              flex: '1 0 auto', minWidth: 78, textAlign: 'center',
               borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
-              padding: '0 8px',
+              padding: '0 10px',
             }}>
               <KpiChip {...k} />
             </div>
           ))}
         </div>
 
-        {/* Row 3: Onglets */}
-        <div style={{ display: 'flex', gap: 0 }}>
+        {/* Row 3: Onglets — défilables horizontalement (pas de débordement) */}
+        <div style={{ display: 'flex', gap: 0, overflowX: 'auto', scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }}>
           {ONGLETS.map(o => (
             <button
               key={o.id}
               onClick={() => setActiveOnglet(o.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px',
-                border: 'none',
+                border: 'none', flexShrink: 0, whiteSpace: 'nowrap',
                 borderBottom: activeOnglet === o.id ? `2px solid ${C.orange}` : '2px solid transparent',
                 background: 'transparent',
                 fontSize: 12.5,
@@ -1031,31 +1232,31 @@ export default function CockpitProjet() {
               <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <GanttChart size={13} style={{ color: C.navy }} /> Roadmap du projet
               </div>
-              <div style={{ position: 'relative', height: 120, background: '#F8FAFC', borderRadius: 8, padding: '20px 10px' }}>
-                 {/* Échelle temps simplifiée */}
-                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E2E8F0', paddingBottom: 5, marginBottom: 15, fontSize: 10, color: '#94A3B8', fontWeight: 700 }}>
-                    <span>JAN 2026</span><span>MAR</span><span>MAI (Auj.)</span><span>JUIL</span><span>SEP</span><span>NOV</span><span>JAN 2027</span>
-                 </div>
-                 {/* Barres roadmap */}
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {[
-                      { label: 'Études', start: 0, width: 25, color: C.purple, av: 100 },
-                      { label: 'Appro.', start: 20, width: 30, color: C.orange, av: 80 },
-                      { label: 'Travaux', start: 40, width: 45, color: C.navy, av: 35 },
-                    ].map(r => (
-                      <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: '#64748B', width: 50 }}>{r.label}</div>
-                        <div style={{ flex: 1, height: 12, background: '#E2E8F0', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
-                           <div style={{ position: 'absolute', left: `${r.start}%`, width: `${r.width}%`, height: '100%', background: r.color, borderRadius: 6, opacity: 0.8 }}>
-                              <div style={{ width: `${r.av}%`, height: '100%', background: r.color }} />
-                           </div>
+              <div style={{ position: 'relative', background: '#F8FAFC', borderRadius: 8, padding: '14px 10px' }}>
+                 {/* Barres roadmap = les 6 phases pondérées du cycle DPE (largeur ∝ pondération) */}
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {(() => {
+                      const phs = (projet.phases ?? PHASES_DEFAUT);
+                      const total = phs.reduce((s, p) => s + p.poids, 0) || 100;
+                      const palette = ['#64748B', C.purple, C.orange, C.navy, C.green, C.amber];
+                      let acc = 0;
+                      return phs.map((ph, i) => {
+                        const start = (acc / total) * 100; acc += ph.poids;
+                        const width = (ph.poids / total) * 100;
+                        return { id: ph.id, label: ph.label, poids: ph.poids, start, width, color: palette[i % palette.length], av: ph.avancement };
+                      });
+                    })().map(r => (
+                      <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', width: 96, flexShrink: 0, overflowWrap: 'anywhere', lineHeight: 1.1 }}>
+                          {r.label} <span style={{ color: '#94A3B8', fontWeight: 600 }}>· {r.poids}%</span>
                         </div>
+                        <div style={{ flex: 1, height: 13, background: '#E2E8F0', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
+                           <div style={{ position: 'absolute', left: `${r.start}%`, width: `${r.width}%`, height: '100%', background: r.color, borderRadius: 6, opacity: 0.35 }} />
+                           <div style={{ position: 'absolute', left: `${r.start}%`, width: `${r.width * (r.av / 100)}%`, height: '100%', background: r.color, borderRadius: 6 }} />
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#64748B', width: 30, textAlign: 'right', flexShrink: 0 }}>{r.av}%</div>
                       </div>
                     ))}
-                 </div>
-                 {/* Line aujourd'hui */}
-                 <div style={{ position: 'absolute', top: 15, bottom: 10, left: '44%', width: 2, background: C.orange, opacity: 0.6 }}>
-                    <div style={{ position: 'absolute', top: -12, left: -14, fontSize: 8, fontWeight: 800, color: C.orange, background: '#fff', padding: '1px 4px', border: `1px solid ${C.orange}`, borderRadius: 4 }}>AUJ.</div>
                  </div>
               </div>
             </div>
@@ -1557,13 +1758,13 @@ export default function CockpitProjet() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
                 { label: 'Membres équipe', value: String(equipe.length), color: C.navy, icon: <Users size={16} /> },
-                { label: 'Chef de projet', value: projet.chefProjet.split(' ').slice(-1)[0], color: C.orange, icon: <UserCheck size={16} /> },
+                { label: 'Chef de projet', value: projet.chefProjet, color: C.orange, icon: <UserCheck size={16} /> },
                 { label: 'Taux charge moyen', value: '78 %', color: C.green, icon: <BarChart3 size={16} /> },
               ].map(k => (
-                <div key={k.label} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ color: k.color }}>{k.icon}</div>
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.value}</div>
+                <div key={k.label} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
+                  <div style={{ color: k.color, flexShrink: 0 }}>{k.icon}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: k.label === 'Chef de projet' ? 14 : 20, fontWeight: 800, color: k.color, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{k.value}</div>
                     <div style={{ fontSize: 11, color: '#94A3B8' }}>{k.label}</div>
                   </div>
                 </div>

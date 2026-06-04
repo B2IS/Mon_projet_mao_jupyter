@@ -149,26 +149,46 @@ function extractDateFR(text: string): string {
   return m ? m[0] : '';
 }
 
-function extractBudget(text: string): number {
-  const m = text.match(/(\d[\s\.]?\d{0,3}[\s\.]?\d{0,3}[\s\.]?\d{0,3})\s*(FCFA|CFA|f\s*cfa|XOF)/i);
-  if (m) {
-    const num = parseInt(m[1].replace(/[\s\.]/g, ''), 10);
-    return isNaN(num) ? 0 : num;
-  }
-  return 0;
-}
-
+/**
+ * Extrait la liste des participants d'un ODM SENELEC.
+ * Le tableau officiel a les colonnes : N° · Prénoms et Nom · Mle (C00981) · Unité · CR.
+ * Stratégie fiable : on s'ancre sur le MATRICULE (C + 4 à 6 chiffres) ; le NOM est le
+ * texte capitalisé qui le précède. Beaucoup plus robuste qu'un balayage de mots.
+ */
 function extractParticipants(text: string): string[] {
+  const clean = (s: string) => s.replace(/\s{2,}/g, ' ').replace(/^\d+\s+/, '').trim();
+  const isName = (s: string) => s.length >= 4 && /[A-Za-zÀ-ÿ]/.test(s)
+    && !/^(N°|Mle|Unit|Pr[ée]nom|Nom|Cellule|Service|D[ée]partement|Direction|Total|Objet|Mission|Itin[ée]raire|Transport|Villes?|Pays|Date)/i.test(s);
+  let m: RegExpExecArray | null;
+
+  // 1) FORMAT TABLEAU : « <Nom> C00981 » — le nom précède le matricule.
+  const byMle: string[] = [];
+  const mleRe = /([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.\- ]{3,55}?)\s+C\d{4,6}\b/g;
+  while ((m = mleRe.exec(text)) !== null) {
+    const n = clean(m[1]);
+    if (isName(n)) byMle.push(n);
+  }
+  if (byMle.length) return [...new Set(byMle)].slice(0, 40);
+
+  // 2) Repli : lignes « N° Nom … » d'un tableau sans matricule.
+  const byRow: string[] = [];
+  const rowRe = /(?:^|\n)\s*\d{1,2}[\s.)\-]+([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'’.\- ]{3,55})/g;
+  while ((m = rowRe.exec(text)) !== null) {
+    const n = clean(m[1]);
+    if (isName(n)) byRow.push(n);
+  }
+  if (byRow.length) return [...new Set(byRow)].slice(0, 40);
+
+  // 3) Dernier repli : séquences capitalisées (filtrées) — moins fiable.
   const names: string[] = [];
-  const re = /(?:M(?:onsieur|r)?\.?\s*|Mme\.?\s*)?([A-Z][a-zA-Z\-]+(?:\s+[A-Z][a-zA-Z\-]+)?)/g;
-  let mm;
-  while ((mm = re.exec(text)) !== null) {
-    const n = mm[1].trim();
-    if (n.length > 3 && !/SENELEC|DPE|SIGEPP|Mission|Terrain|Projet|Budget|Dakar|Thiès|Ziguinchor|Kolda|Louga|Kaolack|Saint-Louis|Rufisque|Casamance/i.test(n)) {
+  const re = /(?:M(?:onsieur|r)?\.?\s*|Mme\.?\s*)?([A-ZÀ-Ÿ][a-zA-ZÀ-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zA-ZÀ-ÿ\-]+){1,3})/g;
+  while ((m = re.exec(text)) !== null) {
+    const n = clean(m[1]);
+    if (isName(n) && !/SENELEC|DPE|SIGEPP|Mission|Terrain|Budget|Dakar|Thi[èe]s|Ziguinchor|Kolda|Louga|Kaolack|Saint-Louis|Rufisque|Casamance|Avion|Service|Cellule|D[ée]partement/i.test(n)) {
       names.push(n);
     }
   }
-  return [...new Set(names)].slice(0, 5);
+  return [...new Set(names)].slice(0, 20);
 }
 
 function extractRegionFromDest(destination: string): string {
@@ -254,19 +274,20 @@ function parseExtractionText(text: string): ExtractedODM {
   }
   if (!ref) ref = `ODM-EXT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 
-  // ── Participants & demandeur (souvent dans une police non-unicode → tolérant) ──
+  // ── Participants (souvent dans une police non-unicode → tolérant) ──
   const participants = extractParticipants(t);
-  let agentDemandeur = grab(/(?:demandeur|demand[ée] par|pr[ée]par[ée] par)\s*:?\s*([A-ZÀ-Ÿ][A-Za-zà-ÿ .\-]{2,40})/i);
-  if (agentDemandeur.length < 3 || /^\W/.test(agentDemandeur)) agentDemandeur = participants[0] || '';
+  // ── Demandeur / initiateur : UNIQUEMENT s'il est explicitement nommé dans l'ODM.
+  //    On n'invente RIEN (pas de repli sur le 1er participant) car l'initiateur
+  //    n'est pas une donnée fiable de l'ODM. Voir consigne métier.
+  const agentDemandeur = grab(/(?:demandeur|initiateur|demand[ée]\s+par|[ée]tabli\s+par|pr[ée]par[ée]\s+par)\s*:?\s*([A-ZÀ-Ÿ][A-Za-zà-ÿ .\-]{2,40})/i);
 
-  // ── Budget / prise en charge ──
-  let budget = extractBudget(t);
-  const priseEnCharge = /prise?\s+en\s+charge\s+int[ée]grale\s+par\s+le\s+partenaire/i.test(t);
+  // ── Budget : NON extrait de l'ODM. L'ordre de mission ne porte pas de budget
+  //    fiable (les montants éventuels = per-diem/carburant, pas un budget projet).
+  //    On laisse 0 ; le budget se renseigne ailleurs (per-diem, carburant calculés).
+  const budget = 0;
 
   // ── Observations ──
-  let observations = grab(/(?:observations?|compte[- ]?rendu|constats?)\s*:?\s*([^\n]{10,300})/i);
-  if (!observations && priseEnCharge) observations = 'Prise en charge intégrale par le partenaire (budget SENELEC nul).';
-  if (priseEnCharge) budget = 0;
+  const observations = grab(/(?:observations?|compte[- ]?rendu|constats?)\s*:?\s*([^\n]{10,300})/i);
 
   // ── Confiance : pondérée sur les champs réellement détectés ──
   const detected = [

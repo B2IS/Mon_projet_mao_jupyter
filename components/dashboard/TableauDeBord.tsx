@@ -530,10 +530,10 @@ export default function TableauDeBord() {
         )}
 
         {/* Onglets */}
-        <div style={{ display: 'flex', padding: '0 24px', marginTop: 4 }}>
+        <div style={{ display: 'flex', padding: '0 24px', marginTop: 4, overflowX: 'auto', scrollbarWidth: 'thin' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id as typeof activeTab)} style={{
-              padding: '8px 16px', border: 'none',
+              padding: '8px 16px', border: 'none', flexShrink: 0, whiteSpace: 'nowrap',
               borderBottom: activeTab === t.id ? `2px solid ${C.orange}` : '2px solid transparent',
               background: 'transparent', fontSize: 13,
               fontWeight: activeTab === t.id ? 700 : 400,

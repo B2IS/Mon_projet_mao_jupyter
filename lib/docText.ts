@@ -13,12 +13,9 @@ import * as XLSX from 'xlsx';
 export async function extractPdfText(file: File): Promise<string | undefined> {
   try {
     const pdfjs = await import('pdfjs-dist/build/pdf');
-    try {
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.min.js',
-        import.meta.url,
-      ).toString();
-    } catch { /* worker déjà configuré */ }
+    // Worker servi depuis /public (copié de pdfjs-dist) : aucune résolution de module
+    // côté webpack → build Vercel fiable, et fonctionne on-premise (pas de CDN requis).
+    try { pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'; } catch { /* déjà configuré */ }
     const buf = await file.arrayBuffer();
     const doc = await pdfjs.getDocument({ data: buf, isEvalSupported: false }).promise;
     const parts: string[] = [];

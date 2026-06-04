@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import DocumentAnnotator, { type AnnotatedDoc } from '@/components/ui/DocumentAnnotator';
 import {
   Stamp, CheckCircle2, XCircle, Clock, ChevronRight,
@@ -14,6 +14,7 @@ import {
 import { useNotificationStore } from '@/lib/notificationStore';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { TEST_USERS } from '@/lib/authStore';
+import { useParapheurStore } from '@/lib/parapheurStore';
 
 /* ─── Design Tokens ─────────────────────────────────── */
 const C = {
@@ -743,6 +744,16 @@ const ANNUAIRE_DPE = (() => {
 
 export default function Workflows() {
   const [dossiers, setDossiers]         = useState<DossierValidation[]>(DOSSIERS);
+  // Dossiers créés depuis un Courrier (parapheur partagé) → injectés dans la liste.
+  const parapheurDossiers = useParapheurStore(s => s.dossiers);
+  useEffect(() => {
+    if (!parapheurDossiers.length) return;
+    setDossiers(prev => {
+      const ids = new Set(prev.map(d => d.id));
+      const nouveaux = parapheurDossiers.filter(d => !ids.has(d.id)) as unknown as DossierValidation[];
+      return nouveaux.length ? [...nouveaux, ...prev] : prev;
+    });
+  }, [parapheurDossiers]);
   const [selectedId, setSelectedId]     = useState<string>(DOSSIERS[0].id);
   const [filterType, setFilterType]     = useState<TypeDossier | 'all'>('all');
   const [filterPrio, setFilterPrio]     = useState<PrioriteDossier | 'all'>('all');

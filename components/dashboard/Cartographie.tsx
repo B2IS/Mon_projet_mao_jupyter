@@ -171,6 +171,30 @@ export default function Cartographie() {
     });
     return out;
   }, [zonesByProjet]);
+
+  // Auto-hydratation : pour tout projet BEST/CPBM visible dont les zones ne sont
+  // pas encore dans le store (l'utilisateur n'a pas ouvert « Zones & Quantités »),
+  // on charge le référentiel des 1041 localités afin que la carte se peuple seule.
+  const zonesEnsure = useZonesStore(s => s.ensure);
+  const zonesSet = useZonesStore(s => s.setZones);
+  useEffect(() => {
+    const isBest = (s: string) => /\b(best|cpbm|padaes)\b/i.test(s);
+    const targets = store.projets.filter(
+      p => isBest(`${p.programme ?? ''} ${p.nom ?? ''} ${p.code ?? ''}`) && !zonesByProjet?.[p.code],
+    );
+    if (!targets.length) return;
+    let cancelled = false;
+    import('@/lib/zonesBEST')
+      .then(({ zonesBESTToRows }) => {
+        if (cancelled) return;
+        const rows = zonesBESTToRows();
+        targets.forEach(p => { zonesEnsure(p.code, false); zonesSet(p.code, rows as never); });
+      })
+      .catch(() => { /* chunk indisponible (HMR) */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.projets, zonesByProjet]);
+
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>('');
 
@@ -277,7 +301,7 @@ export default function Cartographie() {
         setBestZones(ZONES_BEST
           .filter(z => typeof z.lat === 'number' && typeof z.lng === 'number')
           .map(z => ({ lat: z.lat as number, lng: z.lng as number, localite: z.localite, lot: z.lot, statut: z.statut, region: z.region, departement: z.departement })));
-      });
+      }).catch(() => { /* chunk indisponible (HMR) — couche ignorée sans planter la carte */ });
     }
   }, [bestActive, bestZones.length]);
   const lotColor = (lot: string) => lot === 'LOT 1' ? '#0EA5E9' : lot === 'LOT 2' ? '#8B5CF6' : '#10B981';

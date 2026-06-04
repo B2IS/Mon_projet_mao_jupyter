@@ -3,7 +3,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Bell, Search, Calendar, ChevronDown, X, AlertTriangle, Clock, CheckCircle, Info, Stamp, LogOut, User, Settings, ArrowLeft, Mail, CheckCheck, Trash2 } from 'lucide-react';
 import { ALERTES_WORKFLOW } from '@/lib/data';
-import { useAuth, ROLES } from '@/lib/authStore';
+import { useAuth, ROLES, getDirectionLabel } from '@/lib/authStore';
 import { useNotificationStore, selectInboxFor } from '@/lib/notificationStore';
 import { useTranslation } from '@/lib/i18n/I18nContext';
 import type { TranslationKey } from '@/lib/i18n/translations';
@@ -71,9 +71,10 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const roleInfo = user ? ROLES[user.role] : null;
-  const tenantLabel = user ? user.direction : 'DER — Direction Équipement Réseaux';
+  const tenantLabel = user ? getDirectionLabel(user.direction) : 'DER — Direction Équipement Réseaux';
   const initials = user ? user.initials : 'MS';
   const avatarColor = user ? user.avatarColor : '#F39200';
+  const handleLogout = () => { logout(); router.push('/login'); };
 
   /* Alertes système traitées — PERSISTÉES (ne réapparaissent plus à la navigation). */
   const dismissedAlertes = useNotificationStore(s => s.dismissedAlertes);
@@ -208,18 +209,15 @@ export default function Header() {
         )}
       </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
       {/* Search */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 7,
         padding: '5px 11px',
         background: 'rgba(255,255,255,0.10)',
         border: '1px solid rgba(255,255,255,0.18)',
-        borderRadius: 7, width: 200,
+        borderRadius: 7, width: 200, flexShrink: 0,
       }}
-        className="hide-mobile"
+        className="hide-tablet"
       >
         <Search size={12} style={{ color: 'rgba(255,255,255,0.60)', flexShrink: 0 }} />
         <input
@@ -232,9 +230,9 @@ export default function Header() {
       {/* Date */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 5,
-        fontSize: 11, color: 'rgba(255,255,255,0.60)', whiteSpace: 'nowrap',
+        fontSize: 11, color: 'rgba(255,255,255,0.60)', whiteSpace: 'nowrap', flexShrink: 0,
       }}
-        className="hide-mobile"
+        className="hide-tablet"
       >
         <Calendar size={11} />
         <span style={{ textTransform: 'capitalize' }}>{today}</span>
@@ -457,21 +455,51 @@ export default function Header() {
         PROD
       </div>
 
-      {/* Avatar */}
-      <div style={{
-        width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-        background: '#F39200',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, fontWeight: 800, color: '#fff', cursor: 'pointer',
-        boxShadow: '0 2px 6px rgba(243,146,0,0.40)',
-      }}>
-        MS
+      {/* Avatar + menu utilisateur */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div
+          ref={avatarRef}
+          onClick={() => setShowUserMenu(v => !v)}
+          title={user ? `${user.prenom} ${user.nom}` : ''}
+          style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: avatarColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 800, color: '#fff', cursor: 'pointer',
+            boxShadow: `0 2px 6px ${avatarColor}66`,
+          }}>
+          {initials}
+        </div>
+        {showUserMenu && (
+          <div ref={userMenuRef} style={{
+            position: 'absolute', top: 42, right: 0, width: 230, zIndex: 200,
+            background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', border: '1px solid #E5E7EB', overflow: 'hidden',
+          }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid #F3F4F6', display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user ? `${user.prenom} ${user.nom}` : 'Utilisateur'}</div>
+                <div style={{ fontSize: 10, color: roleInfo?.color ?? '#9CA3AF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{roleInfo ? `${roleInfo.icon} ${roleInfo.label}` : ''}</div>
+              </div>
+            </div>
+            <button onClick={() => { router.push('/administration'); setShowUserMenu(false); }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12.5, color: '#374151', fontFamily: 'inherit', textAlign: 'left' }}>
+              <Settings size={14} /> Paramètres
+            </button>
+            <button onClick={handleLogout}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 14px', border: 'none', borderTop: '1px solid #F3F4F6', background: 'none', cursor: 'pointer', fontSize: 12.5, color: '#DC2626', fontWeight: 600, fontFamily: 'inherit', textAlign: 'left' }}>
+              <LogOut size={14} /> Déconnexion
+            </button>
+          </div>
+        )}
       </div>
 
       <style>{`
         @media (max-width: 768px) {
           .header-mobile-spacer { width: 44px !important; }
         }
+        /* Dégradation progressive : on masque les éléments secondaires avant tout débordement. */
+        @media (max-width: 1180px) { .hide-tablet { display: none !important; } }
       `}</style>
     </header>
   );
