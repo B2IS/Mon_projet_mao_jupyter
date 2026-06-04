@@ -1,8 +1,47 @@
 /**
  * aiEngine.ts — Moteur IA Multimodal SIGEPP-DPE
  * Support : texte, image, document (PDF/Word/Excel), audio
- * Prêt pour intégration OpenAI GPT-4o, Claude 3, Gemini, ou modèles locaux
+ * Intégration RÉELLE Microsoft Copilot / Azure OpenAI (si compte lié),
+ * sinon repli sur le moteur heuristique local.
  */
+
+import { getCopilotConfig } from '@/lib/integrationConfigStore';
+
+/** Vrai si l'utilisateur a lié son compte Microsoft Copilot (endpoint + clé). */
+export function isCopilotLinked(): boolean {
+  try {
+    const c = getCopilotConfig();
+    return !!c.enabled && !!c.endpoint && !!c.apiKey;
+  } catch { return false; }
+}
+
+/** Appelle le proxy serveur /api/ai/copilot avec la config du compte lié. */
+async function callCopilotAPI(
+  apiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  opts: { temperature?: number; maxTokens?: number } = {},
+): Promise<string | null> {
+  try {
+    const c = getCopilotConfig();
+    if (!c.enabled || !c.endpoint || !c.apiKey) return null;
+    const res = await fetch('/api/ai/copilot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: apiMessages,
+        endpoint: c.endpoint,
+        deployment: c.deployment,
+        apiKey: c.apiKey,
+        temperature: opts.temperature,
+        maxTokens: opts.maxTokens,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.content === 'string' && data.content.trim() ? data.content : null;
+  } catch {
+    return null; // repli silencieux sur le moteur local
+  }
+}
 
 export type AIModel =
   // Modèles propriétaires (cloud)
@@ -143,27 +182,28 @@ export async function sendMessage(
   } = options;
 
   // Préparer les messages pour l'API
-  const apiMessages = [
+  const apiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
     { role: 'system', content: context ? `${systemPrompt}\n\nContexte métier : ${context}` : systemPrompt },
     ...messages.map(m => ({
       role: m.role,
       content: m.content,
-      // TODO: ajouter les attachments (images, documents) au format API
     })),
   ];
 
-  // TODO: Appel API réel (OpenAI, Anthropic, Google)
-  // Pour l'instant : simulation réaliste avec délai
-  await simulateDelay(800 + Math.random() * 1200);
-
-  const response = generateSmartResponse(messages, options);
+  // 1) Compte Microsoft Copilot lié → appel RÉEL (modèle performant).
+  const copilot = await callCopilotAPI(apiMessages, { temperature, maxTokens });
+  const response = copilot ?? (await (async () => {
+    // 2) Repli : moteur heuristique local (aucun compte lié ou erreur réseau).
+    await simulateDelay(500 + Math.random() * 800);
+    return generateSmartResponse(messages, options);
+  })());
 
   return {
     id: `ai_${Date.now()}`,
     role: 'assistant',
     content: response,
     timestamp: new Date().toISOString(),
-    model,
+    model: copilot ? 'copilot' : model,
     tokensUsed: estimateTokens(response),
   };
 }
@@ -172,10 +212,22 @@ export async function* streamMessage(
   messages: AIMessage[],
   options: AIGenerationOptions = {}
 ): AsyncGenerator<string, void, unknown> {
-  const response = generateSmartResponse(messages, options);
+  const {
+    systemPrompt = SYSTEM_PROMPTS.default,
+    context,
+    temperature = 0.5,
+    maxTokens = 2048,
+  } = options;
+  // Compte Copilot lié → réponse réelle, diffusée mot à mot.
+  const apiMessages = [
+    { role: 'system' as const, content: context ? `${systemPrompt}\n\nContexte métier : ${context}` : systemPrompt },
+    ...messages.map(m => ({ role: m.role, content: m.content })),
+  ];
+  const copilot = await callCopilotAPI(apiMessages, { temperature, maxTokens });
+  const response = copilot ?? generateSmartResponse(messages, options);
   const words = response.split(/(?=[\s\n])/);
   for (const word of words) {
-    await simulateDelay(15 + Math.random() * 25);
+    await simulateDelay(copilot ? 8 : 15 + Math.random() * 25);
     yield word;
   }
 }

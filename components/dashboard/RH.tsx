@@ -11,6 +11,9 @@ import {
 import { downloadExcel } from '@/lib/exportUtils';
 import { useProjectStore, type Ressource, type TypeRessource, DOMAINE_CFG } from '@/lib/projectStore';
 import { PERSONNEL_DPE, EFFECTIF_TOTAL, effectifParDirection, effectifParCollege, effectifParSexe, ORG_DPE, ORG_DPE_RACINE, agentsUnite, responsableUnite, deptOf } from '@/lib/dpePersonnel';
+import { useAuth } from '@/lib/authStore';
+import { computeVisibilityScope, type UserOrgProfile } from '@/lib/accessEngine';
+import { canonDirectionKey } from '@/lib/dpeOrgStructure';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -100,6 +103,7 @@ const EMPTY_FORM: RessourceForm = {
 
 export default function RH() {
   const store = useProjectStore();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
 
   // ── Annuaire state ──
@@ -153,12 +157,38 @@ export default function RH() {
   const parDir = effectifParDirection;
   const parCollege = effectifParCollege;
   const parSexe = effectifParSexe;
-  const personnelFiltre = useMemo(() => PERSONNEL_DPE.filter(a => {
+  // ── Périmètre MMH : un profil ne voit que le personnel de SA direction ────────
+  // (UAGL DER ne voit plus tout le monde, mais uniquement les agents de la DER).
+  // Les rôles RH-globaux (DIR_DPE, PMO, ADMIN, CSE) conservent la vue complète.
+  const perimetreDirs = useMemo(() => {
+    if (!user) return null;
+    const profile: UserOrgProfile = { role: user.role, direction: user.direction, departement: user.departement, cellule: user.cellule, poste: user.poste };
+    const s = computeVisibilityScope(profile);
+    if (s.all || s.directions.includes('*')) return null; // vue globale
+    return new Set(s.directions.map(d => canonDirectionKey(d)));
+  }, [user]);
+  const personnelPerimetre = useMemo(
+    () => perimetreDirs ? PERSONNEL_DPE.filter(a => perimetreDirs.has(canonDirectionKey(a.direction))) : PERSONNEL_DPE,
+    [perimetreDirs],
+  );
+  // Agrégats recalculés sur le périmètre (cohérence des compteurs avec la liste).
+  const effectifScoped = personnelPerimetre.length;
+  const parDirScoped = useMemo(() => {
+    const m: Record<string, number> = {};
+    personnelPerimetre.forEach(a => { m[a.direction] = (m[a.direction] ?? 0) + 1; });
+    return m;
+  }, [personnelPerimetre]);
+  const parSexeScoped = useMemo(() => {
+    const m: Record<string, number> = {};
+    personnelPerimetre.forEach(a => { const k = a.sexe === 'F' || a.sexe === 'Femmes' ? 'Femmes' : 'Hommes'; m[k] = (m[k] ?? 0) + 1; });
+    return m;
+  }, [personnelPerimetre]);
+  const personnelFiltre = useMemo(() => personnelPerimetre.filter(a => {
     const okDir = effDir === 'Toutes' || a.direction === effDir;
     const q = effSearch.trim().toLowerCase();
     const okQ = !q || `${a.prenom} ${a.nom} ${a.poste} ${a.mle} ${a.fonction}`.toLowerCase().includes(q);
     return okDir && okQ;
-  }), [effSearch, effDir]);
+  }), [personnelPerimetre, effSearch, effDir]);
   const exportEffectifCSV = () => {
     downloadExcel('effectif_dpe', {
       sheetName: 'Effectif',
@@ -1089,10 +1119,10 @@ export default function RH() {
           {/* KPI effectif */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
             {[
-              { label: 'Effectif total DPE', value: EFFECTIF_TOTAL, sub: 'au 10/03/2026', color: NAVY },
+              { label: perimetreDirs ? 'Effectif (mon périmètre)' : 'Effectif total DPE', value: effectifScoped, sub: 'au 10/03/2026', color: NAVY },
               { label: 'Cadres', value: parCollege['Cadre'] ?? 0, sub: `${parCollege['Maitrise'] ?? 0} maîtrise · ${parCollege['Exécutif'] ?? parCollege['Executif'] ?? 0} exécutif`, color: '#7C3AED' },
-              { label: 'Hommes / Femmes', value: `${parSexe['Hommes'] ?? 0} / ${parSexe['Femmes'] ?? 0}`, sub: `${Math.round(((parSexe['Femmes'] ?? 0) / EFFECTIF_TOTAL) * 100)}% de femmes`, color: ORANGE },
-              { label: 'Directions / Unités', value: Object.keys(parDir).length, sub: 'EM, DER, DGC, DEP, DIT…', color: GREEN },
+              { label: 'Hommes / Femmes', value: `${parSexeScoped['Hommes'] ?? 0} / ${parSexeScoped['Femmes'] ?? 0}`, sub: `${Math.round(((parSexeScoped['Femmes'] ?? 0) / Math.max(effectifScoped, 1)) * 100)}% de femmes`, color: ORANGE },
+              { label: 'Directions / Unités', value: Object.keys(parDirScoped).length, sub: 'périmètre visible', color: GREEN },
             ].map(k => (
               <div key={k.label} style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', borderTop: `3px solid ${k.color}`, padding: '14px 16px' }}>
                 <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{k.label}</div>
@@ -1159,11 +1189,11 @@ export default function RH() {
           <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: '14px 16px' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>Effectif par direction / unité</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {Object.entries(parDir).sort((a, b) => b[1] - a[1]).map(([dir, n]) => (
+              {Object.entries(parDirScoped).sort((a, b) => b[1] - a[1]).map(([dir, n]) => (
                 <div key={dir} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: '#F8FAFC', border: '1px solid #F1F5F9' }}>
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: NAVY }}>{dir}</span>
                   <span style={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>{n}</span>
-                  <span style={{ fontSize: 10, color: '#94A3B8' }}>{Math.round((n / EFFECTIF_TOTAL) * 100)}%</span>
+                  <span style={{ fontSize: 10, color: '#94A3B8' }}>{Math.round((n / Math.max(effectifScoped, 1)) * 100)}%</span>
                 </div>
               ))}
             </div>
@@ -1175,7 +1205,7 @@ export default function RH() {
               <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', flex: 1 }}>Annuaire du personnel ({personnelFiltre.length})</div>
               <select value={effDir} onChange={e => setEffDir(e.target.value)} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 12, fontFamily: 'inherit' }}>
                 <option value="Toutes">Toutes directions</option>
-                {Object.keys(parDir).map(d => <option key={d} value={d}>{d} ({parDir[d]})</option>)}
+                {Object.keys(parDirScoped).map(d => <option key={d} value={d}>{d} ({parDirScoped[d]})</option>)}
               </select>
               <input value={effSearch} onChange={e => setEffSearch(e.target.value)} placeholder="Rechercher nom, poste, matricule…" style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 12, width: 240, fontFamily: 'inherit' }} />
               <button onClick={exportEffectifCSV} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Exporter CSV</button>
