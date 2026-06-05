@@ -8,6 +8,7 @@ import {
   ThumbsUp, ThumbsDown, GitBranch, Archive, RefreshCw, Lock, Unlock, Edit2, Save,
 } from 'lucide-react';
 import { logAudit, type AuditType } from '@/lib/auditStore';
+import DocumentAnnotator, { type AnnotatedDoc } from '@/components/ui/DocumentAnnotator';
 import { useParapheurStore, type ParapheurDossier } from '@/lib/parapheurStore';
 import { useAuth } from '@/lib/authStore';
 import toast from 'react-hot-toast';
@@ -373,6 +374,13 @@ export default function GED() {
   const [expanded, setExpanded] = useState<string[]>(['Études']);
   const [showUpload, setShowUpload] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<string | null>(null);
+  const [annotDoc, setAnnotDoc] = useState<AnnotatedDoc | null>(null);
+  /** Ouvre un document (chargé ou de référence) dans l'annotateur (surligner, commenter…). */
+  const annoter = useCallback((d: Document) => {
+    const ext = (d.fileExt || (d.type === 'PDF' ? 'pdf' : d.type === 'Image' ? 'png' : d.type === 'Excel' ? 'xlsx' : d.type === 'Word' ? 'docx' : 'pdf')).toLowerCase();
+    setAnnotDoc({ nom: d.nom, ext, taille: d.taille, url: d.fileUrl });
+    gedAudit('Ouverture annotation document', d.nom);
+  }, []);
   const [editDoc, setEditDoc] = useState<Document | null>(null);
 
   /** Enregistre les modifications de métadonnées d'un document (modifiable). */
@@ -653,6 +661,7 @@ export default function GED() {
                         <td>
                           <div style={{ display: 'flex', gap: 3 }}>
                             <button className="btn btn-ghost btn-xs" title="Visualiser" onClick={() => setViewerDoc(d.id)}><Eye size={10} /></button>
+                            <button className="btn btn-ghost btn-xs" title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /></button>
                             <button className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
                             <button className="btn btn-ghost btn-xs" title="Télécharger" onClick={() => {
                               const a = document.createElement('a');
@@ -696,7 +705,8 @@ export default function GED() {
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => setViewerDoc(d.id)}><Eye size={10} /> Voir</button>
-                        <button className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
+                        <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /> Annoter</button>
+                        <button className="btn btn-ghost btn-xs" title="Modifier les métadonnées" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => {
                           const a = document.createElement('a');
                           if (d.fileUrl) { a.href = d.fileUrl; a.download = d.nom; }
@@ -862,6 +872,9 @@ export default function GED() {
       })()}
 
       {/* Visualiseur de document */}
+      {/* Annotateur in-app (surligner, commenter, note, stylo) sur documents chargés */}
+      {annotDoc && <DocumentAnnotator doc={annotDoc} onClose={() => setAnnotDoc(null)} />}
+
       {viewerDoc && (() => {
         const doc = docs.find(d => d.id === viewerDoc);
         if (!doc) return null;
