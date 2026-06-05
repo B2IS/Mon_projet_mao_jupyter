@@ -2515,12 +2515,12 @@ export default function CockpitProjet() {
           <div style={{
             background: 'linear-gradient(135deg, #2D1167 0%, #3D1A6B 100%)',
             borderRadius: 12, padding: '20px 24px',
-            display: 'flex', alignItems: 'flex-start', gap: 20,
+            display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
           }}>
             <div style={{ width: 56, height: 56, borderRadius: 12, background: `${DOMAINE_CFG[projet.domaine as Domaine]?.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
               {DOMAINE_CFG[projet.domaine as Domaine]?.emoji ?? '🏗'}
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 240 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>{projet.nom}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.90)' }}>{projet.code}</span>

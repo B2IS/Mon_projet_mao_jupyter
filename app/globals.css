@@ -951,8 +951,14 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
   [style*="grid-template-columns:"][style*="400px"] {
     grid-template-columns: 1fr !important;
   }
-  /* Les enfants de grille/flex peuvent rétrécir (sinon ils forcent le débordement). */
-  [style*="display: grid"] > *, [style*="display: flex"] > * { min-width: 0; }
+  /* Les enfants de grille peuvent rétrécir (sinon ils forcent le débordement). */
+  [style*="display: grid"] > * { min-width: 0; }
+
+  /* Bannières / barres « contenu (flex:1) + actions » : sur mobile, les blocs
+     passent à la ligne (les actions descendent sous le titre qui prend toute la
+     largeur), au lieu de comprimer le titre en colonne étroite et haute.
+     Ciblé sur les conteneurs flex HORIZONTAUX (on exclut flex-direction:column). */
+  div[style*="display: flex"]:not([style*="flex-direction: column"]) { flex-wrap: wrap; }
 
   /* ── Anti-débordement & barres d'outils mobiles (TOUTES les pages) ──
      1) jamais de scroll horizontal de page ;
