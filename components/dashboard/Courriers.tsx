@@ -12,6 +12,7 @@ import { useNotificationStore } from '@/lib/notificationStore';
 import { TEST_USERS } from '@/lib/authStore';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import CreateWorkflowModal, { type WorkflowSource } from '@/components/ui/CreateWorkflowModal';
+import DocumentAnnotator from '@/components/ui/DocumentAnnotator';
 
 /** Annuaire DPE (profils réels + e-mails) pour imputer un courrier au bon agent. */
 const ANNUAIRE_DPE = (() => {
@@ -30,6 +31,9 @@ type PrioriteCourrier = 'URGENT' | 'NORMAL' | 'INFO';
 type StatutEntrant   = 'À QUALIFIER' | 'QUALIFIÉ' | 'DIFFUSÉ';
 type StatutSortant   = 'Brouillon' | 'En attente signature' | 'Envoyé' | 'Accusé réception';
 
+/** Pièce jointe RÉELLE d'un courrier (fichier en base64) — annotable + circulable. */
+export interface CourrierPiece { nom: string; ext: string; url: string; taille: string }
+
 interface CourrierEntrant {
   id: string;
   num: string;
@@ -39,10 +43,19 @@ interface CourrierEntrant {
   priorite: PrioriteCourrier;
   statut: StatutEntrant;
   pieceJointe: boolean;
+  pieces?: CourrierPiece[];   // documents réels joints (base64) — annotation + workflow
   impute?: string;        // nom du profil chargé du traitement
   imputeEmail?: string;   // e-mail du profil (notification réelle)
   imputeNotes?: string;   // instructions de traitement
 }
+
+const extFromName = (name: string): string => {
+  const e = (name.split('.').pop() ?? 'pdf').toLowerCase();
+  return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(e) ? 'png'
+    : ['doc', 'docx'].includes(e) ? 'docx'
+    : ['xls', 'xlsx', 'csv'].includes(e) ? 'xlsx'
+    : ['dwg', 'dxf', 'dgn'].includes(e) ? 'dwg' : e === 'pdf' ? 'pdf' : 'pdf';
+};
 
 interface CourrierSortant {
   id: string;
@@ -195,7 +208,7 @@ function QualifierPanel({ courrier, onClose, onConfirm }: {
 export interface NouveauCourrierData {
   sens: 'entrant' | 'sortant' | 'ano';
   tiers: string; objet: string; priorite: PrioriteCourrier;
-  typeAno: string; sla: number; files: string[];
+  typeAno: string; sla: number; files: CourrierPiece[];
 }
 function NouveauCourrierModal({ sens, onClose, onCreate }: {
   sens: 'entrant' | 'sortant' | 'ano';
@@ -207,7 +220,7 @@ function NouveauCourrierModal({ sens, onClose, onCreate }: {
   const [priorite, setPriorite] = useState<PrioriteCourrier>('NORMAL');
   const [typeAno, setTypeAno] = useState('Passation Marché');
   const [sla, setSla] = useState(21);
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<CourrierPiece[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const titre = sens === 'entrant' ? 'Nouveau courrier entrant'
@@ -220,9 +233,12 @@ function NouveauCourrierModal({ sens, onClose, onCreate }: {
   const onFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fs = e.target.files; if (!fs || !fs.length) return;
     Array.from(fs).forEach(f => {
+      const sizeKb = f.size / 1024;
+      const taille = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} Mo` : `${Math.round(sizeKb)} Ko`;
       const r = new FileReader();
-      r.onload = () => setFiles(p => [...p, f.name]);
-      r.onerror = () => setFiles(p => [...p, f.name]);
+      const add = (url: string) => setFiles(p => [...p, { nom: f.name, ext: extFromName(f.name), url, taille }]);
+      r.onload = () => add(typeof r.result === 'string' ? r.result : URL.createObjectURL(f));
+      r.onerror = () => add(URL.createObjectURL(f));
       r.readAsDataURL(f);
     });
     e.target.value = '';
@@ -280,7 +296,7 @@ function NouveauCourrierModal({ sens, onClose, onCreate }: {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
             {files.map((f, i) => (
               <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, background: '#F1F5F9', color: '#334155', borderRadius: 6, padding: '3px 8px' }}>
-                <FileText size={11} /> {f}
+                <FileText size={11} /> {f.nom}
                 <X size={10} style={{ cursor: 'pointer' }} onClick={() => setFiles(p => p.filter((_, j) => j !== i))} />
               </span>
             ))}
@@ -323,16 +339,20 @@ export default function Courriers() {
   const [anos, setAnos] = useState<ANO[]>(ANOS);
   const [newCourrier, setNewCourrier] = useState<null | 'entrant' | 'sortant' | 'ano'>(null);
   const [wfSource, setWfSource] = useState<WorkflowSource | null>(null);
-  // Ouvre le constructeur de workflow (destinataires + rôles) sur un courrier.
+  const [annotPiece, setAnnotPiece] = useState<CourrierPiece | null>(null);
+  // Ouvre le constructeur de workflow (destinataires + rôles) sur un courrier,
+  // en transmettant les VRAIES pièces jointes (fichiers réels) au circuit.
   const ouvrirWorkflow = (c: CourrierEntrant) => setWfSource({
     titre: c.objet, reference: c.num, type: 'courrier', soumetteur: c.expediteur,
-    piecesJointes: c.pieceJointe ? [{ nom: `${c.num}.pdf`, taille: '—', ext: 'pdf' }] : [],
+    piecesJointes: (c.pieces && c.pieces.length)
+      ? c.pieces.map(p => ({ nom: p.nom, taille: p.taille, ext: (['pdf', 'docx', 'xlsx', 'png', 'dwg'].includes(p.ext) ? p.ext : 'pdf') as 'pdf', url: p.url }))
+      : (c.pieceJointe ? [{ nom: `${c.num}.pdf`, taille: '—', ext: 'pdf' }] : []),
   });
 
   const makeNum = (prefix: string) => `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
   const creerCourrier = (d: NouveauCourrierData) => {
     if (d.sens === 'entrant') {
-      setEntrants(prev => [{ id: `e${Date.now()}`, num: makeNum('ENT'), expediteur: d.tiers, objet: d.objet, recu: new Date().toLocaleString('fr-FR'), priorite: d.priorite, statut: 'À QUALIFIER', pieceJointe: d.files.length > 0 }, ...prev]);
+      setEntrants(prev => [{ id: `e${Date.now()}`, num: makeNum('ENT'), expediteur: d.tiers, objet: d.objet, recu: new Date().toLocaleString('fr-FR'), priorite: d.priorite, statut: 'À QUALIFIER', pieceJointe: d.files.length > 0, pieces: d.files }, ...prev]);
       setTab('entrants');
     } else if (d.sens === 'sortant') {
       setSortants(prev => [{ id: `s${Date.now()}`, num: makeNum('SOR'), destinataire: d.tiers, objet: d.objet, date: new Date().toLocaleDateString('fr-FR'), statut: 'Brouillon' }, ...prev]);
@@ -541,6 +561,13 @@ export default function Courriers() {
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-ghost btn-xs" onClick={() => setDetailItem({ type: 'entrant', item: c })}><Eye size={10} /> Ouvrir</button>
+                        {c.pieces && c.pieces.length > 0 && (
+                          <button className="btn btn-xs" title="Annoter / commenter la pièce jointe"
+                            style={{ background: 'rgba(243,146,0,0.10)', color: 'var(--orange)', border: '1px solid rgba(243,146,0,0.3)' }}
+                            onClick={() => setAnnotPiece(c.pieces![0])}>
+                            <FileText size={10} /> Annoter
+                          </button>
+                        )}
                         <button className="btn btn-xs" title="Créer un workflow (destinataires + rôles) à partir de ce courrier"
                           style={{ background: 'rgba(124,58,237,0.10)', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.3)' }}
                           onClick={() => ouvrirWorkflow(c)}>
@@ -691,6 +718,7 @@ export default function Courriers() {
       {/* Panel qualifier */}
       {qualifierCourrier && <QualifierPanel courrier={qualifierCourrier} onClose={() => setQualifierCourrier(null)} onConfirm={qualifierDiffuser} />}
       {wfSource && <CreateWorkflowModal source={wfSource} onClose={() => setWfSource(null)} onCreated={() => router.push('/workflows')} />}
+      {annotPiece && <DocumentAnnotator doc={{ nom: annotPiece.nom, ext: annotPiece.ext, taille: annotPiece.taille, url: annotPiece.url }} onClose={() => setAnnotPiece(null)} />}
 
       {/* Panel détail */}
       {detailItem && (
