@@ -891,10 +891,25 @@ img, svg, video, canvas, iframe { max-width: 100%; }
   .flex-wrap-mobile { flex-wrap: wrap !important; }
   .grid-cols-4-mobile-2 { grid-template-columns: repeat(2, 1fr) !important; }
   .grid-cols-3-mobile-1 { grid-template-columns: 1fr !important; }
+
+  /* ── Anti-débordement & barres d'outils mobiles (TOUTES les pages) ──
+     1) jamais de scroll horizontal de page ;
+     2) les libellés d'UI ne se coupent PAS lettre par lettre (le filet
+        `overflow-wrap:anywhere` est neutralisé pour les contrôles) ;
+     3) les en-têtes/toolbars (flex « space-between ») passent à la ligne
+        au lieu de comprimer les boutons jusqu'au texte vertical. */
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  .app-main, .page-body, .page-content { overflow-x: hidden; min-width: 0; max-width: 100vw; }
+  button, h1, h2, h3, h4, .tab, .card-title, select { overflow-wrap: normal; word-break: keep-all; white-space: normal; }
+  [style*="justify-content: space-between"] { flex-wrap: wrap; row-gap: 8px; }
+  [style*="justify-content: space-between"] > div[style*="display: flex"] { flex-wrap: wrap; }
+  /* groupes de boutons d'action : restent lisibles, défilent si besoin */
+  [style*="display: flex"][style*="gap"] { max-width: 100%; }
 }
 @media (max-width: 480px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .page-content { padding: 8px; }
+  h1 { font-size: 17px !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

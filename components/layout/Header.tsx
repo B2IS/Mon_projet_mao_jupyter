@@ -5,6 +5,7 @@ import { Bell, Search, Calendar, ChevronDown, X, AlertTriangle, Clock, CheckCirc
 import { ALERTES_WORKFLOW } from '@/lib/data';
 import { useAuth, ROLES, getDirectionLabel } from '@/lib/authStore';
 import { useNotificationStore, selectInboxFor } from '@/lib/notificationStore';
+import { useParapheurStore } from '@/lib/parapheurStore';
 import { useTranslation } from '@/lib/i18n/I18nContext';
 import type { TranslationKey } from '@/lib/i18n/translations';
 
@@ -90,7 +91,31 @@ export default function Header() {
   const removeInbox = useNotificationStore(s => s.removeInbox);
   const myInbox = selectInboxFor(inbox, user?.email);
   const unreadInbox = myInbox.filter(n => !n.read).length;
-  const newAlertes = activeAlertes.length + unreadInbox;
+
+  /* ── Pastilles « vues » : la cloche et le parapheur se vident à l'ouverture
+        et ne réapparaissent que sur un NOUVEL élément (persisté). ── */
+  const [alertesSeen, setAlertesSeen] = useState(false);
+  const [parapheurSeen, setParapheurSeen] = useState(0);
+  useEffect(() => {
+    try { const v = JSON.parse(localStorage.getItem('sigepp_badge_seen') || '{}'); setAlertesSeen(!!v.alertes); setParapheurSeen(Number(v.parapheur) || 0); } catch { /* ignore */ }
+  }, []);
+  const persistSeen = (patch: { alertes?: boolean; parapheur?: number }) => {
+    const v = { alertes: alertesSeen, parapheur: parapheurSeen, ...patch };
+    try { localStorage.setItem('sigepp_badge_seen', JSON.stringify(v)); } catch { /* ignore */ }
+  };
+  // Parapheur : nombre de dossiers réellement EN ATTENTE (créés via courrier/GED/etc.).
+  const pendingParapheur = useParapheurStore(s => s.dossiers.filter(d => d.statut === 'en_attente').length);
+  const parapheurBadge = Math.max(0, pendingParapheur - parapheurSeen);
+  const newAlertes = (alertesSeen ? 0 : activeAlertes.length) + unreadInbox;
+
+  // Ouverture de la cloche → marque l'inbox lu + pastille d'alertes vue.
+  const openBell = () => {
+    const willOpen = !showNotifs;
+    setShowNotifs(willOpen);
+    if (willOpen) { markAllInboxRead(user?.email); setAlertesSeen(true); persistSeen({ alertes: true }); }
+  };
+  // Clic parapheur → on note le niveau vu (la pastille ne revient que sur un nouveau dossier).
+  const openParapheur = () => { setParapheurSeen(pendingParapheur); persistSeen({ parapheur: pendingParapheur }); router.push('/workflows'); };
 
   const openInboxItem = (n: { id: string; link?: string }) => {
     markInboxRead(n.id);
@@ -240,8 +265,8 @@ export default function Header() {
 
       {/* Parapheur / Centre de validation */}
       <button
-        onClick={() => router.push('/workflows')}
-        title="Centre de Validation — 8 documents en attente"
+        onClick={openParapheur}
+        title={`Centre de Validation — ${pendingParapheur} document(s) en attente`}
         style={{
           position: 'relative',
           background: 'rgba(255,255,255,0.10)',
@@ -253,22 +278,24 @@ export default function Header() {
         }}
       >
         <Stamp size={15} />
-        <span style={{
-          position: 'absolute', top: -5, right: -5,
-          minWidth: 17, height: 17, borderRadius: 9,
-          background: '#F47920',
-          fontSize: 9, fontWeight: 800, color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '2px solid #0E3460',
-          padding: '0 3px',
-        }}>8</span>
+        {parapheurBadge > 0 && (
+          <span style={{
+            position: 'absolute', top: -5, right: -5,
+            minWidth: 17, height: 17, borderRadius: 9,
+            background: '#F47920',
+            fontSize: 9, fontWeight: 800, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid #0E3460',
+            padding: '0 3px',
+          }}>{parapheurBadge}</span>
+        )}
       </button>
 
       {/* Notifications */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <button
           ref={bellRef}
-          onClick={() => setShowNotifs(v => !v)}
+          onClick={openBell}
           style={{
             position: 'relative',
             background: showNotifs ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.10)',
