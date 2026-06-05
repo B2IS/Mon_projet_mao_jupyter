@@ -1051,7 +1051,20 @@ export function useScopeDomaines(): Domaine[] {
       role: user.role, direction: user.direction,
       departement: user.departement, cellule: user.cellule, poste: user.poste,
     });
-    if (scope.all || scope.domaines.includes('*') || scope.domaines.length === 0) return ALL_DOMAINES;
+    if (scope.all || scope.domaines.includes('*')) return ALL_DOMAINES;
+    // Profil RESTREINT à un département (DPD, DPT, DEP_*, DGC_*, DIT_*) : la portée
+    // domaine a été neutralisée → on déduit le domaine MÉTIER du département, sinon
+    // un chef DPD verrait à tort TOUS les domaines (budget, KPI, indicateurs…).
+    if (scope.domaines.length === 0) {
+      const DEPT_DOMAINE: Record<string, Domaine> = {
+        DPD_DISTRIBUTION: 'distribution', DPT_TRANSPORT: 'transport',
+        DEP_PEC: 'production', DEP_PER: 'production',
+        DGC_ETUDES: 'genie_civil', DGC_INVEST: 'genie_civil',
+        DIT_COMMERCIAL: 'commercial',
+      };
+      const d = user.departement ? DEPT_DOMAINE[user.departement] : undefined;
+      return d ? [d] : ALL_DOMAINES;
+    }
     const wanted = scope.domaines.map(d => d.toLowerCase());
     const filtered = ALL_DOMAINES.filter(d => wanted.some(w => w === d || d.includes(w) || w.includes(d)));
     return filtered.length > 0 ? filtered : ALL_DOMAINES;
