@@ -207,7 +207,12 @@ function LoginInner() {
             background: '#fff', borderRadius: 18, padding: '32px 28px 24px',
             boxShadow: '0 32px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06)',
           }}>
-            {/* Header card (sans logo, à la demande) */}
+            {/* Logo SENELEC — affiché en haut de la carte quand le panneau gauche
+                est masqué (mobile / tablette), pour garder l'identité visuelle. */}
+            <div className="login-card-logo" style={{ display: 'none', justifyContent: 'center', marginBottom: 18 }}>
+              <SenelecLogo size={120} />
+            </div>
+            {/* Header card */}
             <div style={{ marginBottom: 22 }}>
               <h2 style={{ fontSize: 17, fontWeight: 800, color: '#3D1A6B', margin: 0 }}>Connexion</h2>
               <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>
@@ -412,7 +417,12 @@ function LoginInner() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .login-left { display: flex; }
-        @media (max-width: 820px) { .login-left { display: none !important; } }
+        .login-card-logo { display: none; }
+        @media (max-width: 820px) {
+          .login-left { display: none !important; }
+          /* Le panneau gauche (logo) est masqué → on affiche le logo dans la carte. */
+          .login-card-logo { display: flex !important; }
+        }
       `}</style>
     </div>
   );
