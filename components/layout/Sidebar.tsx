@@ -562,7 +562,7 @@ export default function Sidebar() {
 
       {/* ═══════ PANEL DROIT — navigation contextuelle ═══════ */}
       <div style={{
-        width: navExpanded ? 208 : 0,
+        width: navExpanded ? 240 : 0,
         flexShrink: 0,
         overflow: 'hidden',
         transition: 'width 0.22s cubic-bezier(.4,0,.2,1)',
@@ -573,7 +573,7 @@ export default function Sidebar() {
         <div style={{
           height: 'var(--header-h)', padding: '0 12px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderBottom: '1px solid var(--border)', flexShrink: 0, minWidth: 208,
+          borderBottom: '1px solid var(--border)', flexShrink: 0, minWidth: 240,
         }}>
           <Link href="/tableau-de-bord" style={{ textDecoration: 'none' }}>
             <SenelecMarkFull />
@@ -593,7 +593,7 @@ export default function Sidebar() {
 
         {/* Section label */}
         <div style={{
-          padding: '10px 14px 6px', minWidth: 208, flexShrink: 0,
+          padding: '10px 14px 6px', minWidth: 240, flexShrink: 0,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <div style={{
@@ -601,9 +601,9 @@ export default function Sidebar() {
             background: '#F47920', flexShrink: 0,
           }} />
           <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+            fontSize: 'clamp(9.5px, 0.9vw, 10.5px)', fontWeight: 700, letterSpacing: '0.06em',
             textTransform: 'uppercase', color: '#64748B',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            lineHeight: 1.25, overflowWrap: 'break-word',
           }}>
             {getSectionLabel(activeSection, role, t)}
           </span>
@@ -612,7 +612,7 @@ export default function Sidebar() {
         {/* Nav items */}
         <nav style={{
           flex: 1, overflowY: 'auto', overflowX: 'hidden',
-          padding: '2px 0 10px', minWidth: 208,
+          padding: '2px 0 10px', minWidth: 240,
         }}>
           {visibleItems.map(item => {
             const Icon = item.icon;
@@ -636,11 +636,11 @@ export default function Sidebar() {
               >
                 <div
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 9,
+                    display: 'flex', alignItems: 'flex-start', gap: 9,
                     margin: '1px 8px', padding: '8px 10px', borderRadius: 7,
                     borderLeft: isActive ? '3px solid #F47920' : '3px solid transparent',
                     background: isActive ? '#F3EBF9' : 'transparent',
-                    cursor: 'pointer', transition: 'background 0.1s', whiteSpace: 'nowrap',
+                    cursor: 'pointer', transition: 'background 0.1s',
                   }}
                   onMouseEnter={e => {
                     if (!isActive) (e.currentTarget as HTMLDivElement).style.background = '#F8FAFC';
@@ -649,13 +649,12 @@ export default function Sidebar() {
                     if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent';
                   }}
                 >
-                  <Icon size={14} style={{ color: isActive ? '#3D1A6B' : '#94A3B8', flexShrink: 0 }} />
+                  <Icon size={14} style={{ color: isActive ? '#3D1A6B' : '#94A3B8', flexShrink: 0, marginTop: 1 }} />
                   <span style={{
-                    flex: 1, fontSize: 13,
+                    flex: 1, minWidth: 0, fontSize: 'clamp(12px, 1.05vw, 13.5px)',
                     fontWeight: isActive ? 700 : 400,
                     color: isActive ? '#3D1A6B' : '#374151',
-                    overflow: 'hidden', textOverflow: 'ellipsis',
-                    lineHeight: 1.3,
+                    lineHeight: 1.3, overflowWrap: 'break-word', whiteSpace: 'normal',
                   }}>
                     {label}
                   </span>
@@ -677,7 +676,7 @@ export default function Sidebar() {
 
         {/* Utilisateur — cliquer pour CHANGER DE PROFIL */}
         <div style={{
-          padding: '8px', minWidth: 208, position: 'relative',
+          padding: '8px', minWidth: 240, position: 'relative',
           borderTop: '1px solid var(--border)',
           background: '#FAFBFD', flexShrink: 0,
         }}>
