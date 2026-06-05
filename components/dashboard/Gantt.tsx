@@ -131,31 +131,78 @@ function cascadeRetroplan(tasks: GanttTask[], movedId: string, deltaDays: number
   });
 }
 
-/** Simple critical path via longest path (no resource leveling) */
-function computeCriticalIds(tasks: GanttTask[]): Set<string> {
-  if (tasks.length === 0) return new Set();
-  const idToTask = new Map(tasks.map(t => [t.id, t]));
-  // forward pass — earliest finish
-  const EF = new Map<string, number>();
-  const getEF = (id: string): number => {
+/**
+ * CPM (Critical Path Method) — niveau Primavera P6 / MS Project.
+ * Passe AVANT (ES/EF) + passe ARRIÈRE (LS/LF) sur les tâches feuilles, gère les
+ * 4 types de liens (FS, SS, FF, SF) + décalages (lag), calcule la marge totale et
+ * retourne le chemin critique = tâches de marge ≤ 0. Unité : jours.
+ */
+function computeCPM(tasks: GanttTask[]): { critical: Set<string>; totalFloat: Map<string, number> } {
+  const leaves = tasks.filter(t => t.type !== 'summary');
+  const empty = { critical: new Set<string>(), totalFloat: new Map<string, number>() };
+  if (!leaves.length) return empty;
+  const byId = new Map(leaves.map(t => [t.id, t]));
+  const dur = (t: GanttTask) => Math.max(t.type === 'milestone' ? 0 : 1, Math.round(t.duration || 0));
+  const ES = new Map<string, number>(), EF = new Map<string, number>();
+  const fwd = (id: string, stack = new Set<string>()): number => {
     if (EF.has(id)) return EF.get(id)!;
-    const t = idToTask.get(id);
-    if (!t) return 0;
-    const predEF = t.predecessors
-      .filter(p => p.type === 'FS')
-      .reduce((max, p) => Math.max(max, getEF(p.id) + p.lag), 0);
-    const ef = predEF + t.duration;
-    EF.set(id, ef);
-    return ef;
+    if (stack.has(id)) return 0;
+    stack.add(id);
+    const t = byId.get(id); if (!t) return 0;
+    let es = 0;
+    for (const p of t.predecessors) {
+      if (!byId.has(p.id)) continue;
+      fwd(p.id, stack);
+      const pes = ES.get(p.id) ?? 0, pef = EF.get(p.id) ?? 0, lag = p.lag || 0;
+      const cand = p.type === 'SS' ? pes + lag
+        : p.type === 'FF' ? pef + lag - dur(t)
+        : p.type === 'SF' ? pes + lag - dur(t)
+        : pef + lag; // FS
+      es = Math.max(es, cand);
+    }
+    ES.set(id, es); EF.set(id, es + dur(t));
+    return EF.get(id)!;
   };
-  tasks.forEach(t => getEF(t.id));
-  const projectEnd = Math.max(...Array.from(EF.values()));
-  const critical = new Set<string>();
-  tasks.forEach(t => {
-    if ((EF.get(t.id) ?? 0) === projectEnd) critical.add(t.id);
+  leaves.forEach(t => fwd(t.id));
+  const projectEnd = Math.max(0, ...leaves.map(t => EF.get(t.id) ?? 0));
+  // successeurs
+  const succ = new Map<string, { id: string; type: LinkType; lag: number }[]>();
+  leaves.forEach(t => t.predecessors.forEach(p => {
+    if (!byId.has(p.id)) return;
+    if (!succ.has(p.id)) succ.set(p.id, []);
+    succ.get(p.id)!.push({ id: t.id, type: p.type, lag: p.lag || 0 });
+  }));
+  const LF = new Map<string, number>(), LS = new Map<string, number>();
+  const bwd = (id: string, stack = new Set<string>()): number => {
+    if (LF.has(id)) return LF.get(id)!;
+    if (stack.has(id)) return projectEnd;
+    stack.add(id);
+    const t = byId.get(id); if (!t) return projectEnd;
+    const ss = succ.get(id) ?? [];
+    let lf = ss.length ? Infinity : projectEnd;
+    for (const s of ss) {
+      bwd(s.id, stack);
+      const sls = LS.get(s.id) ?? projectEnd, slf = LF.get(s.id) ?? projectEnd, lag = s.lag || 0;
+      const cand = s.type === 'SS' ? sls - lag + dur(t)
+        : s.type === 'FF' ? slf - lag
+        : s.type === 'SF' ? slf - lag + dur(t)
+        : sls - lag; // FS
+      lf = Math.min(lf, cand);
+    }
+    if (!isFinite(lf)) lf = projectEnd;
+    LF.set(id, lf); LS.set(id, lf - dur(t));
+    return lf;
+  };
+  leaves.forEach(t => bwd(t.id));
+  const critical = new Set<string>(); const totalFloat = new Map<string, number>();
+  leaves.forEach(t => {
+    const tf = (LS.get(t.id) ?? 0) - (ES.get(t.id) ?? 0);
+    totalFloat.set(t.id, tf);
+    if (tf <= 0) critical.add(t.id);
   });
-  return critical;
+  return { critical, totalFloat };
 }
+function computeCriticalIds(tasks: GanttTask[]): Set<string> { return computeCPM(tasks).critical; }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    STORE → GANTT TASK CONVERTER
@@ -450,7 +497,8 @@ export default function Gantt() {
     else setLocalTasks([]);
   }, [activeProjet]);
 
-  const criticalIds  = useMemo(() => computeCriticalIds(localTasks), [localTasks]);
+  const cpm          = useMemo(() => computeCPM(localTasks), [localTasks]);
+  const criticalIds  = cpm.critical;
   const ppd          = PX_PER_DAY[zoom];
   const monthCols    = useMemo(() => getMonthColumns(ppd), [ppd]);
   const yearGroups   = useMemo(() => getYearGroups(monthCols), [monthCols]);
@@ -589,7 +637,7 @@ export default function Gantt() {
 
   // ── Render a single Gantt bar ──
   const renderBar = useCallback((task: GanttTask, rowIndex: number) => {
-    const isCrit   = task.isCritical && showCritical && criticalIds.has(task.id);
+    const isCrit   = showCritical && criticalIds.has(task.id);
     const barH     = task.type === 'summary' ? 10 : task.type === 'milestone' ? 0 : 16;
     const barTop   = rowIndex * ROW_H + (ROW_H - barH) / 2;
     const barLeft  = dateToPx(task.start, ORIGIN, ppd);
@@ -819,7 +867,7 @@ export default function Gantt() {
                 const isSelected  = task.id === selectedId;
                 const isSummary   = task.type === 'summary';
                 const isMilestone = task.type === 'milestone';
-                const isCrit      = task.isCritical && showCritical && criticalIds.has(task.id);
+                const isCrit      = showCritical && criticalIds.has(task.id);
                 const isCollapsed = collapsedIds.has(task.id);
                 const hasChildren = localTasks.some(t => t.parentId === task.id);
                 const rowBg = isSelected ? `${NAVY}12` : isCrit && isSummary ? '#FFF1F2' : isSummary ? '#F8FAFC' : '#fff';
