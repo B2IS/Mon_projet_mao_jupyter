@@ -257,6 +257,7 @@ export type SidebarSectionId =
   | 'mes_projets'
   | 'execution' // This was already in the type, no change needed here.
   | 'finances'
+  | 'immobilisations' // Gestion des actifs/patrimoine — SÉPARÉE de la gestion de projet
   | 'logistique'
   | 'transverses'
   | 'parametrage';
@@ -296,9 +297,9 @@ export type SidebarSectionId =
 // RESP_LOG → CTRL_FIN → CHEF_PROJ → CHEF_DEPT → PMO → DIR_DPE
 // Règle : le Chef de Projet NE voit PAS le Portefeuille stratégique (réservé Directeur/PMO)
 export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
-  DIR_DPE:   ['accueil', 'portefeuille', 'finances', 'transverses'],
-  PMO:       ['accueil', 'portefeuille', 'execution', 'finances', 'transverses'],
-  CHEF_DEPT: ['accueil', 'portefeuille', 'execution', 'finances', 'transverses'],
+  DIR_DPE:   ['accueil', 'portefeuille', 'finances', 'immobilisations', 'transverses'],
+  PMO:       ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
+  CHEF_DEPT: ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
   CHEF_PROJ: ['accueil', 'mes_projets', 'execution', 'finances', 'transverses'],
   INGENIEUR: ['accueil', 'mes_projets', 'execution', 'transverses'],
   EXPERT:    ['accueil', 'portefeuille', 'mes_projets', 'execution', 'transverses'],
@@ -307,14 +308,14 @@ export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
   ASSISTANT: ['accueil', 'mes_projets', 'execution', 'logistique', 'transverses'],  // Projets/Exécution réservés à l'assistant CHEF DE PROJET (ABAC poste) ; l'assistante de direction = support admin (courriers, agenda/réunions, GED, workflow)
   SECRETAIRE:['accueil', 'logistique', 'transverses'],    // admin département : courriers, réunions, GED — PAS de gestion de projet
   CHAUFFEUR: ['accueil', 'logistique'],                                     // portail ULTRA-SIMPLE : mes missions · mon véhicule · réservation · pointage (aucun module métier/IA)
-  CTRL_FIN:  ['accueil', 'finances', 'transverses'],
-  RESP_LOG:  ['accueil', 'logistique', 'finances', 'transverses'],  // UAGL : logistique + patrimoine/réceptions + courriers/GED
+  CTRL_FIN:  ['accueil', 'finances', 'immobilisations', 'transverses'],
+  RESP_LOG:  ['accueil', 'logistique', 'finances', 'immobilisations', 'transverses'],  // UAGL : logistique + patrimoine/réceptions + courriers/GED
   MARCHES:   ['accueil', 'finances', 'transverses'],                       // DAO/AO/contrats/décomptes
   SIG:       ['accueil', 'execution', 'transverses'],                      // cartographie/réseaux/actifs
-  IMMO:      ['accueil', 'finances', 'transverses'],                       // immobilisations/amortissements
-  AUDIT:     ['accueil', 'portefeuille', 'execution', 'finances', 'logistique', 'transverses'], // tout en lecture
+  IMMO:      ['accueil', 'finances', 'immobilisations', 'transverses'],                       // immobilisations/amortissements
+  AUDIT:     ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses'], // tout en lecture
   CONTROLEUR_TRAVAUX: ['accueil', 'mes_projets', 'execution', 'transverses'], // terrain/contrôles/réceptions
-  ADMIN:     ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'logistique', 'transverses', 'parametrage'],
+  ADMIN:     ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses', 'parametrage'],
 };
 
 /** Sections visibles par direction (filtre métier hiérarchique — intersection avec ROLE_SECTIONS) */
@@ -322,7 +323,7 @@ export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
 // (UAGL, assistante de direction, secrétaire, chauffeur) — quelle que soit leur direction —
 // atteignent Réservation de salle / Réunions / Pointage. Le rôle reste autoritaire
 // (ROLE_SECTIONS) : un Directeur/PMO/Chef de projet n'a PAS 'logistique'.
-const S_DIR_BASE: SidebarSectionId[] = ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'logistique', 'transverses'];
+const S_DIR_BASE: SidebarSectionId[] = ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses'];
 
 export const DIRECTION_SECTIONS: Record<string, SidebarSectionId[]> = {
   'EM_DPE':      [...S_DIR_BASE, 'logistique', 'parametrage'],

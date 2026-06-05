@@ -29,6 +29,7 @@ const SECTION_LABELS: Record<SidebarSectionId, string> = {
   mes_projets:  'Mes Projets',
   execution:    'Exécution & Contrôle',
   finances:     'Finances & Engagements',
+  immobilisations: 'Immobilisations & Patrimoine',
   logistique:   'Logistique & Ressources',
   transverses:  'Transverses (GED, Workflows, IA…)',
   parametrage:  'Paramétrage / Administration',

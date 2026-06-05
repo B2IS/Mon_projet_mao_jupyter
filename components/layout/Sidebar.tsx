@@ -187,7 +187,7 @@ const SECTIONS: SidebarSection[] = [
       CHEF_PROJ: 'Finances du projet',
     },
     shortLabel: 'Finances',
-    routes: ['/budget', '/marches', '/bordereaux', '/receptions', '/evm', '/fournisseurs', '/immobilisations'],
+    routes: ['/budget', '/marches', '/bordereaux', '/receptions', '/evm', '/fournisseurs'],
     items: [
       { href: '/budget',     icon: Wallet,         label: 'Budget & Décaissements', tKey: 'nav.budget',
         labelByRole: { DIR_DPE: 'Budget portefeuille — synthèse', CHEF_PROJ: 'Budget de mon projet' } },
@@ -199,9 +199,20 @@ const SECTIONS: SidebarSection[] = [
         labelByRole: { DIR_DPE: 'Performance EVM — Portefeuille', CHEF_PROJ: 'EVM de mon projet' } },
       { href: '/fournisseurs', icon: Building2,   label: 'Fournisseurs & Dettes',
         labelByRole: { CTRL_FIN: 'Fournisseurs — Intérêts moratoires', CHEF_PROJ: 'Fournisseurs du projet' } },
+    ],
+  },
+
+  /* ── Gestion des Actifs / Patrimoine — SÉPARÉE de la gestion de projet (liée mais distincte) ── */
+  {
+    id: 'immobilisations',
+    icon: Building2,
+    label: 'Immobilisations & Patrimoine',
+    shortLabel: 'Actifs',
+    labelByRole: { RESP_LOG: 'Patrimoine & Inventaire', IMMO: 'Immobilisations', CTRL_FIN: 'Immobilisations & Amort.' },
+    routes: ['/immobilisations'],
+    items: [
       { href: '/immobilisations', icon: Building2, label: 'Immobilisations & Amortissements',
-        tKey: 'nav.assets', onlyRoles: ['CTRL_FIN', 'CHEF_DEPT', 'IMMO', 'AUDIT', 'RESP_LOG', 'ADMIN'],
-        labelByRole: { RESP_LOG: 'Patrimoine & Inventaire' } },
+        tKey: 'nav.assets', labelByRole: { RESP_LOG: 'Patrimoine & Inventaire' } },
     ],
   },
 
