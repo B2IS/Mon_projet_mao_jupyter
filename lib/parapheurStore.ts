@@ -8,6 +8,8 @@ import { persist } from 'zustand/middleware';
 
 export interface ParapheurPiece { nom: string; taille: string; ext: 'pdf' | 'docx' | 'xlsx' | 'png' | 'dwg'; url?: string }
 export interface ParapheurHistorique { etape: string; acteur: string; date: string; commentaire?: string; decision?: 'approuve' | 'rejete' | 'delegue' }
+/** Étape de circuit : destinataire + son rôle dans le traitement. */
+export interface ParapheurEtape { ordre: number; role: string; acteurNom: string; acteurEmail: string; statut: 'en_attente' | 'fait' | 'rejete' }
 
 export interface ParapheurDossier {
   id: string;
@@ -30,6 +32,7 @@ export interface ParapheurDossier {
   slaHeures: number;
   heuresRestantes: number;
   source?: string;       // ex. « Courrier ENT-2026-0412 »
+  etapes?: ParapheurEtape[];  // circuit : destinataires + rôles
 }
 
 interface ParapheurState {

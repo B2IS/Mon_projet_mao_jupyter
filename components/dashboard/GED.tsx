@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { logAudit, type AuditType } from '@/lib/auditStore';
 import DocumentAnnotator, { type AnnotatedDoc } from '@/components/ui/DocumentAnnotator';
-import { useParapheurStore, type ParapheurDossier } from '@/lib/parapheurStore';
+import CreateWorkflowModal, { type WorkflowSource } from '@/components/ui/CreateWorkflowModal';
 import { useAuth } from '@/lib/authStore';
 import toast from 'react-hot-toast';
 
@@ -363,7 +363,6 @@ function EditDocModal({ doc, onClose, onSave }: { doc: Document; onClose: () => 
 ═══════════════════════════════════════════════════════════════════════ */
 export default function GED() {
   const { user } = useAuth();
-  const addDossier = useParapheurStore(s => s.addDossier);
   const [docs, setDocs] = useState<Document[]>(DOCUMENTS);
   const [versions, setVersions] = useState<Record<string, Version[]>>(VERSIONS_MAP);
   const [search, setSearch] = useState('');
@@ -375,6 +374,15 @@ export default function GED() {
   const [showUpload, setShowUpload] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<string | null>(null);
   const [annotDoc, setAnnotDoc] = useState<AnnotatedDoc | null>(null);
+  const [wfSource, setWfSource] = useState<WorkflowSource | null>(null);
+  /** Ouvre le constructeur de workflow (destinataires + rôles) sur un document. */
+  const lancerWorkflow = useCallback((d: Document) => {
+    setWfSource({
+      titre: d.nom, reference: `GED-${d.id.toUpperCase()}`, type: 'document',
+      projet: d.projet, soumetteur: user ? `${user.prenom} ${user.nom}` : 'Utilisateur',
+      piecesJointes: [{ nom: d.nom, taille: d.taille, ext: (d.fileExt as 'pdf') || 'pdf', url: d.fileUrl }],
+    });
+  }, [user]);
   /** Ouvre un document (chargé ou de référence) dans l'annotateur (surligner, commenter…). */
   const annoter = useCallback((d: Document) => {
     const ext = (d.fileExt || (d.type === 'PDF' ? 'pdf' : d.type === 'Image' ? 'png' : d.type === 'Excel' ? 'xlsx' : d.type === 'Word' ? 'docx' : 'pdf')).toLowerCase();
@@ -394,37 +402,6 @@ export default function GED() {
   const [wfComment, setWfComment] = useState('');
   const [newVerForm, setNewVerForm] = useState({ note: '', taille: '' });
   const [showNewVer, setShowNewVer] = useState(false);
-
-  /* Lance un workflow de validation RÉEL sur un document chargé : crée un
-     dossier dans le parapheur (BPM) — visible dans le module Workflows. */
-  const launchToParapheur = useCallback((d: Document) => {
-    const now = new Date();
-    const dossier: ParapheurDossier = {
-      id: `ged-${d.id}-${now.getTime()}`,
-      type: 'document',
-      reference: `GED-${d.id.toUpperCase()}`,
-      titre: d.nom,
-      projet: d.projet,
-      projetCode: d.projet,
-      soumetteur: user ? `${user.prenom} ${user.nom}` : 'Utilisateur',
-      dateCreation: now.toISOString(),
-      dateLimite: new Date(now.getTime() + 5 * 864e5).toISOString(),
-      priorite: 'normale',
-      statut: 'en_attente',
-      etapeActuelle: 'Révision',
-      nombreEtapes: 4,
-      etapeIndex: 1,
-      contexte: `Document « ${d.nom} » (${d.type}, ${d.version}) soumis depuis la GED pour circuit de validation.`,
-      piecesJointes: [{ nom: d.nom, taille: d.taille, ext: (d.fileExt as 'pdf') || 'pdf' }],
-      historique: [{ etape: 'Soumission', acteur: user ? `${user.prenom} ${user.nom}` : 'Utilisateur', date: now.toISOString(), commentaire: 'Soumission au parapheur depuis la GED' }],
-      slaHeures: 120,
-      heuresRestantes: 120,
-      source: `GED · ${d.nom}`,
-    };
-    addDossier(dossier);
-    gedAudit('Lancement workflow parapheur', d.nom, `Dossier ${dossier.reference} créé`);
-    toast.success(`Workflow lancé : « ${d.nom} » est dans le parapheur (BPM).`, { duration: 4000 });
-  }, [user, addDossier]);
 
   /* Workflow helpers */
   const advanceDoc = useCallback((id: string) => {
@@ -604,7 +581,7 @@ export default function GED() {
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-ghost btn-xs" onClick={() => setShowWorkflow(d.id)}><Eye size={10} /> Workflow</button>
-                      <button className="btn btn-xs" style={{ background: 'rgba(27,79,138,0.1)', color: 'var(--navy)', border: '1px solid rgba(27,79,138,0.3)' }} onClick={() => launchToParapheur(d)} title="Envoyer ce document dans le parapheur (BPM)"><GitBranch size={10} /> Parapheur</button>
+                      <button className="btn btn-xs" style={{ background: 'rgba(27,79,138,0.1)', color: 'var(--navy)', border: '1px solid rgba(27,79,138,0.3)' }} onClick={() => lancerWorkflow(d)} title="Créer un workflow (destinataires + rôles)"><GitBranch size={10} /> Workflow</button>
                       <button className="btn btn-xs" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--green)', border: '1px solid rgba(22,163,74,0.3)' }} onClick={() => advanceDoc(d.id)}><CheckCircle size={10} /> Approuver</button>
                       <button className="btn btn-xs" style={{ background: 'rgba(239,51,64,0.1)', color: 'var(--red)', border: '1px solid rgba(239,51,64,0.3)' }} onClick={() => rejectDoc(d.id)}><ThumbsDown size={10} /> Rejeter</button>
                     </div>
@@ -874,6 +851,9 @@ export default function GED() {
       {/* Visualiseur de document */}
       {/* Annotateur in-app (surligner, commenter, note, stylo) sur documents chargés */}
       {annotDoc && <DocumentAnnotator doc={annotDoc} onClose={() => setAnnotDoc(null)} />}
+
+      {/* Constructeur de workflow (destinataires + rôles) sur un document */}
+      {wfSource && <CreateWorkflowModal source={wfSource} onClose={() => setWfSource(null)} />}
 
       {viewerDoc && (() => {
         const doc = docs.find(d => d.id === viewerDoc);

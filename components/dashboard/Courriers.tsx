@@ -11,6 +11,7 @@ import { useParapheurStore, type ParapheurDossier } from '@/lib/parapheurStore';
 import { useNotificationStore } from '@/lib/notificationStore';
 import { TEST_USERS } from '@/lib/authStore';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import CreateWorkflowModal, { type WorkflowSource } from '@/components/ui/CreateWorkflowModal';
 
 /** Annuaire DPE (profils réels + e-mails) pour imputer un courrier au bon agent. */
 const ANNUAIRE_DPE = (() => {
@@ -309,37 +310,6 @@ export default function Courriers() {
   const addDossier = useParapheurStore(s => s.addDossier);
   const notifyUser = useNotificationStore(s => s.notifyUser);
 
-  // ── Créer un WORKFLOW (parapheur) à partir d'un courrier — le courrier devient
-  //    la pièce jointe du dossier de validation. ────────────────────────────────
-  const creerWorkflowCourrier = (c: CourrierEntrant) => {
-    const now = new Date();
-    const dossier: ParapheurDossier = {
-      id: `cour-wf-${c.id}-${Date.now()}`,
-      type: 'courrier',
-      reference: c.num,
-      titre: c.objet,
-      projet: 'Direction Principale Équipement', projetCode: 'DPE',
-      soumetteur: c.expediteur,
-      dateCreation: now.toISOString().slice(0, 10),
-      dateLimite: new Date(now.getTime() + 5 * 864e5).toISOString().slice(0, 10),
-      priorite: c.priorite === 'URGENT' ? 'urgent' : c.priorite === 'NORMAL' ? 'normale' : 'normale',
-      statut: 'en_attente',
-      etapeActuelle: 'Imputation / Visa',
-      nombreEtapes: 3, etapeIndex: 1,
-      contexte: `Courrier ${c.num} de ${c.expediteur} — « ${c.objet} ». Transmis au parapheur pour imputation et visa.`,
-      piecesJointes: c.pieceJointe ? [{ nom: `${c.num}.pdf`, taille: '—', ext: 'pdf' }] : [],
-      historique: [{ etape: 'Réception courrier', acteur: c.expediteur, date: c.recu, decision: 'approuve' }],
-      slaHeures: 72, heuresRestantes: 72,
-      source: `Courrier ${c.num}`,
-    };
-    addDossier(dossier);
-    // Notification routée vers le profil IMPUTÉ (si déjà qualifié), sinon le chef de département.
-    notifyUser({ recipientEmail: c.imputeEmail || 'chef.dept@dpe.sn', title: `Courrier à viser : ${c.objet}`,
-      message: `Le courrier ${c.num} attend votre visa dans le parapheur.`, type: 'warning', link: '/workflows', source: 'Courrier', sendMail: true });
-    toast.success(`Workflow créé pour ${c.num}${c.impute ? ` — imputé à ${c.impute}` : ''} — disponible dans le Parapheur.`);
-    router.push('/workflows');
-  };
-
   const [tab, setTab] = useState<TabType>('entrants');
   const [search, setSearch] = useState('');
   const [periode, setPeriode] = useState('tous');
@@ -352,6 +322,12 @@ export default function Courriers() {
   const [sortants, setSortants] = useState<CourrierSortant[]>(SORTANTS);
   const [anos, setAnos] = useState<ANO[]>(ANOS);
   const [newCourrier, setNewCourrier] = useState<null | 'entrant' | 'sortant' | 'ano'>(null);
+  const [wfSource, setWfSource] = useState<WorkflowSource | null>(null);
+  // Ouvre le constructeur de workflow (destinataires + rôles) sur un courrier.
+  const ouvrirWorkflow = (c: CourrierEntrant) => setWfSource({
+    titre: c.objet, reference: c.num, type: 'courrier', soumetteur: c.expediteur,
+    piecesJointes: c.pieceJointe ? [{ nom: `${c.num}.pdf`, taille: '—', ext: 'pdf' }] : [],
+  });
 
   const makeNum = (prefix: string) => `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
   const creerCourrier = (d: NouveauCourrierData) => {
@@ -565,9 +541,9 @@ export default function Courriers() {
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-ghost btn-xs" onClick={() => setDetailItem({ type: 'entrant', item: c })}><Eye size={10} /> Ouvrir</button>
-                        <button className="btn btn-xs" title="Créer un workflow de validation à partir de ce courrier"
+                        <button className="btn btn-xs" title="Créer un workflow (destinataires + rôles) à partir de ce courrier"
                           style={{ background: 'rgba(124,58,237,0.10)', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.3)' }}
-                          onClick={() => creerWorkflowCourrier(c)}>
+                          onClick={() => ouvrirWorkflow(c)}>
                           <GitBranch size={10} /> Workflow
                         </button>
                         {c.statut === 'À QUALIFIER' && (
@@ -714,6 +690,7 @@ export default function Courriers() {
 
       {/* Panel qualifier */}
       {qualifierCourrier && <QualifierPanel courrier={qualifierCourrier} onClose={() => setQualifierCourrier(null)} onConfirm={qualifierDiffuser} />}
+      {wfSource && <CreateWorkflowModal source={wfSource} onClose={() => setWfSource(null)} onCreated={() => router.push('/workflows')} />}
 
       {/* Panel détail */}
       {detailItem && (
