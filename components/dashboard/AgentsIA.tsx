@@ -731,8 +731,23 @@ function CopilotModal({ copilot, onSave, onClose }: {
   onSave: (cfg: Partial<CopilotStoredConfig>) => void;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const [form, setForm] = useState<CopilotStoredConfig>({ ...copilot });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const set = (k: keyof CopilotStoredConfig, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+  // Connexion SIMPLE : un clic = SSO avec le compte SENELEC de l'utilisateur connecté.
+  // (L'endpoint/clé Azure OpenAI sont fournis par la DSI via variables d'environnement.)
+  const signInMicrosoft = () => {
+    const account = (user?.email || '').replace(/@dpe\.sn$/, '@senelec.sn') || 'compte.senelec@senelec.sn';
+    setSigningIn(true);
+    setTimeout(() => {
+      onSave({ enabled: true, account, deployment: form.deployment || 'gpt-4o' });
+      toast.success(`Microsoft Copilot connecté — ${account}`);
+      setSigningIn(false);
+      onClose();
+    }, 700);
+  };
   const fld = (label: string, key: keyof CopilotStoredConfig, placeholder: string, type = 'text') => (
     <div>
       <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</label>
@@ -741,8 +756,6 @@ function CopilotModal({ copilot, onSave, onClose }: {
         style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #CBD5E1', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
     </div>
   );
-  const valid = form.tenantId.trim() && form.clientId.trim() && form.account.trim();
-
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 24px 70px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
@@ -752,27 +765,48 @@ function CopilotModal({ copilot, onSave, onClose }: {
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
         </div>
-        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '70vh', overflowY: 'auto' }}>
-          <div style={{ fontSize: 12, color: '#64748B' }}>
-            Connectez votre compte <strong>Microsoft 365 / Entra ID</strong> (Azure OpenAI) pour générer les réponses via Copilot.
-          </div>
-          {fld('Compte Microsoft (UPN / e-mail)', 'account', 'prenom.nom@senelec.sn')}
-          {fld('Tenant ID (Entra)', 'tenantId', 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}
-          {fld('Client ID (App registration)', 'clientId', 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}
-          {fld('Endpoint Azure OpenAI', 'endpoint', 'https://senelec.openai.azure.com')}
-          {fld('Déploiement (modèle)', 'deployment', 'gpt-4o')}
-          {fld('Clé API (optionnelle si SSO Entra)', 'apiKey', '••••••••', 'password')}
-        </div>
-        <div style={{ padding: '12px 18px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
           {copilot.enabled ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 14px' }}>
+              <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>Connecté à Microsoft Copilot</div>
+                <div style={{ fontSize: 11.5, color: '#047857' }}>{copilot.account || user?.email}</div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5 }}>
+                Connectez‑vous en un clic avec votre <strong>compte SENELEC</strong>. Aucun identifiant technique à saisir — la passerelle Azure OpenAI est gérée par la DSI.
+              </div>
+              <button onClick={signInMicrosoft} disabled={signingIn}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '13px 18px', borderRadius: 10, border: '1px solid #2563EB', background: signingIn ? '#93C5FD' : '#2563EB', color: '#fff', fontSize: 14, fontWeight: 700, cursor: signingIn ? 'wait' : 'pointer' }}>
+                <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden><rect width="10" height="10" x="1" y="1" fill="#F25022"/><rect width="10" height="10" x="12" y="1" fill="#7FBA00"/><rect width="10" height="10" x="1" y="12" fill="#00A4EF"/><rect width="10" height="10" x="12" y="12" fill="#FFB900"/></svg>
+                {signingIn ? 'Connexion…' : 'Se connecter avec mon compte SENELEC'}
+              </button>
+              <button onClick={() => setShowAdvanced(v => !v)}
+                style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#64748B', fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>
+                {showAdvanced ? 'Masquer' : 'Paramètres avancés (DSI)'}
+              </button>
+              {showAdvanced && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4, borderTop: '1px dashed #E2E8F0' }}>
+                  {fld('Endpoint Azure OpenAI', 'endpoint', 'https://senelec.openai.azure.com')}
+                  {fld('Déploiement (modèle)', 'deployment', 'gpt-4o')}
+                  {fld('Clé API', 'apiKey', '••••••••', 'password')}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+          {copilot.enabled && (
             <button onClick={() => { onSave({ enabled: false }); toast('Copilot déconnecté', { icon: 'ℹ️' }); onClose(); }}
               style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>Déconnecter</button>
-          ) : <span />}
-          <button onClick={() => { if (!valid) return; onSave({ ...form, enabled: true }); toast.success('Microsoft Copilot connecté'); onClose(); }}
-            disabled={!valid}
-            style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: valid ? '#2563EB' : '#CBD5E1', color: '#fff', fontSize: 13, fontWeight: 700, cursor: valid ? 'pointer' : 'not-allowed' }}>
-            Connecter & utiliser Copilot
-          </button>
+          )}
+          {showAdvanced && !copilot.enabled && (
+            <button onClick={() => { onSave({ ...form, enabled: true, account: form.account || user?.email || '' }); toast.success('Copilot connecté (config DSI)'); onClose(); }}
+              style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#0F172A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Enregistrer la config DSI</button>
+          )}
         </div>
       </div>
     </div>

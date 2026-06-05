@@ -42,11 +42,17 @@ export async function extractStructuredFields(
   } catch { return null; }
 }
 
-/** Vrai si l'utilisateur a lié son compte Microsoft Copilot (endpoint + clé). */
+/**
+ * Vrai si le compte Microsoft Copilot est lié. Connexion SIMPLE : il suffit que
+ * l'utilisateur se soit connecté avec son compte SENELEC (enabled + account) ;
+ * la passerelle Azure (endpoint/clé) peut être fournie par la DSI via env.
+ * L'appel réel (callCopilotAPI) retombe proprement sur le moteur local si la
+ * passerelle n'est pas configurée.
+ */
 export function isCopilotLinked(): boolean {
   try {
     const c = getCopilotConfig();
-    return !!c.enabled && !!c.endpoint && !!c.apiKey;
+    return !!c.enabled && (!!c.account || (!!c.endpoint && !!c.apiKey));
   } catch { return false; }
 }
 
@@ -82,7 +88,7 @@ export type AIModel =
   // Modèles propriétaires (cloud)
   | 'gpt-4o' | 'gpt-4o-mini' | 'claude-3-5-sonnet' | 'gemini-1-5-pro' | 'copilot'
   // Modèles OPEN-SOURCE performants (exécutables on-premise / souveraineté des données)
-  | 'llama-3.3-70b' | 'qwen-2.5-72b' | 'deepseek-v3' | 'mistral-large' | 'mixtral-8x7b' | 'gemma-2-27b'
+  | 'llama-3.3-70b' | 'qwen-2.5-72b' | 'deepseek-v3' | 'mistral-large' | 'mixtral-8x7b' | 'gemma-2-27b' | 'gemma-3-12b'
   | 'local';
 
 /** Catalogue des modèles OPEN-SOURCE recommandés pour un déploiement souverain SENELEC. */
@@ -100,6 +106,7 @@ export const OPEN_SOURCE_MODELS: OpenSourceModelInfo[] = [
   { value: 'mistral-large', label: 'Mistral Large 2',       params: '123 Md', ctx: '128k', atouts: 'Souverain (EU), très bon en français administratif.' },
   { value: 'mixtral-8x7b',  label: 'Mixtral 8×7B',          params: '47 Md (MoE)', ctx: '32k',  atouts: 'Léger/rapide — bon compromis on-premise.' },
   { value: 'gemma-2-27b',   label: 'Gemma 2 27B',           params: '27 Md', ctx: '8k',   atouts: 'Compact, déployable sur GPU unique (Google).' },
+  { value: 'gemma-3-12b',   label: 'Gemma 3 12B (Google)',  params: '12 Md', ctx: '128k', atouts: 'Multimodal (texte+image), multilingue, léger — recommandé DPE.' },
 ];
 
 export type ContentType = 'text' | 'image' | 'document' | 'audio';
