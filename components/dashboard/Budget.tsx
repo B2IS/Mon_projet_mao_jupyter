@@ -400,6 +400,26 @@ export default function Budget() {
     return m;
   }, [storeProjects]);
   const totalBudgetScoped = useMemo(() => Object.values(scopedDomainBudget).reduce((s, v) => s + v, 0), [scopedDomainBudget]);
+  // Totaux RÉELS du périmètre du profil (engagements/décaissements) — pour ne JAMAIS
+  // afficher les chiffres globaux à un profil restreint.
+  const marchesScoped = useMemo(() => storeProjects.reduce((s, p) => s + (p.marches || 0), 0), [storeProjects]);
+  const decaisseScoped = useMemo(() => storeProjects.reduce((s, p) => s + (p.decaisse || 0), 0), [storeProjects]);
+  // Waterfall scopé au périmètre du profil (Budget → Engagements → Décaissements → Solde).
+  const waterfallScoped = useMemo<WaterfallItem[]>(() => {
+    let running = 0;
+    const steps: { name: string; delta: number; isTotal: boolean; color: string }[] = [
+      { name: 'Budget révisé',    delta: totalBudgetScoped,         isTotal: true,  color: ORANGE },
+      { name: 'Engagements',      delta: -marchesScoped,            isTotal: false, color: NAVY2  },
+      { name: 'Décaissements',    delta: -decaisseScoped,           isTotal: false, color: PURPLE },
+      { name: 'Solde disponible', delta: totalBudgetScoped - marchesScoped, isTotal: true, color: GREEN },
+    ];
+    return steps.map(s => {
+      const item: WaterfallItem = { name: s.name, value: Math.abs(s.delta), isTotal: s.isTotal, color: s.color,
+        base: s.isTotal ? 0 : (s.delta > 0 ? running : running + s.delta) };
+      if (!s.isTotal) running += s.delta; else running = s.delta;
+      return item;
+    });
+  }, [totalBudgetScoped, marchesScoped, decaisseScoped]);
   const pieData = useMemo(() => {
     const colors: Record<string, string> = { Production: NAVY, Transport: ORANGE, Distribution: GREEN, Commercial: PURPLE, 'Génie Civil': AMBER };
     const total = totalBudgetScoped || 1;
@@ -420,7 +440,7 @@ export default function Budget() {
   }
 
   const filteredProjects = useMemo(() => {
-    const base = storeProjects.length > 0 ? storeProjects : PROJECTS;
+    const base = storeProjects;
     const rows = domainFilter === 'Tous'
       ? base.map(p => ({ ...p, statut: projectStatuses[p.code] ?? p.statut }))
       : base.filter(p => p.domain === domainFilter).map(p => ({ ...p, statut: projectStatuses[p.code] ?? p.statut }));
@@ -526,7 +546,7 @@ export default function Budget() {
 
       {/* ── ROW 1 — 4 KPI cards (real store data) ──────────────────────────── */}
       {(() => {
-        const allProjets = storeProjects.length > 0 ? storeProjects : PROJECTS;
+        const allProjets = storeProjects;
         const visibleProjets = domainFilter === 'Tous' ? allProjets : allProjets.filter(p => p.domain === domainFilter);
         const totalBudget = visibleProjets.reduce((s, p) => s + p.prevu, 0);
         const totalMarches = visibleProjets.reduce((s, p) => s + p.marches, 0);
@@ -658,7 +678,7 @@ export default function Budget() {
           ))}
         </div>
         <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart data={WATERFALL_DATA} margin={{ top: 10, right: 20, left: 30, bottom: 10 }}>
+          <ComposedChart data={waterfallScoped} margin={{ top: 10, right: 20, left: 30, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
             <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#374151', fontWeight: 600 }} />
             <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} unit=" M" domain={[0, 270]} />
@@ -666,7 +686,7 @@ export default function Budget() {
             {/* Invisible base bar to float bars */}
             <Bar dataKey="base"  fill="transparent" stackId="wf" radius={[0,0,0,0]} legendType="none" />
             <Bar dataKey="value" stackId="wf" radius={[4,4,0,0]} maxBarSize={50} legendType="none">
-              {WATERFALL_DATA.map((entry, i) => (
+              {waterfallScoped.map((entry, i) => (
                 <Cell key={i} fill={entry.color} />
               ))}
             </Bar>
