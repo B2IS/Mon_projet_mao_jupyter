@@ -139,7 +139,7 @@ export const DPE_ORG: DirectionCoordination[] = [
     programmes: ['PES', 'Compact2026', 'PADAES'],
     departements: [DEP_PROJ_CONV, DEP_PROJ_ENR],
     scopeDirections: ['DEP'],
-    scopeProgrammes: ['DEP', 'PES', 'Compact2026', 'PADAES'],
+    scopeProgrammes: ['DEP', 'PES'],
   },
   {
     code: 'DER',
@@ -160,14 +160,15 @@ export const DPE_ORG: DirectionCoordination[] = [
     label: 'Direction Génie Civil',
     shortLabel: 'DGC',
     niveau: 1,
-    // DGC est une DIRECTION SUPPORT : ses projets servent transport/distribution/production.
-    // Tags : les 4 domaines (peut intervenir partout) + keywords métier spécifiques.
-    domaine: ['transport', 'distribution', 'production', 'genie_civil', 'sig', 'patrimoine', 'immobilisation', 'architecture', 'travaux', 'infrastructure', 'ouvrages'],
+    // DGC = direction SUPPORT (génie civil). Son périmètre de PROJETS = ses propres
+    // projets génie civil — PAS tous les projets transport/distribution/production
+    // (sinon elle verrait à tort tout DPT+DPD via le repli par domaine).
+    domaine: ['genie_civil', 'sig', 'patrimoine', 'immobilisation', 'architecture', 'travaux', 'infrastructure', 'ouvrages'],
     typesProjets: ['Bâtiment Administratif', 'VRD', 'SIG Patrimoine', 'Ouvrage Hydraulique', 'Infrastructure Routière'],
-    programmes: ['BEST', 'PADAES'],
+    programmes: [],
     departements: [DGC_ETUDES, DGC_INVEST],
     scopeDirections: ['DGC'],
-    scopeProgrammes: ['DGC', 'BEST', 'PADAES'],
+    scopeProgrammes: ['DGC'],
   },
   {
     code: 'DIT',
@@ -180,7 +181,7 @@ export const DPE_ORG: DirectionCoordination[] = [
     programmes: ['BEST'],
     departements: [DIT_SMARTGRID, DIT_COMMERCIAL],
     scopeDirections: ['DIT'],
-    scopeProgrammes: ['DIT', 'BEST'],
+    scopeProgrammes: ['DIT'],
   },
   {
     code: 'CPBM_UE',
