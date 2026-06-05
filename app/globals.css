@@ -912,6 +912,48 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
   .grid-cols-4-mobile-2 { grid-template-columns: repeat(2, 1fr) !important; }
   .grid-cols-3-mobile-1 { grid-template-columns: 1fr !important; }
 
+  /* ── Grilles de cartes/KPI à colonnes FIXES (style inline repeat(3..12)) ──
+     Sur mobile elles débordent et sont rognées : on les ramène à 2 colonnes.
+     Couvre les 200+ grilles inline des tableaux de bord, toutes pages/profils. */
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(5"],
+  [style*="grid-template-columns: repeat(6"],
+  [style*="grid-template-columns: repeat(7"],
+  [style*="grid-template-columns: repeat(8"],
+  [style*="grid-template-columns: repeat(9"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* Sections « 2 colonnes » (1fr 1fr, 2fr 1fr…) : empilées en 1 colonne sur mobile
+     (sinon chaque colonne garde sa largeur mini et déborde). */
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns: 2fr 1fr"],
+  [style*="grid-template-columns: 1fr 2fr"],
+  [style*="grid-template-columns: 1.5fr 1fr"],
+  [style*="grid-template-columns: 1.6fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Layouts « contenu + panneau(x) fixe(s) » : tout grille contenant une colonne
+     fixe LARGE (≥200px) déborde sur mobile → on l'empile en 1 colonne. Les vraies
+     grilles « tableau » n'utilisent que de petites colonnes (≤150px) → non touchées. */
+  [style*="grid-template-columns:"][style*="200px"],
+  [style*="grid-template-columns:"][style*="210px"],
+  [style*="grid-template-columns:"][style*="220px"],
+  [style*="grid-template-columns:"][style*="240px"],
+  [style*="grid-template-columns:"][style*="250px"],
+  [style*="grid-template-columns:"][style*="260px"],
+  [style*="grid-template-columns:"][style*="280px"],
+  [style*="grid-template-columns:"][style*="300px"],
+  [style*="grid-template-columns:"][style*="320px"],
+  [style*="grid-template-columns:"][style*="340px"],
+  [style*="grid-template-columns:"][style*="360px"],
+  [style*="grid-template-columns:"][style*="380px"],
+  [style*="grid-template-columns:"][style*="400px"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Les enfants de grille/flex peuvent rétrécir (sinon ils forcent le débordement). */
+  [style*="display: grid"] > *, [style*="display: flex"] > * { min-width: 0; }
+
   /* ── Anti-débordement & barres d'outils mobiles (TOUTES les pages) ──
      1) jamais de scroll horizontal de page ;
      2) les libellés d'UI ne se coupent PAS lettre par lettre (le filet
