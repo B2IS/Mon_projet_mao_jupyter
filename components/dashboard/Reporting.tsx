@@ -499,7 +499,7 @@ export default function Reporting() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {EXPORTS_TB.map((e, i) => (
             <button
               key={e.label}
