@@ -10,7 +10,7 @@ import {
   Menu, ChevronRight, X, LogOut, Building2, Clock, DoorOpen, Repeat, Check,
   Network, BarChart3, FolderOpen, PenTool,
   Briefcase, LayoutDashboard, ClipboardCheck,
-  TrendingUp, Zap, PieChart, Upload, Calculator, ShieldCheck,
+  TrendingUp, Zap, PieChart, Upload, Calculator, ShieldCheck, Boxes,
 } from 'lucide-react';
 import { getAnalytics } from '@/lib/data';
 import { useAuth, ROLES, DEMO_ACCOUNTS, type SidebarSectionId, type RoleCode, getDirectionLabel } from '@/lib/authStore';
@@ -101,7 +101,7 @@ const SECTIONS: SidebarSection[] = [
       CHEF_PROJ: 'Mes Projets & Planning',
     },
     shortLabel: 'Portef.',
-    routes: ['/portefeuille', '/programmes', '/projets', '/cockpit-projet', '/gestion-projet', '/gantt', '/wbs', '/taches'],
+    routes: ['/portefeuille', '/programmes', '/projets', '/cockpit-projet', '/gestion-projet', '/gantt', '/wbs', '/structuration', '/taches'],
     items: [
       { href: '/portefeuille', icon: FolderKanban, label: 'Vue Portefeuille', tKey: 'nav.portfolio',
         hideRoles: ['CHEF_DEPT', 'CHEF_PROJ'],
@@ -130,6 +130,8 @@ const SECTIONS: SidebarSection[] = [
       },
       { href: '/wbs', icon: Network, label: 'Structure WBS', tKey: 'nav.wbs',
         onlyRoles: ['CHEF_PROJ', 'ASSISTANT', 'INGENIEUR', 'CONTROLEUR', 'ADMIN'] },
+      { href: '/structuration', icon: Boxes, label: 'Structuration des actifs (IA)',
+        onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'PMO', 'IMMO', 'ADMIN'] },
       {
         href: '/taches',
         icon: CheckSquare2,

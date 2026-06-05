@@ -345,7 +345,7 @@ export const DIRECTION_SECTIONS: Record<string, SidebarSectionId[]> = {
 const R_TBL    = '/tableau-de-bord';
 const R_PORT   = ['/portefeuille', '/programmes'];
 const R_PROJ   = ['/projets', '/cockpit-projet', '/gantt', '/gestion-projet'];
-const R_WBS    = ['/wbs', '/taches'];
+const R_WBS    = ['/wbs', '/structuration', '/taches'];
 const R_EXEC   = ['/suivi-evaluation', '/terrain', '/risques'];
 const R_CARTO  = ['/cartographie'];
 const R_FIN    = ['/budget', '/evm', '/marches', '/fournisseurs', '/immobilisations'];
@@ -403,7 +403,7 @@ export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
   SECRETAIRE:[R_TBL, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'], // /projets EN LECTURE (liste/statuts)
   MARCHES:   [R_TBL, '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
   SIG:       [R_TBL, ...R_CARTO, '/projets', ...R_GED, '/courriers', '/workflows'],
-  IMMO:      [R_TBL, '/immobilisations', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+  IMMO:      [R_TBL, '/immobilisations', '/structuration', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
   AUDIT:     ['*'],
   CONTROLEUR_TRAVAUX: [R_TBL, '/projets', '/cockpit-projet', '/terrain', '/risques', '/receptions', ...R_CARTO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
   CHAUFFEUR: [R_TBL, '/odm', '/flotte', '/courriers', '/workflows'],
