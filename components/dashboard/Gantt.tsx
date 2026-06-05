@@ -4,9 +4,10 @@ import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   Plus, ChevronRight, ChevronDown, X, Flag, AlertTriangle,
   Users, BarChart3, FileText, Download, Calendar, GanttChart,
-  Wrench, Trash2, Edit3,
+  Wrench, Trash2, Edit3, Zap,
   CheckCircle2, Circle, Clock, ChevronUp,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import {
   useProjectStore, DOMAINE_CFG,
   type TacheWBS, type Projet, type Ressource,
@@ -137,9 +138,9 @@ function cascadeRetroplan(tasks: GanttTask[], movedId: string, deltaDays: number
  * 4 types de liens (FS, SS, FF, SF) + décalages (lag), calcule la marge totale et
  * retourne le chemin critique = tâches de marge ≤ 0. Unité : jours.
  */
-function computeCPM(tasks: GanttTask[]): { critical: Set<string>; totalFloat: Map<string, number> } {
+function computeCPM(tasks: GanttTask[]): { critical: Set<string>; totalFloat: Map<string, number>; es: Map<string, number>; ef: Map<string, number> } {
   const leaves = tasks.filter(t => t.type !== 'summary');
-  const empty = { critical: new Set<string>(), totalFloat: new Map<string, number>() };
+  const empty = { critical: new Set<string>(), totalFloat: new Map<string, number>(), es: new Map<string, number>(), ef: new Map<string, number>() };
   if (!leaves.length) return empty;
   const byId = new Map(leaves.map(t => [t.id, t]));
   const dur = (t: GanttTask) => Math.max(t.type === 'milestone' ? 0 : 1, Math.round(t.duration || 0));
@@ -200,8 +201,20 @@ function computeCPM(tasks: GanttTask[]): { critical: Set<string>; totalFloat: Ma
     totalFloat.set(t.id, tf);
     if (tf <= 0) critical.add(t.id);
   });
-  return { critical, totalFloat };
+  return { critical, totalFloat, es: ES, ef: EF };
 }
+
+/** Ajoute n jours OUVRÉS (week-ends exclus) à une date. */
+function addWorkingDays(start: Date, n: number): Date {
+  const d = new Date(start); let added = 0;
+  if (n <= 0) { // caler sur un jour ouvré
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    return d;
+  }
+  while (added < n) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) added++; }
+  return d;
+}
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function computeCriticalIds(tasks: GanttTask[]): Set<string> { return computeCPM(tasks).critical; }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -594,6 +607,37 @@ export default function Gantt() {
     setEditTaskId(null);
   }, [activeProjet, store]);
 
+  /** PLANIFICATION AUTOMATIQUE (type MS Project « auto-scheduled ») :
+   *  recalcule les dates de TOUTES les tâches à partir des durées + dépendances
+   *  (CPM, jours ouvrés) depuis la date de début du projet. Déplacer/allonger une
+   *  tâche décale automatiquement ses successeurs. */
+  const autoPlanifier = useCallback(() => {
+    if (!activeProjet) return;
+    const start = new Date(activeProjet.dateDebut || new Date());
+    const { es } = computeCPM(localTasks);
+    const leaves = localTasks.filter(t => t.type !== 'summary');
+    const newDates = new Map<string, { d: Date; f: Date }>();
+    leaves.forEach(t => {
+      const off = es.get(t.id) ?? 0;
+      const d = addWorkingDays(start, off);
+      const dur = Math.max(t.type === 'milestone' ? 0 : 1, Math.round(t.duration || 0));
+      const f = t.type === 'milestone' ? new Date(d) : addWorkingDays(d, dur - 1);
+      newDates.set(t.id, { d, f });
+      store.updateTache(activeProjet.id, t.id, { dateDebut: ymd(d), dateFin: ymd(f) });
+    });
+    setLocalTasks(prev => prev.map(t => {
+      const nd = newDates.get(t.id);
+      if (nd) return { ...t, start: nd.d, end: nd.f };
+      // récap : englober ses enfants
+      if (t.type === 'summary') {
+        const kids = prev.filter(k => k.parentId === t.id && newDates.has(k.id)).map(k => newDates.get(k.id)!);
+        if (kids.length) return { ...t, start: new Date(Math.min(...kids.map(k => k.d.getTime()))), end: new Date(Math.max(...kids.map(k => k.f.getTime()))) };
+      }
+      return t;
+    }));
+    toast.success('Planning recalculé (CPM, jours ouvrés) — dépendances appliquées.');
+  }, [activeProjet, localTasks, store]);
+
   const saveResources = useCallback((taskId: string, assignments: { ressourceId: string; unite: number }[]) => {
     if (!activeProjet) return;
     // Remove old, add new
@@ -800,6 +844,12 @@ export default function Gantt() {
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: showBaseline ? '#E0F2FE' : '#F1F5F9', color: showBaseline ? '#0369A1' : '#64748B', border: `1px solid ${showBaseline ? '#7DD3FC' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Calendar size={12} /> Baseline {showBaseline ? '☑' : '☐'}
             </button>
+            {activeProjet && (
+              <button onClick={autoPlanifier} title="Recalcule les dates de toutes les tâches à partir des durées + dépendances (CPM, jours ouvrés)"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: '#F47920', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                <Zap size={12} /> Planifier auto (CPM)
+              </button>
+            )}
           </>
         )}
 
