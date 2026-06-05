@@ -62,6 +62,7 @@ interface DossierValidation {
   historique: HistoriqueEtape[];
   slaHeures: number;
   heuresRestantes: number;
+  etapes?: { ordre: number; role: string; acteurNom: string; acteurEmail: string; statut: 'en_attente' | 'fait' | 'rejete' }[];
 }
 
 /* ─── Mock Data ─────────────────────────────────────── */
@@ -540,6 +541,32 @@ function DetailPanel({
             {dossier.contexte}
           </div>
         </div>
+
+        {/* Circuit de traitement (destinataires + rôles) */}
+        {dossier.etapes && dossier.etapes.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <GitBranch size={11} /> Circuit de traitement ({dossier.etapes.length} étape{dossier.etapes.length > 1 ? 's' : ''})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {dossier.etapes.map((e, i) => {
+                const done = e.statut === 'fait';
+                const active = i === (dossier.etapeIndex - 1) && !done;
+                const col = done ? C.green : active ? C.orange : '#94A3B8';
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: active ? '#FFF7ED' : '#F8FAFC', borderRadius: 8, border: `1px solid ${active ? C.orange : C.border}` }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: col, color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{done ? '✓' : e.ordre}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>{e.acteurNom}</div>
+                      <div style={{ fontSize: 10.5, color: '#64748B' }}>{e.acteurEmail}</div>
+                    </div>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: col, background: `${col}15`, borderRadius: 20, padding: '2px 10px', whiteSpace: 'nowrap' }}>{e.role}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Pièces jointes */}
         <div>
