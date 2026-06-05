@@ -9,6 +9,18 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useParapheurStore, type ParapheurDossier } from '@/lib/parapheurStore';
 import { useNotificationStore } from '@/lib/notificationStore';
+import { TEST_USERS } from '@/lib/authStore';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+
+/** Annuaire DPE (profils réels + e-mails) pour imputer un courrier au bon agent. */
+const ANNUAIRE_DPE = (() => {
+  const seen = new Set<string>();
+  return TEST_USERS
+    .filter(u => u.email && !seen.has(u.email.toLowerCase()) && seen.add(u.email.toLowerCase()))
+    .map(u => ({ value: u.email, label: `${u.prenom} ${u.nom}`, sub: `${u.poste ?? u.role} · ${u.email}`, keywords: `${u.role} ${u.poste ?? ''}` }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+})();
+const labelForEmail = (email: string) => ANNUAIRE_DPE.find(a => a.value === email)?.label ?? email;
 
 /* ═══════════════════════════════════════════════════════════════════════
    MOCK DATA
@@ -26,6 +38,9 @@ interface CourrierEntrant {
   priorite: PrioriteCourrier;
   statut: StatutEntrant;
   pieceJointe: boolean;
+  impute?: string;        // nom du profil chargé du traitement
+  imputeEmail?: string;   // e-mail du profil (notification réelle)
+  imputeNotes?: string;   // instructions de traitement
 }
 
 interface CourrierSortant {
@@ -107,9 +122,12 @@ function pillANO(s: string) {
 /* ═══════════════════════════════════════════════════════════════════════
    PANEL QUALIFIER (slide-in)
 ═══════════════════════════════════════════════════════════════════════ */
-function QualifierPanel({ courrier, onClose, onConfirm }: { courrier: CourrierEntrant; onClose: () => void; onConfirm: (id: string) => void }) {
-  const [destinataire, setDestinataire] = useState('');
-  const [urgence, setUrgence] = useState('NORMAL');
+function QualifierPanel({ courrier, onClose, onConfirm }: {
+  courrier: CourrierEntrant; onClose: () => void;
+  onConfirm: (id: string, data: { imputeEmail: string; impute: string; urgence: PrioriteCourrier; notes: string }) => void;
+}) {
+  const [destinataire, setDestinataire] = useState('');  // = e-mail du profil
+  const [urgence, setUrgence] = useState<PrioriteCourrier>('NORMAL');
   const [notes, setNotes] = useState('');
 
   return (
@@ -138,20 +156,14 @@ function QualifierPanel({ courrier, onClose, onConfirm }: { courrier: CourrierEn
         {/* Formulaire */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="form-group">
-            <label className="form-label">Destinataire interne *</label>
-            <select className="form-input" value={destinataire} onChange={e => setDestinataire(e.target.value)}>
-              <option value="">— Sélectionner —</option>
-              <option>Directeur DPE</option>
-              <option>Chef Projet PUDC</option>
-              <option>Chef Projet PERAL</option>
-              <option>RAF / DAF</option>
-              <option>Juriste</option>
-              <option>UAGL</option>
-            </select>
+            <label className="form-label">Imputer à (profil chargé du traitement) *</label>
+            <SearchableSelect value={destinataire} onChange={setDestinataire} options={ANNUAIRE_DPE}
+              placeholder="Rechercher un agent DPE…" searchPlaceholder="Nom, poste, e-mail…" />
+            <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>L&apos;agent sélectionné sera notifié (in-app + e-mail) et le courrier entrera dans son parapheur.</div>
           </div>
           <div className="form-group">
             <label className="form-label">Niveau d'urgence</label>
-            <select className="form-input" value={urgence} onChange={e => setUrgence(e.target.value)}>
+            <select className="form-input" value={urgence} onChange={e => setUrgence(e.target.value as PrioriteCourrier)}>
               <option value="URGENT">URGENT</option>
               <option value="NORMAL">NORMAL</option>
               <option value="INFO">INFO</option>
@@ -167,8 +179,8 @@ function QualifierPanel({ courrier, onClose, onConfirm }: { courrier: CourrierEn
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-2)', display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ flex: 1 }}>Annuler</button>
           <button className="btn btn-primary btn-sm" style={{ flex: 2 }} disabled={!destinataire}
-            onClick={() => { onConfirm(courrier.id); onClose(); }}>
-            <CheckCircle size={12} /> Qualifier & Diffuser
+            onClick={() => { onConfirm(courrier.id, { imputeEmail: destinataire, impute: labelForEmail(destinataire), urgence, notes }); onClose(); }}>
+            <CheckCircle size={12} /> Imputer & Diffuser
           </button>
         </div>
       </div>
@@ -321,9 +333,10 @@ export default function Courriers() {
       source: `Courrier ${c.num}`,
     };
     addDossier(dossier);
-    notifyUser({ recipientEmail: 'chef.dept@dpe.sn', title: `Courrier à viser : ${c.objet}`,
+    // Notification routée vers le profil IMPUTÉ (si déjà qualifié), sinon le chef de département.
+    notifyUser({ recipientEmail: c.imputeEmail || 'chef.dept@dpe.sn', title: `Courrier à viser : ${c.objet}`,
       message: `Le courrier ${c.num} attend votre visa dans le parapheur.`, type: 'warning', link: '/workflows', source: 'Courrier', sendMail: true });
-    toast.success(`Workflow créé pour ${c.num} — disponible dans le Parapheur.`);
+    toast.success(`Workflow créé pour ${c.num}${c.impute ? ` — imputé à ${c.impute}` : ''} — disponible dans le Parapheur.`);
     router.push('/workflows');
   };
 
@@ -356,8 +369,43 @@ export default function Courriers() {
   };
 
   /* Transitions de workflow */
-  const qualifierDiffuser = (id: string) =>
-    setEntrants(prev => prev.map(c => c.id === id ? { ...c, statut: 'DIFFUSÉ' as const } : c));
+  // IMPUTATION : on affecte le courrier au profil chargé du traitement, on le
+  // notifie réellement (in-app + e-mail) et on crée son dossier de parapheur.
+  const qualifierDiffuser = (id: string, data: { imputeEmail: string; impute: string; urgence: PrioriteCourrier; notes: string }) => {
+    const c = entrants.find(x => x.id === id);
+    setEntrants(prev => prev.map(x => x.id === id
+      ? { ...x, statut: 'DIFFUSÉ' as const, priorite: data.urgence, impute: data.impute, imputeEmail: data.imputeEmail, imputeNotes: data.notes }
+      : x));
+    if (!c) return;
+    const now = new Date();
+    const dossier: ParapheurDossier = {
+      id: `cour-imp-${c.id}-${now.getTime()}`,
+      type: 'courrier', reference: c.num, titre: c.objet,
+      projet: 'Direction Principale Équipement', projetCode: 'DPE',
+      soumetteur: c.expediteur,
+      dateCreation: now.toISOString().slice(0, 10),
+      dateLimite: new Date(now.getTime() + 5 * 864e5).toISOString().slice(0, 10),
+      priorite: data.urgence === 'URGENT' ? 'urgent' : 'normale',
+      statut: 'en_attente',
+      etapeActuelle: `Traitement — ${data.impute}`,
+      nombreEtapes: 3, etapeIndex: 1,
+      contexte: `Courrier ${c.num} de ${c.expediteur} — « ${c.objet} ». Imputé à ${data.impute}.${data.notes ? ` Instructions : ${data.notes}` : ''}`,
+      piecesJointes: c.pieceJointe ? [{ nom: `${c.num}.pdf`, taille: '—', ext: 'pdf' }] : [],
+      historique: [
+        { etape: 'Réception', acteur: c.expediteur, date: c.recu },
+        { etape: 'Imputation', acteur: 'Bureau Courrier', date: now.toLocaleString('fr-FR'), commentaire: data.notes },
+      ],
+      slaHeures: 72, heuresRestantes: 72, source: `Courrier ${c.num}`,
+    };
+    addDossier(dossier);
+    notifyUser({
+      recipientEmail: data.imputeEmail,
+      title: `Courrier à traiter : ${c.objet}`,
+      message: `Le courrier ${c.num} (${data.urgence}) vous est imputé.${data.notes ? ` Instructions : ${data.notes}` : ''}`,
+      type: data.urgence === 'URGENT' ? 'warning' : 'info', link: '/workflows', source: 'Courrier', sendMail: true,
+    });
+    toast.success(`Courrier ${c.num} imputé à ${data.impute} — notifié et placé dans son parapheur.`, { duration: 4000 });
+  };
   const diffuser = (id: string) =>
     setEntrants(prev => prev.map(c => c.id === id ? { ...c, statut: 'DIFFUSÉ' as const } : c));
   const soumettre = (id: string) =>
@@ -509,6 +557,7 @@ export default function Courriers() {
                     <td style={{ maxWidth: 160 }}>{c.expediteur}</td>
                     <td style={{ maxWidth: 280 }}>
                       <span title={c.objet} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{c.objet}</span>
+                      {c.impute && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3, fontSize: 9.5, fontWeight: 700, color: '#1B4F8A', background: '#EFF6FF', borderRadius: 4, padding: '1px 6px' }}>→ {c.impute}</span>}
                     </td>
                     <td style={{ whiteSpace: 'nowrap', fontSize: 11 }}>{c.recu}</td>
                     <td>{pillPriorite(c.priorite)}</td>
