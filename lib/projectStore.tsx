@@ -1045,6 +1045,9 @@ export function useProjectStore(): ProjectStore {
 const ALL_DOMAINES: Domaine[] = ['production', 'transport', 'distribution', 'commercial', 'genie_civil'];
 export function useScopeDomaines(): Domaine[] {
   const { user } = useAuth();
+  // Projets RÉELLEMENT visibles par le profil (déjà filtrés MMH) — source de vérité
+  // pour ne JAMAIS afficher un domaine sur lequel le profil n'a aucune donnée.
+  const { projets } = useProjectStore();
   return useMemo(() => {
     if (!user) return ALL_DOMAINES;
     const scope = computeVisibilityScope({
@@ -1052,6 +1055,8 @@ export function useScopeDomaines(): Domaine[] {
       departement: user.departement, cellule: user.cellule, poste: user.poste,
     });
     if (scope.all || scope.domaines.includes('*')) return ALL_DOMAINES;
+    // Domaines métier PRÉSENTS dans les projets visibles par ce profil.
+    const fromProjects = ALL_DOMAINES.filter(d => projets.some(p => p.domaine === d));
     // Profil RESTREINT à un département (DPD, DPT, DEP_*, DGC_*, DIT_*) : la portée
     // domaine a été neutralisée → on déduit le domaine MÉTIER du département, sinon
     // un chef DPD verrait à tort TOUS les domaines (budget, KPI, indicateurs…).
@@ -1063,12 +1068,18 @@ export function useScopeDomaines(): Domaine[] {
         DIT_COMMERCIAL: 'commercial',
       };
       const d = user.departement ? DEPT_DOMAINE[user.departement] : undefined;
-      return d ? [d] : ALL_DOMAINES;
+      return d ? [d] : fromProjects; // pas de domaine déductible → uniquement ses projets (souvent 0)
     }
     const wanted = scope.domaines.map(d => d.toLowerCase());
-    const filtered = ALL_DOMAINES.filter(d => wanted.some(w => w === d || d.includes(w) || w.includes(d)));
-    return filtered.length > 0 ? filtered : ALL_DOMAINES;
-  }, [user]);
+    const mapped = ALL_DOMAINES.filter(d => wanted.some(w => w === d || d.includes(w) || w.includes(d)));
+    // Domaines métier explicites (DEP→production, DGC→genie_civil…) : on les garde.
+    if (mapped.length > 0) return mapped;
+    // Cellules « programme » (CPAMACEL=pamacel/EE, CPADERAU=paderau, CPBM=bailleur…) :
+    // leur portée n'est PAS un domaine métier → on s'appuie sur les domaines de leurs
+    // projets RÉELS. CPAMACEL/CPADERAU sans projet chargé ⇒ [] (zéro, aucune fuite).
+    // CPBM ⇒ ['distribution'] (ses lots BEST), uniquement.
+    return fromProjects;
+  }, [user, projets]);
 }
 
 // ─── Domain config (shared) ───────────────────────────────────────────────────

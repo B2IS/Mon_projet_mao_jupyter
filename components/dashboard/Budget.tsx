@@ -478,14 +478,27 @@ export default function Budget() {
     color: decaisseColor(p.decaisse / p.prevu),
   }));
 
-  /* Domain-filtered quarterly data */
+  /* ── Données RÉELLES (org-scopées) servant à calibrer les courbes ──
+   * La courbe en S des décaissements cumulés et la ventilation par catégorie
+   * sont mises à l'ÉCHELLE des montants réellement chargés pour le périmètre du
+   * profil. Sans données chargées (ex. CPAMACEL, DER avant chargement) → 0 :
+   * plus de courbe « fantôme » alors que tous les indicateurs sont à zéro. */
+  const realScaling = useMemo(() => {
+    const inScope = (d: ProjectRow['domain']) => domainFilter === 'Tous' || d === domainFilter;
+    const projs = storeProjects.filter(p => inScope(p.domain));
+    const realDecaisse = projs.reduce((s, p) => s + (p.decaisse || 0), 0); // Mrd
+    const realEngage   = projs.reduce((s, p) => s + (p.marches  || 0), 0); // Mrd
+    return { realDecaisse, realEngage, hasData: projs.length > 0 && (realDecaisse > 0 || realEngage > 0) };
+  }, [storeProjects, domainFilter]);
+
+  /* Courbe en S des décaissements cumulés — calibrée sur le décaissé réel. */
   const quarterlyDataFiltered = useMemo(() => {
     const yearSuffix = year.slice(2); // '24', '25', '26'
     const yearFiltered = QUARTERLY_DATA.filter(q => q.quarter.includes(yearSuffix)).length > 0
       ? QUARTERLY_DATA.filter(q => q.quarter.includes(yearSuffix))
       : QUARTERLY_DATA;
-    if (domainFilter === 'Tous') return yearFiltered;
-    return yearFiltered.map(q => ({
+    // Vue mono-domaine : on isole la colonne du domaine.
+    const view = domainFilter === 'Tous' ? yearFiltered : yearFiltered.map(q => ({
       ...q,
       Production:   domainFilter === 'Production'   ? q.Production   : 0,
       Transport:    domainFilter === 'Transport'    ? q.Transport    : 0,
@@ -496,19 +509,38 @@ export default function Budget() {
                   : domainFilter === 'Distribution' ? q.Distribution
                   : q.Commercial,
     }));
-  }, [year, domainFilter]);
+    // Mise à l'échelle : le dernier cumul = décaissé réel du périmètre (0 si rien chargé).
+    const mockFinal = view.length ? view[view.length - 1].cumul : 0;
+    const ratio = mockFinal > 0 ? realScaling.realDecaisse / mockFinal : 0;
+    return view.map(q => ({
+      quarter: q.quarter,
+      Production:   +(q.Production   * ratio).toFixed(2),
+      Transport:    +(q.Transport    * ratio).toFixed(2),
+      Distribution: +(q.Distribution * ratio).toFixed(2),
+      Commercial:   +(q.Commercial   * ratio).toFixed(2),
+      cumul:        +(q.cumul        * ratio).toFixed(2),
+    }));
+  }, [year, domainFilter, realScaling]);
 
-  /* Domain-filtered category data */
+  /* Ventilation par catégorie — calibrée sur l'engagé réel du périmètre. */
   const categoryDataFiltered = useMemo(() => {
-    if (domainFilter === 'Tous') return CATEGORY_DATA;
-    return CATEGORY_DATA.map(c => ({
+    const base = domainFilter === 'Tous' ? CATEGORY_DATA : CATEGORY_DATA.map(c => ({
       ...c,
       Production:   domainFilter === 'Production'   ? c.Production   : 0,
       Transport:    domainFilter === 'Transport'    ? c.Transport    : 0,
       Distribution: domainFilter === 'Distribution' ? c.Distribution : 0,
       Commercial:   domainFilter === 'Commercial'   ? c.Commercial   : 0,
     }));
-  }, [domainFilter]);
+    const mockTotal = base.reduce((s, c) => s + c.Production + c.Transport + c.Distribution + c.Commercial, 0);
+    const ratio = mockTotal > 0 ? realScaling.realEngage / mockTotal : 0;
+    return base.map(c => ({
+      cat: c.cat,
+      Production:   +(c.Production   * ratio).toFixed(2),
+      Transport:    +(c.Transport    * ratio).toFixed(2),
+      Distribution: +(c.Distribution * ratio).toFixed(2),
+      Commercial:   +(c.Commercial   * ratio).toFixed(2),
+    }));
+  }, [domainFilter, realScaling]);
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', background: '#F5F6FA' }}>

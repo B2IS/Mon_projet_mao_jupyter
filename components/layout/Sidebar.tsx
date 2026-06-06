@@ -252,13 +252,13 @@ const SECTIONS: SidebarSection[] = [
   {
     id: 'transverses',
     icon: Zap,
-    label: 'Transverses',
+    label: 'Suivi, Reporting & Collaboration',
     tKey: 'sidebar.transverses',
     labelByRole: {
       DIR_DPE:  'Analytique & Rapports Direction',
       CTRL_FIN: 'Reporting & Validation Financière',
     },
-    shortLabel: 'Transv.',
+    shortLabel: 'Suivi',
     routes: ['/suivi-evaluation', '/workflows', '/ged', '/analytique', '/studio-rapports', '/reporting', '/agents-ia', '/copilot', '/courriers', '/migration', '/constructeur-indicateurs'],
     items: [
       {

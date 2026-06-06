@@ -230,7 +230,8 @@ export default function Header() {
           {t(info.labelKey)}
         </div>
         {t(info.subKey) && (
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 1 }}>{t(info.subKey)}</div>
+          <div className="hide-tablet" style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 1,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{t(info.subKey)}</div>
         )}
       </div>
 

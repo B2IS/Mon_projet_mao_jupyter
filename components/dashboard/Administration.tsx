@@ -31,7 +31,7 @@ const SECTION_LABELS: Record<SidebarSectionId, string> = {
   finances:     'Finances & Engagements',
   immobilisations: 'Immobilisations & Patrimoine',
   logistique:   'Logistique & Ressources',
-  transverses:  'Transverses (GED, Workflows, IA…)',
+  transverses:  'Suivi, Reporting & Collaboration (GED, Workflows, IA…)',
   parametrage:  'Paramétrage / Administration',
 };
 const SECTION_ORDER: SidebarSectionId[] = ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'logistique', 'transverses', 'parametrage'];

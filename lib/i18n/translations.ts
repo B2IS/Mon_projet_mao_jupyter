@@ -288,7 +288,7 @@ const FR: Record<TranslationKey, string> = {
   'sidebar.executionControle': 'Exécution & Contrôle',
   'sidebar.financesEngagements': 'Finances & Engagements',
   'sidebar.logistiqueRessources': 'Logistique & Ressources',
-  'sidebar.transverses': 'Transverses',
+  'sidebar.transverses': 'Suivi, Reporting & Collaboration',
 
   'lang.fr': 'Français',
   'lang.en': 'English',

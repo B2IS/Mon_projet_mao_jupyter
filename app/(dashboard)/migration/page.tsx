@@ -19,6 +19,8 @@ import { swarmAnalyze, swarmFinalize, swarmProjectToExtracted, type SwarmImmobil
 import { useProjectStore, type Domaine, type Projet } from '@/lib/projectStore';
 import { useAuth } from '@/lib/authStore';
 import { extractFileText } from '@/lib/docText';
+import { useStructurationStore } from '@/lib/structuration/store';
+import { structurerDepuisBOQ, type BOQInputRow } from '@/lib/structuration/builder';
 import toast from 'react-hot-toast';
 
 /** Convertit une date dd/mm/yyyy ou dd-mm-yyyy en ISO YYYY-MM-DD (sinon repli). */
@@ -41,6 +43,52 @@ function inferDomaine(...hints: (string | undefined)[]): Domaine {
   return 'distribution';
 }
 
+/**
+ * Branchement Migration → Structuration : l'IA a extrait le bordereau (wbsItems) +
+ * les lots ; on construit DIRECTEMENT l'arbre Composant → Sous-composant → Article
+ * pour ce projet, prêt à valider puis immobiliser. Plus de structuration manuelle.
+ * Retourne le nombre de composants générés (0 si rien d'exploitable).
+ */
+function genererStructurationDepuisMigration(
+  ex: ExtractedData,
+  projetCode: string,
+  projetNom: string,
+  saver: (s: ReturnType<typeof structurerDepuisBOQ>) => void,
+): number {
+  if (!projetCode) return 0;
+  const rows: BOQInputRow[] = [];
+  // 1) Lignes de bordereau (BOQ / WBS chiffré) détectées par l'IA.
+  (ex.wbsItems ?? []).forEach(w => {
+    if (!w || (!w.label && !w.code)) return;
+    rows.push({
+      code: w.code || undefined,
+      designation: w.label || w.code || 'Poste',
+      unite: 'U',
+      quantite: 1,
+      prixUnitaire: typeof w.budget === 'number' ? w.budget : 0,
+      devise: (ex.currency as BOQInputRow['devise']) || 'CFA',
+    });
+  });
+  // 2) Repli : à défaut de bordereau, chaque LOT devient un sous-composant chiffré.
+  if (rows.length === 0) {
+    (ex.lots ?? []).forEach(l => rows.push({
+      code: `LOT.${l.numero}`,
+      designation: l.label || `Lot ${l.numero}`,
+      unite: 'lot', quantite: 1,
+      prixUnitaire: typeof l.budget === 'number' ? l.budget : 0,
+      devise: (ex.currency as BOQInputRow['devise']) || 'CFA',
+    }));
+  }
+  if (rows.length === 0) return 0;
+  const s = structurerDepuisBOQ(rows, {
+    projetCode, projetNom,
+    deviseRef: (ex.currency as BOQInputRow['devise']) || 'CFA',
+    source: 'IA · Migration (bordereau extrait)',
+  });
+  saver(s);
+  return s.composants.length;
+}
+
 const STEPS: { id: MigrationStep; label: string; icon: React.ElementType }[] = [
   { id: 'upload', label: 'Charger les documents', icon: Upload },
   { id: 'analyze', label: 'Analyse IA', icon: Brain },
@@ -52,6 +100,7 @@ const STEPS: { id: MigrationStep; label: string; icon: React.ElementType }[] = [
 export default function MigrationPage() {
   const router = useRouter();
   const store = useProjectStore();
+  const struct = useStructurationStore();
   const { user } = useAuth();
   const [step, setStep] = useState<number>(0);
   const [docs, setDocs] = useState<MigrationDocument[]>([]);
@@ -293,12 +342,15 @@ export default function MigrationPage() {
       };
       const created = store.createProjet(nouveau);
       toast.success(`Projet « ${created.nom} » créé dans SIGEPP à partir des documents.`, { duration: 3500 });
+      // ── Branchement automatique vers la STRUCTURATION des actifs ──
+      const nbComp = genererStructurationDepuisMigration(ex, created.code, created.nom, struct.save);
+      if (nbComp > 0) toast.success(`Structuration générée : ${nbComp} composant(s) — à valider puis immobiliser.`, { duration: 4500, icon: '🧱' });
       return created.id;
     } catch {
       toast.error('Le projet a été préparé mais n\'a pas pu être enregistré automatiquement.');
       return '';
     }
-  }, [extracted, project, docs, immos, user, store]);
+  }, [extracted, project, docs, immos, user, store, struct]);
 
   // ── Création MULTI-LOTS : chaque lot devient un sous-projet séparé, rattaché à
   //    un même « projet parent » (code) pour permettre la consolidation ultérieure.
@@ -315,6 +367,7 @@ export default function MigrationPage() {
     const rawTotal = ex.budget ?? 0;
     const totalM = rawTotal >= 1_000_000 ? Math.round(rawTotal / 1_000_000) : Math.round(rawTotal);
     let firstId = '';
+    let firstCode = '';
     lots.forEach((lot, i) => {
       const lotBudgetRaw = lot.budget ?? 0;
       const lotBudgetM = lotBudgetRaw > 0
@@ -340,11 +393,14 @@ export default function MigrationPage() {
           consolidable: true, documentsSources: docs.map(d => d.name),
         },
       });
-      if (i === 0) firstId = created.id;
+      if (i === 0) { firstId = created.id; firstCode = created.code; }
     });
     toast.success(`${lots.length} lots créés comme sous-projets (parent ${baseCode}) — consolidables.`, { duration: 4000 });
+    // Structuration des actifs sur le projet pilote (à partir du bordereau / des lots).
+    const nbComp = genererStructurationDepuisMigration(ex, firstCode || baseCode, baseNom, struct.save);
+    if (nbComp > 0) toast.success(`Structuration générée : ${nbComp} composant(s) — à valider puis immobiliser.`, { duration: 4500, icon: '🧱' });
     return firstId;
-  }, [extracted, project, docs, user, store, createInStore]);
+  }, [extracted, project, docs, user, store, struct, createInStore]);
 
   // Mode de création choisi par l'humain quand des lots sont détectés.
   const [creerParLot, setCreerParLot] = useState(true);
@@ -742,9 +798,18 @@ export default function MigrationPage() {
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, marginBottom: 20 }}>
               Dashboard • Planning Gantt • WBS • Budget • Marchés • GED • Risques • Reporting
             </div>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            {((extracted?.wbsItems?.length ?? 0) > 0 || (extracted?.lots?.length ?? 0) > 0) && (
+              <div style={{ fontSize: 12.5, color: 'var(--text)', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 9, padding: '10px 14px', margin: '0 auto 18px', maxWidth: 460 }}>
+                🧱 <strong>Structuration des actifs générée par l’IA</strong> à partir du bordereau —
+                Composant → Sous-composant → Article. À valider, puis immobiliser.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={() => router.push('/projets')}>
                 <FolderOpen size={14} /> Voir les projets
+              </button>
+              <button className="btn btn-secondary" onClick={() => router.push('/structuration')}>
+                <FilePlus size={14} /> Structuration des actifs
               </button>
               <button className="btn btn-primary" onClick={finalizeProject}>
                 <Rocket size={14} /> Ouvrir le projet
