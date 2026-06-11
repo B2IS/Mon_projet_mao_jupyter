@@ -1196,7 +1196,7 @@ export default function GED() {
                     </button>
                   )}
                   {curIdx === WF_STEPS.length - 1 && (
-                    <button className="btn btn-sm" style={{ background: 'rgba(100,116,139,0.1)', color: 'var(--slate)', border: '1px solid rgba(100,116,139,0.3)' }} onClick={() => { toast.info('Archivage en cours de déploiement — fonctionnalité disponible prochainement.'); }}>
+                    <button className="btn btn-sm" style={{ background: 'rgba(100,116,139,0.1)', color: 'var(--slate)', border: '1px solid rgba(100,116,139,0.3)' }} onClick={() => { toast('Archivage en cours de déploiement — fonctionnalité disponible prochainement.'); }}>
                       <Archive size={11} /> Archiver
                     </button>
                   )}

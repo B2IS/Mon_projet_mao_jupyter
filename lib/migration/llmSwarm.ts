@@ -123,6 +123,22 @@ function extractJSON<T>(text: string): T | null {
   }
 }
 
+/* ─── Helpers de contexte ───────────────────────────────────────────────────── */
+
+/**
+ * Construit un contexte documentaire en respectant un budget global de caractères.
+ * Distribue équitablement entre les docs, sans dépasser perDocMax ni totalMax.
+ */
+function buildDocContext(
+  docs: { name: string; text: string }[],
+  perDocMax = 8000,
+  totalMax = 60000,
+): string {
+  if (!docs.length) return '';
+  const perDoc = Math.min(perDocMax, Math.floor(totalMax / docs.length));
+  return docs.map(d => `=== ${d.name} ===\n${d.text.slice(0, perDoc)}`).join('\n\n');
+}
+
 /* ─── Nœuds du graphe (LangGraph nodes) ────────────────────────────────────── */
 
 /**
@@ -133,7 +149,7 @@ async function nodeDocClassifier(state: SwarmState, apiKey: string): Promise<Swa
   if (!state.documents.length) return state;
 
   const docList = state.documents.map((d, i) =>
-    `${i + 1}. "${d.name}" — extrait: "${d.text.slice(0, 300).replace(/\n/g, ' ')}"`
+    `${i + 1}. "${d.name}" — extrait: "${d.text.slice(0, 1500).replace(/\n/g, ' ')}"`
   ).join('\n');
 
   const system = `Tu es un expert en classification de documents de projets d'infrastructure électrique (SENELEC, Sénégal).
@@ -168,35 +184,47 @@ Réponds avec ce format JSON exact :
  * Extrait les métadonnées projet : nom, code BIT, dates, bailleur, localisation…
  */
 async function nodeProjectExtractor(state: SwarmState, apiKey: string): Promise<SwarmState> {
-  const fullText = state.documents.map(d => `=== ${d.name} ===\n${d.text.slice(0, 800)}`).join('\n\n');
+  // Priorité : docs qui semblent être des contrats/rapports → texte complet
+  const priority = state.documents.filter(d => {
+    const t = d.name.toLowerCase();
+    const cl = state.classified.find(c => c.name === d.name)?.docType ?? '';
+    return ['contract','dao','report_monthly','report_quarterly','pdf_rapport','word_rapport'].includes(cl)
+      || t.includes('contrat') || t.includes('rapport') || t.includes('marche') || t.includes('dao');
+  });
+  const rest = state.documents.filter(d => !priority.includes(d));
+  // Docs prioritaires : jusqu'à 12 000 chars chacun ; reste : 3 000 chars chacun
+  const fullText = [
+    buildDocContext(priority, 12000, 50000),
+    buildDocContext(rest, 3000, 20000),
+  ].filter(Boolean).join('\n\n');
 
-  const system = `Tu es un expert en extraction d'informations de projets d'électrification rurale et urbaine au Sénégal (SENELEC DPE).
-Les codes BIT (Bureau International du Travail / identifiants internes SENELEC) sont les clés uniques des projets.
-Patterns BIT: BEST-SN-..., EIUL-Lot..., EXP-IRAF-..., TBEA-..., DPE-..., BESTSN-...
-Réponds UNIQUEMENT en JSON valide.`;
+  const system = `Tu es un expert en extraction d'informations de projets d'infrastructure électrique au Sénégal (SENELEC DPE).
+Codes BIT SENELEC : BEST-SN-XXX, EIUL-LOT-X, EXP-IRAF-XXX, TBEA-XXX, DPE-YYYY-XXX, BESTSN-XXX.
+Distingue BAILLEUR (financeur : Banque Mondiale, BAD, BEI, IDA, AFD, BOAD, JICA, etc.) et TITULAIRE (entreprise qui exécute les travaux).
+Réponds UNIQUEMENT en JSON valide, sans texte autour.`;
 
-  const prompt = `Extrais les informations clés de ces documents de projet :
+  const prompt = `Extrais les informations clés de ces documents de projet SENELEC :
 
 ${fullText}
 
-Réponds avec ce JSON :
+JSON attendu (null si non trouvé) :
 {
   "projectName": "nom complet du projet",
-  "codeBIT": "code BIT/identifiant unique SENELEC (ex: BEST-SN-001, EIUL-LOT3)",
+  "codeBIT": "code BIT/identifiant SENELEC ou null",
   "projectCode": "code court du projet",
-  "projectType": "type: distribution|transport|production|commercial|genie_civil",
-  "bailleur": "bailleur de fonds (Banque Mondiale, BAD, BEI, etc.)",
-  "contractor": "entreprise titulaire du marché",
-  "location": "région/localisation principale",
-  "startDate": "date début YYYY-MM-DD",
-  "endDate": "date fin YYYY-MM-DD",
+  "projectType": "distribution|transport|production|commercial|genie_civil",
+  "bailleur": "bailleur de fonds (Banque Mondiale, BAD, BEI, IDA, AFD…) ou null",
+  "contractor": "entreprise titulaire du marché ou null",
+  "location": "région(s)/localisation principale",
+  "startDate": "YYYY-MM-DD ou null",
+  "endDate": "YYYY-MM-DD ou null",
   "deliverables": ["livrable 1", "livrable 2"],
   "milestones": [{"name":"jalon","date":"YYYY-MM-DD"}],
   "confidence": 0.95
 }`;
 
   try {
-    const { text, model } = await callWithFallback(system, prompt, apiKey, 1024);
+    const { text, model } = await callWithFallback(system, prompt, apiKey, 2048);
     const meta = extractJSON<Record<string, unknown>>(text);
     if (meta) {
       return {
@@ -208,7 +236,8 @@ Réponds avec ce JSON :
           projectCode:  String(meta.projectCode || meta.codeBIT || ''),
           codeBIT:      String(meta.codeBIT || meta.projectCode || ''),
           projectType:  String(meta.projectType || ''),
-          contractor:   String(meta.bailleur || meta.contractor || ''),
+          // Bailleur et contractor séparés — ne pas mélanger
+          contractor:   String(meta.contractor || ''),
           location:     String(meta.location || ''),
           startDate:    String(meta.startDate || ''),
           endDate:      String(meta.endDate || ''),
@@ -228,15 +257,17 @@ Réponds avec ce JSON :
  * Extrait les montants, lots, devise FCFA/XOF, WBS…
  */
 async function nodeBudgetAnalyst(state: SwarmState, apiKey: string): Promise<SwarmState> {
-  const financialDocs = state.documents
-    .filter(d => {
-      const n = d.name.toLowerCase();
-      const classified = state.classified.find(c => c.name === d.name);
-      return ['boq', 'excel_financial', 'contract', 'dao'].includes(classified?.docType ?? '')
-        || n.includes('budget') || n.includes('boq') || n.includes('contrat') || n.includes('devis') || n.includes('montant');
-    })
-    .map(d => `=== ${d.name} ===\n${d.text.slice(0, 600)}`).join('\n\n')
-    || state.documents.map(d => `=== ${d.name} ===\n${d.text.slice(0, 400)}`).join('\n\n');
+  const financialRaw = state.documents.filter(d => {
+    const n = d.name.toLowerCase();
+    const cl = state.classified.find(c => c.name === d.name)?.docType ?? '';
+    return ['boq', 'excel_financial', 'contract', 'dao'].includes(cl)
+      || n.includes('budget') || n.includes('boq') || n.includes('contrat')
+      || n.includes('devis') || n.includes('montant') || n.includes('bordereau');
+  });
+  // Docs financiers : jusqu'à 10 000 chars ; sinon tous les docs
+  const financialDocs = financialRaw.length
+    ? buildDocContext(financialRaw, 10000, 45000)
+    : buildDocContext(state.documents, 4000, 40000);
 
   const system = `Tu es un expert financier spécialisé dans les marchés publics FCFA/XOF au Sénégal.
 Identifie les montants en FCFA, millions FCFA, milliards FCFA, ou USD/EUR.
@@ -256,8 +287,8 @@ JSON attendu :
     {"numero":"2","label":"Intitulé Lot 2","budget":7500000000}
   ],
   "wbsItems": [
-    {"code":"1.0","label":"Études","budget":500000000},
-    {"code":"2.0","label":"Fournitures","budget":8000000000}
+    {"code":"1.0","label":"Études","budget":5},
+    {"code":"2.0","label":"Fournitures","budget":80}
   ],
   "confidence": 0.92
 }`;
@@ -296,13 +327,13 @@ JSON attendu :
  * Détecte les risques à partir des documents (rapports, PV, correspondances…)
  */
 async function nodeRiskAssessor(state: SwarmState, apiKey: string): Promise<SwarmState> {
-  const reportDocs = state.documents
-    .filter(d => {
-      const classified = state.classified.find(c => c.name === d.name);
-      return ['report_monthly', 'report_quarterly', 'pv_reception', 'contract'].includes(classified?.docType ?? '');
-    })
-    .map(d => d.text.slice(0, 500)).join('\n\n')
-    || state.documents[0]?.text.slice(0, 800) || '';
+  const reportRaw = state.documents.filter(d => {
+    const cl = state.classified.find(c => c.name === d.name)?.docType ?? '';
+    return ['report_monthly', 'report_quarterly', 'pv_reception', 'contract', 'pdf_rapport', 'word_rapport'].includes(cl);
+  });
+  const reportDocs = reportRaw.length
+    ? buildDocContext(reportRaw, 6000, 30000)
+    : buildDocContext(state.documents, 3000, 25000);
 
   const system = `Tu es un expert en gestion des risques de projets d'infrastructure en Afrique subsaharienne.
 Réponds UNIQUEMENT en JSON valide.`;

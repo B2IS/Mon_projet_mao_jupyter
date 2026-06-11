@@ -175,6 +175,8 @@ header :focus-visible { outline-color: #F9B96F; box-shadow: 0 0 0 4px rgba(249,1
 .app-shell { display: flex; height: 100vh; overflow: hidden; }
 .app-main  { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .page-body { flex: 1; overflow-y: auto; padding: var(--content-gap); background: var(--bg-app); }
+/* MobileTopbar — caché sur desktop, visible uniquement sur mobile */
+.mobile-topbar { display: none; }
 
 /* page-content : wrapper standard des pages legacy */
 .page-content {
@@ -935,9 +937,35 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
 /* ═══════════════════════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════════════════ */
+/* Header mobile spacer — visible only on mobile, hidden on desktop */
+.header-mobile-spacer { display: none; width: 0; flex-shrink: 0; }
+
+/* ─ Tablet (769 – 1024 px) ───────────────────────────────────────────────── */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .page-content { padding: 14px 16px; }
+  .page-body { padding: 12px; }
+  .gauge-grid { grid-template-columns: repeat(2, 1fr); }
+  .form-row.cols-3 { grid-template-columns: 1fr 1fr; }
+  /* Grilles à 4+ colonnes → 3 colonnes sur tablette */
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(5"],
+  [style*="grid-template-columns: repeat(6"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .topbar-search { width: 160px; }
+}
+
 @media (max-width: 768px) {
   :root { --sidebar-w: 0px; }
   .sidebar { display: none !important; }
+  /* MobileTopbar remplace le hamburger flottant sur mobile */
+  .mobile-topbar { display: flex !important; }
+  /* Le spacer n'est plus nécessaire (MobileTopbar tient 52px dans le flux) */
+  .header-mobile-spacer { display: none !important; width: 0 !important; }
+  /* Anti-wrap mobile : textes dans colonnes étroites ne se cassent pas lettre par lettre */
+  p, li { overflow-wrap: break-word; word-break: break-word; }
+  span { overflow-wrap: break-word; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .kpi-value { font-size: 20px; }
   .hide-mobile { display: none !important; }
@@ -1497,6 +1525,25 @@ pre, code {
 
 /* Section de page : marges normalisées. */
 .section-gap { display: flex; flex-direction: column; gap: 16px; width: 100%; min-width: 0; }
+
+/* ── Agents IA — layout 2-panneaux responsive ──────────────────────────── */
+/* Desktop: panneau gauche fixe (230px) + droite flex:1 */
+.agents-ia-shell    { display: flex; height: 100%; overflow: hidden; }
+.agents-ia-sidebar  { width: 230px; flex-shrink: 0; }
+
+@media (max-width: 768px) {
+  /* Sur mobile: empilé, sidebar en haut, liste d'agents pleine largeur dessous */
+  .agents-ia-shell   { flex-direction: column; overflow: auto; height: auto; min-height: 100%; }
+  .agents-ia-sidebar { width: 100% !important; flex-shrink: unset; border-right: none !important; border-bottom: 1px solid #E2E8F0; max-height: 380px; overflow-y: auto; }
+  /* Panneau de résultats (flex:1 inline) prend toute la largeur */
+  .agents-ia-shell > *:last-child { width: 100%; overflow-y: auto; }
+}
+
+/* ── Anti-break caractère sur tous les spans étroits ── */
+.agents-ia-shell span, .agents-ia-shell div {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
 
 /* Print : cache sidebar et header pour l'export PDF du Gantt. */
 @media print {

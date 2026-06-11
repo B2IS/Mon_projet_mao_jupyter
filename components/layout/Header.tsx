@@ -190,8 +190,9 @@ export default function Header() {
       boxShadow: '0 2px 8px rgba(45,17,103,0.30)',
       position: 'relative', zIndex: 10,
     }}>
-      {/* Mobile spacer for hamburger */}
-      <div style={{ width: 0 }} className="header-mobile-spacer" />
+      {/* Mobile spacer — leaves room for the fixed hamburger button (36px + margins = 48px).
+          Hidden on desktop via CSS class; block/flex on mobile via globals.css media query. */}
+      <div className="header-mobile-spacer" />
 
       {/* Bouton Retour — navigation entre pages */}
       {path !== '/tableau-de-bord' && (

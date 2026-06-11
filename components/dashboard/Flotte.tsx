@@ -10,6 +10,7 @@ import {
   Truck, AlertTriangle, Activity, Gauge,
   Plus, CheckCircle, Clock, XCircle, Settings,
   ChevronDown, Fuel, X, User, Trash2,
+  ArrowRightLeft, Send, Calendar,
 } from 'lucide-react';
 import { useOdmConfig } from '@/lib/odmConfigStore';
 import { DPE_ORG } from '@/lib/dpeOrgStructure';
@@ -85,6 +86,28 @@ interface ConsoVehicule {
   vehicule: string;
   consoMois: number;
   budget: number;
+}
+
+interface RessourceUagl {
+  id: string;
+  type: 'vehicule' | 'chauffeur';
+  nom: string;
+  details: string;     // immatriculation+modèle ou permis+contact
+  uaglCode: string;    // ex: 'UAGL/DEP'
+  uaglLabel: string;   // ex: 'Direction Études & Programmation'
+  statut: 'Disponible';
+}
+
+interface DemandeEmprunt {
+  id: string;
+  ressourceId: string;
+  ressourceNom: string;
+  uaglSource: string;
+  dateDebut: string;
+  dateFin: string;
+  motif: string;
+  odmRef: string;
+  statut: 'En attente' | 'Approuvée' | 'Refusée';
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -202,6 +225,27 @@ const CONSO_PAR_VEHICULE: ConsoVehicule[] = [
   { vehicule: 'Ranger (KL)', consoMois: 124, budget: 186000 },
 ];
 
+// ─── Ressources disponibles dans les autres UAGLs ─────────────────────────────
+const RESSOURCES_UAGLS: RessourceUagl[] = [
+  // UAGL/DEP
+  { id: 'RU-01', type: 'vehicule', nom: 'Toyota Hilux Revo', details: 'SN-4408-KD · 2022 · 41 230 km', uaglCode: 'UAGL/DEP', uaglLabel: 'Direction Études & Programmation', statut: 'Disponible' },
+  { id: 'RU-02', type: 'vehicule', nom: 'Nissan Navara NP300', details: 'SN-7712-ZK · 2021 · 68 900 km', uaglCode: 'UAGL/DEP', uaglLabel: 'Direction Études & Programmation', statut: 'Disponible' },
+  { id: 'RU-03', type: 'chauffeur', nom: 'Malick DIALLO', details: 'Permis B+C · Exp. 2028 · Tél. 77 312 44 80', uaglCode: 'UAGL/DEP', uaglLabel: 'Direction Études & Programmation', statut: 'Disponible' },
+  // UAGL/DIT
+  { id: 'RU-04', type: 'vehicule', nom: 'Mitsubishi Pajero Sport', details: 'SN-0091-DA · 2020 · 95 100 km', uaglCode: 'UAGL/DIT', uaglLabel: 'Direction Infrastructure & Travaux', statut: 'Disponible' },
+  { id: 'RU-05', type: 'chauffeur', nom: 'Adama FALL', details: 'Permis B · Exp. 2027 · Tél. 76 201 33 55', uaglCode: 'UAGL/DIT', uaglLabel: 'Direction Infrastructure & Travaux', statut: 'Disponible' },
+  { id: 'RU-06', type: 'chauffeur', nom: 'Seydou GAYE', details: 'Permis B+C · Exp. 2026 · Tél. 70 455 88 12', uaglCode: 'UAGL/DIT', uaglLabel: 'Direction Infrastructure & Travaux', statut: 'Disponible' },
+  // UAGL/DGC
+  { id: 'RU-07', type: 'vehicule', nom: 'Toyota Land Cruiser 70', details: 'SN-5530-TH · 2019 · 127 450 km', uaglCode: 'UAGL/DGC', uaglLabel: 'Direction Gestion des Contrats', statut: 'Disponible' },
+  { id: 'RU-08', type: 'chauffeur', nom: 'Ousmane NIANG', details: 'Permis B+C+D · Exp. 2029 · Tél. 77 680 10 24', uaglCode: 'UAGL/DGC', uaglLabel: 'Direction Gestion des Contrats', statut: 'Disponible' },
+];
+
+const UAGL_COLORS: Record<string, string> = {
+  'UAGL/DEP': '#0F766E',
+  'UAGL/DIT': '#1D4ED8',
+  'UAGL/DGC': '#7C3AED',
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function statutPillClass(s: StatutVehicule): string {
@@ -230,7 +274,7 @@ function assuranceUrgent(joursRestants: number): boolean {
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-type OngletFlotte = 'parc' | 'carnet' | 'chauffeurs' | 'alertes' | 'stats';
+type OngletFlotte = 'parc' | 'carnet' | 'chauffeurs' | 'alertes' | 'stats' | 'emprunts';
 
 export default function Flotte() {
   const [onglet, setOnglet] = useState<OngletFlotte>('parc');
@@ -240,6 +284,11 @@ export default function Flotte() {
   const [alertes, setAlertes] = useState<AlerteVehicule[]>(ALERTES_VEHICULE);
   const [maintenances, setMaintenances] = useState<MaintenanceHisto[]>(MAINTENANCES);
   const [showMaintForm, setShowMaintForm] = useState(false);
+
+  // ─ Emprunts inter-UAGL
+  const [demandes, setDemandes] = useState<DemandeEmprunt[]>([]);
+  const [empruntModal, setEmpruntModal] = useState<RessourceUagl | null>(null);
+  const [filtreUagl, setFiltreUagl] = useState<string>('tous');
 
   const traiterAlerte = (id: string) => {
     setAlertes(prev => prev.filter(a => a.id !== id));
@@ -275,12 +324,15 @@ export default function Flotte() {
     }, 0) / MISSIONS_CARNET.filter(m => m.kmArrivee > m.kmDepart).length * 10
   ) / 10;
 
+  const demandesEnAttente = demandes.filter(d => d.statut === 'En attente').length;
+
   const ONGLETS: { key: OngletFlotte; label: string }[] = [
     { key: 'parc', label: 'Parc auto' },
     { key: 'carnet', label: 'Carnet de bord' },
     { key: 'chauffeurs', label: 'Chauffeurs par appartenance' },
     { key: 'alertes', label: 'Alertes & Maintenance' },
     { key: 'stats', label: 'Statistiques' },
+    { key: 'emprunts', label: 'Emprunts inter-UAGL' },
   ];
 
   return (
@@ -345,6 +397,9 @@ export default function Flotte() {
             {o.label}
             {o.key === 'alertes' && alertesEnCours > 0 && (
               <span style={{ marginLeft: 6, background: 'var(--red)', color: '#fff', borderRadius: 20, fontSize: 9, fontWeight: 800, padding: '1px 6px' }}>{alertesEnCours}</span>
+            )}
+            {o.key === 'emprunts' && demandesEnAttente > 0 && (
+              <span style={{ marginLeft: 6, background: '#F47920', color: '#fff', borderRadius: 20, fontSize: 9, fontWeight: 800, padding: '1px 6px' }}>{demandesEnAttente}</span>
             )}
           </button>
         ))}
@@ -661,6 +716,133 @@ export default function Flotte() {
         </div>
       )}
 
+      {/* ── Emprunts inter-UAGL ── */}
+      {onglet === 'emprunts' && (
+        <div>
+          {/* Bandeau d'info */}
+          <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <ArrowRightLeft size={18} color="#1D4ED8" style={{ flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 13, color: '#1E40AF', lineHeight: 1.6 }}>
+              <strong>Prêt de ressources entre UAGLs</strong> — Consultez ici les véhicules et chauffeurs disponibles dans les autres unités.
+              Envoyez une demande d'emprunt directement à l'UAGL concerné. Les prêts sont soumis à validation par le responsable de l'UAGL source.
+            </div>
+          </div>
+
+          {/* Filtre UAGL */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>Filtrer par UAGL :</span>
+            {['tous', 'UAGL/DEP', 'UAGL/DIT', 'UAGL/DGC'].map(u => (
+              <button key={u} onClick={() => setFiltreUagl(u)} style={{
+                padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                border: '1px solid', fontFamily: 'inherit',
+                background: filtreUagl === u ? (UAGL_COLORS[u] ?? '#0E3460') : '#fff',
+                color: filtreUagl === u ? '#fff' : '#64748B',
+                borderColor: filtreUagl === u ? (UAGL_COLORS[u] ?? '#0E3460') : '#E2E8F0',
+              }}>
+                {u === 'tous' ? 'Toutes les UAGLs' : u}
+              </button>
+            ))}
+          </div>
+
+          {/* Grille des ressources disponibles */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 14, marginBottom: 28 }}>
+            {RESSOURCES_UAGLS
+              .filter(r => filtreUagl === 'tous' || r.uaglCode === filtreUagl)
+              .map(r => (
+                <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 9, background: r.type === 'vehicule' ? 'rgba(14,52,96,0.08)' : 'rgba(22,163,74,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {r.type === 'vehicule' ? <Truck size={17} color="var(--navy)" /> : <User size={17} color="#16A34A" />}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 13.5, color: '#0F172A' }}>{r.nom}</div>
+                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>{r.details}</div>
+                      </div>
+                    </div>
+                    <span className="pill pill-ok">Disponible</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid #F1F5F9' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: `${UAGL_COLORS[r.uaglCode]}15`, padding: '3px 9px', borderRadius: 20 }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: UAGL_COLORS[r.uaglCode] }} />
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: UAGL_COLORS[r.uaglCode] }}>{r.uaglCode}</span>
+                    </div>
+                    <button onClick={() => setEmpruntModal(r)} style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                      background: 'var(--navy, #0E3460)', color: '#fff', border: 'none',
+                      borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                      <Send size={12} /> Demander
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* Mes demandes */}
+          <div style={{ background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: '#0F172A', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Clock size={15} color="#64748B" /> Mes demandes d'emprunt
+              {demandes.length > 0 && <span style={{ fontSize: 11, color: '#64748B', fontWeight: 400 }}>({demandes.length})</span>}
+            </div>
+            {demandes.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#94A3B8', fontSize: 13 }}>
+                Aucune demande envoyée pour l'instant.
+              </div>
+            ) : (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Ressource</th>
+                    <th>UAGL source</th>
+                    <th>Période</th>
+                    <th>Motif</th>
+                    <th>Statut</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {demandes.map(d => (
+                    <tr key={d.id}>
+                      <td style={{ fontWeight: 600 }}>{d.ressourceNom}</td>
+                      <td>{d.uaglSource}</td>
+                      <td style={{ fontSize: 12, color: '#64748B' }}>{d.dateDebut} → {d.dateFin}</td>
+                      <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{d.motif}</td>
+                      <td>
+                        <span className={`pill ${d.statut === 'Approuvée' ? 'pill-ok' : d.statut === 'Refusée' ? 'pill-ko' : 'pill-warn'}`}>
+                          {d.statut}
+                        </span>
+                      </td>
+                      <td>
+                        {d.statut === 'En attente' && (
+                          <button onClick={() => setDemandes(prev => prev.filter(x => x.id !== d.id))}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4 }}>
+                            <X size={14} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal demande d'emprunt */}
+      {empruntModal && (
+        <EmpruntModal
+          ressource={empruntModal}
+          onClose={() => setEmpruntModal(null)}
+          onEnvoyer={(d) => {
+            setDemandes(prev => [d, ...prev]);
+            setEmpruntModal(null);
+            toast.success(`Demande envoyée à ${d.uaglSource}`);
+          }}
+        />
+      )}
+
       {showMaintForm && (
         <MaintenanceForm
           vehicules={VEHICULES}
@@ -854,6 +1036,89 @@ function ChauffeursTab() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ─── Modal demande d'emprunt ────────────────────────────────────────────────── */
+function EmpruntModal({ ressource, onClose, onEnvoyer }: {
+  ressource: RessourceUagl;
+  onClose: () => void;
+  onEnvoyer: (d: DemandeEmprunt) => void;
+}) {
+  const [dateDebut, setDateDebut] = useState('');
+  const [dateFin, setDateFin] = useState('');
+  const [motif, setMotif] = useState('');
+  const [odmRef, setOdmRef] = useState('');
+
+  const valid = dateDebut.length > 0 && dateFin.length > 0 && motif.trim().length > 0;
+
+  const submit = () => {
+    if (!valid) return;
+    onEnvoyer({
+      id: `DE-${Date.now()}`,
+      ressourceId: ressource.id,
+      ressourceNom: ressource.nom,
+      uaglSource: ressource.uaglCode,
+      dateDebut,
+      dateFin,
+      motif: motif.trim(),
+      odmRef: odmRef.trim(),
+      statut: 'En attente',
+    });
+  };
+
+  const field: React.CSSProperties = { width: '100%', padding: '8px 10px', border: '1px solid #E2E8F0', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', marginTop: 4, boxSizing: 'border-box' };
+  const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#475569', display: 'block' };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 'min(500px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--navy)' }}>Demande d'emprunt</div>
+            <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>Auprès de {ressource.uaglCode} — {ressource.uaglLabel}</div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}><X size={18} /></button>
+        </div>
+        <div style={{ margin: '14px 18px 0', background: '#F8FAFC', borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: ressource.type === 'vehicule' ? 'rgba(14,52,96,0.08)' : 'rgba(22,163,74,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {ressource.type === 'vehicule' ? <Truck size={16} color="var(--navy)" /> : <User size={16} color="#16A34A" />}
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0F172A' }}>{ressource.nom}</div>
+            <div style={{ fontSize: 11.5, color: '#64748B' }}>{ressource.details}</div>
+          </div>
+        </div>
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <label style={{ ...lbl, flex: 1 }}>
+              Date de début *
+              <input type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)} style={field} />
+            </label>
+            <label style={{ ...lbl, flex: 1 }}>
+              Date de fin *
+              <input type="date" value={dateFin} onChange={e => setDateFin(e.target.value)} style={field} />
+            </label>
+          </div>
+          <label style={lbl}>
+            Motif de la demande *
+            <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={3}
+              placeholder="Décrivez l'objet de la mission justifiant l'emprunt…"
+              style={{ ...field, resize: 'vertical' }} />
+          </label>
+          <label style={lbl}>
+            Référence ODM (si disponible)
+            <input value={odmRef} onChange={e => setOdmRef(e.target.value)} placeholder="ODM-DER-2026-XXX" style={field} />
+          </label>
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+          <button onClick={submit} disabled={!valid} className="btn-primary" style={{ opacity: valid ? 1 : 0.5, cursor: valid ? 'pointer' : 'not-allowed' }}>
+            <Send size={13} /> Envoyer la demande
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

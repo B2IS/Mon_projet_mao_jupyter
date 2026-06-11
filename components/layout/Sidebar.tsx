@@ -25,6 +25,7 @@ import { useNotificationStore } from '@/lib/notificationStore';
 import { getDepartementLabel } from '@/lib/dpeOrgStructure';
 import { useTranslation } from '@/lib/i18n/I18nContext';
 import SenelecLogo from '@/components/ui/SenelecLogo';
+import { useSidebar } from '@/lib/sidebarContext';
 
 const stats = getAnalytics();
 
@@ -321,16 +322,16 @@ export default function Sidebar() {
   const inbox = useNotificationStore(s => s.inbox);
   const unreadInbox = inbox.filter(n => !n.read && n.recipientEmail === user?.email?.toLowerCase()).length;
 
+  const { mobileOpen, closeMobile } = useSidebar();
   const [activeDomain, setActiveDomain] = useState(() => findActiveDomainId(path));
   const [subPanelOpen, setSubPanelOpen] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [showProfileSwitch, setShowProfileSwitch] = useState(false);
 
   /* Sync active domain on navigation */
   useEffect(() => {
     const d = findActiveDomainId(path);
     setActiveDomain(d);
-    setMobileOpen(false);
+    closeMobile();
   }, [path]);
 
   /* Active item href */
@@ -691,26 +692,10 @@ export default function Sidebar() {
         {sidebarShell}
       </aside>
 
-      {/* Hamburger mobile */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="sidebar-hamburger"
-        aria-label="Ouvrir le menu"
-        style={{
-          position: 'fixed', top: 11, left: 12, zIndex: 60,
-          background: '#2D1167', color: '#fff', border: 'none', borderRadius: 7,
-          width: 36, height: 36,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', boxShadow: '0 2px 8px rgba(45,17,103,0.40)',
-        }}
-      >
-        <Menu size={18} />
-      </button>
-
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          onClick={() => setMobileOpen(false)}
+          onClick={closeMobile}
           style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 50, backdropFilter: 'blur(3px)' }}
         />
       )}
@@ -766,7 +751,7 @@ export default function Sidebar() {
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>SIGEPP<span style={{ color: '#F9A05C' }}>-DPE</span></div>
                 <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Direction Principale Équipement</div>
               </div>
-              <button onClick={() => setMobileOpen(false)} title="Fermer le menu" aria-label="Fermer le menu de navigation" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', display: 'flex', padding: 4, borderRadius: 6 }}>
+              <button onClick={closeMobile} title="Fermer le menu" aria-label="Fermer le menu de navigation" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', display: 'flex', padding: 4, borderRadius: 6 }}>
                 <X size={14} />
               </button>
             </div>
@@ -784,7 +769,7 @@ export default function Sidebar() {
                       const Icon = item.icon;
                       const active = item.href === activeHref;
                       return (
-                        <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'block', margin: '0 8px' }} onClick={() => setMobileOpen(false)}>
+                        <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'block', margin: '0 8px' }} onClick={closeMobile}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 8, borderLeft: active ? '2px solid #F47920' : '2px solid transparent', background: active ? 'linear-gradient(90deg,rgba(244,121,32,0.16),rgba(255,255,255,0.06))' : 'transparent', cursor: 'pointer' }}>
                             <Icon size={13} style={{ color: active ? '#F9A05C' : 'rgba(255,255,255,0.45)', flexShrink: 0 }} />
                             <span style={{ flex: 1, fontSize: 12.5, fontWeight: active ? 700 : 500, color: active ? '#fff' : 'rgba(255,255,255,0.78)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

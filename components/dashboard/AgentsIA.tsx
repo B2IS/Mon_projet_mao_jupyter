@@ -1,1215 +1,577 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
-  Bot, Send, User,
-  Briefcase, Calendar, Wallet, FolderOpen, Activity, FileText,
-  Shield, RefreshCw, MapPin, ClipboardList, TrendingUp, X, Cloud, CheckCircle2,
-  Upload, Zap, ChevronRight, AlertTriangle, Archive, Eye, CheckSquare,
-  FileSpreadsheet, File, Image as ImageIcon, Package, FilePlus, Loader2,
-  PlayCircle, ChevronDown,
+  Bot, Briefcase, Calendar, Wallet, Shield, MapPin,
+  ClipboardList, Loader2, CheckCircle2, AlertTriangle,
+  Download, RefreshCw, ChevronDown, ChevronUp, Play,
+  Sparkles, BarChart3, Users,
 } from 'lucide-react';
 import { useProjectStore } from '@/lib/projectStore';
-import { useAuth, type RoleCode } from '@/lib/authStore';
-import { useIntegrationConfig } from '@/lib/integrationConfigStore';
+import { useAuth } from '@/lib/authStore';
+import { chatOnce, getKey, GROQ_MODELS, type ChatMessage } from '@/lib/groqChat';
+import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import toast from 'react-hot-toast';
 
-/* ═══════════════════════════════════════════════════════════
-   SWARM ORCHESTRATEUR — Types & données statiques
-═══════════════════════════════════════════════════════════ */
-
-/** Extension → catégorie de fichier pour le swarm */
-function swarmFileCategory(ext: string): {
-  label: string; color: string; bg: string;
-  agents: string[]; // agent IDs qui liront ce fichier
-  icon: React.ReactNode;
-} {
-  const e = ext.toLowerCase();
-  if (['xlsx', 'xls', 'csv', 'ods'].includes(e))
-    return { label: 'Tableur', color: '#16A34A', bg: '#DCFCE7',
-      agents: ['financier', 'planificateur', 'suivi_eval'],
-      icon: <FileSpreadsheet size={14} style={{ color: '#16A34A' }} /> };
-  if (['pdf'].includes(e))
-    return { label: 'PDF', color: '#DC2626', bg: '#FEE2E2',
-      agents: ['documentaire', 'chef_projet', 'risques'],
-      icon: <FileText size={14} style={{ color: '#DC2626' }} /> };
-  if (['doc', 'docx', 'odt', 'rtf'].includes(e))
-    return { label: 'Word', color: '#2563EB', bg: '#DBEAFE',
-      agents: ['documentaire', 'chef_projet'],
-      icon: <File size={14} style={{ color: '#2563EB' }} /> };
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(e))
-    return { label: 'Archive', color: '#7C3AED', bg: '#EDE9FE',
-      agents: ['orchestrateur'],
-      icon: <Package size={14} style={{ color: '#7C3AED' }} /> };
-  if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff'].includes(e))
-    return { label: 'Image', color: '#0891B2', bg: '#CFFAFE',
-      agents: ['documentaire', 'suivi_eval'],
-      icon: <ImageIcon size={14} style={{ color: '#0891B2' }} /> };
-  if (['mpp', 'xml', 'p6xml'].includes(e))
-    return { label: 'Planning', color: '#D97706', bg: '#FEF3C7',
-      agents: ['planificateur', 'chef_projet'],
-      icon: <Calendar size={14} style={{ color: '#D97706' }} /> };
-  return { label: 'Autre', color: '#64748B', bg: '#F1F5F9',
-    agents: ['orchestrateur', 'documentaire'],
-    icon: <FilePlus size={14} style={{ color: '#64748B' }} /> };
-}
-
-function fmtBytes(b: number): string {
-  if (b < 1024) return `${b} o`;
-  if (b < 1048576) return `${(b / 1024).toFixed(1)} Ko`;
-  return `${(b / 1048576).toFixed(2)} Mo`;
-}
-
-interface SwarmFile {
-  id: string; name: string; ext: string; size: number;
-  status: 'waiting' | 'reading' | 'relevant' | 'skipped';
-  readBy: string[];
-}
-
-type SwarmAgentId = 'orchestrateur' | 'planificateur' | 'risques' | 'documentaire' | 'financier' | 'ressources' | 'suivi_eval' | 'chef_projet';
-type SwarmStatus = 'idle' | 'running' | 'done';
-
-interface SwarmAgentState {
-  id: SwarmAgentId; label: string; color: string; phase: 1 | 2 | 3;
-  status: SwarmStatus; filesRead: string[]; finding: string;
-}
-
-const SWARM_AGENTS_INIT: SwarmAgentState[] = [
-  { id: 'orchestrateur', label: 'Orchestrateur', color: '#3D1A6B', phase: 1,
-    status: 'idle', filesRead: [], finding: '' },
-  { id: 'planificateur', label: 'Planificateur', color: '#7C3AED', phase: 1,
-    status: 'idle', filesRead: [], finding: '' },
-  { id: 'risques', label: 'Gestionnaire de risques', color: '#DC2626', phase: 1,
-    status: 'idle', filesRead: [], finding: '' },
-  { id: 'documentaire', label: 'Agent Documentaire/GED', color: '#D97706', phase: 1,
-    status: 'idle', filesRead: [], finding: '' },
-  { id: 'financier', label: 'Gestionnaire Financier', color: '#16A34A', phase: 2,
-    status: 'idle', filesRead: [], finding: '' },
-  { id: 'ressources', label: 'Gestionnaire Ressources', color: '#0891B2', phase: 2,
-    status: 'idle', filesRead: [], finding: '' },
-  { id: 'suivi_eval', label: 'Agent Suivi-Éval & KPI', color: '#0F766E', phase: 3,
-    status: 'idle', filesRead: [], finding: '' },
-  { id: 'chef_projet', label: 'Agent Chef de Projet', color: '#1B4F8A', phase: 3,
-    status: 'idle', filesRead: [], finding: '' },
-];
-
-/** Simule la lecture et l'analyse d'un fichier par un agent */
-function agentFinding(agentId: SwarmAgentId, files: SwarmFile[]): string {
-  const excelFiles = files.filter(f => ['xlsx','xls','csv'].includes(f.ext));
-  const pdfFiles   = files.filter(f => f.ext === 'pdf');
-  const wordFiles  = files.filter(f => ['doc','docx'].includes(f.ext));
-  const archFiles  = files.filter(f => ['zip','rar','7z'].includes(f.ext));
-
-  switch (agentId) {
-    case 'orchestrateur':
-      return `${files.length} fichier(s) reçu(s). Dispatché : ${excelFiles.length} tableur(s) → Financier/Planificateur ; ${pdfFiles.length} PDF → Documentaire/Chef Projet ; ${wordFiles.length} Word → Documentaire ; ${archFiles.length} archive(s) → décompression en cours. Tous les agents sont notifiés.`;
-    case 'planificateur':
-      return excelFiles.length
-        ? `${excelFiles.length} tableur(s) lus. Détecté : structure WBS, jalons, durées. Planning extrait et importé dans SIGEPP. Baseline initiale créée.`
-        : 'Aucun fichier planning détecté. En attente de données CSV/MPP.';
-    case 'risques':
-      return `${files.length} fichier(s) analysés. 3 clauses contractuelles à risque identifiées dans ${wordFiles.length} Word. 2 retards potentiels détectés (probabilité élevée). Matrice risques générée.`;
-    case 'documentaire':
-      return `${files.length} fichier(s) indexés dans la GED. Métadonnées extraites automatiquement. ${pdfFiles.length} PDF classifiés. ${wordFiles.length} Word versionnés. Liens vers projets associés créés.`;
-    case 'financier':
-      return excelFiles.length
-        ? `Tableur(s) lus : ${excelFiles.map(f => f.name).join(', ')}. Budget total extrait : 36 000 000 000 FCFA. 15 décomptes détectés. Avance démarrage 20% = 7 200 000 000 FCFA. CPI/SPI calculés et importés.`
-        : 'Aucun tableur financier détecté. Budget initial non extrait.';
-    case 'ressources':
-      return `${files.length} fichier(s) analysés. Ressources identifiées : équipes, sous-traitants, matériels. Affectations proposées sur ${Math.max(1, excelFiles.length)} projet(s). Surallocation : 0 conflit détecté.`;
-    case 'suivi_eval':
-      return `KPIs extraits depuis ${excelFiles.length} tableur(s). Taux avancement physique initial : à compléter après état des lieux terrain. Indicateurs de performance liés aux décomptes N°1-15 importés.`;
-    case 'chef_projet':
-      return `Synthèse complète du projet disponible. Fiche projet créée avec données importées. Prochaines étapes : validation humaine des jalons, revue budget, signature baseline. Prêt pour publication.`;
-  }
-}
-
-/* ─── Brand ─────────────────────────────── */
-const NAVY   = '#3D1A6B';
+/* ─── Tokens ──────────────────────────────────────────── */
+const NAVY   = '#1B4F8A';
 const ORANGE = '#F47920';
-const GREEN  = '#16A34A';
-const AMBER  = '#D97706';
-const PURPLE = '#8B5CF6';
-const TEAL   = '#0F766E';
-const SKY    = '#0EA5E9';
+const BORDER = '#E2E8F0';
+const BG     = '#F8FAFD';
 
-/* ─── Types ─────────────────────────────── */
-type AgentRole = 'direction' | 'chef_projet' | 'planification' | 'finance' | 'ged' | 'suivi_eval' | 'redaction' | 'terrain' | 'logistique';
+/* ─── Types ───────────────────────────────────────────── */
+type AgentStatus = 'idle' | 'running' | 'done' | 'error';
 
-interface Message {
+interface AgentResult {
   id: string;
-  role: 'user' | 'agent';
-  content: string;
-  timestamp: Date;
-  sources?: string[];
-}
-
-interface AgentConfig {
-  role: AgentRole;
   label: string;
-  subtitle: string;
-  desc: string;
-  color: string;
-  bg: string;
   icon: React.ReactNode;
-  perimetres: string[];
-  suggestions: string[];
+  color: string;
+  status: AgentStatus;
+  output: string;
+  duration?: number;
+  model?: string;
 }
 
-/* ─── Configuration des agents ──────────────────────────────────────────────── */
-const AGENTS: AgentConfig[] = [
+interface ProjetOption { code: string; nom: string; avancement: number; cpi: number; spi: number; }
+
+/* ─── Définitions des 6 agents ───────────────────────── */
+const AGENT_DEFS: Array<{ id: string; label: string; icon: React.ReactNode; color: string; persona: string; }> = [
   {
-    role: 'direction',
-    label: 'Copilote Directeur DPE',
-    subtitle: 'Tableau de bord stratégique & arbitrages',
-    desc: 'Analyse le portefeuille, détecte les projets critiques, prépare les revues de direction et produit des synthèses exécutives pour les bailleurs.',
+    id: 'directeur',
+    label: 'Directeur / Stratégie',
+    icon: <Briefcase size={16} />,
     color: NAVY,
-    bg: '#F3EBF9',
-    icon: <TrendingUp size={20} style={{ color: NAVY }} />,
-    perimetres: ['Portefeuille', 'KPI stratégiques', 'Bailleurs', 'Décision'],
-    suggestions: [
-      'Synthèse exécutive du portefeuille S1 2026',
-      'Quels projets nécessitent un arbitrage urgent ?',
-      'Prépare la note pour le bailleur AFD',
-      'Comparaison performance réalisé vs objectifs annuels',
-    ],
+    persona: 'Tu es le Directeur Stratégique DPE. Analyse la performance globale du portefeuille, les alignements stratégiques, les risques au niveau direction et les recommandations de gouvernance.',
   },
   {
-    role: 'chef_projet',
-    label: 'Copilote Chef de Projet',
-    subtitle: 'Assistant pilotage quotidien',
-    desc: 'Assiste le chef de projet dans le pilotage, le suivi des jalons, la gestion des écarts et la préparation des comités.',
-    color: NAVY,
-    bg: '#EFF6FF',
-    icon: <Briefcase size={20} style={{ color: NAVY }} />,
-    perimetres: ['Planning', 'GED', 'Bordereau', 'KPI', 'Journal d\'audit'],
-    suggestions: [
-      'Résume-moi les écarts de planning du projet BT Sud',
-      'Quels jalons sont à risque cette semaine ?',
-      'Crée le WBS initial depuis le modèle DPE',
-      'Prépare le compte-rendu de comité du 27/05',
-    ],
+    id: 'planificateur',
+    label: 'Planificateur',
+    icon: <Calendar size={16} />,
+    color: '#0891B2',
+    persona: 'Tu es l\'expert Planification & Scheduling. Analyse le planning, les jalons, les dépendances critiques, les retards, le chemin critique et propose des plans de rattrapage détaillés.',
   },
   {
-    role: 'planification',
-    label: 'Agent Planification',
-    subtitle: 'Assistant ordonnancement et baselines',
-    desc: 'Aide à structurer les plannings, calculer les chemins critiques, comparer les baselines et détecter les conflits de ressources.',
-    color: PURPLE,
-    bg: '#F5F3FF',
-    icon: <Calendar size={20} style={{ color: PURPLE }} />,
-    perimetres: ['Planning', 'Ressources', 'Baselines', 'Calendriers'],
-    suggestions: [
-      'Contrôle les écarts calendrier / baseline v2',
-      'Quelles tâches sont sur le chemin critique ?',
-      'Détecte les conflits de ressources sur S3-S5',
-      'Simule l\'impact d\'un décalage de 2 semaines',
-    ],
+    id: 'financier',
+    label: 'Financier / EVM',
+    icon: <Wallet size={16} />,
+    color: '#16A34A',
+    persona: 'Tu es l\'expert Contrôle Financier et EVM. Analyse le budget, les indices CPI/SPI, EAC, VAC, TCPI, les écarts de coût, les décaissements par bailleur, les engagements marchés.',
   },
   {
-    role: 'finance',
-    label: 'Agent Financier',
-    subtitle: 'Assistant contrôle budgétaire',
-    desc: 'Assiste dans la validation des factures, le rapprochement avec les contrats, le calcul des CPI/SPI et la chaîne de bon à payer.',
-    color: GREEN,
-    bg: '#DCFCE7',
-    icon: <Wallet size={20} style={{ color: GREEN }} />,
-    perimetres: ['Marchés', 'Factures', 'Budget', 'ERP', 'KPI financiers'],
-    suggestions: [
-      'Vérifie les factures en attente de validation',
-      'Calcule le CPI et SPI du portefeuille',
-      'Prépare le bordereau et les quantités lot HTA',
-      'Détecte les dépassements budgétaires',
-    ],
+    id: 'risques',
+    label: 'Risques & QHSE',
+    icon: <Shield size={16} />,
+    color: '#DC2626',
+    persona: 'Tu es l\'expert Risques et QHSE. Identifie les risques techniques, contractuels, environnementaux et QHSE. Évalue la probabilité et l\'impact. Propose des mesures d\'atténuation chiffrées.',
   },
   {
-    role: 'ged',
-    label: 'Agent GED & Conformité',
-    subtitle: 'Contrôle documentaire et conformité',
-    desc: 'Vérifie la complétude des dossiers, détecte les pièces manquantes, contrôle les délais de conservation et assure la traçabilité.',
-    color: AMBER,
-    bg: '#FFF7ED',
-    icon: <FolderOpen size={20} style={{ color: AMBER }} />,
-    perimetres: ['GED', 'Contrats', 'Courriers', 'Archivage'],
-    suggestions: [
-      'Vérifie les pièces obligatoires manquantes',
-      'Liste les documents expirés ou à renouveler',
-      'Contrôle la conformité du dossier CT-HTA-009',
-      'Classe automatiquement les documents reçus',
-    ],
+    id: 'sig',
+    label: 'SIG / Terrain',
+    icon: <MapPin size={16} />,
+    color: '#7C3AED',
+    persona: 'Tu es l\'expert SIG et Opérations Terrain. Analyse la couverture géographique, les localités MES, les taux d\'électrification régionaux, les contraintes terrain et l\'avancement physique.',
   },
   {
-    role: 'suivi_eval',
-    label: 'Analyste Suivi-Évaluation',
-    subtitle: 'Consolidation KPI et reporting',
-    desc: 'Consolide les indicateurs physiques et financiers, détecte les anomalies, prépare les alertes et produit les rapports périodiques.',
+    id: 'chef_projet',
+    label: 'Chef de Projet',
+    icon: <ClipboardList size={16} />,
     color: ORANGE,
-    bg: '#FFF7ED',
-    icon: <Activity size={20} style={{ color: ORANGE }} />,
-    perimetres: ['KPI', 'Suivi-Évaluation', 'Alertes', 'Reporting'],
-    suggestions: [
-      'Consolide les KPI du portefeuille T2 2026',
-      'Quelles anomalies terrain sont en attente ?',
-      'Génère l\'alerte pour les projets SPI < 0.85',
-      'Prépare le tableau de bord mensuel direction',
-    ],
-  },
-  {
-    role: 'redaction',
-    label: 'Agent Rédaction Rapport',
-    subtitle: 'Génération documentaire assistée',
-    desc: 'Rédige des synthèses, rapports, comptes-rendus de comité, notes de décision et rapports périodiques à partir des données projet.',
-    color: SKY,
-    bg: '#E0F2FE',
-    icon: <FileText size={20} style={{ color: SKY }} />,
-    perimetres: ['Studio de rapports', 'GED', 'Comités', 'Planning'],
-    suggestions: [
-      'Rédige le rapport mensuel projet BT Sud',
-      'Assemble le rapport comité mensuel mai 2026',
-      'Génère la note de décision pour réallocation budget',
-      'Prépare la synthèse exécutive T2 2026',
-    ],
-  },
-  {
-    role: 'terrain',
-    label: 'Agent Terrain & Géolocalisation',
-    subtitle: 'Saisies terrain, GPS, ODM, photos',
-    desc: 'Assiste la saisie des états d\'avancement physique, la géolocalisation des travaux, la création d\'ordres de mission et la validation des photos de chantier.',
-    color: GREEN,
-    bg: '#DCFCE7',
-    icon: <MapPin size={20} style={{ color: GREEN }} />,
-    perimetres: ['Avancement physique', 'GPS', 'ODM', 'Photos'],
-    suggestions: [
-      'Crée un ordre de mission pour demain matin',
-      'Sauvegarde l\'avancement du lot HTA Nord — 68%',
-      'Quelles tâches terrain sont à valider aujourd\'hui ?',
-      'Localise les chantiers actifs sur la carte',
-    ],
-  },
-  {
-    role: 'logistique',
-    label: 'Agent Logistique & RH',
-    subtitle: 'Gestion ODM, flotte, ressources humaines',
-    desc: 'Optimise les ordres de mission, suit la disponibilité de la flotte véhicules, gère les affectations du personnel terrain et les compteurs de présence.',
-    color: TEAL,
-    bg: '#CCFBF1',
-    icon: <ClipboardList size={20} style={{ color: TEAL }} />,
-    perimetres: ['ODM', 'Flotte', 'RH', 'Présences'],
-    suggestions: [
-      'Bilan des ODM émis cette semaine',
-      'Quels véhicules sont disponibles demain ?',
-      'Affecte l\'ingénieur Diop au chantier BT Nord',
-      'Synthèse présences équipes terrain — mai 2026',
-    ],
+    persona: 'Tu es le Chef de Projet sénior PMI/PMP. Analyse l\'exécution opérationnelle, la mobilisation des ressources, les contrats, les blocages et formule des recommandations d\'actions immédiates prioritaires.',
   },
 ];
 
-/* ─── Agents visibles par rôle ─────────── */
-// Principe : chaque rôle voit uniquement les agents pertinents à sa mission
-// Hiérarchie ascendante : RESP_LOG → CTRL_FIN → CHEF_PROJ → CHEF_DEPT → PMO → DIR_DPE
-const ROLE_AGENTS: Record<RoleCode, AgentRole[]> = {
-  DIR_DPE:   ['direction', 'suivi_eval', 'redaction'],
-  PMO:       ['planification', 'suivi_eval', 'chef_projet', 'redaction', 'ged'],
-  CHEF_DEPT: ['chef_projet', 'suivi_eval', 'planification', 'ged', 'redaction'],
-  CHEF_PROJ: ['chef_projet', 'planification', 'ged'],
-  INGENIEUR: ['chef_projet', 'planification', 'ged', 'terrain'],
-  EXPERT:    ['chef_projet', 'planification', 'suivi_eval', 'redaction', 'ged'],
-  CONTROLEUR:['suivi_eval', 'chef_projet', 'planification', 'finance'],
-  CHARGE:    ['chef_projet', 'suivi_eval', 'terrain'],
-  ASSISTANT: ['chef_projet', 'ged', 'redaction'],
-  SECRETAIRE:['ged', 'redaction'],
-  CHAUFFEUR: ['logistique'],
-  CTRL_FIN:  ['finance', 'ged'],
-  RESP_LOG:  ['logistique'],
-  MARCHES:   ['finance', 'ged', 'redaction'],
-  SIG:       ['terrain', 'ged'],
-  IMMO:      ['finance', 'ged'],
-  AUDIT:     ['suivi_eval', 'redaction', 'ged'],
-  CONTROLEUR_TRAVAUX: ['terrain', 'suivi_eval', 'ged'],
-  ADMIN:     ['direction', 'chef_projet', 'planification', 'finance', 'ged', 'suivi_eval', 'redaction', 'terrain', 'logistique'],
-};
+/* ─── Markdown compact ───────────────────────────────── */
+function MiniMarkdown({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const elems: React.ReactNode[] = [];
+  let i = 0;
 
-/* ─── Réponses simulées par agent ───────────────────────────────────────────── */
-type ProjectData = ReturnType<typeof useProjectStore>['projets'];
-
-function buildAgentReply(q: string, agent: AgentConfig, projets: ProjectData): string {
-  const qLow = q.toLowerCase();
-  const totalProjets = projets.length;
-  const projetsCritiques = projets.filter(p => p.cpi < 0.90 || p.spi < 0.85).length;
-  const avgCpi = totalProjets > 0 ? +(projets.reduce((s, p) => s + p.cpi, 0) / totalProjets).toFixed(2) : 1.0;
-  const avgSpi = totalProjets > 0 ? +(projets.reduce((s, p) => s + p.spi, 0) / totalProjets).toFixed(2) : 1.0;
-
-  switch (agent.role) {
-    case 'chef_projet':
-      if (qLow.includes('jalonss') || qLow.includes('jalon')) return `📍 **Jalons critiques identifiés :**\n\n• Validation étude APD — 28/06 (HTA Ouest)\n• Livraison lot poteaux — 03/07 (BT Sud)\n• PV réception partielle — 15/07 (Électrification Nord)\n\n⚠️ 2 jalons à risque (délai +12j et blocage fournisseur).`;
-      if (qLow.includes('wbs')) return `📊 **Création WBS depuis modèle DPE :**\n\n✅ Modèle « Réseau HTA » appliqué\n• Lot 1 : Études (5 tâches)\n• Lot 2 : Approvisionnements (8 tâches)\n• Lot 3 : Travaux (12 tâches)\n• Lot 4 : Réception & Clôture (4 tâches)\n\nWBS créé et lié au projet sélectionné.`;
-      return `🤖 **Analyse copilote chef de projet :**\n\n${totalProjets} projets actifs dans votre périmètre.\n${projetsCritiques} projets en situation critique.\n\nJe suis prêt à vous assister dans le pilotage. Précisez votre demande sur le planning, les jalons, les écarts ou la préparation d'un comit\xe9.
-📋 **Rappel procédure :** le chef de projet doit valider les jalons critiques avant le 15 du mois (Planifier & Exécuter, art. 4.2).`;
-  
-    case 'planification':
-      if (qLow.includes('chemin critique') || qLow.includes('critique')) return `🔴 **Chemin critique — Projet BT Sud :**\n\n1. Commande poteaux béton (S2-S3) → **bloqué** +12j\n2. Pose zone Nord (S3-S5)\n3. Réception partielle (S5)\n\n⚠️ Impact potentiel sur la date de fin : +2 semaines.\nRecommandation : négocier livraison accélérée fournisseur.`;
-      if (qLow.includes('conflit') || qLow.includes('ressource')) return `👥 **Conflits ressources S3-S5 :**\n\n• Entreprise A : 120% de charge en S3 → surallocation détectée\n• CP Traoré : 2 projets simultanés S4 → arbitrage requis\n\nSolution proposée : décaler la tâche « Inspection qualité » de S4 à S5.`;
-      return `📅 **Agent Planification activé.**\n\nAudit de l'ordonnancement en cours sur ${totalProjets} projets.\nDétection des conflits de ressources et comparaison baseline en attente de votre commande.
-📋 **Rappel procédure :** la baseline doit être comparée au planning actuel chaque semaine (Structuration SIGEPP, art. 5.3).`;
-
-    case 'finance':
-      if (qLow.includes('cpi') || qLow.includes('spi')) {        
-        return `💰 **KPIs financiers portefeuille :**\n\n• CPI moyen : **${avgCpi}** ${avgCpi >= 0.90 ? '✅' : '🔴 Alerte'}\n• SPI moyen : **${avgSpi}** ${avgSpi >= 0.85 ? '✅' : '⚠️ Attention'}\n• ${projetsCritiques} projets sous les seuils d\'alerte\n\nRecommandation : révision budgétaire sur les 3 projets les plus critiques.`;
-      }
-      if (qLow.includes('facture') || qLow.includes('validation')) return `📋 **Factures en attente de validation :**\n\n• FAC-2026-0145 : 184 500 000 FCFA · CT-HTA-009 · En révision PMO\n• FAC-2026-0138 : 42 300 000 FCFA · CT-BT-003 · Validation finance\n\n⏱️ Délai moyen de traitement : 4 jours. Chaîne bon à payer opérationnelle.`;
-      return `💼 **Agent Financier activé.**\n\nAccès autorisé : Marchés, Factures, Budget, ERP.\nPérimètre : Projet sélectionné · Lecture/édition contrôlée.\n\nQue souhaitez-vous analyser ou valider ?
-📋 **Rappel procédure :** les factures doivent être validées sous 5 jours ouvrés (Passation marchés DAO, art. 6.1).`;
-
-    case 'ged':
-      if (qLow.includes('manquant') || qLow.includes('pièce')) return `📎 **Pièces obligatoires manquantes :**\n\n• Contrat CT-HTA-009 : PV de démarrage absent\n• Projet BT Sud : Plans d'exécution non versionnés\n• ODM-2026-045 : Rapport de mission incomplet\n\n🔴 3 dossiers non conformes nécessitent action immédiate.`;
-      return `📁 **Agent GED & Conformité activé.**\n\nContrôle documentaire en cours. Base GED indexée, politiques de conservation appliquées.\nDemandez-moi de vérifier un dossier ou de détecter les anomalies.
-📋 **Rappel procédure :** les documents doivent être archivés dans les 30 jours suivant la clôture (GED, art. 3.2).`;
-
-    case 'suivi_eval':
-      if (qLow.includes('anomalie') || qLow.includes('terrain')) return `⚠️ **Anomalies terrain en attente :**\n\n• Lot HTA Nord : taux physique 61% · source mission 28/06 · **à confirmer**\n• Programme BT Sud : justificatif financier manquant · relance envoyée\n• 2 photos géolocalisées reçues · 1 PV signé attendu · 1 rapport en retard\n\nActions proposées : relance automatique superviseur terrain.`;
-      return `📊 **Analyste Suivi-Évaluation activé.**\n\nConsolidation des indicateurs en temps réel.\n• Exécution physique : **61%**\n• Exécution financière : **54%**\n• KPI validés : **8/10**\n• Rapports à publier : **4**\n• Anomalies détectées : **6**\n\nQue souhaitez-vous analyser ou exporter ?
-📋 **Rappel procédure :** le rapport mensuel doit être publié avant le 5 du mois suivant (Reporting, art. 2.1).`;
-
-    case 'redaction':
-      if (qLow.includes('rapport mensuel') || qLow.includes('mensuel')) return `✍️ **Rédaction rapport mensuel en cours...**\n\n📄 **Rapport Mensuel — Projet BT Sud — Mai 2026**\n\n**1. Synthèse exécutive**\nLe projet BT Sud affiche un avancement de 61% avec un CPI de ${projets[0]?.cpi.toFixed(2) ?? '0.92'} et un SPI de ${projets[0]?.spi.toFixed(2) ?? '0.88'}.\n\n**2. Faits majeurs du mois**\n• Livraison des poteaux béton avec un retard de 12j\n• Réception partielle lot 1 programmée le 03/07\n• Budget engagé : 54%\n\n**3. Points de vigilance**\n• Blocage fournisseur à lever avant le 30/05\n• 3 jalons critiques en S5-S6\n\n*[Section automatiquement générée depuis les données SIGEPP-DPE]*`; // Using projets[0] as a placeholder, ideally would be project-specific
-      return `✍️ **Agent Rédaction activé.**\n\nJe peux générer : rapports mensuels, synthèses comité, notes de décision, comptes-rendus.\n\nPréciez le type de document et le projet ou programme concerné.
-📋 **Rappel procédure :** le rapport doit contenir synthèse, faits majeurs et points de vigilance (Évaluation des rapports, art. 1.3).`;
-
-    case 'direction':
-      if (qLow.includes('synthèse') || qLow.includes('portefeuille')) {        
-        const onTimeProjets = projets.filter(p => p.spi >= 0.85).length;
-        const avgAvancement = totalProjets > 0 ? Math.round(projets.reduce((sum, p) => sum + p.avancement, 0) / totalProjets) : 0;
-        const totalBudget = projets.reduce((sum, p) => sum + p.budget, 0);
-        const totalDecaisse = projets.reduce((sum, p) => sum + p.budgetDecaisse, 0);
-        const budgetEngagePct = totalBudget > 0 ? Math.round((projets.reduce((sum, p) => sum + p.budgetEngage, 0) / totalBudget) * 100) : 0;
-        const decaissePct = totalBudget > 0 ? Math.round((totalDecaisse / totalBudget) * 100) : 0;
-
-        return `📊 **Synthèse Exécutive Portefeuille — S1 2026**\n\n• ${totalProjets} projets actifs · ${onTimeProjets} dans les délais · ${projetsCritiques} critiques\n• Budget engagé : ${budgetEngagePct}% · Décaissements : ${decaissePct}%\n• Avancement physique moyen : ${avgAvancement}%\n\n🔴 **Points d'arbitrage :**\n• BT Sud : retard fournisseur +12j — arbitrage procurement requis\n• HTA Ouest : dépassement budgétaire +8% — révision marchés\n• Électrification Nord : CP en arrêt maladie — remplacement interim\n\n✅ Rapport prêt pour la revue de direction du 03/07.`;
-      }
-      if (qLow.includes('arbitrage') || qLow.includes('urgent')) return `⚡ **Projets nécessitant arbitrage immédiat :**\n\n1. **BT Sud** — Blocage fournisseur poteaux (+12j) → Décision sourcing alternatif\n2. **HTA Ouest** — Dépassement +8% budget → Avenant ou réallocation\n3. **Électrification Nord** — CP en arrêt maladie → Remplacement interim\n\n📋 3 arbitrages à soumettre au CODIR avant le 05/07.`;
-      return `👔 **Copilote Directeur DPE activé.**\n\nVision portefeuille consolidée : ${totalProjets} projets, budget total géré.\n${projetsCritiques} projets en situation critique nécessitent votre attention.\n\nJe peux préparer des synthèses exécutives, notes de décision ou rapports bailleurs.
-📋 **Rappel procédure :** la revue de direction se tient trimestriellement (Workflow approbation budgets, art. 2.4).`;
-
-    case 'terrain':
-      if (qLow.includes('ordre de mission') || qLow.includes('odm')) return `📋 **Création Ordre de Mission :**\n\n• Ingénieur : Omar DIOP\n• Destination : Chantier BT Nord — Thiès\n• Date : Demain 08h00\n• Véhicule affecté : TG-8821-DK\n• Objet : Supervision lot 3 — pose poteaux\n\n✅ ODM-2026-089 créé · En attente validation superviseur.`;
-      if (qLow.includes('avancement') || qLow.includes('68')) return `📍 **Enregistrement avancement :**\n\n• Projet : HTA Nord\n• Lot : Travaux de réseau HTA\n• Avancement physique : **68%** ✅\n• Géolocalisation : 14.7231°N, -16.9421°W\n• Photo joints : 3 · Validés : 3\n\nSaisie enregistrée et synchronisée avec le SIGEPP.`;
-      return `🔧 **Agent Terrain activé.**\n\nAccès à : Saisies avancement, GPS, ODM, photos chantier.\nVos missions du jour : 2 chantiers actifs, 1 ODM en cours, 3 photos à valider.\n\nComment puis-je vous assister sur le terrain ?
-📋 **Rappel procédure :** l'ODM doit être validé par le responsable UAGL avant départ (Workflow ODM, art. 3.1).`;
-
-    case 'logistique': // Assuming 'tot' here refers to total active projects, which might not be directly relevant for logistique, but keeping for consistency.
-      if (qLow.includes('véhicule') || qLow.includes('flotte') || qLow.includes('disponible')) return `🚗 **Disponibilité flotte — Demain :**\n\n✅ TG-8821-DK — Toyota HiLux · Libre\n✅ TG-4502-DK — Nissan Patrol · Libre\n⚠️ TG-1237-DK — Land Cruiser · En maintenance (retour prévu 28/05)\n❌ TG-9044-DK — Réservé Direction\n\n2 véhicules disponibles sur 4.`;
-      if (qLow.includes('odm') || qLow.includes('bilan') || qLow.includes('semaine')) return `📋 **Bilan ODM — Semaine 21 (du 19 au 25/05) :**\n\n• ODM émis : 12 · Validés : 10 · En attente : 2\n• Km parcourus : 1 847 km\n• Personnes déployées : 8 ingénieurs\n• Chantiers visités : 5\n\n💡 Coût missions : 1 240 000 FCFA (budget mensuel : 6 500 000 FCFA — 19%)`;
-      return `🚗 **Agent Logistique & RH activé.**\n\nGestion : ${totalProjets} projets actifs · Flotte 4 véhicules · Équipe terrain 8 personnes.\nODM en cours : 2 · Absences à gérer : 1\n\nQue souhaitez-vous planifier ou suivre ?
-📋 **Rappel procédure :** le contrôle des kilométrages est mensuel (Gestion flotte, art. 4.2).`;
-
-    default:
-      return `Je suis l'agent ${agent.label}. Comment puis-je vous assister ?`;
+  function inline(s: string, k?: string): React.ReactNode[] {
+    const parts: React.ReactNode[] = [];
+    const re = /(\*\*(.+?)\*\*|`([^`]+)`)/g;
+    let last = 0; let m: RegExpExecArray | null;
+    while ((m = re.exec(s)) !== null) {
+      if (m.index > last) parts.push(s.slice(last, m.index));
+      if (m[2] !== undefined) parts.push(<strong key={`${k}-${m.index}`} style={{ fontWeight: 700, color: NAVY }}>{m[2]}</strong>);
+      else if (m[3] !== undefined) parts.push(<code key={`${k}-${m.index}`} style={{ fontFamily: 'monospace', background: '#F1F5F9', padding: '0 4px', borderRadius: 3, fontSize: '0.87em', color: '#7C3AED' }}>{m[3]}</code>);
+      last = m.index + m[0].length;
+    }
+    if (last < s.length) parts.push(s.slice(last));
+    return parts;
   }
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim().startsWith('|') && i + 1 < lines.length && lines[i + 1].trim().startsWith('|---')) {
+      const headers = line.split('|').filter(c => c.trim()).map(c => c.trim());
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        rows.push(lines[i].split('|').filter(c => c.trim()).map(c => c.trim()));
+        i++;
+      }
+      elems.push(
+        <div key={`t${i}`} style={{ overflowX: 'auto', margin: '8px 0', borderRadius: 6, border: `1px solid ${BORDER}` }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 11 }}>
+            <thead><tr style={{ background: NAVY }}>
+              {headers.map((h, j) => <th key={j} style={{ padding: '5px 9px', color: '#fff', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr key={ri} style={{ background: ri % 2 === 0 ? '#F8FAFC' : '#fff', borderBottom: `1px solid ${BORDER}` }}>
+                  {row.map((cell, ci) => <td key={ci} style={{ padding: '5px 9px', color: '#334155', fontSize: 10.5 }}>{inline(cell)}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+    if (/^##+ (.+)/.test(line)) {
+      const txt = line.replace(/^#+ /, '');
+      elems.push(<div key={i} style={{ fontSize: 12, fontWeight: 800, color: NAVY, margin: '10px 0 4px', borderLeft: `3px solid ${ORANGE}`, paddingLeft: 7 }}>{inline(txt)}</div>);
+    } else if (/^[-•*]\s/.test(line)) {
+      const bullets: string[] = [];
+      while (i < lines.length && /^[-•*]\s/.test(lines[i])) { bullets.push(lines[i].replace(/^[-•*]\s/, '')); i++; }
+      elems.push(<ul key={`ul${i}`} style={{ margin: '3px 0', paddingLeft: 16 }}>
+        {bullets.map((b, bi) => <li key={bi} style={{ fontSize: 11.5, color: '#334155', marginBottom: 2, lineHeight: 1.5 }}>{inline(b)}</li>)}
+      </ul>);
+      continue;
+    } else if (/^\d+\.\s/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i])) { items.push(lines[i].replace(/^\d+\.\s/, '')); i++; }
+      elems.push(<ol key={`ol${i}`} style={{ margin: '3px 0', paddingLeft: 16 }}>
+        {items.map((it, ii) => <li key={ii} style={{ fontSize: 11.5, color: '#334155', marginBottom: 2, lineHeight: 1.5 }}>{inline(it)}</li>)}
+      </ol>);
+      continue;
+    } else if (!line.trim()) {
+      elems.push(<div key={i} style={{ height: 4 }} />);
+    } else {
+      elems.push(<p key={i} style={{ fontSize: 11.5, color: '#334155', margin: '2px 0', lineHeight: 1.55 }}>{inline(line)}</p>);
+    }
+    i++;
+  }
+  return <>{elems}</>;
 }
 
-let msgIdCounter = 0;
-const nextMsgId = (): string => `msg_${++msgIdCounter}`;
-
-const TYPING_DELAY_MIN = 800;
-const TYPING_DELAY_MAX = 1400; // 800 + 600
-/* ═══════════════════════════════════════════════════
-   COMPOSANT PRINCIPAL
-═══════════════════════════════════════════════════ */
-export default function AgentsIA() {
-  const store = useProjectStore();
-  const { user } = useAuth();
-  const role = user?.role ?? 'ADMIN';
-
-  // Agents visible for this role
-  const visibleAgentRoles = ROLE_AGENTS[role as RoleCode] ?? ROLE_AGENTS.ADMIN;
-  const visibleAgents = AGENTS.filter(a => visibleAgentRoles.includes(a.role));
-
-  const defaultAgent = visibleAgents[0]?.role ?? 'chef_projet';
-  const [activeAgent, setActiveAgent] = useState<AgentRole>(defaultAgent);
-
-  const [messages, setMessages] = useState<Record<AgentRole, Message[]>>({
-    direction:    [],
-    chef_projet:  [],
-    planification:[],
-    finance:      [],
-    ged:          [],
-    suivi_eval:   [],
-    redaction:    [],
-    terrain:      [],
-    logistique:   [],
-  });
-  const [input, setInput]     = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showCopilot, setShowCopilot] = useState(false);
-  const copilot = useIntegrationConfig(s => s.copilot);
-  const updateCopilot = useIntegrationConfig(s => s.updateCopilot);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  // ── Swarm Orchestrateur ──────────────────────────────────────────────
-  const [mode, setMode] = useState<'chat' | 'swarm'>('chat');
-  const [swarmFiles, setSwarmFiles]     = useState<SwarmFile[]>([]);
-  const [swarmAgents, setSwarmAgents]   = useState<SwarmAgentState[]>(SWARM_AGENTS_INIT.map(a => ({ ...a })));
-  const [swarmPhase, setSwarmPhase]     = useState<0 | 1 | 2 | 3 | 4>(0); // 0=idle,1,2,3=pipeline,4=done
-  const [swarmRunning, setSwarmRunning] = useState(false);
-  const [swarmResult, setSwarmResult]   = useState<string>('');
-  const [dragOver, setDragOver]         = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  let swarmFileCounter = 0;
-
-  const addSwarmFiles = useCallback((fileList: FileList) => {
-    const newFiles: SwarmFile[] = Array.from(fileList).map(f => {
-      const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
-      return { id: `sf-${++swarmFileCounter}-${Date.now()}`, name: f.name, ext, size: f.size, status: 'waiting', readBy: [] };
-    });
-    setSwarmFiles(prev => [...prev, ...newFiles]);
-  }, []);
-
-  const launchSwarm = useCallback(async () => {
-    if (!swarmFiles.length || swarmRunning) return;
-    setSwarmRunning(true);
-    setSwarmPhase(1);
-    const agents = SWARM_AGENTS_INIT.map(a => ({ ...a }));
-    setSwarmAgents(agents);
-
-    // Phase 1 — Orchestrateur + Planificateur + Risques + Documentaire
-    const ph1 = ['orchestrateur', 'planificateur', 'risques', 'documentaire'] as SwarmAgentId[];
-    for (const id of ph1) {
-      setSwarmAgents(prev => prev.map(a => a.id === id ? { ...a, status: 'running' } : a));
-    }
-    await new Promise(r => setTimeout(r, 1800));
-    for (const id of ph1) {
-      const finding = agentFinding(id, swarmFiles);
-      const cat = swarmFiles.flatMap(f => {
-        const c = swarmFileCategory(f.ext);
-        return c.agents.includes(id) ? [f.name] : [];
-      });
-      setSwarmAgents(prev => prev.map(a => a.id === id
-        ? { ...a, status: 'done', finding, filesRead: cat } : a));
-    }
-    setSwarmFiles(prev => prev.map(f => ({ ...f, status: 'relevant' })));
-
-    // Phase 2 — Financier + Ressources
-    setSwarmPhase(2);
-    await new Promise(r => setTimeout(r, 1500));
-    const ph2 = ['financier', 'ressources'] as SwarmAgentId[];
-    for (const id of ph2) {
-      setSwarmAgents(prev => prev.map(a => a.id === id ? { ...a, status: 'running' } : a));
-    }
-    await new Promise(r => setTimeout(r, 1600));
-    for (const id of ph2) {
-      const finding = agentFinding(id, swarmFiles);
-      setSwarmAgents(prev => prev.map(a => a.id === id
-        ? { ...a, status: 'done', finding } : a));
-    }
-
-    // Phase 3 — Suivi-Éval + Chef Projet
-    setSwarmPhase(3);
-    await new Promise(r => setTimeout(r, 1400));
-    const ph3 = ['suivi_eval', 'chef_projet'] as SwarmAgentId[];
-    for (const id of ph3) {
-      setSwarmAgents(prev => prev.map(a => a.id === id ? { ...a, status: 'running' } : a));
-    }
-    await new Promise(r => setTimeout(r, 1600));
-    for (const id of ph3) {
-      const finding = agentFinding(id, swarmFiles);
-      setSwarmAgents(prev => prev.map(a => a.id === id
-        ? { ...a, status: 'done', finding } : a));
-    }
-
-    setSwarmPhase(4);
-    setSwarmRunning(false);
-    setSwarmResult(`Swarm terminé — ${swarmFiles.length} fichier(s) traités par 8 agents. Le projet est prêt pour validation humaine.`);
-    toast.success('Swarm IA complété — projet structuré avec succès !');
-  }, [swarmFiles, swarmRunning]);
-
-  // ── Chat agent ───────────────────────────────────────────────────────
-
-  // If active agent is no longer visible (role switch), reset
-  const safeActiveAgent = visibleAgentRoles.includes(activeAgent) ? activeAgent : defaultAgent;
-  const agent   = AGENTS.find(a => a.role === safeActiveAgent) ?? visibleAgents[0];
-  const thread  = messages[safeActiveAgent];
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [thread]);
-
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const q = input.trim();
-    setInput('');
-
-    const userMsg: Message = { id: nextMsgId(), role: 'user', content: q, timestamp: new Date() };
-    setMessages(prev => ({ ...prev, [safeActiveAgent]: [...prev[safeActiveAgent], userMsg] }));
-    setLoading(true);
-    
-    await new Promise(r => setTimeout(r, TYPING_DELAY_MIN + Math.random() * (TYPING_DELAY_MAX - TYPING_DELAY_MIN)));
-
-    const replyContent = buildAgentReply(q, agent, store.projets);
-    const agentMsg: Message = {
-      id: nextMsgId(), role: 'agent', content: replyContent, timestamp: new Date(),
-      sources: ['planning', 'GED', 'bordereau'].slice(0, Math.floor(Math.random() * 3) + 1),
-    };
-    setMessages(prev => ({ ...prev, [safeActiveAgent]: [...prev[safeActiveAgent], agentMsg] }));
-    setLoading(false);
+/* ─── Carte d'un agent ───────────────────────────────── */
+function AgentCard({ agent, expanded, onToggle }: {
+  agent: AgentResult;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const statusBg: Record<AgentStatus, string> = {
+    idle:    '#F1F5F9',
+    running: '#FFF7ED',
+    done:    '#F0FDF4',
+    error:   '#FEF2F2',
   };
-
-  const useSuggestion = (s: string) => {
-    setInput(s);
+  const statusBorder: Record<AgentStatus, string> = {
+    idle:    BORDER,
+    running: ORANGE,
+    done:    '#86EFAC',
+    error:   '#FECACA',
   };
-
-  const clearThread = () => {
-    setMessages(prev => ({ ...prev, [safeActiveAgent]: [] }));
-  };
-
-  /* Formatter le markdown simplifié */
-  function renderContent(text: string) {
-    return text.split('\n').map((line, i) => {
-      if (line.startsWith('**') && line.endsWith('**')) {
-        return <div key={i} style={{ fontWeight: 700, color: '#1E293B', marginBottom: 2 }}>{line.replace(/\*\*/g, '')}</div>;
-      }
-      if (line.startsWith('• ') || line.startsWith('- ')) {
-        return <div key={i} style={{ paddingLeft: 12, color: '#475569', lineHeight: 1.5 }}>• {line.slice(2)}</div>;
-      }
-      if (line.startsWith('📍') || line.startsWith('📊') || line.startsWith('🤖') || line.startsWith('💰') || line.startsWith('📋') || line.startsWith('📎') || line.startsWith('📁') || line.startsWith('⚠️') || line.startsWith('✍️') || line.startsWith('📅') || line.startsWith('👥') || line.startsWith('💼') || line.startsWith('🔴') || line.startsWith('📄') || line.startsWith('✅')) {
-        return <div key={i} style={{ color: '#1E293B', lineHeight: 1.6, marginBottom: 2 }}>{line}</div>;
-      }
-      if (line === '') return <div key={i} style={{ height: 6 }} />;
-      return <div key={i} style={{ color: '#475569', lineHeight: 1.6 }}>{line}</div>;
-    });
-  }
-
-  // ── Swarm panel render ───────────────────────────────────────────────
-  const phaseLabel = ['En attente', 'Phase 1 — Orchestrateur & Analyse', 'Phase 2 — Finance & Ressources', 'Phase 3 — Suivi-Éval & Structuration', 'Terminé ✓'][swarmPhase];
-
-  const SwarmView = (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F8FAFD' }}>
-      {/* Header */}
-      <div style={{ padding: '16px 24px', background: '#fff', borderBottom: '1px solid #E2E8F0', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Zap size={20} style={{ color: '#7C3AED' }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>Orchestrateur Multi-Agent — Création de projet</div>
-          <div style={{ fontSize: 11.5, color: '#64748B' }}>Déposez tout type de fichier (Excel, Word, PDF, ZIP, RAR, images…). Les agents liront et exploiteront automatiquement ce qui est pertinent.</div>
-        </div>
-        {swarmPhase > 0 && swarmPhase < 4 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#EDE9FE', borderRadius: 8, color: '#7C3AED', fontWeight: 700, fontSize: 11 }}>
-            <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> {phaseLabel}
-          </div>
-        )}
-        {swarmPhase === 4 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#DCFCE7', borderRadius: 8, color: '#16A34A', fontWeight: 700, fontSize: 11 }}>
-            <CheckCircle2 size={13} /> {phaseLabel}
-          </div>
-        )}
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', gap: 20 }}>
-
-        {/* Left: file upload + list */}
-        <div style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-          {/* Drop zone */}
-          <div
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) addSwarmFiles(e.dataTransfer.files); }}
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragOver ? '#7C3AED' : '#CBD5E1'}`,
-              borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: 'pointer',
-              background: dragOver ? '#F5F3FF' : '#fff', transition: 'all 0.15s',
-            }}
-          >
-            <input ref={fileInputRef} type="file" multiple accept="*/*" style={{ display: 'none' }}
-              onChange={e => { if (e.target.files) addSwarmFiles(e.target.files); e.target.value = ''; }} />
-            <Upload size={28} style={{ color: dragOver ? '#7C3AED' : '#94A3B8', marginBottom: 8 }} />
-            <div style={{ fontSize: 12, fontWeight: 700, color: dragOver ? '#7C3AED' : '#374151', marginBottom: 4 }}>
-              Déposez vos fichiers ici
-            </div>
-            <div style={{ fontSize: 10.5, color: '#94A3B8' }}>
-              Excel · Word · PDF · ZIP · RAR · Images · MPP · tout format
-            </div>
-          </div>
-
-          {/* File list */}
-          {swarmFiles.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-              <div style={{ padding: '8px 12px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{swarmFiles.length} fichier(s)</span>
-                {!swarmRunning && swarmPhase === 0 && (
-                  <button onClick={() => setSwarmFiles([])} style={{ border: 'none', background: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 10 }}>Effacer</button>
-                )}
-              </div>
-              <div style={{ overflowY: 'auto', maxHeight: 300 }}>
-                {swarmFiles.map(f => {
-                  const cat = swarmFileCategory(f.ext);
-                  const statusColor = f.status === 'relevant' ? '#16A34A' : f.status === 'reading' ? '#D97706' : f.status === 'skipped' ? '#94A3B8' : '#64748B';
-                  return (
-                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderBottom: '1px solid #F8FAFC' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 6, background: cat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {cat.icon}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                        <div style={{ fontSize: 9.5, color: '#94A3B8' }}>{cat.label} · {fmtBytes(f.size)}</div>
-                      </div>
-                      {f.status !== 'waiting' && (
-                        <span style={{ fontSize: 9, fontWeight: 700, color: statusColor }}>
-                          {f.status === 'relevant' ? '✓ Lu' : f.status === 'reading' ? '…' : f.status === 'skipped' ? 'ignoré' : ''}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Launch button */}
-          <button
-            onClick={launchSwarm}
-            disabled={swarmFiles.length === 0 || swarmRunning || swarmPhase === 4}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '12px 20px', borderRadius: 10, border: 'none', cursor: swarmFiles.length && !swarmRunning && swarmPhase < 4 ? 'pointer' : 'not-allowed',
-              background: swarmFiles.length && !swarmRunning && swarmPhase < 4 ? '#7C3AED' : '#E2E8F0',
-              color: swarmFiles.length && !swarmRunning && swarmPhase < 4 ? '#fff' : '#94A3B8',
-              fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'background 0.15s',
-            }}
-          >
-            {swarmRunning ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Pipeline en cours…</> : swarmPhase === 4 ? <><CheckCircle2 size={16} /> Swarm complété</> : <><PlayCircle size={16} /> Lancer le Swarm (8 agents)</>}
-          </button>
-
-          {swarmPhase === 4 && (
-            <button onClick={() => { setSwarmFiles([]); setSwarmPhase(0); setSwarmAgents(SWARM_AGENTS_INIT.map(a => ({...a}))); setSwarmResult(''); }}
-              style={{ padding: '8px', border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff', fontSize: 11, cursor: 'pointer', color: '#64748B' }}>
-              Nouveau swarm
-            </button>
-          )}
-        </div>
-
-        {/* Right: Pipeline agents */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-          {/* Phase progress */}
-          <div style={{ background: '#fff', borderRadius: 10, padding: '12px 16px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 8 }}>
-            {[1, 2, 3].map(ph => (
-              <div key={ph} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800,
-                  background: swarmPhase > ph ? '#DCFCE7' : swarmPhase === ph ? '#EDE9FE' : '#F1F5F9',
-                  color: swarmPhase > ph ? '#16A34A' : swarmPhase === ph ? '#7C3AED' : '#94A3B8',
-                }}>
-                  {swarmPhase > ph ? '✓' : ph}
-                </div>
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: swarmPhase >= ph ? '#374151' : '#94A3B8' }}>
-                  {ph === 1 ? 'Analyse & Orchestration' : ph === 2 ? 'Finance & Ressources' : 'Synthèse & Structuration'}
-                </div>
-                {ph < 3 && <ChevronRight size={12} style={{ color: '#CBD5E1', marginLeft: 'auto' }} />}
-              </div>
-            ))}
-          </div>
-
-          {/* Agents grid */}
-          {[1, 2, 3].map(ph => {
-            const phAgents = swarmAgents.filter(a => a.phase === ph);
-            const phLabel = ph === 1 ? 'Phase 1 — Orchestrateur, Planificateur, Risques, Documentaire' : ph === 2 ? 'Phase 2 — Gestionnaire Financier + Ressources' : 'Phase 3 — Suivi-Éval + Chef de Projet';
-            return (
-              <div key={ph}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{phLabel}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
-                  {phAgents.map(ag => (
-                    <div key={ag.id} style={{
-                      background: '#fff', borderRadius: 10, padding: '12px 14px',
-                      border: `1px solid ${ag.status === 'running' ? ag.color + '60' : ag.status === 'done' ? '#DCFCE7' : '#E2E8F0'}`,
-                      boxShadow: ag.status === 'running' ? `0 0 0 2px ${ag.color}20` : 'none',
-                      transition: 'all 0.25s',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: ag.status === 'idle' ? '#CBD5E1' : ag.status === 'running' ? ag.color : '#16A34A', flexShrink: 0 }} />
-                        <span style={{ fontSize: 11.5, fontWeight: 700, color: ag.status === 'idle' ? '#94A3B8' : '#1E293B', flex: 1 }}>{ag.label}</span>
-                        {ag.status === 'running' && <Loader2 size={12} style={{ color: ag.color, animation: 'spin 1s linear infinite', flexShrink: 0 }} />}
-                        {ag.status === 'done' && <CheckSquare size={13} style={{ color: '#16A34A', flexShrink: 0 }} />}
-                      </div>
-                      {ag.finding ? (
-                        <div style={{ fontSize: 10.5, color: '#475569', lineHeight: 1.5 }}>{ag.finding}</div>
-                      ) : ag.status === 'idle' ? (
-                        <div style={{ fontSize: 10, color: '#CBD5E1', fontStyle: 'italic' }}>En attente du signal d'activation…</div>
-                      ) : null}
-                      {ag.filesRead.length > 0 && (
-                        <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {ag.filesRead.slice(0, 3).map((fn, fi) => (
-                            <span key={fi} style={{ fontSize: 9, background: '#F1F5F9', color: '#64748B', padding: '1px 6px', borderRadius: 6 }}>
-                              {fn.length > 18 ? fn.slice(0, 15) + '…' : fn}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Final result */}
-          {swarmResult && (
-            <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '14px 16px', border: '1px solid #DCFCE7' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <CheckCircle2 size={16} style={{ color: '#16A34A' }} />
-                <span style={{ fontSize: 12, fontWeight: 800, color: '#15803D' }}>Résultat du Swarm</span>
-              </div>
-              <div style={{ fontSize: 11.5, color: '#166534', lineHeight: 1.6 }}>{swarmResult}</div>
-              <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                <button onClick={() => toast('Projet en cours de validation — superviseur notifié.', { icon: '✅' })} style={{ padding: '6px 14px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                  Valider et publier le projet
-                </button>
-                <button onClick={() => toast('Ouverture du mode révision manuelle — veuillez vérifier les données extraites.', { icon: 'ℹ️' })} style={{ padding: '6px 14px', background: '#fff', border: '1px solid #DCFCE7', color: '#15803D', borderRadius: 7, fontSize: 11.5, cursor: 'pointer' }}>
-                  Réviser manuellement
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
-    <div style={{ display: 'flex', height: '100%', background: '#F8FAFD', overflow: 'hidden' }}>
-
-      {/* ── Rail gauche : sélection agent ── */}
-      <div style={{
-        width: 260, flexShrink: 0, background: '#fff',
-        borderRight: '1px solid #E2E8F0', overflowY: 'auto',
-        display: 'flex', flexDirection: 'column',
-      }}>
-        {/* Header */}
-        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #F1F5F9' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <Bot size={18} style={{ color: NAVY }} />
-            <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>Agents IA DPE</span>
-          </div>
-          {/* Mode toggle */}
-          <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 8, padding: 3, gap: 2 }}>
-            <button onClick={() => setMode('chat')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: mode === 'chat' ? '#fff' : 'transparent', color: mode === 'chat' ? NAVY : '#64748B', boxShadow: mode === 'chat' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
-              💬 Chat
-            </button>
-            <button onClick={() => setMode('swarm')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: mode === 'swarm' ? '#7C3AED' : 'transparent', color: mode === 'swarm' ? '#fff' : '#64748B', boxShadow: mode === 'swarm' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none', transition: 'all 0.15s' }}>
-              ⚡ Swarm
-            </button>
+    <div style={{ borderRadius: 10, border: `1px solid ${statusBorder[agent.status]}`, background: statusBg[agent.status], overflow: 'hidden', transition: 'border-color 0.3s' }}>
+      <button
+        onClick={onToggle}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+      >
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: `${agent.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: agent.color }}>
+          {agent.icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>{agent.label}</div>
+          <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>
+            {agent.status === 'idle'    && 'En attente'}
+            {agent.status === 'running' && <span style={{ color: ORANGE, fontWeight: 600 }}>Analyse en cours…</span>}
+            {agent.status === 'done'    && <span style={{ color: '#16A34A', fontWeight: 600 }}>Terminé {agent.duration ? `· ${agent.duration}s` : ''}</span>}
+            {agent.status === 'error'   && <span style={{ color: '#DC2626', fontWeight: 600 }}>Erreur</span>}
           </div>
         </div>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {agent.status === 'running' && <Loader2 size={16} style={{ color: ORANGE, animation: 'spin 1s linear infinite' }} />}
+          {agent.status === 'done'    && <CheckCircle2 size={16} style={{ color: '#16A34A' }} />}
+          {agent.status === 'error'   && <AlertTriangle size={16} style={{ color: '#DC2626' }} />}
+          {agent.output && (expanded ? <ChevronUp size={14} color="#94A3B8" /> : <ChevronDown size={14} color="#94A3B8" />)}
+        </div>
+      </button>
 
-        {/* Liste agents filtrés par rôle */}
-        <nav style={{ flex: 1, padding: '8px 8px' }}>
-          {visibleAgents.map(ag => {
-            const isActive  = ag.role === safeActiveAgent;
-            const msgCount  = messages[ag.role].filter(m => m.role === 'user').length;
-            return (
-              <button
-                key={ag.role}
-                onClick={() => setActiveAgent(ag.role as AgentRole)}
-                style={{
-                  width: '100%', padding: '10px 10px', marginBottom: 4,
-                  borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                  background: isActive ? ag.bg : 'transparent',
-                  borderLeft: isActive ? `3px solid ${ag.color}` : '3px solid transparent',
-                  textAlign: 'left',
-                  transition: 'background 0.1s',
-                }}
-                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = '#F8FAFC'; }}
-                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                    background: `${ag.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {ag.icon}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: isActive ? 700 : 600, color: isActive ? ag.color : '#1E293B', lineHeight: 1.2 }}>
-                      {ag.label}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 1 }}>{ag.subtitle}</div>
-                  </div>
-                  {msgCount > 0 && (
-                    <span style={{
-                      fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 10,
-                      background: ag.bg, color: ag.color,
-                    }}>{msgCount}</span>
-                  )}
+      {expanded && agent.output && (
+        <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${statusBorder[agent.status]}` }}>
+          <div style={{ paddingTop: 10 }}>
+            <MiniMarkdown text={agent.output} />
+          </div>
+          {agent.model && (
+            <div style={{ marginTop: 8, fontSize: 9.5, color: '#94A3B8' }}>Modèle: {agent.model}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Composant principal ─────────────────────────────── */
+export default function AgentsIA() {
+  const { user }  = useAuth();
+  const store     = useProjectStore();
+  const userName  = user ? `${user.prenom} ${user.nom}` : 'Utilisateur';
+
+  const [selectedCode,   setSelectedCode]   = useState<string>('all');
+  const [agents,         setAgents]         = useState<AgentResult[]>(() =>
+    AGENT_DEFS.map(d => ({ id: d.id, label: d.label, icon: d.icon, color: d.color, status: 'idle' as AgentStatus, output: '' }))
+  );
+  const [synthesis,      setSynthesis]      = useState<string>('');
+  const [synthStatus,    setSynthStatus]    = useState<AgentStatus>('idle');
+  const [running,        setRunning]        = useState(false);
+  const [expanded,       setExpanded]       = useState<Record<string, boolean>>({});
+  const [expandSynth,    setExpandSynth]    = useState(true);
+
+  // Options de sélection de projet
+  const projOptions = useMemo<ProjetOption[]>(() => {
+    return store.projets.map(p => ({ code: p.code, nom: p.nom, avancement: p.avancement, cpi: p.cpi, spi: p.spi }));
+  }, [store.projets]);
+
+  // Données du projet sélectionné
+  const selectedProjets = useMemo(() => {
+    if (selectedCode === 'all') return store.projets;
+    return store.projets.filter(p => p.code === selectedCode);
+  }, [selectedCode, store.projets]);
+
+  function buildProjectContext(): string {
+    const ps = selectedProjets;
+    const total = ps.length;
+    const tb = ps.reduce((s, p) => s + p.budget, 0);
+    const td = ps.reduce((s, p) => s + p.budgetDecaisse, 0);
+    const avgCpi = total > 0 ? (ps.reduce((s, p) => s + p.cpi, 0) / total).toFixed(2) : 'N/A';
+    const avgSpi = total > 0 ? (ps.reduce((s, p) => s + p.spi, 0) / total).toFixed(2) : 'N/A';
+    const critiques = ps.filter(p => p.cpi < 0.90 || p.spi < 0.80);
+
+    // Top 10 most critical projects (lowest CPI+SPI) — keep token budget under ~500
+    const sorted = [...ps].sort((a, b) => (a.cpi + a.spi) - (b.cpi + b.spi)).slice(0, 10);
+
+    // Ultra-compact single-line format
+    const header = 'CODE|CPI|SPI|AVA%|VAC_M|REG|DOM';
+    const rows = sorted.map(p => {
+      const EAC = p.cpi > 0 ? p.budget / p.cpi : p.budget;
+      const VAC = Math.round(p.budget - EAC);
+      return `${p.code}|${p.cpi.toFixed(2)}|${p.spi.toFixed(2)}|${p.avancement}|${VAC}|${p.region.slice(0,6)}|${p.domaine.slice(0,6)}`;
+    }).join('\n');
+
+    return `SIGEPP-DPE SÉNÉGAL — ${selectedCode === 'all' ? 'PORTEFEUILLE' : `PROJET ${selectedCode}`} — ${new Date().toLocaleDateString('fr-FR')}
+Projets:${total} | Budget:${Math.round(tb/1000)}Md | Décaissé:${Math.round(td/tb*100)}% | CPI:${avgCpi} | SPI:${avgSpi} | Critiques:${critiques.length}/${total}
+
+${header}
+${rows}`;
+  }
+
+  const launch = useCallback(async () => {
+    if (!getKey().startsWith('gsk_')) { toast.error('Clé Groq non configurée.'); return; }
+    if (running) return;
+
+    setRunning(true);
+    setSynthesis('');
+    setSynthStatus('idle');
+    setExpanded({});
+
+    // Reset agents to idle — each will be set to running individually
+    setAgents(AGENT_DEFS.map(d => ({
+      id: d.id, label: d.label, icon: d.icon, color: d.color, status: 'idle' as AgentStatus, output: '',
+    })));
+
+    const ctx = buildProjectContext();
+
+    const runAgent = async (def: typeof AGENT_DEFS[0]): Promise<string> => {
+      // Mark this agent as running just before its turn
+      setAgents(prev => prev.map(a => a.id === def.id ? { ...a, status: 'running' } : a));
+      const t0 = Date.now();
+      const messages: ChatMessage[] = [
+        { role: 'system', content: `${def.persona} Réponds en français, tableaux markdown, 4 recommandations chiffrées max.` },
+        { role: 'user', content: `Analyse ${def.label} — SIGEPP-DPE:\n${ctx}` },
+      ];
+      try {
+        const output = await chatOnce(messages, { model: GROQ_MODELS.fast, temperature: 0.35, maxTokens: 400 });
+        const duration = Math.round((Date.now() - t0) / 1000);
+        setAgents(prev => prev.map(a => a.id === def.id ? { ...a, status: 'done', output, duration, model: GROQ_MODELS.fast } : a));
+        setExpanded(prev => ({ ...prev, [def.id]: true }));
+        return output;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Erreur';
+        setAgents(prev => prev.map(a => a.id === def.id ? { ...a, status: 'error', output: `❌ ${msg}` } : a));
+        return `Erreur agent ${def.label}: ${msg}`;
+      }
+    };
+
+    // Exécution séquentielle avec 8s entre chaque agent (TPM: 6000/min = 100 tok/s)
+    // Chaque requête ~900 tokens; après 8s refill ~800 → budget reste sain
+    const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+    const results: string[] = [];
+    for (let i = 0; i < AGENT_DEFS.length; i++) {
+      if (i > 0) await delay(8000);
+      results.push(await runAgent(AGENT_DEFS[i]));
+    }
+
+    // Agent de synthèse — attendre 10s pour laisser le TPM se recharger
+    await delay(10000);
+    setSynthStatus('running');
+    // Combine only first 200 chars per agent to stay under TPM
+    const truncated = results.map((r, i) => `[${AGENT_DEFS[i].label}]: ${r.slice(0, 200)}`).join('\n');
+    const synthMessages: ChatMessage[] = [
+      { role: 'system', content: 'Tu es Directeur DPE SENELEC. Synthèse exécutive en français: tableau de bord, top 5 alertes, plan actions 30/60/90j.' },
+      { role: 'user', content: `Synthèse multi-agents ${selectedCode === 'all' ? 'portefeuille' : selectedCode}:\n${truncated}` },
+    ];
+    try {
+      const synth = await chatOnce(synthMessages, { model: GROQ_MODELS.smart, temperature: 0.3, maxTokens: 500 });
+      setSynthesis(synth);
+      setSynthStatus('done');
+      setExpandSynth(true);
+      toast.success('Analyse complète — 6 agents + synthèse exécutive générés');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur synthèse';
+      setSynthesis(`❌ Erreur synthèse: ${msg}`);
+      setSynthStatus('error');
+      toast.error('Erreur lors de la synthèse');
+    }
+
+    setRunning(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCode, store.projets, userName, running]);
+
+  const exportPDF = () => {
+    const pw = window.open('', '_blank');
+    if (!pw) return;
+    const agentRows = agents
+      .filter(a => a.output)
+      .map(a => `<section style="margin-bottom:28px;page-break-inside:avoid"><h2 style="font-size:14px;font-weight:800;color:${a.color};margin:0 0 8px;border-bottom:2px solid #E2E8F0;padding-bottom:5px">${a.label}</h2><div style="font-size:11px;line-height:1.6;color:#334155;white-space:pre-wrap">${a.output.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')}</div></section>`)
+      .join('');
+    const synthRow = synthesis ? `<section style="margin-top:32px;padding-top:20px;border-top:3px solid ${NAVY}"><h2 style="font-size:16px;font-weight:900;color:${NAVY};margin:0 0 12px">SYNTHÈSE EXÉCUTIVE CONSOLIDÉE</h2><div style="font-size:11.5px;line-height:1.65;color:#1E293B;white-space:pre-wrap">${synthesis.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')}</div></section>` : '';
+    pw.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Analyse Multi-Agents DPE</title><style>body{font-family:'Segoe UI',Arial,sans-serif;padding:32px 44px;color:#1E293B;font-size:11px;max-width:800px;margin:0 auto}strong{color:${NAVY};font-weight:700}.bar{height:5px;background:${ORANGE};margin-bottom:24px}h1{font-size:18px;font-weight:900;color:#0F172A;margin:0 0 4px}.meta{font-size:10px;color:#64748B;margin-bottom:28px}@media print{section{page-break-inside:avoid}}</style></head><body><div class="bar"></div><div style="margin-bottom:12px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:42px;width:auto;display:block"/></div><h1>Analyse Multi-Agents IA — ${selectedCode === 'all' ? 'Portefeuille DPE' : `Projet ${selectedCode}`}</h1><div class="meta">Générée le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · SIGEPP-DPE · ${agents.filter(a => a.status === 'done').length}/6 agents · Groq ${GROQ_MODELS.smart}</div>${agentRows}${synthRow}<div style="margin-top:32px;padding-top:12px;border-top:1px solid #E2E8F0;font-size:8px;color:#94A3B8;text-align:center">CONFIDENTIEL — Usage interne SENELEC DPE · Analyse IA assistée par SIGEPP-DPE · Non contractuel</div></body></html>`);
+    pw.document.close();
+    setTimeout(() => pw.print(), 500);
+  };
+
+  const doneCount = agents.filter(a => a.status === 'done').length;
+  const totalAgents = agents.length;
+  const progress = running ? Math.round((doneCount / totalAgents) * 80) + (synthStatus === 'done' ? 20 : 0) : (synthStatus === 'done' ? 100 : 0);
+
+  return (
+    <div className="agents-ia-shell" style={{ display: 'flex', height: '100%', overflow: 'hidden', background: BG }}>
+
+      {/* ── Sidebar config ── */}
+      <div className="agents-ia-sidebar" style={{ width: 230, flexShrink: 0, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+        <div style={{ padding: '16px 14px 10px', borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: `${NAVY}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bot size={18} color={NAVY} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY }}>Agents IA</div>
+              <div style={{ fontSize: 10, color: '#94A3B8' }}>Analyse multi-agents Groq</div>
+            </div>
+          </div>
+
+          {/* Sélecteur de périmètre */}
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Périmètre d'analyse</label>
+            <select
+              value={selectedCode}
+              onChange={e => setSelectedCode(e.target.value)}
+              disabled={running}
+              style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: `1px solid ${BORDER}`, fontSize: 11.5, fontFamily: 'inherit', background: '#fff', color: '#1E293B', cursor: running ? 'not-allowed' : 'pointer', outline: 'none' }}
+            >
+              <option value="all">Portefeuille complet ({store.projets.length} projets)</option>
+              {projOptions.map(p => (
+                <option key={p.code} value={p.code}>{p.code} — {p.nom.slice(0, 30)}{p.nom.length > 30 ? '…' : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Bouton lancer */}
+          <button
+            onClick={() => void launch()}
+            disabled={running}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 0', borderRadius: 8, border: 'none', background: running ? '#E2E8F0' : `linear-gradient(135deg, ${NAVY}, #2563EB)`, color: running ? '#94A3B8' : '#fff', cursor: running ? 'not-allowed' : 'pointer', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', transition: 'all 0.2s' }}
+          >
+            {running
+              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Analyse en cours…</>
+              : <><Play size={14} /> Lancer l'analyse</>
+            }
+          </button>
+
+          {/* Barre de progression */}
+          {(running || progress > 0) && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontSize: 9.5, color: '#94A3B8' }}>{doneCount}/{totalAgents} agents</span>
+                <span style={{ fontSize: 9.5, color: NAVY, fontWeight: 700 }}>{progress}%</span>
+              </div>
+              <div style={{ height: 4, borderRadius: 2, background: '#E2E8F0', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${progress}%`, background: running ? ORANGE : '#16A34A', borderRadius: 2, transition: 'width 0.4s ease' }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Statistiques */}
+        <div style={{ flex: 1, padding: '12px 14px', overflowY: 'auto' }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Portefeuille sélectionné</div>
+          {(() => {
+            const ps = selectedProjets;
+            const tb = ps.reduce((s, p) => s + p.budget, 0);
+            const td = ps.reduce((s, p) => s + p.budgetDecaisse, 0);
+            const avgCpi = ps.length > 0 ? (ps.reduce((s, p) => s + p.cpi, 0) / ps.length).toFixed(2) : '—';
+            const avgSpi = ps.length > 0 ? (ps.reduce((s, p) => s + p.spi, 0) / ps.length).toFixed(2) : '—';
+            const alertes = ps.filter(p => p.cpi < 0.9 || p.spi < 0.85).length;
+            return [
+              { l: 'Projets',    v: String(ps.length),                                    c: NAVY      },
+              { l: 'Budget',     v: `${(tb / 1000).toFixed(1)} Md FCFA`,                  c: '#475569'  },
+              { l: 'Décaissé',   v: `${tb > 0 ? Math.round((td/tb)*100) : 0}%`,           c: '#16A34A' },
+              { l: 'CPI moyen',  v: avgCpi,                                                c: parseFloat(avgCpi) >= 1 ? '#16A34A' : '#DC2626' },
+              { l: 'SPI moyen',  v: avgSpi,                                                c: parseFloat(avgSpi) >= 1 ? '#16A34A' : '#DC2626' },
+              { l: 'Alertes',    v: String(alertes),                                       c: alertes > 0 ? '#DC2626' : '#16A34A' },
+            ].map(s => (
+              <div key={s.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, padding: '4px 0', borderBottom: `1px solid ${BORDER}` }}>
+                <span style={{ fontSize: 10.5, color: '#94A3B8' }}>{s.l}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: s.c }}>{s.v}</span>
+              </div>
+            ));
+          })()}
+
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>6 Agents spécialisés</div>
+            {AGENT_DEFS.map(d => (
+              <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, background: `${d.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: d.color, fontSize: 11 }}>
+                  {d.icon}
                 </div>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Footer info */}
-        <div style={{ padding: '10px 12px', borderTop: '1px solid #F1F5F9', background: '#FAFBFD' }}>
-          <div style={{ fontSize: 10.5, color: '#94A3B8', lineHeight: 1.5 }}>
-            🔒 Chaque agent est limité par des permissions, des jeux de données autorisés et des journaux d&apos;audit explicites.
-          </div>
-        </div>
-      </div>
-
-      {/* ── Zone principale : swarm ou chat ── */}
-      {mode === 'swarm' ? SwarmView : <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-        {/* Header agent actif */}
-        <div style={{
-          padding: '14px 20px', background: '#fff', borderBottom: '1px solid #E2E8F0',
-          display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0,
-        }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-            background: `${agent.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {agent.icon}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 8 }}>
-              {agent.label}
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
-                background: `${agent.color}18`, color: agent.color,
-              }}>
-                Rôle actif
-              </span>
-            </div>
-            <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>
-              {agent.desc}
-            </div>
-          </div>
-          {/* Périmètres */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 280 }}>
-            {agent.perimetres.map(p => (
-              <span key={p} style={{
-                fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 6,
-                background: '#F1F5F9', color: '#475569',
-              }}>{p}</span>
+                <span style={{ fontSize: 11, color: '#475569' }}>{d.label}</span>
+              </div>
             ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: `${NAVY}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Sparkles size={12} color={NAVY} />
+              </div>
+              <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>Synthèse exécutive</span>
+            </div>
           </div>
-          {/* Connexion Microsoft Copilot */}
-          <button onClick={() => setShowCopilot(true)} title="Connexion Microsoft Copilot" style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 8,
-            border: `1px solid ${copilot.enabled ? '#16A34A' : '#E2E8F0'}`,
-            background: copilot.enabled ? '#F0FDF4' : '#fff', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
-            color: copilot.enabled ? '#15803D' : '#475569', fontFamily: 'inherit',
-          }}>
-            <Cloud size={14} /> {copilot.enabled ? `Copilot · ${copilot.account || 'connecté'}` : 'Connecter Copilot'}
-          </button>
-          <button onClick={clearThread} title="Effacer la conversation" aria-label="Effacer la conversation" style={{
-            width: 32, height: 32, borderRadius: 7, border: '1px solid #E2E8F0',
-            background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <RefreshCw size={13} style={{ color: '#94A3B8' }} />
-          </button>
         </div>
 
-        {copilot.enabled && (
-          <div style={{ padding: '6px 20px', background: '#F0FDF4', borderBottom: '1px solid #DCFCE7', fontSize: 11.5, color: '#15803D', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <CheckCircle2 size={13} /> Réponses générées via <strong>Microsoft Copilot</strong> ({copilot.deployment || 'gpt-4o'}) — compte {copilot.account || 'Microsoft 365 SENELEC'}.
+        {/* Export */}
+        {synthStatus === 'done' && (
+          <div style={{ padding: '10px 14px', borderTop: `1px solid ${BORDER}` }}>
+            <button onClick={exportPDF}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 0', borderRadius: 8, border: `1px solid ${BORDER}`, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: NAVY, fontFamily: 'inherit' }}>
+              <Download size={13} /> Exporter PDF
+            </button>
           </div>
         )}
+      </div>
 
-        {showCopilot && <CopilotModal copilot={copilot} onSave={updateCopilot} onClose={() => setShowCopilot(false)} />}
+      {/* ── Zone résultats ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
 
-        {/* Thread messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-
-          {/* Message de bienvenue si vide */}
-          {thread.length === 0 && (
-            <div style={{ textAlign: 'center', marginBottom: 28 }}>
-              <div style={{
-                width: 60, height: 60, borderRadius: 16, margin: '0 auto 14px',
-                background: `${agent.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <div style={{ transform: 'scale(1.5)' }}>{agent.icon}</div>
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
-                {agent.label}
-              </div>
-              <div style={{ fontSize: 13, color: '#64748B', maxWidth: 400, margin: '0 auto', lineHeight: 1.6 }}>
-                {agent.desc}
-              </div>
-
-              {/* Suggestions */}
-              <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                {agent.suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => useSuggestion(s)}
-                    style={{
-                      padding: '8px 14px', borderRadius: 20,
-                      border: `1px solid ${agent.color}40`,
-                      background: `${agent.color}08`, color: agent.color,
-                      fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
-                      transition: 'all 0.1s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${agent.color}18`; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = `${agent.color}08`; }}
-                  >
-                    {s}
-                  </button>
-                ))}
+        {/* État initial */}
+        {!running && synthStatus === 'idle' && doneCount === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 16, opacity: 0.7 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: `${NAVY}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bot size={30} color={NAVY} />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 6 }}>Analyse Multi-Agents IA</div>
+              <div style={{ fontSize: 12, color: '#64748B', maxWidth: 380, lineHeight: 1.6 }}>
+                Sélectionnez un projet ou analysez l'intégralité du portefeuille avec 6 agents IA spécialisés opérant en parallèle sur Groq.
               </div>
             </div>
-          )}
-
-          {/* Messages */}
-          {thread.map(msg => (
-            <div key={msg.id} style={{
-              display: 'flex', gap: 12, marginBottom: 16,
-              flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-              alignItems: 'flex-start',
-            }}>
-              {/* Avatar */}
-              <div style={{
-                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                background: msg.role === 'user' ? '#1E293B' : `${agent.color}15`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {msg.role === 'user'
-                  ? <User size={14} style={{ color: '#fff' }} />
-                  : agent.icon
-                }
-              </div>
-
-              {/* Bulle */}
-              <div style={{ maxWidth: '70%' }}>
-                <div style={{
-                  padding: '12px 14px', borderRadius: 12,
-                  borderBottomRightRadius: msg.role === 'user' ? 4 : 12,
-                  borderBottomLeftRadius:  msg.role === 'agent' ? 4 : 12,
-                  background: msg.role === 'user' ? '#1E293B' : '#fff',
-                  border: msg.role === 'agent' ? '1px solid #E2E8F0' : 'none',
-                  boxShadow: msg.role === 'agent' ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
-                  color: msg.role === 'user' ? '#fff' : '#1E293B',
-                  fontSize: 13, lineHeight: 1.6,
-                }}>
-                  {msg.role === 'agent' ? renderContent(msg.content) : msg.content}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {[{ icon: <BarChart3 size={11} />, l: 'EVM & Finance' }, { icon: <Users size={11} />, l: 'Risques & QHSE' }, { icon: <MapPin size={11} />, l: 'SIG & Terrain' }].map(t => (
+                <div key={t.l} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, background: '#fff', border: `1px solid ${BORDER}`, fontSize: 11, color: '#64748B' }}>
+                  <span style={{ color: NAVY }}>{t.icon}</span>{t.l}
                 </div>
-
-                {/* Sources */}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div style={{ display: 'flex', gap: 5, marginTop: 5, flexWrap: 'wrap', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                    {msg.sources.map(s => (
-                      <span key={s} style={{
-                        fontSize: 10, padding: '1px 6px', borderRadius: 8,
-                        background: '#F1F5F9', color: '#64748B', border: '1px solid #E2E8F0',
-                      }}>
-                        📎 Source : {s}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div style={{
-                  fontSize: 10, color: '#94A3B8', marginTop: 4,
-                  textAlign: msg.role === 'user' ? 'right' : 'left',
-                }}>
-                  {msg.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Indicateur typing */}
-          {loading && (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                background: `${agent.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {agent.icon}
-              </div>
-              <div style={{
-                padding: '12px 16px', borderRadius: 12, borderBottomLeftRadius: 4,
-                background: '#fff', border: '1px solid #E2E8F0',
-                display: 'flex', gap: 4, alignItems: 'center',
-              }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} style={{
-                    width: 6, height: 6, borderRadius: '50%', background: agent.color,
-                    animation: `bounce 1s ease ${i * 0.15}s infinite`,
-                    opacity: 0.7,
-                  }} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div ref={bottomRef} />
-        </div>
-
-        {/* ── Zone saisie ── */}
-        <div style={{
-          padding: '14px 20px', background: '#fff', borderTop: '1px solid #E2E8F0', flexShrink: 0,
-        }}>
-          {/* Suggestions rapides (si thread vide ou > 0) */}
-          {thread.length === 0 && (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-              {agent.suggestions.slice(0, 2).map((s, i) => (
-                <button key={i} onClick={() => useSuggestion(s)} style={{
-                  padding: '5px 10px', borderRadius: 16, fontSize: 11.5,
-                  border: `1px solid ${agent.color}30`, background: `${agent.color}08`,
-                  color: agent.color, cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                  {s.slice(0, 45)}{s.length > 45 ? '…' : ''}
-                </button>
               ))}
             </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <textarea
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder={`Demandez à ${agent.label.split(' ').slice(-2).join(' ')}…`}
-                rows={1}
-                style={{
-                  width: '100%', padding: '10px 14px',
-                  borderRadius: 10, border: '1px solid #E2E8F0',
-                  fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit',
-                  boxSizing: 'border-box', lineHeight: 1.5,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = agent.color}
-                onBlur={e => e.currentTarget.style.borderColor = '#E2E8F0'}
-              />
-            </div>
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-              style={{
-                width: 40, height: 40, borderRadius: 10, border: 'none',
-                background: !input.trim() || loading ? '#E2E8F0' : agent.color,
-                color: !input.trim() || loading ? '#94A3B8' : '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background 0.15s',
-                flexShrink: 0,
-                cursor: !input.trim() || loading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <Send size={16} />
+            <button onClick={() => void launch()}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 22px', borderRadius: 9, border: 'none', background: `linear-gradient(135deg, ${NAVY}, #2563EB)`, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(27,79,138,0.3)' }}>
+              <Play size={15} /> Lancer l'analyse IA
             </button>
           </div>
+        )}
 
-          {/* Cadre de contrôle */}
-          <div style={{ display: 'flex', gap: 12, marginTop: 8, alignItems: 'center', fontSize: 10.5, color: '#94A3B8' }}>
-            <Shield size={11} style={{ color: '#94A3B8' }} />
-            <span>Périmètre : {agent.perimetres.join(' · ')}</span>
-            <span>·</span>
-            <span>Journal d&apos;audit actif</span>
-          </div>
-        </div>
-      </div>}
-
-      <style>{`
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-/* ─── Modale de connexion Microsoft Copilot ──────────────────────────────── */
-import type { CopilotStoredConfig } from '@/lib/integrationConfigStore';
-function CopilotModal({ copilot, onSave, onClose }: {
-  copilot: CopilotStoredConfig;
-  onSave: (cfg: Partial<CopilotStoredConfig>) => void;
-  onClose: () => void;
-}) {
-  const { user } = useAuth();
-  const [form, setForm] = useState<CopilotStoredConfig>({ ...copilot });
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  const set = (k: keyof CopilotStoredConfig, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
-  // Connexion SIMPLE : un clic = SSO avec le compte SENELEC de l'utilisateur connecté.
-  // (L'endpoint/clé Azure OpenAI sont fournis par la DSI via variables d'environnement.)
-  const signInMicrosoft = () => {
-    const account = (user?.email || '').replace(/@dpe\.sn$/, '@senelec.sn') || 'compte.senelec@senelec.sn';
-    setSigningIn(true);
-    setTimeout(() => {
-      onSave({ enabled: true, account, deployment: form.deployment || 'gpt-4o' });
-      toast.success(`Microsoft Copilot connecté — ${account}`);
-      setSigningIn(false);
-      onClose();
-    }, 700);
-  };
-  const fld = (label: string, key: keyof CopilotStoredConfig, placeholder: string, type = 'text') => (
-    <div>
-      <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</label>
-      <input type={type} value={String(form[key] ?? '')} placeholder={placeholder}
-        onChange={e => set(key, e.target.value)}
-        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #CBD5E1', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
-    </div>
-  );
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 24px 70px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 15, color: '#0F172A' }}>
-            <Cloud size={18} style={{ color: '#2563EB' }} /> Connexion Microsoft Copilot
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
-        </div>
-        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
-          {copilot.enabled ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 14px' }}>
-              <CheckCircle2 size={20} style={{ color: '#16A34A', flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>Connecté à Microsoft Copilot</div>
-                <div style={{ fontSize: 11.5, color: '#047857' }}>{copilot.account || user?.email}</div>
+        {/* Cartes des agents */}
+        {(running || doneCount > 0) && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY }}>
+                {running ? `Analyse en cours… ${doneCount}/${totalAgents} agents` : `${doneCount}/${totalAgents} agents complétés`}
               </div>
+              {!running && doneCount > 0 && (
+                <button onClick={() => void launch()}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${BORDER}`, background: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: NAVY, fontFamily: 'inherit' }}>
+                  <RefreshCw size={12} /> Relancer
+                </button>
+              )}
             </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5 }}>
-                Connectez‑vous en un clic avec votre <strong>compte SENELEC</strong>. Aucun identifiant technique à saisir — la passerelle Azure OpenAI est gérée par la DSI.
-              </div>
-              <button onClick={signInMicrosoft} disabled={signingIn}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '13px 18px', borderRadius: 10, border: '1px solid #2563EB', background: signingIn ? '#93C5FD' : '#2563EB', color: '#fff', fontSize: 14, fontWeight: 700, cursor: signingIn ? 'wait' : 'pointer' }}>
-                <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden><rect width="10" height="10" x="1" y="1" fill="#F25022"/><rect width="10" height="10" x="12" y="1" fill="#7FBA00"/><rect width="10" height="10" x="1" y="12" fill="#00A4EF"/><rect width="10" height="10" x="12" y="12" fill="#FFB900"/></svg>
-                {signingIn ? 'Connexion…' : 'Se connecter avec mon compte SENELEC'}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 10, marginBottom: 20 }}>
+              {agents.map(a => (
+                <AgentCard
+                  key={a.id}
+                  agent={a}
+                  expanded={!!expanded[a.id]}
+                  onToggle={() => setExpanded(prev => ({ ...prev, [a.id]: !prev[a.id] }))}
+                />
+              ))}
+            </div>
+
+            {/* Synthèse exécutive */}
+            <div style={{ borderRadius: 12, border: `2px solid ${synthStatus === 'done' ? NAVY : synthStatus === 'running' ? ORANGE : BORDER}`, background: synthStatus === 'done' ? '#F0F4FF' : '#fff', overflow: 'hidden', transition: 'border-color 0.3s' }}>
+              <button
+                onClick={() => setExpandSynth(v => !v)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+              >
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: `${NAVY}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Sparkles size={18} color={NAVY} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: NAVY }}>Synthèse Exécutive Consolidée</div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                    {synthStatus === 'idle'    && 'En attente de la finalisation des agents…'}
+                    {synthStatus === 'running' && <span style={{ color: ORANGE, fontWeight: 600 }}>Consolidation des 6 rapports…</span>}
+                    {synthStatus === 'done'    && <span style={{ color: NAVY, fontWeight: 600 }}>Rapport exécutif prêt — Groq {GROQ_MODELS.smart}</span>}
+                    {synthStatus === 'error'   && <span style={{ color: '#DC2626' }}>Erreur de consolidation</span>}
+                  </div>
+                </div>
+                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {synthStatus === 'running' && <Loader2 size={18} style={{ color: ORANGE, animation: 'spin 1s linear infinite' }} />}
+                  {synthStatus === 'done'    && <CheckCircle2 size={18} style={{ color: NAVY }} />}
+                  {synthesis && (expandSynth ? <ChevronUp size={15} color="#94A3B8" /> : <ChevronDown size={15} color="#94A3B8" />)}
+                </div>
               </button>
-              <button onClick={() => setShowAdvanced(v => !v)}
-                style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#64748B', fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>
-                {showAdvanced ? 'Masquer' : 'Paramètres avancés (DSI)'}
-              </button>
-              {showAdvanced && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4, borderTop: '1px dashed #E2E8F0' }}>
-                  {fld('Endpoint Azure OpenAI', 'endpoint', 'https://senelec.openai.azure.com')}
-                  {fld('Déploiement (modèle)', 'deployment', 'gpt-4o')}
-                  {fld('Clé API', 'apiKey', '••••••••', 'password')}
+
+              {expandSynth && synthesis && (
+                <div style={{ padding: '0 16px 16px', borderTop: `1px solid ${BORDER}` }}>
+                  <div style={{ paddingTop: 12 }}>
+                    <MiniMarkdown text={synthesis} />
+                  </div>
+                  {synthStatus === 'done' && (
+                    <button onClick={exportPDF}
+                      style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: `1px solid ${BORDER}`, background: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: NAVY, fontFamily: 'inherit' }}>
+                      <Download size={12} /> Exporter rapport complet PDF
+                    </button>
+                  )}
                 </div>
               )}
-            </>
-          )}
-        </div>
-        <div style={{ padding: '12px 18px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
-          {copilot.enabled && (
-            <button onClick={() => { onSave({ enabled: false }); toast('Copilot déconnecté', { icon: 'ℹ️' }); onClose(); }}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>Déconnecter</button>
-          )}
-          {showAdvanced && !copilot.enabled && (
-            <button onClick={() => { onSave({ ...form, enabled: true, account: form.account || user?.email || '' }); toast.success('Copilot connecté (config DSI)'); onClose(); }}
-              style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#0F172A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Enregistrer la config DSI</button>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

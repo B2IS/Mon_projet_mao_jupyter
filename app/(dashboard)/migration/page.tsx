@@ -20,6 +20,7 @@ import { runSwarm, groqAvailable, getGroqKey } from '@/lib/migration/llmSwarm';
 import { extractZipContents, zipFilesToSwarmDocs, getArchiveType } from '@/lib/migration/zipExtract';
 import { useProjectStore, type Domaine, type Projet } from '@/lib/projectStore';
 import { useAuth } from '@/lib/authStore';
+import AgentsIA from '@/components/dashboard/AgentsIA';
 import { extractFileText } from '@/lib/docText';
 import { useStructurationStore } from '@/lib/structuration/store';
 import { structurerDepuisBOQ, type BOQInputRow } from '@/lib/structuration/builder';
@@ -118,6 +119,7 @@ export default function MigrationPage() {
   const [immos, setImmos] = useState<SwarmImmobilisation[]>([]);
   const [engineLabel, setEngineLabel] = useState<string>('');
   const [createdId, setCreatedId] = useState<string>('');
+  const [showAgents, setShowAgents] = useState(false);
   // Champs acceptés par l'humain lors d'une MISE À JOUR d'un projet existant.
   const [acceptedFields, setAcceptedFields] = useState<Record<string, boolean>>({});
   const [zipProgress, setZipProgress] = useState<string>('');
@@ -256,11 +258,16 @@ export default function MigrationPage() {
         continue;
       }
 
-      // 3) Document simple (PDF, DOCX, XLSX, etc.)
+      // 3) Document simple (PDF, DOCX, XLSX, etc.) → extraction immédiate du texte
+      setZipProgress(`Lecture ${file.name}…`);
+      const extractedText = await extractFileText(file).catch(() => undefined);
+      setZipProgress('');
       newDocs.push({
         id: mkId(), name: file.name, type: inferDocType(file.name, file.type),
         size: file.size, url: URL.createObjectURL(file),
-        uploadedAt: new Date().toISOString(), status: 'uploaded',
+        uploadedAt: new Date().toISOString(),
+        status: extractedText ? 'analyzed' : 'uploaded',
+        extractedText,
       });
     }
     setDocs(prev => [...prev, ...newDocs]);
@@ -276,23 +283,25 @@ export default function MigrationPage() {
     setError('');
     setSwarmProgress('Initialisation du swarm IA…');
     try {
-      // ── Prépare les documents avec leur texte extrait pour le swarm ──
-      const fileTexts = await Promise.all(
-        rawFiles.map(async f => {
-          const txt = await extractFileText(f).catch(() => undefined);
-          return { name: f.name, text: txt };
-        })
-      );
-      const textByName = new Map(fileTexts.map(ft => [ft.name, ft.text]));
+      // ── Prépare les documents pour le swarm ──
+      // Le texte est pré-extrait dès l'upload (extractedText).
+      // Pour les fichiers bruts sans extractedText (cas edge), on tente une re-lecture.
+      const missingText = docs.filter(d => !d.extractedText);
+      let extraMap: Map<string, string | undefined> = new Map();
+      if (missingText.length > 0) {
+        const extras = await Promise.all(
+          rawFiles
+            .filter(f => missingText.some(d => d.name === f.name))
+            .map(async f => ({ name: f.name, text: await extractFileText(f).catch(() => undefined) }))
+        );
+        extraMap = new Map(extras.map(e => [e.name, e.text]));
+      }
 
-      // Construit les docs swarm (nom + texte) depuis :
-      //   - les MigrationDocuments (qui ont extractedText pour les ZIP déjà traités)
-      //   - le texte extrait des rawFiles
       const swarmDocs: { name: string; text: string }[] = docs.map(d => ({
         name: d.name,
         text: d.extractedText
-          || textByName.get(d.name)
-          || `Document: ${d.name.replace(/\.[^.]+$/, '')}`,
+          || extraMap.get(d.name)
+          || `[Document sans texte extractible — OCR requis] ${d.name}`,
       }));
 
       // ── PRIORITÉ 1 : Swarm Groq LangGraph (multi-agents, client-side) ──
@@ -346,7 +355,7 @@ export default function MigrationPage() {
       // ── PRIORITÉ 3 : Moteur heuristique local (fallback final) ──
       const docsWithText = docs.map(d => ({
         ...d,
-        extractedText: d.extractedText || textByName.get(d.name) || `Projet : ${d.name.replace(/\.[^.]+$/, '')}`,
+        extractedText: d.extractedText || extraMap.get(d.name) || `Projet : ${d.name.replace(/\.[^.]+$/, '')}`,
       }));
       const data = await analyzeDocuments(docsWithText);
       setExtracted(data);
@@ -964,7 +973,8 @@ export default function MigrationPage() {
             </div>
             {((extracted?.wbsItems?.length ?? 0) > 0 || (extracted?.lots?.length ?? 0) > 0) && (
               <div style={{ fontSize: 12.5, color: 'var(--text)', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 9, padding: '10px 14px', margin: '0 auto 18px', maxWidth: 460 }}>
-                🧱 <strong>Structuration des actifs générée par l’IA</strong> à partir du bordereau —
+                {'🧱 '}
+                <strong>Structuration des actifs générée par l&apos;IA</strong> à partir du bordereau —
                 Composant → Sous-composant → Article. À valider, puis immobiliser.
               </div>
             )}
@@ -980,6 +990,37 @@ export default function MigrationPage() {
               </button>
             </div>
           </div>
+
+          {/* Analyse multi-agents */}
+          <div style={{ borderTop: '1px solid #E2E8F0', padding: '16px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>Analyse multi-agents du projet migré</div>
+                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                  6 agents (Stratégie · Planification · Finance · Risques · SIG · Chef de projet) analysent le projet créé.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAgents(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px',
+                  borderRadius: 9, border: '1.5px solid #2D1167',
+                  background: showAgents ? '#2D1167' : '#fff',
+                  color: showAgents ? '#fff' : '#2D1167',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                }}
+              >
+                <Brain size={15} />
+                {showAgents ? 'Masquer' : "Lancer l'analyse multi-agents"}
+              </button>
+            </div>
+          </div>
+
+          {showAgents && (
+            <div style={{ borderTop: '1px solid #E2E8F0', padding: '0 0 16px' }}>
+              <AgentsIA />
+            </div>
+          )}
         </div>
       )}
     </div>

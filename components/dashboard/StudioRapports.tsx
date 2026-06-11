@@ -13,6 +13,7 @@ import {
   computeAvancementReel, PHASES_DEFAUT,
 } from '@/lib/projectStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
+import toast from 'react-hot-toast';
 
 /* ─── Brand ─────────────────────────────── */
 const NAVY   = '#3D1A6B';
@@ -768,7 +769,7 @@ function RapportTrimestriel() {
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Eye size={13} /> {showPreview ? 'Édition' : 'Aperçu Word'}
             </button>
-            <button onClick={() => toast.info('Export Word / PDF du rapport trimestriel — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: ORANGE, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => toast('Export Word / PDF du rapport trimestriel — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: ORANGE, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Download size={13} /> Exporter Word / PDF
             </button>
           </div>
@@ -961,8 +962,8 @@ export default function StudioRapports() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: activeView === 'preview' ? '#EFF6FF' : '#fff', fontSize: 12.5, color: activeView === 'preview' ? NAVY : '#475569', cursor: 'pointer', fontFamily: 'inherit', fontWeight: activeView === 'preview' ? 700 : 400 }}>
                 <Eye size={13} /> {activeView === 'editeur' ? 'Prévisualiser' : 'Éditeur'}
               </button>
-              <button onClick={() => toast.info('Enregistrement du rapport — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}><Save size={13} /> Enregistrer</button>
-              <button onClick={() => toast.info('Export PDF — utilisez le bouton ✨ Générer Rapport Complet dans le panneau droit.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Exporter PDF</button>
+              <button onClick={() => toast('Enregistrement du rapport — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}><Save size={13} /> Enregistrer</button>
+              <button onClick={() => toast('Export PDF — utilisez le bouton ✨ Générer Rapport Complet dans le panneau droit.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Exporter PDF</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingBottom: 12 }}>
@@ -1192,7 +1193,7 @@ ${sections.map((s,i) => {
                   <Download size={13} /> {btn.label}
                 </button>
               ))}
-              <button onClick={() => toast.info('Envoi automatique mensuel — configuration disponible dans les paramètres du rapport.')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => toast('Envoi automatique mensuel — configuration disponible dans les paramètres du rapport.')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <Clock size={13} /> Envoi automatique mensuel
               </button>
             </div>

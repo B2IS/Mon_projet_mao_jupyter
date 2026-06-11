@@ -301,7 +301,7 @@ function ConnectorCard({ connector: c, onEdit, onToggle, onDelete }: {
         <button onClick={onEdit} aria-label="Modifier le connecteur" style={{ ...iconBtn }}><Settings2 size={14} /></button>
         <button onClick={onDelete} aria-label="Supprimer le connecteur" style={{ ...iconBtn, color: '#DC2626' }}><Trash2 size={14} /></button>
         <button onClick={() => {
-          toast.info(`Test ${c.name} : ${c.active ? 'connecté' : 'inactif'} — ${c.url}`);
+          toast(`Test ${c.name} : ${c.active ? 'connecté' : 'inactif'} — ${c.url}`);
         }} style={{ ...btnGhost, marginLeft: 'auto', fontSize: 12 }}>
           <RefreshCw size={12} /> Tester
         </button>

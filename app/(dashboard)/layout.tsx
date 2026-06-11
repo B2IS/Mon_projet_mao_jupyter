@@ -3,6 +3,7 @@
 import Sidebar from '@/components/layout/Sidebar';
 import TempsTracker from '@/components/layout/TempsTracker';
 import AlertNotifier from '@/components/layout/AlertNotifier';
+import MobileTopbar from '@/components/layout/MobileTopbar';
 import { SidebarContext } from '@/lib/sidebarContext';
 import { ProjectStoreProvider } from '@/lib/projectStore';
 import { I18nProvider } from '@/lib/i18n/I18nContext';
@@ -11,18 +12,22 @@ import { useState } from 'react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // AuthProvider est fourni par le layout racine (app/layout.tsx) : un seul
-  // contexte partagé, l'état de connexion persiste donc à la navigation /login → dashboard.
   return (
     <I18nProvider>
     <ProjectStoreProvider>
-    <SidebarContext.Provider value={{ open, toggle: () => setOpen(o => !o), close: () => setOpen(false) }}>
+    <SidebarContext.Provider value={{
+      open, toggle: () => setOpen(o => !o), close: () => setOpen(false),
+      mobileOpen, openMobile: () => setMobileOpen(true), closeMobile: () => setMobileOpen(false),
+    }}>
       <div className="app-shell">
         <TempsTracker />
         <AlertNotifier />
         <Sidebar />
         <div className="app-main">
+          {/* Barre mobile — remplace le hamburger flottant sur toutes les pages */}
+          <MobileTopbar />
           {children}
         </div>
         <Toaster

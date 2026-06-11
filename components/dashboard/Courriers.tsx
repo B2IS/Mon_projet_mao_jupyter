@@ -529,7 +529,7 @@ export default function Courriers() {
             <span className="card-title">Courriers entrants ({filteredEntrants.length})</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="btn btn-ghost btn-xs" onClick={() => { setSearch(''); setPeriode('tous'); setDirection('tous'); }}><Filter size={11} /> Réinitialiser</button>
-              <button className="btn btn-navy btn-xs" onClick={() => toast.info('Sélectionnez les courriers à archiver puis confirmez.')}><Archive size={11} /> Archiver sélection</button>
+              <button className="btn btn-navy btn-xs" onClick={() => toast('Sélectionnez les courriers à archiver puis confirmez.')}><Archive size={11} /> Archiver sélection</button>
             </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
