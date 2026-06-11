@@ -1,0 +1,3 @@
+[2026-05-23T16:08:37.844Z] [INFO] Enertic AI Backend démarré {"port":4000,"env":"development"}
+[2026-05-23T16:10:41.723Z] [INFO] Pipeline inférence terminé {"total":42,"anomalies":0}
+[2026-05-23T20:16:11.012Z] [INFO] Enertic AI Backend démarré {"port":4000,"env":"development"}

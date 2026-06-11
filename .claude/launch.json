@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "enertic-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:frontend"],
+      "port": 3000
+    },
+    {
+      "name": "senelec-dpe",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/maodosene/Desktop/Claud_apps/senelec-dpe", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}
