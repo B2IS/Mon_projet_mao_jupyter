@@ -317,15 +317,15 @@ function handleExportPDF(title: string) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
   const projRows = PROJECTS_BUDGET.map((p, i) => `
-    <tr><td style="font-weight:700">${p.name}</td><td>${p.domain}</td><td style="text-align:right">${p.prevu.toFixed(1)}</td><td style="text-align:right">${p.realise.toFixed(1)}</td><td style="text-align:right;color:${p.realise>=p.prevu?'#16A34A':'#F59E0B'}">${((p.realise/p.prevu)*100).toFixed(1)}%</td></tr>`).join('');
+    <tr><td style="font-weight:700">${p.name}</td><td>${p.domain}</td><td style="text-align:right">${p.prevu.toFixed(1)}</td><td style="text-align:right">${p.realise.toFixed(1)}</td><td style="text-align:right;color:${p.realise>=p.prevu?'#16A34A':'#F59E0B'}">${(p.prevu > 0 ? (p.realise/p.prevu)*100 : 0).toFixed(1)}%</td></tr>`).join('');
   const barSvg = PROJECTS_BUDGET.map((p, i) => {
     const y = i * 20 + 5;
-    const w = (p.realise / p.prevu) * 200;
+    const w = p.prevu > 0 ? (p.realise / p.prevu) * 200 : 0;
     const maxW = 200;
     return `<rect x="80" y="${y}" width="${maxW}" height="6" fill="#F1F5F9" rx="3"/>
             <rect x="80" y="${y}" width="${Math.min(w, maxW)}" height="6" fill="${p.realise>=p.prevu?'#16A34A':'#F59E0B'}" rx="3"/>
             <text x="75" y="${y+5}" font-size="8" fill="#64748B" text-anchor="end">${p.name.substring(0,12)}</text>
-            <text x="${80+maxW+4}" y="${y+5}" font-size="8" fill="#64748B">${((p.realise/p.prevu)*100).toFixed(0)}%</text>`;
+            <text x="${80+maxW+4}" y="${y+5}" font-size="8" fill="#64748B">${(p.prevu > 0 ? (p.realise/p.prevu)*100 : 0).toFixed(0)}%</text>`;
   }).join('');
   const radarPoints = DOMAIN_PERF.map(d => {
     const angles = [0, 72, 144, 216, 288].map(a => a * Math.PI / 180);
@@ -567,6 +567,7 @@ export default function Analytique() {
 
         <div style={{ display: 'flex', gap: 6 }}>
           <button
+            aria-label="Exporter les données analytiques en Excel"
             onClick={() => {
               downloadExcel('analytique_projets_dpe', {
                 sheetName: 'Analytique',
@@ -575,7 +576,7 @@ export default function Analytique() {
                 headers: ['Projet', 'Domaine', 'Budget prévu (MFCFA)', 'Budget réalisé (MFCFA)', 'Écart (MFCFA)', 'Taux réalisation %'],
                 rows: PROJECTS_BUDGET.map(p => [
                   p.name, p.domain, p.prevu, p.realise,
-                  +(p.prevu - p.realise).toFixed(1), +((p.realise / p.prevu) * 100).toFixed(1),
+                  +(p.prevu - p.realise).toFixed(1), +(p.prevu > 0 ? (p.realise / p.prevu) * 100 : 0).toFixed(1),
                 ]),
               });
             }}
@@ -587,6 +588,7 @@ export default function Analytique() {
             <Download size={14} /> Excel
           </button>
           <button
+            aria-label="Exporter le rapport analytique en PDF"
             onClick={() => handleExportPDF('Analytique & Indicateurs — Portefeuille DPE Senelec')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
@@ -614,12 +616,12 @@ export default function Analytique() {
 
       {/* ── ROW 1 — KPI cards from real store data ──────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10 }}>
-        <KPICard label="Projets actifs (store)" value={String(storeKpis.total)} sub="Portefeuille en vie" accent={NAVY} badge="STORE" badgeColor={NAVY} />
-        <KPICard label="Budget total (MFCFA)" value={`${storeKpis.totalBudget.toFixed(0)} M`} sub="Toutes directions" accent={ORANGE} badge={`${storeKpis.decPct.toFixed(0)}%`} badgeColor={ORANGE} />
-        <KPICard label="CPI moyen réel" value={storeKpis.avgCpi.toFixed(2)} sub="Indice coût portefeuille" accent={storeKpis.avgCpi >= 0.95 ? GREEN : RED} badge={storeKpis.avgCpi >= 0.95 ? 'BON' : 'ATTN'} badgeColor={storeKpis.avgCpi >= 0.95 ? GREEN : RED} />
-        <KPICard label="SPI moyen réel" value={storeKpis.avgSpi.toFixed(2)} sub="Indice délai portefeuille" accent={storeKpis.avgSpi >= 0.90 ? GREEN : AMBER} badge={storeKpis.avgSpi >= 0.90 ? 'OK' : 'ATTN'} badgeColor={storeKpis.avgSpi >= 0.90 ? GREEN : AMBER} />
-        <KPICard label="Avancement moyen" value={`${storeKpis.avgAvancement}%`} sub="Physique consolidé" accent={PURPLE} badge="AVG" badgeColor={PURPLE} />
-        <KPICard label="Projets en retard" value={`${storeKpis.enRetard} / ${storeKpis.total}`} sub="Statut en_retard" accent={storeKpis.enRetard > 0 ? RED : GREEN} badge={storeKpis.enRetard > 0 ? 'ALERTE' : 'OK'} badgeColor={storeKpis.enRetard > 0 ? RED : GREEN} />
+        <KPICard label="Projets actifs (store)" value={String(storeKpis.total)} sub={`Portefeuille en vie${domain !== 'Tous' ? ' · domaine ' + domain : ''}`} accent={NAVY} badge="STORE" badgeColor={NAVY} />
+        <KPICard label="Budget total (MFCFA)" value={`${storeKpis.totalBudget.toFixed(0)} M`} sub={`Décaissé : ${storeKpis.decPct.toFixed(1)}%`} accent={ORANGE} badge={`${storeKpis.decPct.toFixed(0)}%`} badgeColor={ORANGE} />
+        <KPICard label="CPI moyen réel" value={storeKpis.avgCpi.toFixed(2)} sub={storeKpis.avgCpi >= 0.95 ? 'Performance coûts satisfaisante (≥ 0.95)' : 'Attention : dépassement coûts probable (< 0.95)'} accent={storeKpis.avgCpi >= 0.95 ? GREEN : RED} badge={storeKpis.avgCpi >= 0.95 ? 'BON' : 'ATTN'} badgeColor={storeKpis.avgCpi >= 0.95 ? GREEN : RED} />
+        <KPICard label="SPI moyen réel" value={storeKpis.avgSpi.toFixed(2)} sub={storeKpis.avgSpi >= 0.90 ? 'Planning globalement respecté (≥ 0.90)' : 'Retard de planning détecté (< 0.90)'} accent={storeKpis.avgSpi >= 0.90 ? GREEN : AMBER} badge={storeKpis.avgSpi >= 0.90 ? 'OK' : 'ATTN'} badgeColor={storeKpis.avgSpi >= 0.90 ? GREEN : AMBER} />
+        <KPICard label="Avancement moyen" value={`${storeKpis.avgAvancement}%`} sub="Physique consolidé — pondéré par nombre de projets" accent={PURPLE} badge="AVG" badgeColor={PURPLE} />
+        <KPICard label="Projets en retard" value={`${storeKpis.enRetard} / ${storeKpis.total}`} sub={storeKpis.enRetard > 0 ? `${storeKpis.enRetard} projet(s) avec statut en_retard` : 'Aucun projet en retard'} accent={storeKpis.enRetard > 0 ? RED : GREEN} badge={storeKpis.enRetard > 0 ? 'ALERTE' : 'OK'} badgeColor={storeKpis.enRetard > 0 ? RED : GREEN} />
       </div>
 
       {/* ── S-CURVE SECTION — PV / EV / AC (Courbes S CDC §21.1) ───────────── */}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, TooltipProps,
@@ -207,7 +208,7 @@ export default function SuiviEvaluation() {
               canGlobal={canGlobal}
               buttonLabel="Matrice projets"
             />
-            <button style={{
+            <button onClick={() => toast.info('Filtres avancés — fonctionnalité à venir.')} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0',
               background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit',
@@ -232,7 +233,7 @@ export default function SuiviEvaluation() {
             <button onClick={handleConsolider} disabled={consolidating} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 7, border: 'none',
-              background: consolidating ? '#94A3B8' : NAVY, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: consolidating ? 'default' : 'pointer', fontFamily: 'inherit', transition: 'background 0.2s',
+              background: consolidating ? '#94A3B8' : NAVY, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: consolidating ? 'not-allowed' : 'pointer', opacity: consolidating ? 0.7 : 1, fontFamily: 'inherit', transition: 'background 0.2s',
             }}>
               <RefreshCw size={13} style={{ animation: consolidating ? 'spin 1s linear infinite' : 'none' }} />
               {consolidating ? 'Consolidation…' : lastConsolidation ? `Consolidé ${lastConsolidation}` : 'Consolider KPIs'}
@@ -536,7 +537,7 @@ export default function SuiviEvaluation() {
                         <span>· {p.type}</span>
                       </div>
                     </div>
-                    <button style={{
+                    <button onClick={() => toast.info(`Ouverture de la preuve : ${p.label}`)} style={{
                       padding: '6px 12px', borderRadius: 6, border: `1px solid ${NAVY}`,
                       background: '#EFF6FF', color: NAVY, fontSize: 11.5, fontWeight: 600,
                       cursor: 'pointer', fontFamily: 'inherit',
@@ -649,7 +650,7 @@ export default function SuiviEvaluation() {
             }}>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>Rapports périodiques</span>
-                <button style={{
+                <button onClick={() => toast.info('Génération d\'un rapport périodique — utilisez le Studio de Rapports.')} style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '6px 12px', borderRadius: 7, border: 'none',
                   background: NAVY, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
@@ -677,7 +678,7 @@ export default function SuiviEvaluation() {
                     background: r.color === GREEN ? '#DCFCE7' : '#FFF7ED',
                     color: r.color,
                   }}>{r.statut}</span>
-                  <button style={{
+                  <button onClick={() => toast.info(`Consultation du rapport : ${r.label}`)} style={{
                     padding: '5px 10px', borderRadius: 6, border: '1px solid #E2E8F0',
                     background: '#fff', color: '#475569', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit',
                   }}>

@@ -300,7 +300,7 @@ export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
   DIR_DPE:   ['accueil', 'portefeuille', 'finances', 'immobilisations', 'transverses'],
   PMO:       ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
   CHEF_DEPT: ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
-  CHEF_PROJ: ['accueil', 'mes_projets', 'execution', 'finances', 'transverses'],
+  CHEF_PROJ: ['accueil', 'mes_projets', 'execution', 'finances', 'immobilisations', 'transverses'], // RACI : Chef de projet = Réalisateur (R) de la Structuration Projet (WBS)
   INGENIEUR: ['accueil', 'mes_projets', 'execution', 'transverses'],
   EXPERT:    ['accueil', 'portefeuille', 'mes_projets', 'execution', 'transverses'],
   CONTROLEUR:['accueil', 'mes_projets', 'execution', 'finances', 'transverses'],  // équipe chef de projet
@@ -391,7 +391,7 @@ export const ROLE_ROUTES: Record<RoleCode, string[]> = {
 // Items individuels autorisés par rôle dans chaque section (factorisés)
 export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
   // Directeur DPE : vue PHASES/JALONS (Gantt + cockpit), PAS le module de gestion détaillé (tâches/ressources).
-  DIR_DPE:   [R_TBL, ...R_PORT, '/cockpit-projet', '/gantt', '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/courriers', '/workflows'],
+  DIR_DPE:   [R_TBL, ...R_PORT, '/cockpit-projet', '/gantt', '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows'],
   PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
   CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
   CHEF_PROJ: [...R_CHEF_TEAM, '/migration', '/agents-ia', '/courriers', '/workflows'],
@@ -408,7 +408,7 @@ export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
   CONTROLEUR_TRAVAUX: [R_TBL, '/projets', '/cockpit-projet', '/terrain', '/risques', '/receptions', ...R_CARTO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
   CHAUFFEUR: [R_TBL, '/odm', '/flotte', '/courriers', '/workflows'],
   CTRL_FIN:  [R_TBL, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0,2), ...R_RPT, '/courriers', '/workflows'],
-  RESP_LOG:  [R_TBL, ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/courriers', ...R_GED, '/reporting', '/workflows'],
+  RESP_LOG:  [R_TBL, ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/gestion-temps', '/courriers', ...R_GED, '/reporting', '/workflows'],
   ADMIN:     ['*'],
 };
 

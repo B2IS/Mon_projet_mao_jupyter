@@ -12,6 +12,10 @@ import {
   type DepType,
   type Ressource,
   type Assignation,
+  type Livrable,
+  type TypeLivrable,
+  type PrioriteLivrable,
+  type StatutLivrable,
 } from '@/lib/projectStore';
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import { readOnlyGuard } from '@/lib/operationalGuard';
@@ -30,6 +34,9 @@ import {
   X,
   UserPlus,
   UserMinus,
+  FileText,
+  CheckSquare,
+  Paperclip,
 } from 'lucide-react';
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
@@ -146,7 +153,7 @@ function ResourcePopover({ tache, ressources, projetId, onClose, anchorRef, onAs
         <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, background: '#F8FAFC', borderRadius: 6, padding: '4px 8px' }}>
           <span style={{ fontSize: 11, flex: 1, color: '#374151' }}>{a.nomComplet}</span>
           <span style={{ fontSize: 10, color: '#1B4F8A', fontWeight: 700 }}>{a.unite}%</span>
-          <button onClick={() => onRemove(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF3340', padding: 0 }}>
+          <button onClick={() => onRemove(a.id)} aria-label={`Retirer ${a.nomComplet}`} title="Retirer cette ressource" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF3340', padding: 0 }}>
             <UserMinus size={13} />
           </button>
         </div>
@@ -183,7 +190,7 @@ function ResourcePopover({ tache, ressources, projetId, onClose, anchorRef, onAs
           </div>
         </div>
       )}
-      <button onClick={onClose} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+      <button onClick={onClose} aria-label="Fermer" style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
         <X size={14} />
       </button>
     </div>
@@ -597,7 +604,7 @@ function GanttView({ taches, collapsed }: GanttViewProps) {
                         <div style={{
                           position: 'absolute',
                           left: `${pct(t.dateDebut)}%`,
-                          width: `${width(t.dateDebut, t.dateFin) * t.avancement / 100}%`,
+                          width: `${(width(t.dateDebut, t.dateFin) || 0) * (t.avancement || 0) / 100}%`,
                           height: 14,
                           top: 2,
                           background: barColor,
@@ -646,6 +653,12 @@ export default function Taches() {
   const [resourcePopover, setResourcePopover] = useState<string | null>(null);
   const resourceCellRefs = useRef<Record<string, React.RefObject<HTMLTableCellElement | null>>>({});
   const [editValues, setEditValues] = useState<Record<string, Record<string, string>>>({});
+  // Livrables
+  const [livrableTaskId, setLivrableTaskId] = useState<string | null>(null);
+  const [livrableForm, setLivrableForm] = useState<{ nom: string; typeLivrable: TypeLivrable; proprietaireNom: string; dateRequise: string; priorite: PrioriteLivrable; statut: StatutLivrable }>({
+    nom: '', typeLivrable: 'General', proprietaireNom: '', dateRequise: '', priorite: 'Moyenne', statut: 'Nouveau',
+  });
+  const [livrableEdit, setLivrableEdit] = useState<string | null>(null); // livrableId being edited
 
   const selectedProjet = store.projets.find(p => p.id === selectedProjetId) ?? null;
 
@@ -813,16 +826,18 @@ export default function Taches() {
         </div>
 
         <button
-          style={btn('#F47920', '#fff')}
+          style={{ ...btn('#F47920', '#fff'), cursor: selectedProjet ? 'pointer' : 'not-allowed', opacity: selectedProjet ? 1 : 0.5 }}
           onClick={() => selectedProjet && setShowModal(true)}
           disabled={!selectedProjet}
+          title={selectedProjet ? 'Créer une nouvelle tâche' : 'Sélectionnez un projet d\'abord'}
         >
           <Plus size={14} /> Nouvelle tâche
         </button>
         <button
-          style={btn('#1B4F8A', '#fff')}
+          style={{ ...btn('#1B4F8A', '#fff'), cursor: selectedProjet ? 'pointer' : 'not-allowed', opacity: selectedProjet ? 1 : 0.5 }}
           onClick={() => selectedProjet && store.saveBaseline(selectedProjetId)}
           disabled={!selectedProjet}
+          title={selectedProjet ? 'Enregistrer le planning de référence' : 'Sélectionnez un projet d\'abord'}
         >
           <Save size={14} /> Enregistrer baseline
         </button>
@@ -880,13 +895,14 @@ export default function Taches() {
                   <th style={{ padding: '10px 8px', textAlign: 'left', minWidth: 120 }}>Ressources</th>
                   <th style={{ padding: '10px 8px', textAlign: 'center', minWidth: 140 }}>Avancement</th>
                   <th style={{ padding: '10px 8px', textAlign: 'center' }}>Statut</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>Livrables</th>
                   <th style={{ padding: '10px 8px', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTaches.length === 0 && (
                   <tr>
-                    <td colSpan={11} style={{ textAlign: 'center', padding: 32, color: '#94A3B8' }}>
+                    <td colSpan={12} style={{ textAlign: 'center', padding: 32, color: '#94A3B8' }}>
                       Aucune tâche{search ? ' correspondant à la recherche' : ''}
                     </td>
                   </tr>
@@ -921,6 +937,7 @@ export default function Taches() {
                           {isRecap && hasChildren(t) && (
                             <button
                               onClick={() => toggleCollapse(t.id)}
+                              aria-label={collapsed.has(t.id) ? `Développer ${t.nom}` : `Réduire ${t.nom}`}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#1B4F8A', display: 'flex' }}
                             >
                               {collapsed.has(t.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
@@ -1069,6 +1086,8 @@ export default function Taches() {
                           )}
                           <button
                             onClick={() => setResourcePopover(resourcePopover === t.id ? null : t.id)}
+                            aria-label="Gérer les ressources affectées"
+                            title="Affecter / retirer des ressources"
                             style={{ background: 'none', border: '1px solid #CBD5E1', borderRadius: 4, cursor: 'pointer', padding: '1px 5px', color: '#64748B', fontSize: 10, fontFamily: 'inherit' }}
                           >
                             <UserPlus size={10} />
@@ -1122,18 +1141,35 @@ export default function Taches() {
                         </select>
                       </td>
 
+                      {/* Livrables */}
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => {
+                            setLivrableTaskId(t.id);
+                            setLivrableForm({ nom: '', typeLivrable: 'General', proprietaireNom: '', dateRequise: '', priorite: 'Moyenne', statut: 'Nouveau' });
+                            setLivrableEdit(null);
+                          }}
+                          title="Gérer les livrables"
+                          style={{ background: (t.livrables?.length ?? 0) > 0 ? '#EDE9FE' : '#F8FAFC', border: `1px solid ${(t.livrables?.length ?? 0) > 0 ? '#DDD6FE' : '#E2E8F0'}`, borderRadius: 6, cursor: 'pointer', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: (t.livrables?.length ?? 0) > 0 ? '#7C3AED' : '#94A3B8' }}>
+                          <FileText size={11} />
+                          {(t.livrables?.length ?? 0) > 0 ? t.livrables!.length : '+'}
+                        </button>
+                      </td>
+
                       {/* Actions */}
                       <td style={{ padding: '6px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <button
                           onClick={() => setEditModalTache(t)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1B4F8A', padding: '2px 4px' }}
+                          aria-label={`Modifier la tâche ${t.nom}`}
                           title="Modifier"
                         >
                           <Edit2 size={13} />
                         </button>
                         <button
-                          onClick={() => store.deleteTache(selectedProjetId, t.id)}
+                          onClick={() => { if (confirm(`Supprimer « ${t.nom} » ?`)) store.deleteTache(selectedProjetId, t.id); }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF3340', padding: '2px 4px' }}
+                          aria-label={`Supprimer la tâche ${t.nom}`}
                           title="Supprimer"
                         >
                           <Trash2 size={13} />
@@ -1239,6 +1275,185 @@ export default function Taches() {
           onDelete={() => { store.deleteTache(selectedProjetId, editModalTache.id); setEditModalTache(null); }}
         />
       )}
+
+      {/* ══ MODAL : Gérer les livrables ══ */}
+      {livrableTaskId && selectedProjet && (() => {
+        const tache = allTaches.find(t => t.id === livrableTaskId);
+        if (!tache) return null;
+        const livrables = tache.livrables ?? [];
+        const STATUT_LBL: Record<StatutLivrable, { label: string; bg: string; color: string }> = {
+          Nouveau:   { label: 'Nouveau',   bg: '#F3F4F6', color: '#374151' },
+          En_cours:  { label: 'En cours',  bg: '#DBEAFE', color: '#1E40AF' },
+          Termine:   { label: 'Terminé',   bg: '#DCFCE7', color: '#166534' },
+          Rejete:    { label: 'Rejeté',    bg: '#FEE2E2', color: '#991B1B' },
+        };
+        const PRIO_LBL: Record<PrioriteLivrable, string> = { Elevee: '🔴 Élevée', Moyenne: '🟡 Moyenne', Faible: '🟢 Faible' };
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 700, maxHeight: '88vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: '#1B4F8A' }}>Gérer les livrables</div>
+                  <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Tâche : {tache.nom}</div>
+                </div>
+                <button onClick={() => setLivrableTaskId(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, color: '#9CA3AF' }}>×</button>
+              </div>
+
+              {/* Add/Edit form */}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: '#374151', marginBottom: 10 }}>
+                  {livrableEdit ? '✏️ Modifier le livrable' : '+ Nouveau livrable'}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 3 }}>* Nom</label>
+                    <input value={livrableForm.nom} onChange={e => setLivrableForm(f => ({ ...f, nom: e.target.value }))}
+                      placeholder="Ex: Bordereau des livraisons"
+                      style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: 6, fontSize: 12, boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 3 }}>Type</label>
+                    <select value={livrableForm.typeLivrable} onChange={e => setLivrableForm(f => ({ ...f, typeLivrable: e.target.value as TypeLivrable }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: 6, fontSize: 12, boxSizing: 'border-box' }}>
+                      {(['Bordereau','Plan','Rapport','PV','Contrat','Note','General'] as TypeLivrable[]).map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 3 }}>Propriétaire</label>
+                    <input value={livrableForm.proprietaireNom} onChange={e => setLivrableForm(f => ({ ...f, proprietaireNom: e.target.value }))}
+                      placeholder="Nom du propriétaire"
+                      style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: 6, fontSize: 12, boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 3 }}>Date requise</label>
+                    <input type="date" value={livrableForm.dateRequise} onChange={e => setLivrableForm(f => ({ ...f, dateRequise: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: 6, fontSize: 12, boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 3 }}>Priorité</label>
+                    <select value={livrableForm.priorite} onChange={e => setLivrableForm(f => ({ ...f, priorite: e.target.value as PrioriteLivrable }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: 6, fontSize: 12, boxSizing: 'border-box' }}>
+                      <option value="Elevee">Élevée</option>
+                      <option value="Moyenne">Moyenne</option>
+                      <option value="Faible">Faible</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 3 }}>Statut</label>
+                    <select value={livrableForm.statut} onChange={e => setLivrableForm(f => ({ ...f, statut: e.target.value as StatutLivrable }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: 6, fontSize: 12, boxSizing: 'border-box' }}>
+                      <option value="Nouveau">Nouveau</option>
+                      <option value="En_cours">En cours</option>
+                      <option value="Termine">Terminé</option>
+                      <option value="Rejete">Rejeté</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+                  {livrableEdit && (
+                    <button onClick={() => { setLivrableEdit(null); setLivrableForm({ nom: '', typeLivrable: 'General', proprietaireNom: '', dateRequise: '', priorite: 'Moyenne', statut: 'Nouveau' }); }}
+                      style={{ padding: '6px 14px', border: '1px solid #D1D5DB', background: '#fff', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                      Annuler
+                    </button>
+                  )}
+                  <button onClick={() => {
+                    if (!livrableForm.nom.trim()) return;
+                    const user = (() => { try { return JSON.parse(localStorage.getItem('sigepp_dpe_user') || 'null'); } catch { return null; } })();
+                    if (livrableEdit) {
+                      store.updateLivrable(selectedProjetId, livrableTaskId, livrableEdit, { ...livrableForm });
+                      setLivrableEdit(null);
+                    } else {
+                      store.addLivrable(selectedProjetId, livrableTaskId, { ...livrableForm, proprietaireId: user?.id ?? 'u-current', piecesJointes: [], creePar: user ? `${user.prenom} ${user.nom}` : 'Utilisateur' });
+                    }
+                    setLivrableForm({ nom: '', typeLivrable: 'General', proprietaireNom: '', dateRequise: '', priorite: 'Moyenne', statut: 'Nouveau' });
+                  }}
+                    disabled={!livrableForm.nom.trim()}
+                    style={{ padding: '6px 16px', background: livrableForm.nom.trim() ? '#1B4F8A' : '#CBD5E1', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: livrableForm.nom.trim() ? 'pointer' : 'not-allowed', opacity: livrableForm.nom.trim() ? 1 : 0.5 }}>
+                    {livrableEdit ? 'Mettre à jour' : 'Enregistrer et fermer'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Livrables list */}
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {livrables.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF', fontSize: 12 }}>
+                    <FileText size={24} style={{ margin: '0 auto 8px' }} />
+                    <p>Aucun livrable pour cette tâche.</p>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC' }}>
+                        {['Type','Nom','Propriétaire','Date requise','Priorité','Statut','Actions'].map(h => (
+                          <th key={h} style={{ padding: '7px 10px', textAlign: 'left', color: '#64748B', fontWeight: 700, borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {livrables.map(lv => {
+                        const sc = STATUT_LBL[lv.statut];
+                        return (
+                          <tr key={lv.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <td style={{ padding: '6px 10px' }}>
+                              <span style={{ background: '#EDE9FE', color: '#7C3AED', borderRadius: 6, padding: '2px 7px', fontSize: 10, fontWeight: 700 }}>{lv.typeLivrable}</span>
+                            </td>
+                            <td style={{ padding: '6px 10px', fontWeight: 600, color: '#1B4F8A', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lv.nom}>{lv.nom}</td>
+                            <td style={{ padding: '6px 10px', color: '#374151' }}>{lv.proprietaireNom || '—'}</td>
+                            <td style={{ padding: '6px 10px', color: '#64748B' }}>
+                              {lv.dateRequise ? new Date(lv.dateRequise).toLocaleDateString('fr-FR') : '—'}
+                              {lv.dateRequise && new Date(lv.dateRequise) < new Date() && lv.statut !== 'Termine' && (
+                                <span style={{ marginLeft: 4, color: '#EF4444', fontSize: 9, fontWeight: 800 }}>⚠ RETARD</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '6px 10px' }}>
+                              <span style={{ fontSize: 10 }}>{PRIO_LBL[lv.priorite]}</span>
+                            </td>
+                            <td style={{ padding: '6px 10px' }}>
+                              <select value={lv.statut} onChange={e => store.updateLivrable(selectedProjetId, livrableTaskId, lv.id, { statut: e.target.value as StatutLivrable })}
+                                style={{ padding: '2px 6px', border: 'none', borderRadius: 8, background: sc.bg, color: sc.color, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                                <option value="Nouveau">Nouveau</option>
+                                <option value="En_cours">En cours</option>
+                                <option value="Termine">Terminé</option>
+                                <option value="Rejete">Rejeté</option>
+                              </select>
+                            </td>
+                            <td style={{ padding: '6px 10px', whiteSpace: 'nowrap' }}>
+                              <button onClick={() => {
+                                setLivrableEdit(lv.id);
+                                setLivrableForm({ nom: lv.nom, typeLivrable: lv.typeLivrable, proprietaireNom: lv.proprietaireNom, dateRequise: lv.dateRequise, priorite: lv.priorite, statut: lv.statut });
+                              }}
+                                aria-label={`Modifier le livrable ${lv.nom}`}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1B4F8A', padding: '2px 4px' }} title="Modifier">
+                                <Edit2 size={12} />
+                              </button>
+                              <button onClick={() => { if (confirm('Supprimer ce livrable ?')) store.deleteLivrable(selectedProjetId, livrableTaskId, lv.id); }}
+                                aria-label={`Supprimer le livrable ${lv.nom}`}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '2px 4px' }} title="Supprimer">
+                                <Trash2 size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setLivrableTaskId(null)}
+                  style={{ padding: '8px 20px', border: '1px solid #D1D5DB', background: '#fff', borderRadius: 7, fontSize: 12, cursor: 'pointer' }}>
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

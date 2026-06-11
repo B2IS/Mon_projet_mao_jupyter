@@ -11,50 +11,73 @@
 import type { MigrationDocument, ExtractedData, MigrationProject } from './types';
 
 export async function analyzeDocuments(docs: MigrationDocument[]): Promise<ExtractedData> {
-  // TODO: remplacer par appel API IA réel (OCR + NLP)
-  // Pour l'instant : extraction heuristique basique depuis le nom + texte
   const data: ExtractedData = {};
+  const fullText = docs.map(d => d.extractedText ?? '').join('\n');
+
+  // ── Extraction code BIT (clé unique SENELEC) depuis noms + contenu ──
+  data.codeBIT = extractBITCode(docs.map(d => d.name).join('\n') + '\n' + fullText);
 
   for (const doc of docs) {
     const name = doc.name.toLowerCase();
-    const text = (doc.extractedText ?? '').toLowerCase();
+    const text = (doc.extractedText ?? '');
+    const textLow = text.toLowerCase();
 
-    // Heuristique simple sur le nom du fichier
-    if (name.includes('contrat') || name.includes('contract')) {
-      data.projectName = extractWithRegex(text, /projet\s*[:\-]?\s*([^\n]{3,80})/i)
-        ?? extractWithRegex(text, /project\s*[:\-]?\s*([^\n]{3,80})/i)
-        ?? inferProjectName(name);
+    // Nom du projet — extraction ciblée + rejet des faux positifs (titres de section)
+    if (!data.projectName) {
+      const SECTION_BLACKLIST = /^(principales?|dates?|durées?|objectifs?|résumé|context|introduction|annexe|chapitre|section|partie|page|tableau|figure)/i;
+      const candidates = [
+        extractWithRegex(text, /(?:intitulé du projet|project title|nom du projet)\s*[:\-]?\s*([^\n]{8,120})/i),
+        extractWithRegex(text, /(?:projet|project)\s*[:]\s*([A-Z][^\n]{8,120})/),
+        extractWithRegex(text, /(?:objet|titre)\s*[:\-]\s*([A-Z][^\n]{8,120})/),
+      ].filter(Boolean).filter(c => !SECTION_BLACKLIST.test(c!.trim())) as string[];
+      data.projectName = candidates[0] ?? inferProjectName(doc.name);
     }
-    if (name.includes('budget') || name.includes('devis') || name.includes('boq')) {
-      const amount = extractAmount(text);
-      if (amount) data.budget = amount;
+
+    // Budget sur tous les docs
+    const amount = extractAmount(textLow);
+    if (amount && (!data.budget || amount > data.budget)) data.budget = amount;
+
+    // Dates
+    if (!data.startDate) data.startDate = extractDate(text, /d[eé]but\s*[:\-]?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
+    if (!data.endDate)   data.endDate   = extractDate(text, /(?:fin|livraison|achèvement)\s*[:\-]?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
+
+    // Bailleur / contractor
+    if (!data.contractor) {
+      data.contractor =
+        extractWithRegex(text, /(?:bailleur|financé par|funded by)\s*[:\-]?\s*([^\n]{3,60})/i)
+        ?? extractWithRegex(text, /(?:entreprise|titulaire|contractor|adjudicataire)\s*[:\-]?\s*([^\n]{3,60})/i);
     }
-    if (name.includes('planning') || name.includes('gantt') || name.includes('schedule')) {
-      data.startDate = extractDate(text, /d[eé]but\s*[:\-]?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
-      data.endDate = extractDate(text, /fin\s*[:\-]?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
+
+    // Localisation
+    if (!data.location) {
+      data.location =
+        extractWithRegex(text, /(?:région|localisation|site|zone)\s*[:\-]?\s*([^\n]{3,60})/i)
+        ?? extractWithRegex(text, /\b(Dakar|Thiès|Ziguinchor|Saint[\-\s]Louis|Kaolack|Tambacounda|Louga|Diourbel|Fatick|Kolda|Kaffrine|Matam|Sédhiou|Kédougou)\b/i);
     }
-    if (name.includes('pv') || name.includes('reception')) {
-      // Extraction jalons
-      const milestones = extractMilestones(text);
-      if (milestones.length) data.milestones = milestones;
+
+    // Milestones depuis PV/rapports
+    if (name.includes('pv') || name.includes('reception') || name.includes('rapport')) {
+      const ms = extractMilestones(text);
+      if (ms.length) data.milestones = [...(data.milestones || []), ...ms];
     }
   }
 
-  // ── Détection des LOTS sur l'ensemble du texte des documents ──
-  const fullText = docs.map(d => d.extractedText ?? '').join('\n');
+  // ── Lots ──
   const lots = detectLots(fullText);
-  if (lots.length > 1) data.lots = lots;
+  if (lots.length > 0) data.lots = lots;
 
-  // Valeurs par défaut si non trouvées
-  if (!data.projectName) data.projectName = 'Projet migré — ' + new Date().toLocaleDateString('fr-FR');
-  if (!data.budget) data.budget = 0;
-  if (!data.currency) data.currency = 'FCFA';
-  if (!data.startDate) data.startDate = new Date().toISOString().split('T')[0];
-  if (!data.endDate) data.endDate = addMonths(data.startDate, 12);
+  // ── Valeurs par défaut ──
+  if (!data.projectName) data.projectName = data.codeBIT ? `Projet ${data.codeBIT}` : 'Projet migré — ' + new Date().toLocaleDateString('fr-FR');
+  if (!data.projectCode) data.projectCode = data.codeBIT ?? undefined;
+  if (!data.budget)      data.budget = 0;
+  if (!data.currency)    data.currency = 'FCFA';
+  if (!data.startDate)   data.startDate = new Date().toISOString().split('T')[0];
+  if (!data.endDate)     data.endDate = addMonths(data.startDate, 12);
+  if (!data.wbsItems || data.wbsItems.length === 0) data.wbsItems = generateDefaultWBS(data.projectType);
+  if (!data.risks || data.risks.length === 0)       data.risks = generateDefaultRisks();
 
   return data;
 }
-
 export function generateProjectStructure(data: ExtractedData): Partial<MigrationProject> {
   // Génère une structure de projet SIGEPP à partir des données extraites
   const wbs = data.wbsItems ?? generateDefaultWBS(data.projectType);
@@ -71,15 +94,20 @@ export function generateProjectStructure(data: ExtractedData): Partial<Migration
 
 export function computeConfidence(data: ExtractedData): number {
   let score = 0;
-  if (data.projectName) score += 20;
-  if (data.projectCode) score += 10;
-  if (data.budget && data.budget > 0) score += 20;
-  if (data.startDate && data.endDate) score += 15;
-  if (data.contractor || data.supplier) score += 10;
-  if (data.location) score += 10;
-  if (data.wbsItems && data.wbsItems.length > 0) score += 10;
-  if (data.milestones && data.milestones.length > 0) score += 5;
-  return Math.min(100, score);
+  // Critères majeurs (pondérés par importance métier)
+  if (data.codeBIT)                            score += 25; // BIT = clé unique → poids fort
+  if (data.projectName && data.projectName.length > 5) score += 15;
+  if (data.budget && data.budget > 0)          score += 18;
+  if (data.startDate && data.endDate)          score += 12;
+  if (data.contractor || data.supplier)        score += 8;
+  if (data.location)                           score += 7;
+  if (data.wbsItems && data.wbsItems.length > 0) score += 6;
+  if (data.milestones && data.milestones.length > 0) score += 4;
+  if (data.lots && data.lots.length > 0)       score += 3;
+  if (data.risks && data.risks.length > 0)     score += 2;
+  // Base line : heuristique a au moins analysé les docs → 0 bonus si 0 champs
+  const baseBonus = score > 0 ? 5 : 0;
+  return Math.min(100, score + baseBonus);
 }
 
 /**
@@ -108,6 +136,36 @@ export function detectLots(text: string): { numero: string; label: string; budge
     if (out.length >= 20) break;
   }
   return out;
+}
+
+// ─── Extraction code BIT (clé unique SENELEC) ───────────────────────────────
+
+/**
+ * Cherche un code BIT dans un texte selon les patterns SENELEC connus.
+ * Retourne le premier match ou undefined.
+ */
+export function extractBITCode(text: string): string | undefined {
+  const patterns = [
+    // BESTSN-CRM-EXPI-GENE-LOT1-0025 ou BESTSN-RPP-EXPI-GENE-TOUS-0008
+    /\b(BESTSN[\-_][A-Z0-9]+(?:[\-_][A-Z0-9]+){2,6})\b/i,
+    // BEST-SN-xxx ou BEST-SENEGAL-xxx
+    /\b(BEST[\-_](?:SN|SENEGAL)[\-_][A-Z0-9\-]+)\b/i,
+    // EIUL-Lot3, EIUL-LOT-3
+    /\b(EIUL[\-_](?:LOT[\-_]?)?[0-9A-Z]+)\b/i,
+    // EXP-IRAF-xxx
+    /\b(EXP[\-_]IRAF[\-_][A-Z0-9\-]+)\b/i,
+    // TBEA-Lot1, TBEA-LOT-1-2
+    /\b(TBEA[\-_](?:LOT[\-_]?)?[0-9A-Z\-]+)\b/i,
+    // DPE-XXXX ou DPE/XXXX
+    /\b(DPE[\-_\/][A-Z0-9]{3,12})\b/i,
+    // Code générique type SENELEC: 2-3 lettres + tiret + chiffres
+    /\b([A-Z]{2,6}[\-][0-9]{4,8})\b/,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m?.[1]) return m[1].toUpperCase();
+  }
+  return undefined;
 }
 
 // ─── Helpers privés ─────────────────────────────────────────────────────────

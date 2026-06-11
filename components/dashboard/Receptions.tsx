@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { CSSProperties } from 'react';
-import { X, Calendar } from 'lucide-react';
+import { X, Calendar, Search } from 'lucide-react';
 import { downloadExcel } from '@/lib/exportUtils';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -389,7 +389,7 @@ function ReservesPanel({ reserves, titre, onClose }: {
               <div style={{ fontSize: 14, fontWeight: 800 }}>{titre}</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>{levees}/{list.length} levées — {pctLevee}%</div>
             </div>
-            <button onClick={onClose} style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex' }}>
+            <button onClick={onClose} aria-label="Fermer le panneau des réserves" style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex' }}>
               <X size={16} />
             </button>
           </div>
@@ -440,6 +440,9 @@ export default function Receptions() {
   const [pvds, setPvds] = useState<PVD[]>(PVDS);
   const [pvpSelected, setPvpSelected] = useState<PVP | null>(null);
   const [pvdSelected, setPvdSelected] = useState<PVD | null>(null);
+  const [pvpSearch, setPvpSearch] = useState('');
+  const [pvdSearch, setPvdSearch] = useState('');
+  const [immoSearch, setImmoSearch] = useState('');
 
   // ── IA d'aide à l'immobilisation (human-in-the-loop) ──
   const [propositions, setPropositions] = useState<ImmoProposition[]>([]);
@@ -474,6 +477,24 @@ export default function Receptions() {
   const setPvpStatut = (id: string, statut: StatutPV) =>
     setPvps(prev => prev.map(p => p.id === id ? { ...p, statut } : p));
 
+  const filteredPvps = useMemo(() => {
+    if (!pvpSearch.trim()) return pvps;
+    const q = pvpSearch.toLowerCase();
+    return pvps.filter(p => p.ref.toLowerCase().includes(q) || p.projet.toLowerCase().includes(q) || p.localite.toLowerCase().includes(q) || p.entreprise.toLowerCase().includes(q));
+  }, [pvps, pvpSearch]);
+
+  const filteredPvds = useMemo(() => {
+    if (!pvdSearch.trim()) return pvds;
+    const q = pvdSearch.toLowerCase();
+    return pvds.filter(p => p.ref.toLowerCase().includes(q) || p.projet.toLowerCase().includes(q) || p.localite.toLowerCase().includes(q) || p.entreprise.toLowerCase().includes(q));
+  }, [pvds, pvdSearch]);
+
+  const filteredImmos = useMemo(() => {
+    if (!immoSearch.trim()) return immos;
+    const q = immoSearch.toLowerCase();
+    return immos.filter(i => i.code.toLowerCase().includes(q) || i.designation.toLowerCase().includes(q) || i.projetOrigine.toLowerCase().includes(q) || i.categorie.toLowerCase().includes(q));
+  }, [immos, immoSearch]);
+
   // KPIs
   const kpis = useMemo(() => ({
     pvpEnCours:      pvps.filter(p => p.statut === 'EN_COURS').length,
@@ -485,7 +506,7 @@ export default function Receptions() {
   }), [pvps, pvds]);
 
   // Taux 1er passage (PVP sans réserves)
-  const tauxPremierPassage = Math.round((pvps.filter(p => p.nbReserves === 0).length / pvps.length) * 100);
+  const tauxPremierPassage = pvps.length > 0 ? Math.round((pvps.filter(p => p.nbReserves === 0).length / pvps.length) * 100) : 0;
 
   return (
     <div className="page-content">
@@ -530,7 +551,14 @@ export default function Receptions() {
         <div className="card">
           <div className="card-header">
             <span className="card-title">Procès-Verbaux Provisoires</span>
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{pvps.length} PVP</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {pvpSearch && <span style={{ fontSize: 10, color: 'var(--muted)' }}>{filteredPvps.length}/{pvps.length}</span>}
+              <div style={{ position: 'relative' }}>
+                <Search size={12} style={{ position: 'absolute', left: 7, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+                <input value={pvpSearch} onChange={e => setPvpSearch(e.target.value)} placeholder="Rechercher…" style={{ padding: '5px 8px 5px 24px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 11, width: 180, paddingRight: pvpSearch ? 24 : 8, outline: 'none' }} />
+                {pvpSearch && <button onClick={() => setPvpSearch('')} aria-label="Effacer la recherche PVP" style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}><X size={11} /></button>}
+              </div>
+            </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="tbl">
@@ -547,7 +575,12 @@ export default function Receptions() {
                 </tr>
               </thead>
               <tbody>
-                {pvps.map(p => (
+                {filteredPvps.length === 0 && (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '32px 0', color: 'var(--muted)', fontSize: 12 }}>
+                    Aucun PV provisoire correspondant à « {pvpSearch} »
+                  </td></tr>
+                )}
+                {filteredPvps.map(p => (
                   <tr key={p.id}>
                     <td style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 10, whiteSpace: 'nowrap' }}>{p.ref}</td>
                     <td style={{ fontSize: 11, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.projet}>{p.projet}</td>
@@ -584,7 +617,14 @@ export default function Receptions() {
         <div className="card">
           <div className="card-header">
             <span className="card-title">Procès-Verbaux Définitifs</span>
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{pvds.length} PVD</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {pvdSearch && <span style={{ fontSize: 10, color: 'var(--muted)' }}>{filteredPvds.length}/{pvds.length}</span>}
+              <div style={{ position: 'relative' }}>
+                <Search size={12} style={{ position: 'absolute', left: 7, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+                <input value={pvdSearch} onChange={e => setPvdSearch(e.target.value)} placeholder="Rechercher…" style={{ padding: '5px 8px 5px 24px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 11, width: 180, paddingRight: pvdSearch ? 24 : 8, outline: 'none' }} />
+                {pvdSearch && <button onClick={() => setPvdSearch('')} aria-label="Effacer la recherche PVD" style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}><X size={11} /></button>}
+              </div>
+            </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="tbl">
@@ -602,7 +642,12 @@ export default function Receptions() {
                 </tr>
               </thead>
               <tbody>
-                {pvds.map(p => (
+                {filteredPvds.length === 0 && (
+                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: '32px 0', color: 'var(--muted)', fontSize: 12 }}>
+                    Aucun PV définitif correspondant à « {pvdSearch} »
+                  </td></tr>
+                )}
+                {filteredPvds.map(p => (
                   <tr key={p.id}>
                     <td style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 10, whiteSpace: 'nowrap' }}>{p.ref}</td>
                     <td style={{ fontSize: 11, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.projet}>{p.projet}</td>
@@ -915,12 +960,19 @@ export default function Receptions() {
             </div>
 
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>Registre des immobilisations</div>
                   <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>Ouvrages réceptionnés et mis en service → comptabilisés en immobilisations puis transférés à l&apos;exploitation</div>
                 </div>
-                <button onClick={exportImmo} style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Exporter registre</button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ position: 'relative' }}>
+                    <Search size={12} style={{ position: 'absolute', left: 7, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+                    <input value={immoSearch} onChange={e => setImmoSearch(e.target.value)} placeholder="Rechercher une immo…" style={{ padding: '5px 8px 5px 24px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 11, width: 190, paddingRight: immoSearch ? 24 : 8, outline: 'none' }} />
+                    {immoSearch && <button onClick={() => setImmoSearch('')} aria-label="Effacer la recherche immobilisation" style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}><X size={11} /></button>}
+                  </div>
+                  <button onClick={exportImmo} style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Exporter registre</button>
+                </div>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1000 }}>
@@ -938,7 +990,7 @@ export default function Receptions() {
                     </tr>
                   </thead>
                   <tbody>
-                    {immos.map(i => (
+                    {filteredImmos.map(i => (
                       <tr key={i.id} style={{ borderTop: '1px solid #F1F5F9' }}>
                         <td style={{ padding: '9px 12px', fontFamily: 'monospace', fontSize: 11, color: '#1B4F8A', fontWeight: 700 }}>{i.code}</td>
                         <td style={{ padding: '9px 12px' }}>

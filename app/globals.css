@@ -75,7 +75,7 @@
   --border-dark:#9CA3AF;
 
   /* ── Layout ────────────────────────────────────────────────────────────── */
-  --sidebar-w:  248px;
+  --sidebar-w:  272px; /* rail 52 + sub-panel 220 */
   --header-h:   52px;
   --content-gap:16px;
 
@@ -130,6 +130,44 @@ html, body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+/* ── Sélection de texte (charte Senelec) ─────────────────────────────────── */
+::selection { background: rgba(123,47,190,0.18); color: var(--text-primary); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITÉ — Focus clavier visible (WCAG 2.4.7)
+   Anneau de focus net sur TOUS les éléments interactifs, uniquement au clavier
+   (:focus-visible) pour ne pas gêner la souris. Couleur = violet Senelec.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:focus-visible {
+  outline: 2px solid var(--senelec-purple);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+/* Contrôles avec fond clair : on combine outline + halo pour un contraste sûr
+   sur les surfaces sombres (header violet, rail) comme claires. */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.nav-item:focus-visible,
+.tab:focus-visible,
+.tab-item:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--senelec-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(61,26,107,0.18);
+}
+/* Champs de formulaire : l'anneau de focus reprend le style natif déjà défini. */
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible,
+.filter-select:focus-visible {
+  outline: none;
+}
+/* Éléments interactifs sur fonds sombres (header/rail) → anneau clair. */
+.topbar :focus-visible,
+header :focus-visible { outline-color: #F9B96F; box-shadow: 0 0 0 4px rgba(249,185,111,0.30); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    LAYOUT SHELL
@@ -426,10 +464,12 @@ html, body {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
   /* Empêche un tableau large de forcer l'élargissement du conteneur flex/grid :
      la carte rétrécit et son contenu défile horizontalement en interne. */
   min-width: 0;
 }
+.card:hover { box-shadow: var(--shadow-sm); }
 .card-header {
   display: flex;
   align-items: center;
@@ -622,6 +662,8 @@ button { cursor: pointer; font-family: inherit; }
   line-height: 1.4;
 }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Retour tactile : léger enfoncement au clic (jamais de décalage de layout). */
+.btn:active:not(:disabled) { transform: translateY(1px) scale(0.985); }
 .btn-primary {
   background: var(--primary);
   color: white;
@@ -1326,3 +1368,143 @@ pre, code {
 .overflow-y-auto { overflow-y: auto; }
 .overflow-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .min-w-0 { min-width: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SKELETON / CHARGEMENT — placeholders animés (perçus > spinner pour >300ms)
+   Utilisation : <div class="skeleton" style="height:14px;width:60%" />
+   ═══════════════════════════════════════════════════════════════════════════ */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--gray-100);
+  border-radius: var(--r-sm);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.65) 50%, transparent 100%);
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeletonShimmer { 100% { transform: translateX(100%); } }
+.skeleton-text { height: 12px; margin: 4px 0; }
+.skeleton-circle { border-radius: 50%; }
+
+/* Indicateur de chargement accessible (texte caché aux voyants, lu par les SR). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGE PULSE — alertes critiques dans le rail de navigation
+   Appliqué via la classe .badge-pulse (point rouge qui pulsate)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes pulseBadge {
+  0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.70); }
+  70%  { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+  100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+}
+.badge-pulse {
+  animation: pulseBadge 1.8s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOUVEMENT RÉDUIT — respect de prefers-reduced-motion (WCAG 2.3.3 / Apple HIG)
+   On neutralise transitions, animations et défilement fluide pour les
+   utilisateurs sensibles au mouvement, sans casser la mise en page.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton::after { animation: none; }
+  .btn:active:not(:disabled) { transform: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERFLOW & MARGIN — correctifs globaux
+   Évite que du texte long ou des contenus larges débordent de leur conteneur.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tout enfant flex/grid reçoit min-width:0 pour que le raccourcissement
+   (overflow:hidden + text-overflow:ellipsis) fonctionne correctement. */
+.card, .kpi-card, .page-content, .card-body, .card-header { min-width: 0; }
+
+/* Cellules de tableau : le texte trop long se coupe proprement. */
+.tbl td, .tbl th {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Sauf colonnes Actions (dernière colonne de chaque tableau) */
+.tbl td:last-child, .tbl th:last-child { max-width: none; overflow: visible; white-space: nowrap; }
+
+/* Titres de KPI : la valeur numérique ne déborde pas. */
+.kpi-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.kpi-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Contenu de page : marges cohérentes, gap standardisé. */
+.page-content {
+  padding: 20px 24px;
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .page-content { padding: 12px 14px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Modales : fond ne dépasse pas la hauteur de l'écran. */
+.modal-body { max-height: calc(80vh - 140px); overflow-y: auto; }
+
+/* Flex row classique : les enfants ne dépassent pas. */
+.flex-row-safe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+.flex-row-safe > * { min-width: 0; flex-shrink: 1; }
+.flex-row-safe > .flex-shrink-0 { flex-shrink: 0; }
+
+/* Texte tronqué avec ellipsis — classe utilitaire. */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Cards dans une grille : conteneur ne déborde pas. */
+.grid-safe {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  width: 100%;
+  min-width: 0;
+}
+
+/* Section de page : marges normalisées. */
+.section-gap { display: flex; flex-direction: column; gap: 16px; width: 100%; min-width: 0; }
+
+/* Print : cache sidebar et header pour l'export PDF du Gantt. */
+@media print {
+  .sidebar, .topbar, .app-shell > .sidebar { display: none !important; }
+  .app-main { padding: 0 !important; }
+  .page-content { padding: 0 !important; overflow: visible !important; }
+  body { background: white !important; }
+}
+
+/* ── Masquer le DevTools Next.js 15 (indicateur "N" en dev) ── */
+nextjs-portal { display: none !important; }

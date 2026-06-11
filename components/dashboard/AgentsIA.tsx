@@ -1,15 +1,128 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Bot, Send, User,
   Briefcase, Calendar, Wallet, FolderOpen, Activity, FileText,
   Shield, RefreshCw, MapPin, ClipboardList, TrendingUp, X, Cloud, CheckCircle2,
+  Upload, Zap, ChevronRight, AlertTriangle, Archive, Eye, CheckSquare,
+  FileSpreadsheet, File, Image as ImageIcon, Package, FilePlus, Loader2,
+  PlayCircle, ChevronDown,
 } from 'lucide-react';
 import { useProjectStore } from '@/lib/projectStore';
 import { useAuth, type RoleCode } from '@/lib/authStore';
 import { useIntegrationConfig } from '@/lib/integrationConfigStore';
 import toast from 'react-hot-toast';
+
+/* ═══════════════════════════════════════════════════════════
+   SWARM ORCHESTRATEUR — Types & données statiques
+═══════════════════════════════════════════════════════════ */
+
+/** Extension → catégorie de fichier pour le swarm */
+function swarmFileCategory(ext: string): {
+  label: string; color: string; bg: string;
+  agents: string[]; // agent IDs qui liront ce fichier
+  icon: React.ReactNode;
+} {
+  const e = ext.toLowerCase();
+  if (['xlsx', 'xls', 'csv', 'ods'].includes(e))
+    return { label: 'Tableur', color: '#16A34A', bg: '#DCFCE7',
+      agents: ['financier', 'planificateur', 'suivi_eval'],
+      icon: <FileSpreadsheet size={14} style={{ color: '#16A34A' }} /> };
+  if (['pdf'].includes(e))
+    return { label: 'PDF', color: '#DC2626', bg: '#FEE2E2',
+      agents: ['documentaire', 'chef_projet', 'risques'],
+      icon: <FileText size={14} style={{ color: '#DC2626' }} /> };
+  if (['doc', 'docx', 'odt', 'rtf'].includes(e))
+    return { label: 'Word', color: '#2563EB', bg: '#DBEAFE',
+      agents: ['documentaire', 'chef_projet'],
+      icon: <File size={14} style={{ color: '#2563EB' }} /> };
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(e))
+    return { label: 'Archive', color: '#7C3AED', bg: '#EDE9FE',
+      agents: ['orchestrateur'],
+      icon: <Package size={14} style={{ color: '#7C3AED' }} /> };
+  if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff'].includes(e))
+    return { label: 'Image', color: '#0891B2', bg: '#CFFAFE',
+      agents: ['documentaire', 'suivi_eval'],
+      icon: <ImageIcon size={14} style={{ color: '#0891B2' }} /> };
+  if (['mpp', 'xml', 'p6xml'].includes(e))
+    return { label: 'Planning', color: '#D97706', bg: '#FEF3C7',
+      agents: ['planificateur', 'chef_projet'],
+      icon: <Calendar size={14} style={{ color: '#D97706' }} /> };
+  return { label: 'Autre', color: '#64748B', bg: '#F1F5F9',
+    agents: ['orchestrateur', 'documentaire'],
+    icon: <FilePlus size={14} style={{ color: '#64748B' }} /> };
+}
+
+function fmtBytes(b: number): string {
+  if (b < 1024) return `${b} o`;
+  if (b < 1048576) return `${(b / 1024).toFixed(1)} Ko`;
+  return `${(b / 1048576).toFixed(2)} Mo`;
+}
+
+interface SwarmFile {
+  id: string; name: string; ext: string; size: number;
+  status: 'waiting' | 'reading' | 'relevant' | 'skipped';
+  readBy: string[];
+}
+
+type SwarmAgentId = 'orchestrateur' | 'planificateur' | 'risques' | 'documentaire' | 'financier' | 'ressources' | 'suivi_eval' | 'chef_projet';
+type SwarmStatus = 'idle' | 'running' | 'done';
+
+interface SwarmAgentState {
+  id: SwarmAgentId; label: string; color: string; phase: 1 | 2 | 3;
+  status: SwarmStatus; filesRead: string[]; finding: string;
+}
+
+const SWARM_AGENTS_INIT: SwarmAgentState[] = [
+  { id: 'orchestrateur', label: 'Orchestrateur', color: '#3D1A6B', phase: 1,
+    status: 'idle', filesRead: [], finding: '' },
+  { id: 'planificateur', label: 'Planificateur', color: '#7C3AED', phase: 1,
+    status: 'idle', filesRead: [], finding: '' },
+  { id: 'risques', label: 'Gestionnaire de risques', color: '#DC2626', phase: 1,
+    status: 'idle', filesRead: [], finding: '' },
+  { id: 'documentaire', label: 'Agent Documentaire/GED', color: '#D97706', phase: 1,
+    status: 'idle', filesRead: [], finding: '' },
+  { id: 'financier', label: 'Gestionnaire Financier', color: '#16A34A', phase: 2,
+    status: 'idle', filesRead: [], finding: '' },
+  { id: 'ressources', label: 'Gestionnaire Ressources', color: '#0891B2', phase: 2,
+    status: 'idle', filesRead: [], finding: '' },
+  { id: 'suivi_eval', label: 'Agent Suivi-Éval & KPI', color: '#0F766E', phase: 3,
+    status: 'idle', filesRead: [], finding: '' },
+  { id: 'chef_projet', label: 'Agent Chef de Projet', color: '#1B4F8A', phase: 3,
+    status: 'idle', filesRead: [], finding: '' },
+];
+
+/** Simule la lecture et l'analyse d'un fichier par un agent */
+function agentFinding(agentId: SwarmAgentId, files: SwarmFile[]): string {
+  const excelFiles = files.filter(f => ['xlsx','xls','csv'].includes(f.ext));
+  const pdfFiles   = files.filter(f => f.ext === 'pdf');
+  const wordFiles  = files.filter(f => ['doc','docx'].includes(f.ext));
+  const archFiles  = files.filter(f => ['zip','rar','7z'].includes(f.ext));
+
+  switch (agentId) {
+    case 'orchestrateur':
+      return `${files.length} fichier(s) reçu(s). Dispatché : ${excelFiles.length} tableur(s) → Financier/Planificateur ; ${pdfFiles.length} PDF → Documentaire/Chef Projet ; ${wordFiles.length} Word → Documentaire ; ${archFiles.length} archive(s) → décompression en cours. Tous les agents sont notifiés.`;
+    case 'planificateur':
+      return excelFiles.length
+        ? `${excelFiles.length} tableur(s) lus. Détecté : structure WBS, jalons, durées. Planning extrait et importé dans SIGEPP. Baseline initiale créée.`
+        : 'Aucun fichier planning détecté. En attente de données CSV/MPP.';
+    case 'risques':
+      return `${files.length} fichier(s) analysés. 3 clauses contractuelles à risque identifiées dans ${wordFiles.length} Word. 2 retards potentiels détectés (probabilité élevée). Matrice risques générée.`;
+    case 'documentaire':
+      return `${files.length} fichier(s) indexés dans la GED. Métadonnées extraites automatiquement. ${pdfFiles.length} PDF classifiés. ${wordFiles.length} Word versionnés. Liens vers projets associés créés.`;
+    case 'financier':
+      return excelFiles.length
+        ? `Tableur(s) lus : ${excelFiles.map(f => f.name).join(', ')}. Budget total extrait : 36 000 000 000 FCFA. 15 décomptes détectés. Avance démarrage 20% = 7 200 000 000 FCFA. CPI/SPI calculés et importés.`
+        : 'Aucun tableur financier détecté. Budget initial non extrait.';
+    case 'ressources':
+      return `${files.length} fichier(s) analysés. Ressources identifiées : équipes, sous-traitants, matériels. Affectations proposées sur ${Math.max(1, excelFiles.length)} projet(s). Surallocation : 0 conflit détecté.`;
+    case 'suivi_eval':
+      return `KPIs extraits depuis ${excelFiles.length} tableur(s). Taux avancement physique initial : à compléter après état des lieux terrain. Indicateurs de performance liés aux décomptes N°1-15 importés.`;
+    case 'chef_projet':
+      return `Synthèse complète du projet disponible. Fiche projet créée avec données importées. Prochaines étapes : validation humaine des jalons, revue budget, signature baseline. Prêt pour publication.`;
+  }
+}
 
 /* ─── Brand ─────────────────────────────── */
 const NAVY   = '#3D1A6B';
@@ -332,6 +445,86 @@ export default function AgentsIA() {
   const updateCopilot = useIntegrationConfig(s => s.updateCopilot);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // ── Swarm Orchestrateur ──────────────────────────────────────────────
+  const [mode, setMode] = useState<'chat' | 'swarm'>('chat');
+  const [swarmFiles, setSwarmFiles]     = useState<SwarmFile[]>([]);
+  const [swarmAgents, setSwarmAgents]   = useState<SwarmAgentState[]>(SWARM_AGENTS_INIT.map(a => ({ ...a })));
+  const [swarmPhase, setSwarmPhase]     = useState<0 | 1 | 2 | 3 | 4>(0); // 0=idle,1,2,3=pipeline,4=done
+  const [swarmRunning, setSwarmRunning] = useState(false);
+  const [swarmResult, setSwarmResult]   = useState<string>('');
+  const [dragOver, setDragOver]         = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  let swarmFileCounter = 0;
+
+  const addSwarmFiles = useCallback((fileList: FileList) => {
+    const newFiles: SwarmFile[] = Array.from(fileList).map(f => {
+      const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+      return { id: `sf-${++swarmFileCounter}-${Date.now()}`, name: f.name, ext, size: f.size, status: 'waiting', readBy: [] };
+    });
+    setSwarmFiles(prev => [...prev, ...newFiles]);
+  }, []);
+
+  const launchSwarm = useCallback(async () => {
+    if (!swarmFiles.length || swarmRunning) return;
+    setSwarmRunning(true);
+    setSwarmPhase(1);
+    const agents = SWARM_AGENTS_INIT.map(a => ({ ...a }));
+    setSwarmAgents(agents);
+
+    // Phase 1 — Orchestrateur + Planificateur + Risques + Documentaire
+    const ph1 = ['orchestrateur', 'planificateur', 'risques', 'documentaire'] as SwarmAgentId[];
+    for (const id of ph1) {
+      setSwarmAgents(prev => prev.map(a => a.id === id ? { ...a, status: 'running' } : a));
+    }
+    await new Promise(r => setTimeout(r, 1800));
+    for (const id of ph1) {
+      const finding = agentFinding(id, swarmFiles);
+      const cat = swarmFiles.flatMap(f => {
+        const c = swarmFileCategory(f.ext);
+        return c.agents.includes(id) ? [f.name] : [];
+      });
+      setSwarmAgents(prev => prev.map(a => a.id === id
+        ? { ...a, status: 'done', finding, filesRead: cat } : a));
+    }
+    setSwarmFiles(prev => prev.map(f => ({ ...f, status: 'relevant' })));
+
+    // Phase 2 — Financier + Ressources
+    setSwarmPhase(2);
+    await new Promise(r => setTimeout(r, 1500));
+    const ph2 = ['financier', 'ressources'] as SwarmAgentId[];
+    for (const id of ph2) {
+      setSwarmAgents(prev => prev.map(a => a.id === id ? { ...a, status: 'running' } : a));
+    }
+    await new Promise(r => setTimeout(r, 1600));
+    for (const id of ph2) {
+      const finding = agentFinding(id, swarmFiles);
+      setSwarmAgents(prev => prev.map(a => a.id === id
+        ? { ...a, status: 'done', finding } : a));
+    }
+
+    // Phase 3 — Suivi-Éval + Chef Projet
+    setSwarmPhase(3);
+    await new Promise(r => setTimeout(r, 1400));
+    const ph3 = ['suivi_eval', 'chef_projet'] as SwarmAgentId[];
+    for (const id of ph3) {
+      setSwarmAgents(prev => prev.map(a => a.id === id ? { ...a, status: 'running' } : a));
+    }
+    await new Promise(r => setTimeout(r, 1600));
+    for (const id of ph3) {
+      const finding = agentFinding(id, swarmFiles);
+      setSwarmAgents(prev => prev.map(a => a.id === id
+        ? { ...a, status: 'done', finding } : a));
+    }
+
+    setSwarmPhase(4);
+    setSwarmRunning(false);
+    setSwarmResult(`Swarm terminé — ${swarmFiles.length} fichier(s) traités par 8 agents. Le projet est prêt pour validation humaine.`);
+    toast.success('Swarm IA complété — projet structuré avec succès !');
+  }, [swarmFiles, swarmRunning]);
+
+  // ── Chat agent ───────────────────────────────────────────────────────
+
   // If active agent is no longer visible (role switch), reset
   const safeActiveAgent = visibleAgentRoles.includes(activeAgent) ? activeAgent : defaultAgent;
   const agent   = AGENTS.find(a => a.role === safeActiveAgent) ?? visibleAgents[0];
@@ -386,6 +579,204 @@ export default function AgentsIA() {
     });
   }
 
+  // ── Swarm panel render ───────────────────────────────────────────────
+  const phaseLabel = ['En attente', 'Phase 1 — Orchestrateur & Analyse', 'Phase 2 — Finance & Ressources', 'Phase 3 — Suivi-Éval & Structuration', 'Terminé ✓'][swarmPhase];
+
+  const SwarmView = (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F8FAFD' }}>
+      {/* Header */}
+      <div style={{ padding: '16px 24px', background: '#fff', borderBottom: '1px solid #E2E8F0', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Zap size={20} style={{ color: '#7C3AED' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>Orchestrateur Multi-Agent — Création de projet</div>
+          <div style={{ fontSize: 11.5, color: '#64748B' }}>Déposez tout type de fichier (Excel, Word, PDF, ZIP, RAR, images…). Les agents liront et exploiteront automatiquement ce qui est pertinent.</div>
+        </div>
+        {swarmPhase > 0 && swarmPhase < 4 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#EDE9FE', borderRadius: 8, color: '#7C3AED', fontWeight: 700, fontSize: 11 }}>
+            <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> {phaseLabel}
+          </div>
+        )}
+        {swarmPhase === 4 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#DCFCE7', borderRadius: 8, color: '#16A34A', fontWeight: 700, fontSize: 11 }}>
+            <CheckCircle2 size={13} /> {phaseLabel}
+          </div>
+        )}
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', gap: 20 }}>
+
+        {/* Left: file upload + list */}
+        <div style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) addSwarmFiles(e.dataTransfer.files); }}
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              border: `2px dashed ${dragOver ? '#7C3AED' : '#CBD5E1'}`,
+              borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: 'pointer',
+              background: dragOver ? '#F5F3FF' : '#fff', transition: 'all 0.15s',
+            }}
+          >
+            <input ref={fileInputRef} type="file" multiple accept="*/*" style={{ display: 'none' }}
+              onChange={e => { if (e.target.files) addSwarmFiles(e.target.files); e.target.value = ''; }} />
+            <Upload size={28} style={{ color: dragOver ? '#7C3AED' : '#94A3B8', marginBottom: 8 }} />
+            <div style={{ fontSize: 12, fontWeight: 700, color: dragOver ? '#7C3AED' : '#374151', marginBottom: 4 }}>
+              Déposez vos fichiers ici
+            </div>
+            <div style={{ fontSize: 10.5, color: '#94A3B8' }}>
+              Excel · Word · PDF · ZIP · RAR · Images · MPP · tout format
+            </div>
+          </div>
+
+          {/* File list */}
+          {swarmFiles.length > 0 && (
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+              <div style={{ padding: '8px 12px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{swarmFiles.length} fichier(s)</span>
+                {!swarmRunning && swarmPhase === 0 && (
+                  <button onClick={() => setSwarmFiles([])} style={{ border: 'none', background: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 10 }}>Effacer</button>
+                )}
+              </div>
+              <div style={{ overflowY: 'auto', maxHeight: 300 }}>
+                {swarmFiles.map(f => {
+                  const cat = swarmFileCategory(f.ext);
+                  const statusColor = f.status === 'relevant' ? '#16A34A' : f.status === 'reading' ? '#D97706' : f.status === 'skipped' ? '#94A3B8' : '#64748B';
+                  return (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderBottom: '1px solid #F8FAFC' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: cat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {cat.icon}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                        <div style={{ fontSize: 9.5, color: '#94A3B8' }}>{cat.label} · {fmtBytes(f.size)}</div>
+                      </div>
+                      {f.status !== 'waiting' && (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: statusColor }}>
+                          {f.status === 'relevant' ? '✓ Lu' : f.status === 'reading' ? '…' : f.status === 'skipped' ? 'ignoré' : ''}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Launch button */}
+          <button
+            onClick={launchSwarm}
+            disabled={swarmFiles.length === 0 || swarmRunning || swarmPhase === 4}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '12px 20px', borderRadius: 10, border: 'none', cursor: swarmFiles.length && !swarmRunning && swarmPhase < 4 ? 'pointer' : 'not-allowed',
+              background: swarmFiles.length && !swarmRunning && swarmPhase < 4 ? '#7C3AED' : '#E2E8F0',
+              color: swarmFiles.length && !swarmRunning && swarmPhase < 4 ? '#fff' : '#94A3B8',
+              fontWeight: 700, fontSize: 13, fontFamily: 'inherit', transition: 'background 0.15s',
+            }}
+          >
+            {swarmRunning ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Pipeline en cours…</> : swarmPhase === 4 ? <><CheckCircle2 size={16} /> Swarm complété</> : <><PlayCircle size={16} /> Lancer le Swarm (8 agents)</>}
+          </button>
+
+          {swarmPhase === 4 && (
+            <button onClick={() => { setSwarmFiles([]); setSwarmPhase(0); setSwarmAgents(SWARM_AGENTS_INIT.map(a => ({...a}))); setSwarmResult(''); }}
+              style={{ padding: '8px', border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff', fontSize: 11, cursor: 'pointer', color: '#64748B' }}>
+              Nouveau swarm
+            </button>
+          )}
+        </div>
+
+        {/* Right: Pipeline agents */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Phase progress */}
+          <div style={{ background: '#fff', borderRadius: 10, padding: '12px 16px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {[1, 2, 3].map(ph => (
+              <div key={ph} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800,
+                  background: swarmPhase > ph ? '#DCFCE7' : swarmPhase === ph ? '#EDE9FE' : '#F1F5F9',
+                  color: swarmPhase > ph ? '#16A34A' : swarmPhase === ph ? '#7C3AED' : '#94A3B8',
+                }}>
+                  {swarmPhase > ph ? '✓' : ph}
+                </div>
+                <div style={{ fontSize: 10.5, fontWeight: 600, color: swarmPhase >= ph ? '#374151' : '#94A3B8' }}>
+                  {ph === 1 ? 'Analyse & Orchestration' : ph === 2 ? 'Finance & Ressources' : 'Synthèse & Structuration'}
+                </div>
+                {ph < 3 && <ChevronRight size={12} style={{ color: '#CBD5E1', marginLeft: 'auto' }} />}
+              </div>
+            ))}
+          </div>
+
+          {/* Agents grid */}
+          {[1, 2, 3].map(ph => {
+            const phAgents = swarmAgents.filter(a => a.phase === ph);
+            const phLabel = ph === 1 ? 'Phase 1 — Orchestrateur, Planificateur, Risques, Documentaire' : ph === 2 ? 'Phase 2 — Gestionnaire Financier + Ressources' : 'Phase 3 — Suivi-Éval + Chef de Projet';
+            return (
+              <div key={ph}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{phLabel}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                  {phAgents.map(ag => (
+                    <div key={ag.id} style={{
+                      background: '#fff', borderRadius: 10, padding: '12px 14px',
+                      border: `1px solid ${ag.status === 'running' ? ag.color + '60' : ag.status === 'done' ? '#DCFCE7' : '#E2E8F0'}`,
+                      boxShadow: ag.status === 'running' ? `0 0 0 2px ${ag.color}20` : 'none',
+                      transition: 'all 0.25s',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: ag.status === 'idle' ? '#CBD5E1' : ag.status === 'running' ? ag.color : '#16A34A', flexShrink: 0 }} />
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: ag.status === 'idle' ? '#94A3B8' : '#1E293B', flex: 1 }}>{ag.label}</span>
+                        {ag.status === 'running' && <Loader2 size={12} style={{ color: ag.color, animation: 'spin 1s linear infinite', flexShrink: 0 }} />}
+                        {ag.status === 'done' && <CheckSquare size={13} style={{ color: '#16A34A', flexShrink: 0 }} />}
+                      </div>
+                      {ag.finding ? (
+                        <div style={{ fontSize: 10.5, color: '#475569', lineHeight: 1.5 }}>{ag.finding}</div>
+                      ) : ag.status === 'idle' ? (
+                        <div style={{ fontSize: 10, color: '#CBD5E1', fontStyle: 'italic' }}>En attente du signal d'activation…</div>
+                      ) : null}
+                      {ag.filesRead.length > 0 && (
+                        <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {ag.filesRead.slice(0, 3).map((fn, fi) => (
+                            <span key={fi} style={{ fontSize: 9, background: '#F1F5F9', color: '#64748B', padding: '1px 6px', borderRadius: 6 }}>
+                              {fn.length > 18 ? fn.slice(0, 15) + '…' : fn}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Final result */}
+          {swarmResult && (
+            <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '14px 16px', border: '1px solid #DCFCE7' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <CheckCircle2 size={16} style={{ color: '#16A34A' }} />
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#15803D' }}>Résultat du Swarm</span>
+              </div>
+              <div style={{ fontSize: 11.5, color: '#166534', lineHeight: 1.6 }}>{swarmResult}</div>
+              <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                <button onClick={() => toast('Projet en cours de validation — superviseur notifié.', { icon: '✅' })} style={{ padding: '6px 14px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                  Valider et publier le projet
+                </button>
+                <button onClick={() => toast('Ouverture du mode révision manuelle — veuillez vérifier les données extraites.', { icon: 'ℹ️' })} style={{ padding: '6px 14px', background: '#fff', border: '1px solid #DCFCE7', color: '#15803D', borderRadius: 7, fontSize: 11.5, cursor: 'pointer' }}>
+                  Réviser manuellement
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display: 'flex', height: '100%', background: '#F8FAFD', overflow: 'hidden' }}>
 
@@ -396,13 +787,19 @@ export default function AgentsIA() {
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
-        <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid #F1F5F9' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <Bot size={20} style={{ color: NAVY }} />
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Agents IA de rôle</span>
+        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #F1F5F9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Bot size={18} style={{ color: NAVY }} />
+            <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>Agents IA DPE</span>
           </div>
-          <div style={{ fontSize: 11.5, color: '#94A3B8' }}>
-            {visibleAgents.length} agent{visibleAgents.length > 1 ? 's' : ''} pour votre profil · Périmètres contrôlés · Journal d&apos;audit
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 8, padding: 3, gap: 2 }}>
+            <button onClick={() => setMode('chat')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: mode === 'chat' ? '#fff' : 'transparent', color: mode === 'chat' ? NAVY : '#64748B', boxShadow: mode === 'chat' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+              💬 Chat
+            </button>
+            <button onClick={() => setMode('swarm')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: mode === 'swarm' ? '#7C3AED' : 'transparent', color: mode === 'swarm' ? '#fff' : '#64748B', boxShadow: mode === 'swarm' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none', transition: 'all 0.15s' }}>
+              ⚡ Swarm
+            </button>
           </div>
         </div>
 
@@ -459,8 +856,8 @@ export default function AgentsIA() {
         </div>
       </div>
 
-      {/* ── Zone principale : chat ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ── Zone principale : swarm ou chat ── */}
+      {mode === 'swarm' ? SwarmView : <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header agent actif */}
         <div style={{
@@ -505,7 +902,7 @@ export default function AgentsIA() {
           }}>
             <Cloud size={14} /> {copilot.enabled ? `Copilot · ${copilot.account || 'connecté'}` : 'Connecter Copilot'}
           </button>
-          <button onClick={clearThread} title="Effacer la conversation" style={{
+          <button onClick={clearThread} title="Effacer la conversation" aria-label="Effacer la conversation" style={{
             width: 32, height: 32, borderRadius: 7, border: '1px solid #E2E8F0',
             background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -694,10 +1091,10 @@ export default function AgentsIA() {
                 width: 40, height: 40, borderRadius: 10, border: 'none',
                 background: !input.trim() || loading ? '#E2E8F0' : agent.color,
                 color: !input.trim() || loading ? '#94A3B8' : '#fff',
-                cursor: !input.trim() || loading ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'background 0.15s',
                 flexShrink: 0,
+                cursor: !input.trim() || loading ? 'not-allowed' : 'pointer',
               }}
             >
               <Send size={16} />
@@ -712,12 +1109,16 @@ export default function AgentsIA() {
             <span>Journal d&apos;audit actif</span>
           </div>
         </div>
-      </div>
+      </div>}
 
       <style>{`
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-4px); }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

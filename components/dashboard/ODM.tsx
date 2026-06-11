@@ -23,6 +23,33 @@ type MoyenTransport = 'Véhicule de service' | 'Transport commun' | 'Véhicule p
 type TypeMission = 'terrain' | 'FAT' | 'reunion' | 'formation' | 'audit';
 type OngletODM = 'mes-odm' | 'fat-international' | 'importer-pdf' | 'nouvelle' | 'validation' | 'cloture' | 'optimisation' | 'parametres';
 
+/**
+ * Prise en charge financière de la mission.
+ * Extrait du titre de l'ODM (ex. "Prise en charge intégrale par le partenaire").
+ * Correspond au régime d'indemnisation :
+ *   - 'PARTENAIRE'  → frais couverts par l'organisme d'accueil / bailleur
+ *   - 'SENELEC'     → indemnité N°2 (logement SENELEC) ou N°3 (logement propre)
+ *   - 'PERDIEM_2'   → per diem N°2 : logement pris en charge par la Société
+ *   - 'PERDIEM_3'   → per diem N°3 : logement par l'agent (indemnité plus élevée)
+ */
+type PriseEnCharge = 'PARTENAIRE' | 'SENELEC' | 'PERDIEM_2' | 'PERDIEM_3' | 'NON_PRECISEE';
+
+const PRISE_EN_CHARGE_LABELS: Record<PriseEnCharge, string> = {
+  PARTENAIRE:  'Partenaire',
+  SENELEC:     'SENELEC',
+  PERDIEM_2:   'Per diem N°2',
+  PERDIEM_3:   'Per diem N°3',
+  NON_PRECISEE:'Non précisée',
+};
+
+const PRISE_EN_CHARGE_COLORS: Record<PriseEnCharge, { bg: string; text: string }> = {
+  PARTENAIRE:  { bg: '#EDE9FE', text: '#6D28D9' },
+  SENELEC:     { bg: '#DBEAFE', text: '#1D4ED8' },
+  PERDIEM_2:   { bg: '#D1FAE5', text: '#065F46' },
+  PERDIEM_3:   { bg: '#FEF3C7', text: '#92400E' },
+  NON_PRECISEE:{ bg: '#F1F5F9', text: '#64748B' },
+};
+
 interface ODMItem {
   id: string;
   ref: string;
@@ -37,6 +64,7 @@ interface ODMItem {
   dateRetour: string;
   dureeJours: number;
   participants: string[];
+  participantsDetail?: ParticipantDetail[];  // enrichi avec matricule/unité/CR
   transport: MoyenTransport;
   vehicule: string | null;
   kmPrevisionnel: number;
@@ -45,9 +73,19 @@ interface ODMItem {
   budgetEstime: number;
   agentDemandeur: string;
   statut: StatutODM;
+  priseEnCharge: PriseEnCharge;  // ← NOUVEAU : qui prend en charge les frais
   compteRendu?: string;
   pdfIngere?: boolean;
   sourceExterne?: string;
+}
+
+/** Participant enrichi avec Matricule (Mle), Unité, Code de référence (CR) */
+interface ParticipantDetail {
+  nom: string;
+  mle?: string;        // ex. C00981
+  unite?: string;      // ex. "Cellule PADERAU"
+  cr?: string;         // ex. PE003
+  heuresSupplementaires?: number;  // heures sup justifiées par cet ODM
 }
 
 // ─── Destinations FAT internationales ─────────────────────────────────────────
@@ -91,19 +129,135 @@ const AGENTS_LIST = ['A. Dieng', 'M. Fall', 'I. Sow', 'K. Ndiaye', 'B. Sarr', 'C
 
 const INITIAL_ODMS: ODMItem[] = [
   // ── Missions terrain Sénégal ──────────────────────────────────────────────
-  { id: 'ODM-001', ref: 'ODM-DER-2026-041', objet: 'Supervision travaux HTA – Phase 2 réseau aérien Casamance', projet: 'SG-Ziguinchor', destination: 'Ziguinchor', pays: 'Sénégal', region: 'Casamance', typeMission: 'terrain', international: false, dateDepart: '26/05/2026', dateRetour: '30/05/2026', dureeJours: 5, participants: ['I. Sow', 'O. Diop', 'C. Diallo'], transport: 'Véhicule de service', vehicule: 'SN-7892-DK — Mitsubishi L200', kmPrevisionnel: 520, dotationCarburant: 85, budgetEstime: 450000, agentDemandeur: 'I. Sow', statut: 'Validé' },
-  { id: 'ODM-002', ref: 'ODM-DER-2026-042', objet: 'Réunion de coordination chantier – Poste source Thiès', projet: 'ER Thiès', destination: 'Thiès', pays: 'Sénégal', region: 'Thiès', typeMission: 'reunion', international: false, dateDepart: '27/05/2026', dateRetour: '27/05/2026', dureeJours: 1, participants: ['M. Fall', 'K. Ndiaye'], transport: 'Véhicule de service', vehicule: 'SN-1103-TH — Toyota Hilux', kmPrevisionnel: 140, dotationCarburant: 22, budgetEstime: 85000, agentDemandeur: 'M. Fall', statut: 'En validation' },
-  { id: 'ODM-003', ref: 'ODM-DER-2026-039', objet: 'Levé topographique et jalonnement – Tracé ligne 30kV Kolda', projet: 'ER Kolda', destination: 'Kolda', pays: 'Sénégal', region: 'Ziguinchor', typeMission: 'terrain', international: false, dateDepart: '20/05/2026', dateRetour: '24/05/2026', dureeJours: 5, participants: ['K. Ndiaye', 'B. Sarr'], transport: 'Véhicule de service', vehicule: 'SN-5567-ZG — Land Rover Defender', kmPrevisionnel: 750, dotationCarburant: 120, budgetEstime: 620000, agentDemandeur: 'K. Ndiaye', statut: 'Clôturé' },
-  { id: 'ODM-004', ref: 'ODM-DER-2026-043', objet: 'Inspection réception provisoire lot 3A – Saint-Louis', projet: 'PADERAU', destination: 'Saint-Louis', pays: 'Sénégal', region: 'Saint-Louis', typeMission: 'terrain', international: false, dateDepart: '28/05/2026', dateRetour: '29/05/2026', dureeJours: 2, participants: ['A. Dieng', 'F. Ba', 'N. Thiam'], transport: 'Véhicule de service', vehicule: 'SN-0234-DA — Toyota LC 200', kmPrevisionnel: 440, dotationCarburant: 70, budgetEstime: 380000, agentDemandeur: 'A. Dieng', statut: 'En validation' },
-  { id: 'ODM-005', ref: 'ODM-DER-2026-044', objet: 'Formation agents locaux branchement BT – Kaolack', projet: 'PASE Dakar', destination: 'Kaolack', pays: 'Sénégal', region: 'Kaolack', typeMission: 'formation', international: false, dateDepart: '02/06/2026', dateRetour: '04/06/2026', dureeJours: 3, participants: ['O. Diop'], transport: 'Transport commun', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, budgetEstime: 120000, agentDemandeur: 'O. Diop', statut: 'Brouillon' },
-  { id: 'ODM-006', ref: 'ODM-DER-2026-037', objet: 'Audit technique MCA – Poste 90kV Tobène', projet: 'MCA Transport', destination: 'Thiès', pays: 'Sénégal', region: 'Thiès', typeMission: 'audit', international: false, dateDepart: '15/05/2026', dateRetour: '15/05/2026', dureeJours: 1, participants: ['A. Dieng', 'I. Sow'], transport: 'Véhicule de service', vehicule: 'SN-4521-DK — Nissan Patrol', kmPrevisionnel: 145, dotationCarburant: 24, budgetEstime: 95000, agentDemandeur: 'A. Dieng', statut: 'Clôturé' },
-  { id: 'ODM-007', ref: 'ODM-DER-2026-045', objet: 'Réunion bailleurs AFD – PADERAU avancement Q2', projet: 'PADERAU', destination: 'Dakar (Almadies)', pays: 'Sénégal', region: 'Dakar', typeMission: 'reunion', international: false, dateDepart: '03/06/2026', dateRetour: '03/06/2026', dureeJours: 1, participants: ['N. Thiam', 'A. Dieng'], transport: 'Véhicule de service', vehicule: 'SN-0234-DA — Toyota LC 200', kmPrevisionnel: 35, dotationCarburant: 6, budgetEstime: 30000, agentDemandeur: 'N. Thiam', statut: 'Brouillon' },
-  { id: 'ODM-008', ref: 'ODM-DER-2026-040', objet: 'Supervision soudage câbles HTA – PAMACEL secteur Est', projet: 'PAMACEL', destination: 'Rufisque', pays: 'Sénégal', region: 'Dakar', typeMission: 'terrain', international: false, dateDepart: '22/05/2026', dateRetour: '22/05/2026', dureeJours: 1, participants: ['C. Diallo', 'B. Sarr'], transport: 'Véhicule de service', vehicule: 'SN-1103-TH — Toyota Hilux', kmPrevisionnel: 55, dotationCarburant: 10, budgetEstime: 45000, agentDemandeur: 'C. Diallo', statut: 'Validé' },
+  {
+    id: 'ODM-001', ref: 'ODM-DER-2026-041', objet: 'Supervision travaux HTA – Phase 2 réseau aérien Casamance',
+    projet: 'SG-Ziguinchor', destination: 'Ziguinchor', pays: 'Sénégal', region: 'Casamance',
+    typeMission: 'terrain', international: false, dateDepart: '26/05/2026', dateRetour: '30/05/2026', dureeJours: 5,
+    participants: ['I. Sow', 'O. Diop', 'C. Diallo'],
+    participantsDetail: [
+      { nom: 'Ibrahima Sow',    mle: 'C00642', unite: 'Département Projets Distribution', cr: 'PE221', heuresSupplementaires: 12 },
+      { nom: 'Ousmane Diop',    mle: 'C00995', unite: 'Département Projet Commercial',    cr: 'PE305', heuresSupplementaires: 8 },
+      { nom: 'Cheikh Diallo',   mle: 'C00644', unite: 'Département Conduite des Marches', cr: 'PM201', heuresSupplementaires: 10 },
+    ],
+    transport: 'Véhicule de service', vehicule: 'SN-7892-DK — Mitsubishi L200',
+    kmPrevisionnel: 520, dotationCarburant: 85, budgetEstime: 450000,
+    agentDemandeur: 'I. Sow', statut: 'Validé', priseEnCharge: 'PERDIEM_3',
+  },
+  {
+    id: 'ODM-002', ref: 'ODM-DER-2026-042', objet: 'Réunion de coordination chantier – Poste source Thiès',
+    projet: 'ER Thiès', destination: 'Thiès', pays: 'Sénégal', region: 'Thiès',
+    typeMission: 'reunion', international: false, dateDepart: '27/05/2026', dateRetour: '27/05/2026', dureeJours: 1,
+    participants: ['M. Fall', 'K. Ndiaye'],
+    participantsDetail: [
+      { nom: 'Mamadou Fall',    mle: 'C01043', unite: 'Cellule PADERAU',     cr: 'PE003' },
+      { nom: 'Khalifa Ndiaye',  mle: 'C00889', unite: 'Cellule Projet PAMACEL', cr: 'PE003' },
+    ],
+    transport: 'Véhicule de service', vehicule: 'SN-1103-TH — Toyota Hilux',
+    kmPrevisionnel: 140, dotationCarburant: 22, budgetEstime: 85000,
+    agentDemandeur: 'M. Fall', statut: 'En validation', priseEnCharge: 'SENELEC',
+  },
+  {
+    id: 'ODM-003', ref: 'ODM-DER-2026-039', objet: 'Levé topographique et jalonnement – Tracé ligne 30kV Kolda',
+    projet: 'ER Kolda', destination: 'Kolda', pays: 'Sénégal', region: 'Ziguinchor',
+    typeMission: 'terrain', international: false, dateDepart: '20/05/2026', dateRetour: '24/05/2026', dureeJours: 5,
+    participants: ['K. Ndiaye', 'B. Sarr'],
+    participantsDetail: [
+      { nom: 'Khalifa Ndiaye',  mle: 'C00889', unite: 'Cellule Projet PAMACEL', cr: 'PE003', heuresSupplementaires: 15 },
+      { nom: 'Boubacar Sarr',   mle: 'C00912', unite: 'Département Projet Commercial',    cr: 'PE305', heuresSupplementaires: 15 },
+    ],
+    transport: 'Véhicule de service', vehicule: 'SN-5567-ZG — Land Rover Defender',
+    kmPrevisionnel: 750, dotationCarburant: 120, budgetEstime: 620000,
+    agentDemandeur: 'K. Ndiaye', statut: 'Clôturé', priseEnCharge: 'PERDIEM_3',
+  },
+  {
+    id: 'ODM-004', ref: 'ODM-DER-2026-043', objet: 'Inspection réception provisoire lot 3A – Saint-Louis',
+    projet: 'PADERAU', destination: 'Saint-Louis', pays: 'Sénégal', region: 'Saint-Louis',
+    typeMission: 'terrain', international: false, dateDepart: '28/05/2026', dateRetour: '29/05/2026', dureeJours: 2,
+    participants: ['A. Dieng', 'F. Ba', 'N. Thiam'],
+    participantsDetail: [
+      { nom: 'Amadou Dieng',     mle: 'C00532', unite: 'Service Environnement et Prevention Securite', cr: 'QE003', heuresSupplementaires: 4 },
+      { nom: 'Fatou Ba',         mle: 'C00788', unite: 'Département Projet Energie Renouvelable',       cr: 'PE102', heuresSupplementaires: 4 },
+      { nom: 'Ndeye Thiam',      mle: 'C00763', unite: 'Département Projet Commercial',                  cr: 'PE305', heuresSupplementaires: 4 },
+    ],
+    transport: 'Véhicule de service', vehicule: 'SN-0234-DA — Toyota LC 200',
+    kmPrevisionnel: 440, dotationCarburant: 70, budgetEstime: 380000,
+    agentDemandeur: 'A. Dieng', statut: 'En validation', priseEnCharge: 'PERDIEM_2',
+  },
+  {
+    id: 'ODM-005', ref: 'ODM-DER-2026-044', objet: 'Formation agents locaux branchement BT – Kaolack',
+    projet: 'PASE Dakar', destination: 'Kaolack', pays: 'Sénégal', region: 'Kaolack',
+    typeMission: 'formation', international: false, dateDepart: '02/06/2026', dateRetour: '04/06/2026', dureeJours: 3,
+    participants: ['O. Diop'],
+    participantsDetail: [{ nom: 'Ousmane Diop', mle: 'C00995', unite: 'Département Projet Commercial', cr: 'PE305' }],
+    transport: 'Transport commun', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, budgetEstime: 120000,
+    agentDemandeur: 'O. Diop', statut: 'Brouillon', priseEnCharge: 'SENELEC',
+  },
+  {
+    id: 'ODM-006', ref: 'ODM-DER-2026-037', objet: 'Audit technique MCA – Poste 90kV Tobène',
+    projet: 'MCA Transport', destination: 'Thiès', pays: 'Sénégal', region: 'Thiès',
+    typeMission: 'audit', international: false, dateDepart: '15/05/2026', dateRetour: '15/05/2026', dureeJours: 1,
+    participants: ['A. Dieng', 'I. Sow'],
+    participantsDetail: [
+      { nom: 'Amadou Dieng',  mle: 'C00532', unite: 'Service Environnement et Prevention Securite', cr: 'QE003' },
+      { nom: 'Ibrahima Sow',  mle: 'C00642', unite: 'Département Projets Distribution',             cr: 'PE221' },
+    ],
+    transport: 'Véhicule de service', vehicule: 'SN-4521-DK — Nissan Patrol',
+    kmPrevisionnel: 145, dotationCarburant: 24, budgetEstime: 95000,
+    agentDemandeur: 'A. Dieng', statut: 'Clôturé', priseEnCharge: 'SENELEC',
+  },
+  {
+    id: 'ODM-007', ref: 'ODM-DER-2026-045', objet: 'Réunion bailleurs AFD – PADERAU avancement Q2',
+    projet: 'PADERAU', destination: 'Dakar (Almadies)', pays: 'Sénégal', region: 'Dakar',
+    typeMission: 'reunion', international: false, dateDepart: '03/06/2026', dateRetour: '03/06/2026', dureeJours: 1,
+    participants: ['N. Thiam', 'A. Dieng'],
+    participantsDetail: [
+      { nom: 'Ndeye Thiam',   mle: 'C00763', unite: 'Département Projet Commercial',                   cr: 'PE305' },
+      { nom: 'Amadou Dieng',  mle: 'C00532', unite: 'Service Environnement et Prevention Securite',     cr: 'QE003' },
+    ],
+    transport: 'Véhicule de service', vehicule: 'SN-0234-DA — Toyota LC 200',
+    kmPrevisionnel: 35, dotationCarburant: 6, budgetEstime: 30000,
+    agentDemandeur: 'N. Thiam', statut: 'Brouillon', priseEnCharge: 'SENELEC',
+  },
+  {
+    id: 'ODM-008', ref: 'ODM-DER-2026-040', objet: 'Supervision soudage câbles HTA – PAMACEL secteur Est',
+    projet: 'PAMACEL', destination: 'Rufisque', pays: 'Sénégal', region: 'Dakar',
+    typeMission: 'terrain', international: false, dateDepart: '22/05/2026', dateRetour: '22/05/2026', dureeJours: 1,
+    participants: ['C. Diallo', 'B. Sarr'],
+    participantsDetail: [
+      { nom: 'Cheikh Diallo',  mle: 'C00644', unite: 'Département Conduite des Marches', cr: 'PM201', heuresSupplementaires: 3 },
+      { nom: 'Boubacar Sarr',  mle: 'C00912', unite: 'Département Projet Commercial',    cr: 'PE305', heuresSupplementaires: 3 },
+    ],
+    transport: 'Véhicule de service', vehicule: 'SN-1103-TH — Toyota Hilux',
+    kmPrevisionnel: 55, dotationCarburant: 10, budgetEstime: 45000,
+    agentDemandeur: 'C. Diallo', statut: 'Validé', priseEnCharge: 'SENELEC',
+  },
+  // ── ODM de référence — calqué sur l'ODM N°3-2026 importé ──────────────────
+  {
+    id: 'ODM-009', ref: 'ODM N°3 - 2026', objet: 'PADERAU: Formation sur la gestion des contrats des projets d\'infrastructures électriques',
+    projet: 'PADERAU', destination: 'Dakar, Paris, Lyon', pays: 'France', region: 'Internationale',
+    typeMission: 'formation', international: true, dateDepart: '31/01/2026', dateRetour: '07/02/2026', dureeJours: 7,
+    participants: ['Nguissaly B Khalifa DIENG', 'Papa Boubacar DIOP', 'Maodo SENE', 'Thierno Alia MBENGUE', 'Ousseynou THIAO', 'Djily FALL', 'Madiagne NDIAYE', 'Nafissatou DIOP', 'Boubacar DIOP', 'ANNA CHANTAL WONE'],
+    participantsDetail: [
+      { nom: 'Nguissaly B Khalifa DIENG', mle: 'C00981', unite: 'Service Environnement et Prevention Securite', cr: 'QE003' },
+      { nom: 'Papa Boubacar DIOP',        mle: 'C01120', unite: 'Cellule PADERAU',                               cr: 'PE003' },
+      { nom: 'Maodo SENE',                mle: 'C00768', unite: 'Département Projets Distribution',              cr: 'PE221' },
+      { nom: 'Thierno Alia MBENGUE',      mle: 'C01121', unite: 'Cellule Projet PAMACEL',                        cr: '70022' },
+      { nom: 'Ousseynou THIAO',           mle: 'C01102', unite: 'Département Projet Energie Renouvelable',       cr: 'PE102' },
+      { nom: 'Djily FALL',                mle: 'C00644', unite: 'Département Conduite des Marches Supports',     cr: 'PM201' },
+      { nom: 'Madiagne NDIAYE',           mle: 'C00957', unite: 'Cellule PADERAU',                               cr: 'PE003' },
+      { nom: 'Nafissatou DIOP',           mle: 'C00763', unite: 'Département Projet Commercial',                  cr: 'PE305' },
+      { nom: 'Boubacar DIOP',             mle: 'C00995', unite: 'Département Projet Commercial',                  cr: 'PE305' },
+      { nom: 'ANNA CHANTAL WONE',         mle: 'C00953', unite: 'Cellule PADERAU',                               cr: 'PE003' },
+    ],
+    transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0,
+    perdiemJour: 143000, budgetEstime: 9800000,
+    agentDemandeur: 'Papa Toby GAYE (DG)', statut: 'Clôturé', priseEnCharge: 'PARTENAIRE', pdfIngere: true,
+  },
   // ── Missions FAT Internationales ─────────────────────────────────────────
-  { id: 'ODM-FAT-001', ref: 'ODM-FAT-2026-001', objet: 'FAT Transformateurs de puissance 225/30kV — TBEA Shanghai', projet: 'MCA Transport', destination: 'Shanghai', pays: 'Chine', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '10/06/2026', dateRetour: '17/06/2026', dureeJours: 7, participants: ['A. Dieng', 'M. Fall', 'K. Ndiaye'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 104000, budgetEstime: 6850000, agentDemandeur: 'A. Dieng', statut: 'Validé' },
-  { id: 'ODM-FAT-002', ref: 'ODM-FAT-2026-002', objet: 'FAT Disjoncteurs SF6 GIS 225kV — Siemens Energy Nuremberg', projet: 'BEST BM', destination: 'Nuremberg', pays: 'Allemagne', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '20/06/2026', dateRetour: '26/06/2026', dureeJours: 6, participants: ['I. Sow', 'F. Ba'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 127000, budgetEstime: 5200000, agentDemandeur: 'I. Sow', statut: 'En validation' },
-  { id: 'ODM-FAT-003', ref: 'ODM-FAT-2026-003', objet: 'FAT Transformateurs HTA 30/15kV — Schneider Electric Paris', projet: 'PADERAU', destination: 'Paris / Orléans', pays: 'France', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '15/07/2026', dateRetour: '20/07/2026', dureeJours: 5, participants: ['N. Thiam', 'O. Diop'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 143000, budgetEstime: 4750000, agentDemandeur: 'N. Thiam', statut: 'Brouillon' },
-  { id: 'ODM-FAT-004', ref: 'ODM-FAT-2026-004', objet: 'FAT Compteurs AMI Smart Metering — Hyundai Electric Séoul', projet: 'PASE Dakar', destination: 'Séoul', pays: 'Corée du Sud', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '05/08/2026', dateRetour: '11/08/2026', dureeJours: 6, participants: ['B. Sarr', 'C. Diallo', 'A. Dieng'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 123000, budgetEstime: 5940000, agentDemandeur: 'B. Sarr', statut: 'Brouillon' },
+  { id: 'ODM-FAT-001', ref: 'ODM-FAT-2026-001', objet: 'FAT Transformateurs de puissance 225/30kV — TBEA Shanghai', projet: 'MCA Transport', destination: 'Shanghai', pays: 'Chine', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '10/06/2026', dateRetour: '17/06/2026', dureeJours: 7, participants: ['A. Dieng', 'M. Fall', 'K. Ndiaye'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 104000, budgetEstime: 6850000, agentDemandeur: 'A. Dieng', statut: 'Validé', priseEnCharge: 'PARTENAIRE' },
+  { id: 'ODM-FAT-002', ref: 'ODM-FAT-2026-002', objet: 'FAT Disjoncteurs SF6 GIS 225kV — Siemens Energy Nuremberg', projet: 'BEST BM', destination: 'Nuremberg', pays: 'Allemagne', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '20/06/2026', dateRetour: '26/06/2026', dureeJours: 6, participants: ['I. Sow', 'F. Ba'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 127000, budgetEstime: 5200000, agentDemandeur: 'I. Sow', statut: 'En validation', priseEnCharge: 'PARTENAIRE' },
+  { id: 'ODM-FAT-003', ref: 'ODM-FAT-2026-003', objet: 'FAT Transformateurs HTA 30/15kV — Schneider Electric Paris', projet: 'PADERAU', destination: 'Paris / Orléans', pays: 'France', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '15/07/2026', dateRetour: '20/07/2026', dureeJours: 5, participants: ['N. Thiam', 'O. Diop'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 143000, budgetEstime: 4750000, agentDemandeur: 'N. Thiam', statut: 'Brouillon', priseEnCharge: 'PARTENAIRE' },
+  { id: 'ODM-FAT-004', ref: 'ODM-FAT-2026-004', objet: 'FAT Compteurs AMI Smart Metering — Hyundai Electric Séoul', projet: 'PASE Dakar', destination: 'Séoul', pays: 'Corée du Sud', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '05/08/2026', dateRetour: '11/08/2026', dureeJours: 6, participants: ['B. Sarr', 'C. Diallo', 'A. Dieng'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 123000, budgetEstime: 5940000, agentDemandeur: 'B. Sarr', statut: 'Brouillon', priseEnCharge: 'PARTENAIRE' },
 ];
 
 const INITIAL_CLOTURES: ODMCloture[] = [
@@ -136,13 +290,15 @@ interface ExtractedODM {
   dateDepart: string;
   dateRetour: string;
   participants: string[];
+  participantsDetail: ParticipantDetail[];
   transport: MoyenTransport;
   budget: number;
   agentDemandeur: string;
   observations: string;
+  priseEnCharge: PriseEnCharge;
   confidence: number; // 0-100
   engineLabel?: string; // moteur d'extraction utilisé
-  rawFields: Partial<Record<keyof Omit<ExtractedODM, 'confidence' | 'rawFields' | 'engineLabel'>, string>>;
+  rawFields: Partial<Record<string, string>>;
 }
 
 function extractDateFR(text: string): string {
@@ -151,11 +307,79 @@ function extractDateFR(text: string): string {
 }
 
 /**
+ * Extrait la prise en charge depuis le titre de l'ODM.
+ * "Prise en charge intégrale par le partenaire" → PARTENAIRE
+ * "Prise en charge intégrale par SENELEC" → SENELEC
+ * "indemnité n°2" / "indemnité de déplacement n°2" → PERDIEM_2
+ * "indemnité n°3" → PERDIEM_3
+ */
+function extractPriseEnCharge(text: string): PriseEnCharge {
+  const t = text.toLowerCase();
+  if (/prise en charge[^.]{0,60}partenaire/i.test(text)) return 'PARTENAIRE';
+  if (/prise en charge[^.]{0,60}senelec/i.test(text))    return 'SENELEC';
+  if (/indemnit[eé][^.]{0,20}n[°o]?\s*3/i.test(text))   return 'PERDIEM_3';
+  if (/indemnit[eé][^.]{0,20}n[°o]?\s*2/i.test(text))   return 'PERDIEM_2';
+  return 'NON_PRECISEE';
+}
+
+/**
+ * Extrait les participants avec leur Matricule, Unité et CR depuis le tableau officiel SENELEC.
+ * Format tableau : N° | Prénoms et Nom | Mle (C00981) | Unité | CR
+ *
+ * Stratégie robuste multi-passes :
+ *   P1 — anchored on matricule (C\d{5}) with surrounding context
+ *   P2 — row-number + name + matricule pattern
+ *   P3 — name-only fallback
+ */
+function extractParticipantsDetail(text: string): ParticipantDetail[] {
+  const clean = (s: string) => s
+    .replace(/^\d{1,2}[\s.)\-]+/, '')   // strip leading row number
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  const isValidName = (s: string) =>
+    s.length >= 4 && /[A-Za-zÀ-ÿ]/.test(s) &&
+    !/^(N°|Mle|Unité|Prénoms?|Nom|Cellule|Service|Dép|Dir|Total|Objet|Mission|Date|Transport|Pays|Villes?)/i.test(s);
+
+  const details: ParticipantDetail[] = [];
+
+  // ── Pass 1 : lignes structurées nom + C\d{5} + unité + CR ──────────────────
+  // Tolère les initialesiso comme «B» dans «Nguissaly B Khalifa DIENG»
+  // [A-Z] initial, puis suite alphanumérique incluant espaces + isolée lettres majuscules
+  const re1 = /([A-ZÀ-Ÿ][A-Za-zÀ-ÿ'\- ]+(?:\s+[A-Z]\.?(?:\s+[A-Za-zÀ-ÿ'\-]+)+|\s+[A-ZÀ-Ÿ][A-Za-zÀ-ÿ'\-]*))\s+(C\d{4,6})\s+([\wÀ-ÿ''.\-\s&]{4,70}?)\s+([A-Z0-9]{2,7})\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = re1.exec(text)) !== null) {
+    const nom = clean(m[1]);
+    const mle = m[2].trim();
+    const unite = m[3].replace(/\s+/g, ' ').trim();
+    const cr = m[4].trim();
+    if (isValidName(nom)) details.push({ nom, mle, unite, cr });
+  }
+
+  // ── Pass 2 : si pass 1 vide — ligne N° + nom (before matricule) ───────────
+  if (!details.length) {
+    const re2 = /(?:^|\n)\s*(\d{1,2})\s+((?:[A-ZÀ-Ÿ][A-Za-zÀ-ÿ'\-]+\s*){2,6})\s+(C\d{4,6})/gm;
+    while ((m = re2.exec(text)) !== null) {
+      const nom = m[2].trim();
+      const mle = m[3].trim();
+      if (isValidName(nom)) details.push({ nom, mle });
+    }
+  }
+
+  // ── Dédoublonnage sur matricule ─────────────────────────────────────────────
+  if (details.length) return [...new Map(details.map(d => [d.mle ?? d.nom, d])).values()];
+
+  // ── Pass 3 : fallback noms seulement ───────────────────────────────────────
+  return extractParticipants(text).map(nom => ({ nom }));
+}
+
+/**
  * Extrait la liste des participants d'un ODM SENELEC.
  * Le tableau officiel a les colonnes : N° · Prénoms et Nom · Mle (C00981) · Unité · CR.
  * Stratégie fiable : on s'ancre sur le MATRICULE (C + 4 à 6 chiffres) ; le NOM est le
  * texte capitalisé qui le précède. Beaucoup plus robuste qu'un balayage de mots.
  */
+
 function extractParticipants(text: string): string[] {
   const clean = (s: string) => s.replace(/\s{2,}/g, ' ').replace(/^\d+\s+/, '').trim();
   const isName = (s: string) => s.length >= 4 && /[A-Za-zÀ-ÿ]/.test(s)
@@ -275,16 +499,19 @@ function parseExtractionText(text: string): ExtractedODM {
   }
   if (!ref) ref = `ODM-EXT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 
-  // ── Participants (souvent dans une police non-unicode → tolérant) ──
-  const participants = extractParticipants(t);
-  // ── Demandeur / initiateur : UNIQUEMENT s'il est explicitement nommé dans l'ODM.
-  //    On n'invente RIEN (pas de repli sur le 1er participant) car l'initiateur
-  //    n'est pas une donnée fiable de l'ODM. Voir consigne métier.
-  const agentDemandeur = grab(/(?:demandeur|initiateur|demand[ée]\s+par|[ée]tabli\s+par|pr[ée]par[ée]\s+par)\s*:?\s*([A-ZÀ-Ÿ][A-Za-zà-ÿ .\-]{2,40})/i);
+  // ── Participants enrichis (Nom + Matricule + Unité + CR) ──
+  const participantsDetail = extractParticipantsDetail(t);
+  const participants = participantsDetail.length
+    ? participantsDetail.map(d => d.nom)
+    : extractParticipants(t);
 
-  // ── Budget : NON extrait de l'ODM. L'ordre de mission ne porte pas de budget
-  //    fiable (les montants éventuels = per-diem/carburant, pas un budget projet).
-  //    On laisse 0 ; le budget se renseigne ailleurs (per-diem, carburant calculés).
+  // ── Demandeur / initiateur ──
+  const agentDemandeur = grab(/(?:directeur g[ée]n[ée]ral|demandeur|initiateur|demand[ée]\s+par|[ée]tabli\s+par|pr[ée]par[ée]\s+par|sign[ée]\s+par)\s*:?\s*([A-ZÀ-Ÿ][A-Za-zà-ÿ .\-]{2,40})/i);
+
+  // ── Prise en charge ──
+  const priseEnCharge = extractPriseEnCharge(t);
+
+  // ── Budget : non extrait (per-diem/carburant ≠ budget projet) ──
   const budget = 0;
 
   // ── Observations ──
@@ -294,7 +521,9 @@ function parseExtractionText(text: string): ExtractedODM {
   const detected = [
     !!objet, destination !== 'Non détectée' && !!destination, !!dateDepart, !!dateRetour,
     transport !== 'Véhicule de service' || /transport/i.test(t), !!ref && !ref.startsWith('ODM-EXT'),
-    participants.length > 0 || !!agentDemandeur,
+    participantsDetail.length > 0 || participants.length > 0,
+    priseEnCharge !== 'NON_PRECISEE',
+    participantsDetail.some(p => p.mle),  // bonus si matricules extraits
   ];
   const confidence = Math.round((detected.filter(Boolean).length / detected.length) * 100);
 
@@ -304,15 +533,18 @@ function parseExtractionText(text: string): ExtractedODM {
     destination, region: extractRegionFromDest(destination),
     dateDepart, dateRetour,
     participants: participants.length ? participants : ['Agent à préciser'],
+    participantsDetail,
     transport, budget,
     agentDemandeur: agentDemandeur || 'À préciser',
     observations: observations || 'Aucune observation extraite.',
+    priseEnCharge,
     confidence,
     rawFields: {
       ...(objet && { objet }),
       ...(destination && { destination }),
       ...(ref && { ref }),
       ...(agentDemandeur && { agentDemandeur }),
+      priseEnCharge,
     },
   };
 }
@@ -322,9 +554,10 @@ function emptyExtraction(): ExtractedODM {
   return {
     ref: `ODM-EXT-2026-${Math.floor(100 + Math.random() * 900)}`,
     objet: '', destination: '', region: '',
-    dateDepart: '', dateRetour: '', participants: [],
+    dateDepart: '', dateRetour: '', participants: [], participantsDetail: [],
     transport: 'Véhicule de service', budget: 0, agentDemandeur: '',
     observations: 'Extraction automatique indisponible (service IA hors ligne). Veuillez compléter manuellement.',
+    priseEnCharge: 'NON_PRECISEE',
     confidence: 0, rawFields: {},
   };
 }
@@ -357,6 +590,27 @@ async function performAIExtraction(file: File, engineId = 'local-rules'): Promis
   } catch {
     /* backend indisponible → repli saisie manuelle */
   }
+
+  // ── Fallback client-side : fichiers texte lisibles (text/plain ou PDF dont
+  //    le navigateur peut lire le contenu en clair, ex. ODM exportés depuis Word).
+  if (!result && (file.type === 'text/plain' || file.size < 512_000)) {
+    try {
+      const text = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target?.result as string ?? '');
+        reader.onerror = reject;
+        reader.readAsText(file, 'utf-8');
+      });
+      // Test si le texte extrait ressemble à un ODM (mots-clés SENELEC)
+      if (text && text.trim().length > 40 &&
+          /mission|ordre|senelec|participant|matricule|c\d{4}/i.test(text)) {
+        rawText = text;
+        result = parseExtractionText(text);
+        if (result) result = { ...result, engineLabel: 'Moteur local SENELEC (lecture directe)' };
+      }
+    } catch { /* fichier non lisible en texte */ }
+  }
+
   if (!result) return emptyExtraction();
   // Compte Microsoft Copilot lié → relecture experte de la LISTE DES PARTICIPANTS
   // (tableau « Prénoms et Nom / Matricule / Unité »), souvent mal lue par les règles.
@@ -381,16 +635,63 @@ async function performAIExtraction(file: File, engineId = 'local-rules'): Promis
   return result;
 }
 
+// ─── Prise en charge print label/style ───────────────────────────────────────
+function pecPrintStyle(pec: PriseEnCharge): { bg: string; color: string; label: string } {
+  const map: Record<PriseEnCharge, { bg: string; color: string; label: string }> = {
+    PARTENAIRE:   { bg: '#EDE9FE', color: '#6D28D9', label: 'Prise en charge Partenaire' },
+    SENELEC:      { bg: '#DBEAFE', color: '#1D4ED8', label: 'Prise en charge SENELEC' },
+    PERDIEM_2:    { bg: '#D1FAE5', color: '#065F46', label: 'Per diem N°2' },
+    PERDIEM_3:    { bg: '#FEF3C7', color: '#92400E', label: 'Per diem N°3' },
+    NON_PRECISEE: { bg: '#F1F5F9', color: '#475569', label: 'Non précisée' },
+  };
+  return map[pec] ?? map.NON_PRECISEE;
+}
+
 // ─── Generate ODM Document (HTML → Print) ─────────────────────────────────────
 
 function generateODMDocument(odm: ODMItem): void {
+  const pec = pecPrintStyle(odm.priseEnCharge ?? 'NON_PRECISEE');
+  const hasDetail = (odm.participantsDetail?.length ?? 0) > 0;
+
+  // Build participants section: enriched table if detail available, chips otherwise
+  const participantsHTML = hasDetail
+    ? `<table class="ptable">
+        <thead>
+          <tr>
+            <th style="width:28px">N°</th>
+            <th>Prénoms et Nom</th>
+            <th style="width:70px">Matricule</th>
+            <th>Unité / Service</th>
+            <th style="width:52px">CR</th>
+            <th style="width:60px">H. Sup.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(odm.participantsDetail ?? []).map((p, i) => `
+          <tr>
+            <td style="text-align:center;color:#64748B">${i + 1}</td>
+            <td style="font-weight:600">${p.nom}</td>
+            <td style="font-family:monospace;font-size:10px;color:#1D4ED8">${p.mle ?? '—'}</td>
+            <td style="font-size:10px;color:#475569">${p.unite ?? '—'}</td>
+            <td style="font-family:monospace;font-size:10px;color:#64748B">${p.cr ?? '—'}</td>
+            <td style="text-align:center;font-size:10px;color:${(p.heuresSupplementaires ?? 0) > 0 ? '#EA580C' : '#94A3B8'};font-weight:${(p.heuresSupplementaires ?? 0) > 0 ? '700' : '400'}">
+              ${(p.heuresSupplementaires ?? 0) > 0 ? `${p.heuresSupplementaires}h sup.` : '—'}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`
+    : `<div class="participants-list">
+        ${odm.participants.map(p => `<span class="participant-chip">${p}</span>`).join('')}
+      </div>`;
+
   const doc = `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <title>Ordre de Mission — ${odm.ref}</title>
 <style>
-  body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 20px; color: #1a1a1a; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 20px 24px; color: #1a1a1a; }
   .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #0E3460; padding-bottom: 16px; margin-bottom: 20px; }
   .logo-area { display: flex; align-items: center; gap: 12px; }
   .logo-box { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
@@ -401,7 +702,7 @@ function generateODMDocument(odm: ODMItem): void {
   .doc-title h2 { margin: 0; font-size: 18px; color: #0E3460; font-weight: 900; letter-spacing: 1px; }
   .doc-title .ref { font-size: 14px; color: #F39200; font-weight: 700; margin-top: 4px; }
   .section { margin-bottom: 16px; }
-  .section-title { background: #0E3460; color: #fff; padding: 6px 12px; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; border-radius: 4px 4px 0 0; }
+  .section-title { background: #0E3460; color: #fff; padding: 6px 12px; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; border-radius: 4px 4px 0 0; display:flex; align-items:center; justify-content:space-between; }
   .section-body { border: 1px solid #E2E8F0; border-top: none; padding: 12px; border-radius: 0 0 4px 4px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .field { display: flex; flex-direction: column; gap: 2px; }
@@ -409,13 +710,18 @@ function generateODMDocument(odm: ODMItem): void {
   .field-value { font-size: 12px; font-weight: 600; color: #1a1a1a; }
   .participants-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .participant-chip { background: #EFF6FF; color: #1D4ED8; border-radius: 4px; padding: 3px 8px; font-size: 11px; font-weight: 600; }
+  .ptable { width:100%; border-collapse:collapse; font-size:11px; margin-top:6px; }
+  .ptable th { background:#0E3460; color:#fff; padding:6px 8px; text-align:left; font-size:9px; text-transform:uppercase; letter-spacing:.4px; font-weight:700; }
+  .ptable td { padding:6px 8px; border-bottom:1px solid #F1F5F9; }
+  .ptable tr:nth-child(even) td { background:#F8FAFC; }
+  .pec-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; }
   .signatures { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
   .sig-box { border: 1px solid #E2E8F0; border-radius: 6px; padding: 12px; }
   .sig-title { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 40px; }
   .sig-line { border-top: 1px solid #1a1a1a; margin-top: 8px; padding-top: 4px; font-size: 10px; color: #64748B; }
   .footer { margin-top: 24px; border-top: 1px solid #E2E8F0; padding-top: 8px; text-align: center; font-size: 9px; color: #94A3B8; }
   .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #DCFCE7; color: #166534; }
-  @media print { body { padding: 10px; } }
+  @media print { body { padding: 10px 14px; } }
 </style>
 </head>
 <body>
@@ -431,12 +737,18 @@ function generateODMDocument(odm: ODMItem): void {
   <div class="doc-title">
     <h2>ORDRE DE MISSION</h2>
     <div class="ref">${odm.ref}</div>
-    <div style="margin-top:4px"><span class="badge">${odm.statut}</span></div>
+    <div style="margin-top:6px;display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+      <span class="badge">${odm.statut}</span>
+      <span class="pec-badge" style="background:${pec.bg};color:${pec.color}">${pec.label}</span>
+    </div>
   </div>
 </div>
 
 <div class="section">
-  <div class="section-title">Objet de la mission</div>
+  <div class="section-title">
+    <span>Objet de la mission</span>
+    ${odm.international ? '<span style="background:#F47920;color:#fff;padding:2px 8px;border-radius:10px;font-size:9px">✈ Mission internationale</span>' : ''}
+  </div>
   <div class="section-body">
     <div style="font-size:14px;font-weight:700;color:#0E3460;margin-bottom:6px">${odm.objet}</div>
     <div style="font-size:11px;color:#64748B">Projet : <strong>${odm.projet}</strong></div>
@@ -444,12 +756,16 @@ function generateODMDocument(odm: ODMItem): void {
 </div>
 
 <div class="section">
-  <div class="section-title">Informations mission</div>
+  <div class="section-title"><span>Informations mission</span></div>
   <div class="section-body">
     <div class="grid">
       <div class="field">
         <span class="field-label">Destination</span>
-        <span class="field-value">${odm.destination} — ${odm.region}</span>
+        <span class="field-value">${odm.destination}${odm.pays && odm.pays !== 'Sénégal' ? ` — ${odm.pays}` : ''}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">Région / Zone</span>
+        <span class="field-value">${odm.region}</span>
       </div>
       <div class="field">
         <span class="field-label">Date de départ</span>
@@ -467,12 +783,16 @@ function generateODMDocument(odm: ODMItem): void {
         <span class="field-label">Budget estimé</span>
         <span class="field-value">${odm.budgetEstime.toLocaleString('fr-FR')} FCFA</span>
       </div>
+      <div class="field" style="grid-column:1/-1">
+        <span class="field-label">Prise en charge des frais</span>
+        <span class="pec-badge" style="background:${pec.bg};color:${pec.color};margin-top:3px">${pec.label}</span>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="section">
-  <div class="section-title">Transport & Logistique</div>
+  <div class="section-title"><span>Transport &amp; Logistique</span></div>
   <div class="section-body">
     <div class="grid">
       <div class="field">
@@ -497,22 +817,27 @@ function generateODMDocument(odm: ODMItem): void {
 </div>
 
 <div class="section">
-  <div class="section-title">Participants (${odm.participants.length})</div>
+  <div class="section-title">
+    <span>Participants (${odm.participants.length})</span>
+    ${hasDetail ? '<span style="font-size:9px;opacity:.8">Matricule · Unité · CR</span>' : ''}
+  </div>
   <div class="section-body">
-    <div class="participants-list">
-      ${odm.participants.map(p => `<span class="participant-chip">${p}</span>`).join('')}
-    </div>
+    ${participantsHTML}
   </div>
 </div>
 
 <div class="signatures">
   <div class="sig-box">
-    <div class="sig-title">Chef de Service</div>
-    <div class="sig-line">Signature & cachet<br>Date : ___/___/______</div>
+    <div class="sig-title">Agent demandeur</div>
+    <div class="sig-line">${odm.agentDemandeur}<br>Date : ___/___/______</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-title">Chef de Service / UAGL</div>
+    <div class="sig-line">Signature &amp; cachet<br>Date : ___/___/______</div>
   </div>
   <div class="sig-box">
     <div class="sig-title">Directeur DPE</div>
-    <div class="sig-line">Signature & cachet<br>Date : ___/___/______</div>
+    <div class="sig-line">Signature &amp; cachet<br>Date : ___/___/______</div>
   </div>
 </div>
 
@@ -966,6 +1291,8 @@ export default function ODM() {
   const [clotures, setClotures] = useState<ODMCloture[]>(INITIAL_CLOTURES);
   const [selectedODM, setSelectedODM] = useState<ODMItem | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [odmSearchQ, setOdmSearchQ] = useState('');
+  const [odmStatutFilter, setOdmStatutFilter] = useState<StatutODM | 'tous'>('tous');
 
   // Form état — nouvelle demande
   const [fObjet, setFObjet] = useState('');
@@ -1037,6 +1364,7 @@ export default function ODM() {
       dotationCarburant: dotationCalc,
       budgetEstime: parseInt(fBudget) || 0,
       agentDemandeur: 'Utilisateur connecté',
+      priseEnCharge: 'NON_PRECISEE',
       statut: 'En validation',
     };
     setOdms(prev => [newODM, ...prev]);
@@ -1125,6 +1453,7 @@ export default function ODM() {
       dotationCarburant: calculDotation(320, consoDefaut),
       budgetEstime: extracted.budget,
       agentDemandeur: extracted.agentDemandeur,
+      priseEnCharge: 'NON_PRECISEE',
       statut: 'Validé',
       pdfIngere: true,
       sourceExterne: pdfFile?.name,
@@ -1316,20 +1645,70 @@ export default function ODM() {
                   </div>
                 </div>
 
-                {/* Participants */}
-                <div style={{ marginTop: 12, background: '#fff', borderRadius: 8, padding: '10px 14px', border: '1px solid #E2E8F0' }}>
-                  <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Participants ({selectedODM.participants.length})</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {(editMode && editedODM ? editedODM : selectedODM).participants.map(p => (
-                      <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(14,52,96,0.08)', color: 'var(--navy)', borderRadius: 5, padding: '3px 9px', fontSize: 12, fontWeight: 600 }}>
-                        {p}
-                        {editMode && editedODM && (
-                          <button onClick={() => setEditedODM({ ...editedODM, participants: editedODM.participants.filter(x => x !== p) })}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: 0, marginLeft: 2, lineHeight: 1 }}>×</button>
-                        )}
-                      </span>
-                    ))}
+                {/* Prise en charge */}
+                {selectedODM.priseEnCharge && (
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Prise en charge :</span>
+                    <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, ...PRISE_EN_CHARGE_COLORS[selectedODM.priseEnCharge] }}>
+                      {PRISE_EN_CHARGE_LABELS[selectedODM.priseEnCharge]}
+                    </span>
                   </div>
+                )}
+
+                {/* Participants — tableau enrichi avec Matricule/Unité/CR */}
+                <div style={{ marginTop: 10, background: '#fff', borderRadius: 8, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                  <div style={{ padding: '8px 14px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 10, color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                      Participants ({selectedODM.participants.length})
+                    </div>
+                    {(() => {
+                      const totalHS = (selectedODM.participantsDetail ?? []).reduce((s, p) => s + (p.heuresSupplementaires ?? 0), 0);
+                      return totalHS > 0 ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#F47920', background: '#FFF7ED', padding: '2px 8px', borderRadius: 99 }}>
+                          ⏱ {totalHS}h sup. à justifier
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                  {(selectedODM.participantsDetail ?? []).length > 0 ? (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ background: '#F8FAFC' }}>
+                          {['N°', 'Prénoms et Nom', 'Mle', 'Unité', 'CR', 'H. Sup.'].map(h => (
+                            <th key={h} style={{ padding: '5px 10px', textAlign: 'left', fontSize: 9.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selectedODM.participantsDetail ?? []).map((p, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #F8FAFC' }}>
+                            <td style={{ padding: '5px 10px', color: '#94A3B8', fontWeight: 700 }}>{i + 1}</td>
+                            <td style={{ padding: '5px 10px', fontWeight: 600, color: '#1E293B' }}>{p.nom}</td>
+                            <td style={{ padding: '5px 10px', fontFamily: 'monospace', color: '#3D1A6B', fontWeight: 700 }}>{p.mle ?? '—'}</td>
+                            <td style={{ padding: '5px 10px', color: '#374151', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.unite ?? '—'}</td>
+                            <td style={{ padding: '5px 10px', fontFamily: 'monospace', fontSize: 10, color: '#64748B' }}>{p.cr ?? '—'}</td>
+                            <td style={{ padding: '5px 10px' }}>
+                              {p.heuresSupplementaires ? (
+                                <span style={{ color: '#F47920', fontWeight: 700 }}>{p.heuresSupplementaires}h</span>
+                              ) : <span style={{ color: '#CBD5E1' }}>—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ padding: '8px 14px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {(editMode && editedODM ? editedODM : selectedODM).participants.map(p => (
+                        <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(14,52,96,0.08)', color: 'var(--navy)', borderRadius: 5, padding: '3px 9px', fontSize: 12, fontWeight: 600 }}>
+                          {p}
+                          {editMode && editedODM && (
+                            <button onClick={() => setEditedODM({ ...editedODM, participants: editedODM.participants.filter(x => x !== p) })}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: 0, marginLeft: 2, lineHeight: 1 }}>×</button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Clôture si disponible */}
@@ -1353,48 +1732,99 @@ export default function ODM() {
             </div>
           ) : (
             // ── Liste ODM ──
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--navy)' }}>Mes Ordres de Mission ({odms.length})</h3>
-                <button onClick={() => setOnglet('nouvelle')}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <Plus size={14} /> Nouvel ODM
-                </button>
+            (() => {
+              const odmsFiltered = odms.filter(o => {
+                if (odmStatutFilter !== 'tous' && o.statut !== odmStatutFilter) return false;
+                if (odmSearchQ.trim()) {
+                  const q = odmSearchQ.toLowerCase();
+                  return o.ref.toLowerCase().includes(q) || o.objet.toLowerCase().includes(q) ||
+                    o.destination.toLowerCase().includes(q) || o.projet.toLowerCase().includes(q) ||
+                    o.participants.some(p => p.toLowerCase().includes(q));
+                }
+                return true;
+              });
+              return (
+              <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--navy)' }}>Mes Ordres de Mission ({odmsFiltered.length}/{odms.length})</h3>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input value={odmSearchQ} onChange={e => setOdmSearchQ(e.target.value)} placeholder="Rechercher ODM, objet, destination…"
+                      style={{ width: 240, padding: '6px 10px 6px 30px', border: '1px solid #E2E8F0', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', outline: 'none', background: '#F8FAFC', color: '#1E293B' }} />
+                    <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none', fontSize: 13 }}>🔍</span>
+                  </div>
+                  <select value={odmStatutFilter} onChange={e => setOdmStatutFilter(e.target.value as StatutODM | 'tous')}
+                    style={{ padding: '6px 10px', border: '1px solid #E2E8F0', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', background: '#F8FAFC', color: '#374151', cursor: 'pointer' }}>
+                    <option value="tous">Tous statuts</option>
+                    {(['Brouillon','En validation','Validé','En mission','Clôturé'] as StatutODM[]).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={() => setOnglet('nouvelle')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                    <Plus size={13} /> Nouvel ODM
+                  </button>
+                </div>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#F8FAFC' }}>
-                      {['Réf', 'Objet', 'Destination', 'Départ', 'Retour', 'Transport', 'Statut', 'Actions'].map(h => (
-                        <th key={h} style={{ textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#64748B', padding: '8px 10px', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                      {['Réf', 'Objet / Projet', 'Destination', 'Participants', 'Prise en charge', 'Départ → Retour', 'Statut', 'Actions'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#64748B', padding: '8px 10px', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {odms.map(odm => {
+                    {odmsFiltered.map(odm => {
                       const sc = statutColor(odm.statut);
+                      const pec = PRISE_EN_CHARGE_COLORS[odm.priseEnCharge ?? 'NON_PRECISEE'];
+                      const pecLabel = PRISE_EN_CHARGE_LABELS[odm.priseEnCharge ?? 'NON_PRECISEE'];
+                      const detail = odm.participantsDetail ?? [];
+                      const totalHS = detail.reduce((s, p) => s + (p.heuresSupplementaires ?? 0), 0);
                       return (
                         <tr key={odm.id} style={{ borderBottom: '1px solid #F1F5F9' }}
                           onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFC')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                          <td style={{ padding: '9px 10px', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'var(--navy)', whiteSpace: 'nowrap' }}>
-                            {odm.ref}
-                            {odm.pdfIngere && <span title="Importé PDF" style={{ marginLeft: 4, fontSize: 10 }}>📥</span>}
+                          <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'var(--navy)' }}>
+                              {odm.ref}
+                              {odm.pdfIngere && <span title="Importé PDF" style={{ marginLeft: 4, fontSize: 10 }}>📥</span>}
+                            </div>
+                            <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{odm.destination}</div>
                           </td>
-                          <td style={{ padding: '9px 10px', fontSize: 12, maxWidth: 220 }}>
-                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{odm.objet}</div>
-                            <div style={{ fontSize: 10, color: '#94A3B8' }}>{odm.projet}</div>
+                          <td style={{ padding: '9px 10px', maxWidth: 200 }}>
+                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{odm.objet}</div>
+                            <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{odm.projet}</div>
                           </td>
                           <td style={{ padding: '9px 10px' }}>
                             <div style={{ fontSize: 12, fontWeight: 600 }}>{odm.destination}</div>
-                            <div style={{ fontSize: 10, color: '#64748B' }}>{odm.region}</div>
+                            <div style={{ fontSize: 10, color: '#64748B' }}>{odm.region} · {odm.dureeJours}j</div>
                           </td>
-                          <td style={{ padding: '9px 10px', fontSize: 12, whiteSpace: 'nowrap' }}>{odm.dateDepart}</td>
-                          <td style={{ padding: '9px 10px', fontSize: 12, whiteSpace: 'nowrap' }}>{odm.dateRetour}</td>
-                          <td style={{ padding: '9px 10px', fontSize: 11, color: '#64748B', whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Truck size={10} />{odm.vehicule ? odm.vehicule.split(' — ')[1] ?? '' : odm.transport.split(' ')[0]}
+                          <td style={{ padding: '9px 10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <div style={{ display: 'flex', gap: 2 }}>
+                                {odm.participants.slice(0, 3).map((p, i) => (
+                                  <div key={i} title={detail[i]?.mle ? `${p} — ${detail[i].mle} · ${detail[i].unite}` : p} style={{ width: 22, height: 22, borderRadius: '50%', background: ['#3D1A6B','#F47920','#1B4F8A','#16A34A','#7C3AED'][i % 5], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: '#fff', border: '1.5px solid #fff', marginLeft: i > 0 ? -6 : 0 }}>
+                                    {p.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                                  </div>
+                                ))}
+                                {odm.participants.length > 3 && <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: '#64748B', marginLeft: -6, border: '1.5px solid #fff' }}>+{odm.participants.length - 3}</div>}
+                              </div>
+                              <span style={{ fontSize: 10, color: '#64748B' }}>{odm.participants.length}</span>
                             </div>
+                            {totalHS > 0 && (
+                              <div style={{ marginTop: 3, fontSize: 9.5, color: '#F47920', fontWeight: 700 }}>
+                                ⏱ {totalHS}h sup.
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '9px 10px' }}>
+                            <span style={{ padding: '3px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: pec.bg, color: pec.text, whiteSpace: 'nowrap' }}>
+                              {pecLabel}
+                            </span>
+                          </td>
+                          <td style={{ padding: '9px 10px', fontSize: 11, color: '#374151', whiteSpace: 'nowrap' }}>
+                            <div>{odm.dateDepart}</div>
+                            {odm.dateRetour && odm.dateRetour !== odm.dateDepart && <div style={{ color: '#94A3B8', fontSize: 10 }}>→ {odm.dateRetour}</div>}
                           </td>
                           <td style={{ padding: '9px 10px' }}>
                             <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: sc.bg, color: sc.text, whiteSpace: 'nowrap' }}>{odm.statut}</span>
@@ -1418,6 +1848,8 @@ export default function ODM() {
                 </table>
               </div>
             </>
+              );
+            })()
           )}
         </div>
       )}
@@ -1564,13 +1996,106 @@ export default function ODM() {
 
                   {/* Participants */}
                   <div style={{ background: '#F8FAFC', borderRadius: 7, padding: '10px 12px', border: '1px solid #E2E8F0' }}>
-                    <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Participants</div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {extracted.participants.map(p => (
-                        <span key={p} style={{ background: 'rgba(14,52,96,0.08)', color: 'var(--navy)', borderRadius: 5, padding: '3px 9px', fontSize: 12, fontWeight: 600 }}>{p}</span>
-                      ))}
-                    </div>
+                    <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Participants ({extracted.participants.length})</div>
+                    {extracted.participantsDetail.length > 0 ? (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: '#F1F5F9' }}>
+                            {['Prénoms et Nom', 'Mle', 'Unité', 'CR'].map(h => (
+                              <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 700, color: '#475569', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.3px' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {extracted.participantsDetail.map((p, i) => (
+                            <tr key={i} style={{ borderTop: '1px solid #EEF2F7' }}>
+                              <td style={{ padding: '5px 8px', fontWeight: 600, color: '#0E3460' }}>{p.nom}</td>
+                              <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#1D4ED8', fontSize: 10.5 }}>{p.mle ?? '—'}</td>
+                              <td style={{ padding: '5px 8px', color: '#64748B', fontSize: 10.5 }}>{p.unite ?? '—'}</td>
+                              <td style={{ padding: '5px 8px', fontWeight: 700, color: p.cr ? '#0E3460' : '#94A3B8', fontFamily: 'monospace' }}>{p.cr ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {extracted.participants.map(p => (
+                          <span key={p} style={{ background: 'rgba(14,52,96,0.08)', color: 'var(--navy)', borderRadius: 5, padding: '3px 9px', fontSize: 12, fontWeight: 600 }}>{p}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Répartition budgétaire par CR */}
+                  {(() => {
+                    const details = extracted.participantsDetail.filter(p => p.cr);
+                    if (!details.length) return null;
+                    // Grouper par CR
+                    const byCR: Record<string, { cr: string; agents: ParticipantDetail[]; unites: string[] }> = {};
+                    details.forEach(p => {
+                      if (!p.cr) return;
+                      if (!byCR[p.cr]) byCR[p.cr] = { cr: p.cr, agents: [], unites: [] };
+                      byCR[p.cr].agents.push(p);
+                      if (p.unite && !byCR[p.cr].unites.includes(p.unite)) byCR[p.cr].unites.push(p.unite);
+                    });
+                    // Calculer per diem (mission international = 143000 FCFA/jour, local = 25000)
+                    const isIntl = /france|paris|lyon|chine|allemagne|corée/i.test(extracted.destination);
+                    const perDiemJour = isIntl ? 143_000 : 25_000;
+                    const departStr = extracted.dateDepart.split('/');
+                    const retourStr = extracted.dateRetour.split('/');
+                    let nbJours = 7;
+                    if (departStr.length === 3 && retourStr.length === 3) {
+                      const d1 = new Date(+departStr[2], +departStr[1]-1, +departStr[0]);
+                      const d2 = new Date(+retourStr[2], +retourStr[1]-1, +retourStr[0]);
+                      const diff = Math.round((d2.getTime()-d1.getTime()) / 86400000);
+                      if (diff > 0) nbJours = diff;
+                    }
+                    const crList = Object.values(byCR);
+                    const totalBudget = crList.reduce((s, c) => s + c.agents.length * perDiemJour * nbJours, 0);
+                    return (
+                      <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 7, padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                            Répartition budgétaire par CR · {nbJours} jour(s) · {perDiemJour.toLocaleString('fr-FR')} FCFA/j
+                          </div>
+                          <span style={{ fontSize: 10, background: '#DCFCE7', color: '#15803D', padding: '2px 7px', borderRadius: 4, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                            Total : {totalBudget.toLocaleString('fr-FR')} FCFA
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          {crList.map(({ cr, agents, unites }) => {
+                            const montantCR = agents.length * perDiemJour * nbJours;
+                            const pct = Math.round((montantCR / totalBudget) * 100);
+                            return (
+                              <div key={cr} style={{ background: '#fff', borderRadius: 6, padding: '7px 10px', border: '1px solid #DCFCE7' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: '#0E3460', background: '#EFF6FF', padding: '2px 6px', borderRadius: 4 }}>{cr}</span>
+                                    <span style={{ fontSize: 11, color: '#374151' }}>{agents.length} agent{agents.length > 1 ? 's' : ''}</span>
+                                    {unites.length > 0 && <span style={{ fontSize: 10.5, color: '#64748B' }}>{unites[0]}</span>}
+                                  </div>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: '#15803D', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                                    {montantCR.toLocaleString('fr-FR')} FCFA
+                                    <span style={{ fontSize: 10, color: '#64748B', marginLeft: 4 }}>({pct}%)</span>
+                                  </span>
+                                </div>
+                                <div style={{ height: 4, background: '#DCFCE7', borderRadius: 2, overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${pct}%`, background: '#16A34A', borderRadius: 2 }} />
+                                </div>
+                                <div style={{ fontSize: 10, color: '#64748B', marginTop: 3 }}>
+                                  {agents.map(a => a.nom).join(' · ')}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <button style={{ marginTop: 8, width: '100%', padding: '7px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                          onClick={() => { /* TODO: push to Budget module */ }}>
+                          <Wallet size={13} /> Alimenter les budgets projet par CR
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                   {/* Observations */}
                   <div style={{ background: '#FFFBF0', border: '1px solid #FDE68A', borderRadius: 7, padding: '10px 12px' }}>

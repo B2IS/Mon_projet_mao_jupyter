@@ -7,8 +7,8 @@
  *   • Migration IA (Project Factory)               — profils habilités uniquement
  * La sécurité organisationnelle s'applique dans chaque outil (périmètre du demandeur).
  */
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Bot, Sparkles, Upload, ArrowRight } from 'lucide-react';
 import AIMultimodalChat from '@/components/ui/AIMultimodalChat';
 import Copilot from '@/components/dashboard/Copilot';
@@ -18,9 +18,19 @@ type Tab = 'assistant' | 'copilot' | 'migration';
 
 export default function CentreIAPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const canMigrate = user ? canAccessNavItem(user.role, '/migration') : true;
-  const [tab, setTab] = useState<Tab>('assistant');
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams?.get('tab') as Tab | null;
+    return t && ['assistant', 'copilot', 'migration'].includes(t) ? t : 'assistant';
+  });
+
+  // Sync tab avec le query param si la page est ouverte via redirect /copilot
+  useEffect(() => {
+    const t = searchParams?.get('tab') as Tab | null;
+    if (t && ['assistant', 'copilot', 'migration'].includes(t)) setTab(t);
+  }, [searchParams]);
 
   const tabs: { id: Tab; label: string; icon: typeof Bot; show: boolean }[] = [
     { id: 'assistant', label: 'Assistant IA', icon: Bot, show: true },
@@ -32,9 +42,9 @@ export default function CentreIAPage() {
     <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
       {/* En-tête + onglets */}
       <div style={{ padding: '14px 18px 0', borderBottom: '1px solid #E2E8F0', background: '#fff' }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#2D1167', marginBottom: 2 }}>Centre IA</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#2D1167', marginBottom: 2 }}>Centre IA & Copilot</div>
         <div style={{ fontSize: 12, color: '#64748B', marginBottom: 10 }}>
-          Assistants IA, Copilot M365 et Project Factory — bornés à votre périmètre organisationnel.
+          Assistant IA multimodal · Copilot M365 · Migration intelligente — bornés à votre périmètre organisationnel.
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {tabs.filter(t => t.show).map(t => {

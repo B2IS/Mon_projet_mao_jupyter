@@ -113,7 +113,9 @@ export function cockpitCardsForRole(role: RoleKey, k: IndicateursSenelec): IndCa
   ];
   switch (role) {
     case 'DIR_DPE': case 'ADMIN': case 'PMO': case 'AUDIT':
-      return [...portef, ...energie];                                 // DG : global + impact énergie
+      // Bandeau exécutif (haut) couvre déjà Projets/Avancement/Alertes : on ne garde
+      // que le Budget total (unique) puis l'impact énergie — pas de doublon de KPI.
+      return [{ label: 'Budget total', value: fmtFCFA(k.budgetTotal), accent: '#1D4ED8' }, ...energie];
     case 'CHEF_DEPT':
       return [...portef, ...perf];                                    // Directeur/Chef Dépt : projets + KPI direction
     case 'CHEF_PROJ': case 'INGENIEUR': case 'CONTROLEUR': case 'CONTROLEUR_TRAVAUX': case 'ASSISTANT':

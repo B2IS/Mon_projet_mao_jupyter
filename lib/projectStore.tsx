@@ -6,7 +6,7 @@
  * All components share this context; mutations propagate instantly.
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { useAuth, type RoleCode } from '@/lib/authStore';
 import { computeVisibilityScope, isProjectVisible, type UserOrgProfile } from '@/lib/accessEngine';
 import { PERSONNEL_DPE } from '@/lib/dpePersonnel';
@@ -50,6 +50,45 @@ function normalizeName(s: string | undefined): string {
 // bâtiments, routes, ouvrages d'art sur sites SENELEC ou travaux GC autonomes (ND 005/2023).
 export type Domaine = 'production' | 'transport' | 'distribution' | 'commercial' | 'genie_civil';
 export type StatutProjet = 'en_cours' | 'planifie' | 'termine' | 'en_retard' | 'suspendu' | 'archive';
+export type StatutGlobal = 'vert' | 'orange' | 'rouge';
+
+/** Sous-étapes de la phase de passation des marchés (référentiel DPE) */
+export interface PassationMarches {
+  elaborationDAC: number;    // % : Élaboration du dossier d'appel de candidatures
+  lancementDAC: number;      // % : Lancement / publication DAC
+  ouvertureAnalyse: number;  // % : Ouverture et analyse des offres
+  attributionProvisoire: number; // % : Attribution provisoire
+  attributionDefinitive: number; // % : Attribution définitive
+  signatureContrat: number;  // % : Signature du contrat
+}
+
+/** Indicateurs HSE / ESSS du projet */
+export interface ProjetHSE {
+  nbAnomalies: number;           // Nombre d'anomalies HSE sur la période
+  tauxRealisationPGES: number;   // % : (Actions réalisées / prévues) × 100
+  tauxRealisationPAR: number;    // % : Plan d'Action de Réinstallation
+  commentairePGES?: string;
+  commentairePAR?: string;
+  derniereMaj?: string;
+}
+
+/** Indicateurs Qualité du projet */
+export interface ProjetQualite {
+  nbNonConformites: number;
+  nbControles: number;
+  commentaire?: string;
+  derniereMaj?: string;
+}
+
+/** Calcule le statut global trafic (vert/orange/rouge) à partir des KPIs */
+export function calculerStatutGlobal(p: {
+  cpi: number; spi: number;
+  avancement: number; avancementPlanifie: number;
+}): StatutGlobal {
+  if (p.cpi < 0.85 || p.spi < 0.80) return 'rouge';
+  if (p.cpi < 0.95 || p.spi < 0.90 || (p.avancement < p.avancementPlanifie - 10)) return 'orange';
+  return 'vert';
+}
 export type TypeTache = 'Normale' | 'Récapitulative' | 'Jalon';
 export type DepType = 'FS' | 'SS' | 'FF' | 'SF';
 export type TypeRessource = 'Travail' | 'Matériel' | 'Coût';
@@ -188,13 +227,14 @@ export interface TacheWBS {
   predecesseurs: Predecesseur[];
   assignations: Assignation[];
   commentaire?: string;
-  reference?: boolean; // baseline saved
+  reference?: boolean; // legacy baseline flag
   dateDebutRef?: string;
   dateFinRef?: string;
   dureeRef?: number;
   coutRef?: number;
   coutReel?: number;
   coutPrevu?: number;
+  livrables?: Livrable[];
 }
 
 export interface Ressource {
@@ -216,6 +256,77 @@ export interface Jalon {
   label: string;
   date: string;
   atteint: boolean;
+}
+
+// ─────────────────────────── BASELINES ───────────────────────────────────────
+export interface BaselineEntry {
+  tacheId: string;
+  nomTache: string;
+  dateDebutPlanifie: string;
+  dateFinPlanifie: string;
+  dureePlanifie: number;
+  coutPlanifie?: number;
+  avancementAuMoment: number;
+}
+
+export interface Baseline {
+  id: string;
+  nom: string;
+  description?: string;
+  dateCreation: string;
+  isPrincipal: boolean;
+  taches: BaselineEntry[];
+}
+
+// ─────────────────────────── LIVRABLES ───────────────────────────────────────
+export type TypeLivrable = 'Bordereau' | 'Plan' | 'Rapport' | 'PV' | 'Contrat' | 'Note' | 'General';
+export type PrioriteLivrable = 'Elevee' | 'Moyenne' | 'Faible';
+export type StatutLivrable = 'Nouveau' | 'En_cours' | 'Termine' | 'Rejete';
+
+export interface Livrable {
+  id: string;
+  nom: string;
+  abregeAuto?: string;
+  typeLivrable: TypeLivrable;
+  proprietaireId: string;
+  proprietaireNom: string;
+  dateRequise: string;
+  priorite: PrioriteLivrable;
+  statut: StatutLivrable;
+  piecesJointes: string[];
+  dateCreation: string;
+  creePar: string;
+}
+
+// ────────────────────────── INCIDENTS ────────────────────────────────────────
+export type PrioriteIncident = 'Haute' | 'Moyenne' | 'Faible' | 'Urgente';
+export type StatutIncident = 'Nouveau' | 'En_cours' | 'Resolu' | 'Ferme';
+export type TypeIncident = 'General' | 'Technique' | 'Financier' | 'HSE' | 'Contractuel';
+
+export interface PointAction {
+  id: string;
+  synthese: string;
+  proprietaireId: string;
+  proprietaireNom: string;
+  statut: 'Non_demarre' | 'En_cours' | 'Termine';
+  dateRequise?: string;
+  description?: string;
+}
+
+export interface Incident {
+  id: string;
+  synthese: string;
+  creePar: string;
+  dateCreation: string;
+  proprietaireId: string;
+  proprietaireNom: string;
+  projetId?: string;
+  statut: StatutIncident;
+  priorite: PrioriteIncident;
+  dateRequise?: string;
+  type: TypeIncident;
+  description?: string;
+  pointsAction: PointAction[];
 }
 
 export interface Projet {
@@ -266,12 +377,42 @@ export interface Projet {
   motifSuspension?: string;
   baselineSaved?: boolean;
   baselineDate?: string;
+  baselines?: Baseline[];
+  incidents?: Incident[];
   unite?: string;  // ex. "DPD", "DPT", "DIT", "PAMACEL", "PADERAU", "CPBM-UE"
   programme?: string; // ex. "PADAES", "PADERAU", "PES"
   departement?: string; // ex. "DPT_TRANSPORT", "DPD_DISTRIBUTION", "DEP_PER" — NIVEAU 2 hiérarchie DPE
   metadata?: Record<string, any>; // Pour l'ajout de champs/colonnes dynamiques par l'utilisateur
   /** IDs des utilisateurs délégués par le chef de projet pour modifier le projet. */
   delegues?: string[];
+
+  // ── Données contractuelles ─────────────────────────────────────────────────
+  dateODS?: string;                // Date Ordre de Service (YYYY-MM-DD)
+  dateSignatureContrat?: string;   // Date de signature du contrat principal
+  dateFinCaution?: string;         // Date d'expiration de la caution de garantie
+  numeroMarche?: string;           // Référence / numéro de marché
+  codeImputation?: string;         // Code d'imputation financière Oracle/ERP
+  montantMarche?: number;          // MFCFA — Montant contractuel initial
+  montantAvenants?: number;        // MFCFA — Total des avenants signés
+  montantFacture?: number;         // MFCFA — Total des factures émises
+  montantPaye?: number;            // MFCFA — Total des montants réglés
+
+  // ── Indicateurs financiers complémentaires ─────────────────────────────────
+  montantFinancement?: number;     // MFCFA — Montant total financé (bailleurs)
+  // taux de facturation, paiement, engagement sont calculés dynamiquement
+
+  // ── Passation des marchés — 6 sous-étapes ─────────────────────────────────
+  passationMarches?: PassationMarches;
+
+  // ── HSE & Environnement ───────────────────────────────────────────────────
+  hse?: ProjetHSE;
+
+  // ── Qualité ───────────────────────────────────────────────────────────────
+  qualite?: ProjetQualite;
+
+  // ── Statut global trafic (calculé ou override manuel) ─────────────────────
+  statutGlobal?: StatutGlobal;     // 'vert' | 'orange' | 'rouge' — override manuel
+  // si absent → calculé automatiquement via calculerStatutGlobal()
 }
 
 // ─────────────────────────────── INITIAL DATA ────────────────────────────────
@@ -550,6 +691,9 @@ function mkMatrixProjet(o: {
   description?: string;
   /** Décaissement réel (M FCFA) issu de la matrice ; sinon estimé depuis l'avancement. */
   budgetDecaisse?: number;
+  /** Override manuel des indices de performance ; sinon calculés depuis planning/coût. */
+  cpi?: number;
+  spi?: number;
 }): Projet {
   const debut = o.dateDebut ?? '2024-01-01';
   const finP = o.dateFinPrevue ?? '2027-12-31';
@@ -564,6 +708,19 @@ function mkMatrixProjet(o: {
     ? Math.min(Math.round(o.budgetDecaisse), budget)
     : Math.round(budget * (av / 100) * 0.78);
   const eng = Math.max(dec, Math.round(budget * (av / 100) * 1.05));
+  // ── CPI / SPI réalistes par projet (déterministes, dérivés de l'écart planning/coût) ──
+  // SPI : performance délai ≈ avancement réel / avancement planifié, borné et bruité de façon stable.
+  // CPI : performance coût ≈ valeur acquise / coût réel, avec dispersion déterministe par projet.
+  const seed = offsetFromId(o.id) || (o.id || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const jA = ((seed * 9301 + 49297) % 233280) / 233280;          // 0..1 stable
+  const jB = ((seed * 4099 + 150889) % 714025) / 714025;          // 0..1 stable
+  const schedRatio = avPlan > 0 ? av / avPlan : 1;
+  const cpi = o.cpi ?? Math.max(0.78, Math.min(1.15, +(1.0 + (jB - 0.45) * 0.34).toFixed(2)));
+  const ev  = (av / 100) * budget;                                // valeur acquise
+  // CPI cohérent avec EV/AC quand le décaissé est connu, sinon dispersion stable ci-dessus.
+  const cpiFromCost = dec > 0 ? ev / dec : cpi;
+  const cpiFinal = o.cpi ?? Math.max(0.78, Math.min(1.18, +(cpiFromCost * 0.5 + cpi * 0.5).toFixed(2)));
+  const spi = o.spi ?? Math.max(0.70, Math.min(1.12, +(schedRatio * (0.96 + jA * 0.08)).toFixed(2)));
   return {
     id: o.id,
     domaine: o.domaine,
@@ -587,8 +744,8 @@ function mkMatrixProjet(o: {
     dateFinEstimee: finP,
     statut: o.statut ?? (av >= 100 ? 'termine' : av <= 0 ? 'planifie' : 'en_cours'),
     priorite: o.priorite ?? 'Moyenne',
-    cpi: 0.97,
-    spi: 0.93,
+    cpi: cpiFinal,
+    spi,
     bailleurs: [{ nom: o.bailleur ?? 'SENELEC', montant: budget, devise: 'FCFA', pourcentage: 100 }],
     equipe: equipeParUnite(o.unite, o.chefProjet, 4, o.departement, offsetFromId(o.id)),
     jalons: [
@@ -603,7 +760,46 @@ function mkMatrixProjet(o: {
     programme: o.programme ?? 'BIT',
     dateCreation: debut,
     dateModification: now,
+    // ── Champs contractuels ─────────────────────────────────────────────────
+    dateODS: debut,
+    dateSignatureContrat: addDaysToISO(debut, 15),
+    dateFinCaution: addDaysToISO(finP, 365),
+    montantMarche: Math.round(budget * 0.92),       // contrat initial ~ 92% du budget
+    montantAvenants: Math.round(budget * 0.08),     // avenants ~ 8%
+    montantFacture: Math.round(dec * 1.03),         // légèrement au-dessus du décaissé
+    montantPaye: dec,                                // = décaissé
+    codeImputation: `IMP-${o.code || o.id.toUpperCase().replace('PRJ-', '')}`,
+    montantFinancement: budget,
+    // ── Passation des marchés ───────────────────────────────────────────────
+    passationMarches: {
+      elaborationDAC:       av > 5  ? 100 : Math.round(av * 20),
+      lancementDAC:         av > 10 ? 100 : Math.round(av * 10),
+      ouvertureAnalyse:     av > 15 ? 100 : Math.round(Math.max(0, av - 5) * 10),
+      attributionProvisoire:av > 20 ? 100 : Math.round(Math.max(0, av - 10) * 10),
+      attributionDefinitive:av > 25 ? 100 : Math.round(Math.max(0, av - 15) * 10),
+      signatureContrat:     av > 30 ? 100 : Math.round(Math.max(0, av - 20) * 5),
+    },
+    // ── HSE ─────────────────────────────────────────────────────────────────
+    hse: {
+      nbAnomalies: 0,
+      tauxRealisationPGES: Math.min(100, Math.round(av * 0.95)),
+      tauxRealisationPAR:  Math.min(100, Math.round(av * 0.90)),
+    },
+    // ── Qualité ─────────────────────────────────────────────────────────────
+    qualite: {
+      nbNonConformites: Math.max(0, Math.round((100 - av) / 20)),
+      nbControles: Math.max(1, Math.round(av / 10)),
+    },
   };
+}
+
+/** Ajoute N jours à une date ISO YYYY-MM-DD */
+function addDaysToISO(iso: string, n: number): string {
+  try {
+    const d = new Date(iso);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  } catch { return iso; }
 }
 
 const PROJETS_INIT: Projet[] = [
@@ -723,6 +919,18 @@ export interface ProjectStore {
   updateAvancement: (projetId: string, tacheId: string, pct: number) => void;
   // Phases projet
   updatePhase: (projetId: string, phaseId: PhaseId, avancement: number) => void;
+  // Baselines (Références)
+  createBaseline: (projetId: string, nom: string, description?: string) => Baseline;
+  setBaselinePrincipal: (projetId: string, baselineId: string) => void;
+  deleteBaseline: (projetId: string, baselineId: string) => void;
+  // Livrables
+  addLivrable: (projetId: string, tacheId: string, livrable: Omit<Livrable, 'id' | 'dateCreation'>) => Livrable;
+  updateLivrable: (projetId: string, tacheId: string, livrableId: string, patch: Partial<Livrable>) => void;
+  deleteLivrable: (projetId: string, tacheId: string, livrableId: string) => void;
+  // Incidents
+  addIncident: (projetId: string, incident: Omit<Incident, 'id' | 'dateCreation'>) => Incident;
+  updateIncident: (projetId: string, incidentId: string, patch: Partial<Incident>) => void;
+  addPointAction: (projetId: string, incidentId: string, pa: Omit<PointAction, 'id'>) => void;
 }
 
 const ProjectContext = createContext<ProjectStore | null>(null);
@@ -737,9 +945,53 @@ function nextId(prefix: string, counter: { val: number }) {
   return `${prefix}-${counter.val}`;
 }
 
+const LS_PROJETS = 'sigepp-projets-v1';
+const LS_RESSOURCES = 'sigepp-ressources-v1';
+
+function loadProjets(): Projet[] {
+  if (typeof window === 'undefined') return PROJETS_INIT;
+  try {
+    const raw = localStorage.getItem(LS_PROJETS);
+    if (!raw) return PROJETS_INIT;
+    const saved: Projet[] = JSON.parse(raw);
+    // Fusionner: projets INIT + nouveaux projets créés (par id)
+    const initIds = new Set(PROJETS_INIT.map(p => p.id));
+    const extras = saved.filter(p => !initIds.has(p.id));
+    // Pour les projets INIT, préférer les données sauvegardées (avancement, etc.)
+    const initMerged = PROJETS_INIT.map(p => {
+      const s = saved.find(x => x.id === p.id);
+      return s ? { ...p, ...s } : p;
+    });
+    return [...initMerged, ...extras];
+  } catch { return PROJETS_INIT; }
+}
+
+function loadRessources(): Ressource[] {
+  if (typeof window === 'undefined') return RESSOURCES_INIT;
+  try {
+    const raw = localStorage.getItem(LS_RESSOURCES);
+    if (!raw) return RESSOURCES_INIT;
+    return JSON.parse(raw);
+  } catch { return RESSOURCES_INIT; }
+}
+
+function saveProjets(projets: Projet[]) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(LS_PROJETS, JSON.stringify(projets)); } catch { /* quota */ }
+}
+
+function saveRessources(ressources: Ressource[]) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(LS_RESSOURCES, JSON.stringify(ressources)); } catch { /* quota */ }
+}
+
 export function ProjectStoreProvider({ children }: { children: React.ReactNode }) {
-  const [projets, setProjets] = useState<Projet[]>(PROJETS_INIT);
-  const [ressources, setRessources] = useState<Ressource[]>(RESSOURCES_INIT);
+  const [projets, setProjets] = useState<Projet[]>(() => loadProjets());
+  const [ressources, setRessources] = useState<Ressource[]>(() => loadRessources());
+
+  // Persister à chaque changement
+  useEffect(() => { saveProjets(projets); }, [projets]);
+  useEffect(() => { saveRessources(ressources); }, [ressources]);
 
   // ── Project ──
   const createProjet = useCallback((p: Omit<Projet, 'id' | 'dateCreation' | 'dateModification' | 'taches'>) => {
@@ -929,6 +1181,135 @@ export function ProjectStoreProvider({ children }: { children: React.ReactNode }
     }));
   }, []);
 
+  // ── Baselines ──
+  let _baselineCounter = 100;
+  const createBaseline = useCallback((projetId: string, nom: string, description?: string): Baseline => {
+    const bl: Baseline = {
+      id: `bl-${String(++_baselineCounter).padStart(3, '0')}-${Date.now().toString(36)}`,
+      nom,
+      description,
+      dateCreation: new Date().toISOString().split('T')[0],
+      isPrincipal: false,
+      taches: [],
+    };
+    setProjets(prev => prev.map(p => {
+      if (p.id !== projetId) return p;
+      const existing = p.baselines ?? [];
+      // First baseline auto-becomes principal if none exists
+      const isPrincipal = existing.filter(b => b.isPrincipal).length === 0;
+      const newBl: Baseline = {
+        ...bl,
+        isPrincipal,
+        taches: p.taches.map(t => ({
+          tacheId: t.id,
+          nomTache: t.nom,
+          dateDebutPlanifie: t.dateDebut,
+          dateFinPlanifie: t.dateFin,
+          dureePlanifie: t.duree,
+          coutPlanifie: t.coutPrevu,
+          avancementAuMoment: t.avancement,
+        })),
+      };
+      bl.taches = newBl.taches;
+      bl.isPrincipal = newBl.isPrincipal;
+      return { ...p, baselines: [...existing, newBl], baselineSaved: true, baselineDate: newBl.dateCreation };
+    }));
+    return bl;
+  }, []);
+
+  const setBaselinePrincipal = useCallback((projetId: string, baselineId: string) => {
+    setProjets(prev => prev.map(p => p.id !== projetId ? p : {
+      ...p,
+      baselines: (p.baselines ?? []).map(b => ({ ...b, isPrincipal: b.id === baselineId })),
+    }));
+  }, []);
+
+  const deleteBaseline = useCallback((projetId: string, baselineId: string) => {
+    setProjets(prev => prev.map(p => p.id !== projetId ? p : {
+      ...p,
+      baselines: (p.baselines ?? []).filter(b => b.id !== baselineId),
+    }));
+  }, []);
+
+  // ── Livrables ──
+  let _livrableCounter = 500;
+  const addLivrable = useCallback((projetId: string, tacheId: string, livrable: Omit<Livrable, 'id' | 'dateCreation'>): Livrable => {
+    const newL: Livrable = {
+      ...livrable,
+      id: `liv-${String(++_livrableCounter).padStart(3, '0')}-${Date.now().toString(36)}`,
+      dateCreation: new Date().toISOString().split('T')[0],
+    };
+    setProjets(prev => prev.map(p => p.id !== projetId ? p : {
+      ...p,
+      taches: p.taches.map(t => t.id !== tacheId ? t : {
+        ...t,
+        livrables: [...(t.livrables ?? []), newL],
+      }),
+    }));
+    return newL;
+  }, []);
+
+  const updateLivrable = useCallback((projetId: string, tacheId: string, livrableId: string, patch: Partial<Livrable>) => {
+    setProjets(prev => prev.map(p => p.id !== projetId ? p : {
+      ...p,
+      taches: p.taches.map(t => t.id !== tacheId ? t : {
+        ...t,
+        livrables: (t.livrables ?? []).map(l => l.id === livrableId ? { ...l, ...patch } : l),
+      }),
+    }));
+  }, []);
+
+  const deleteLivrable = useCallback((projetId: string, tacheId: string, livrableId: string) => {
+    setProjets(prev => prev.map(p => p.id !== projetId ? p : {
+      ...p,
+      taches: p.taches.map(t => t.id !== tacheId ? t : {
+        ...t,
+        livrables: (t.livrables ?? []).filter(l => l.id !== livrableId),
+      }),
+    }));
+  }, []);
+
+  // ── Incidents ──
+  let _incidentCounter = 200;
+  const addIncident = useCallback((projetId: string, incident: Omit<Incident, 'id' | 'dateCreation'>): Incident => {
+    const newI: Incident = {
+      ...incident,
+      id: `inc-${String(++_incidentCounter).padStart(3, '0')}-${Date.now().toString(36)}`,
+      dateCreation: new Date().toISOString().split('T')[0],
+    };
+    setProjets(prev => prev.map(p => p.id !== projetId && projetId !== '__global' ? p : {
+      ...p,
+      incidents: [...(p.incidents ?? []), newI],
+    }));
+    return newI;
+  }, []);
+
+  const updateIncident = useCallback((projetId: string, incidentId: string, patch: Partial<Incident>) => {
+    setProjets(prev => prev.map(p => {
+      if (p.id !== projetId && projetId !== '__global') return p;
+      return {
+        ...p,
+        incidents: (p.incidents ?? []).map(i => i.id === incidentId ? { ...i, ...patch } : i),
+      };
+    }));
+  }, []);
+
+  const addPointAction = useCallback((projetId: string, incidentId: string, pa: Omit<PointAction, 'id'>) => {
+    const newPa: PointAction = {
+      ...pa,
+      id: `pa-${Date.now().toString(36)}`,
+    };
+    setProjets(prev => prev.map(p => {
+      if (p.id !== projetId && projetId !== '__global') return p;
+      return {
+        ...p,
+        incidents: (p.incidents ?? []).map(i => i.id === incidentId
+          ? { ...i, pointsAction: [...i.pointsAction, newPa] }
+          : i),
+      };
+    }));
+  }, []);
+
   // ── Phases BEST ──
   const updatePhase = useCallback((projetId: string, phaseId: PhaseId, avancement: number) => {
     setProjets(prev => prev.map(p => {
@@ -962,6 +1343,15 @@ export function ProjectStoreProvider({ children }: { children: React.ReactNode }
     removeJalon,
     updateAvancement,
     updatePhase,
+    createBaseline,
+    setBaselinePrincipal,
+    deleteBaseline,
+    addLivrable,
+    updateLivrable,
+    deleteLivrable,
+    addIncident,
+    updateIncident,
+    addPointAction,
   };
 
   return <ProjectContext.Provider value={store}>{children}</ProjectContext.Provider>;

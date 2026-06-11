@@ -132,10 +132,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   }),
 
   pushInbox: (item) => {
+    const recipient = (item.recipientEmail || '').toLowerCase().trim();
+    // Idempotence : si une notification de même ref existe déjà pour ce destinataire,
+    // on ne la recrée pas (évite les doublons en mode strict React / au rechargement).
+    if (item.ref) {
+      const existing = get().inbox.find(n => n.ref === item.ref && n.recipientEmail === recipient);
+      if (existing) return existing.id;
+    }
     const id = uid('inbox');
     const full: InboxItem = {
       id,
-      recipientEmail: (item.recipientEmail || '').toLowerCase().trim(),
+      recipientEmail: recipient,
       title: item.title,
       message: item.message,
       type: item.type,

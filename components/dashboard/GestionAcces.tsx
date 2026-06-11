@@ -7,8 +7,8 @@
  * immédiatement (via `permissionStore` → `authStore.canAccessSection`).
  */
 
-import React from 'react';
-import { ShieldCheck, RotateCcw, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, RotateCcw, Check, Search, X } from 'lucide-react';
 import { ROLES, ROLE_SECTIONS, type RoleCode, type SidebarSectionId } from '@/lib/authStore';
 import { usePermissionStore } from '@/lib/permissionStore';
 
@@ -30,6 +30,7 @@ const ROLE_ORDER: RoleCode[] = [
 
 export default function GestionAcces() {
   const { sectionOverrides, setRoleSections, resetRole, resetAll, overrideFor } = usePermissionStore();
+  const [search, setSearch] = useState('');
 
   const effective = (role: RoleCode): string[] => overrideFor(role) ?? ROLE_SECTIONS[role];
 
@@ -51,7 +52,23 @@ export default function GestionAcces() {
             Attribuez les modules à chaque rôle. Les modifications sont appliquées immédiatement.
           </p>
         </div>
-        <button onClick={resetAll} style={btnGhost}><RotateCcw size={14} /> Tout réinitialiser</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Chercher un rôle…"
+              style={{ padding: '7px 10px 7px 27px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 12, background: '#fff', outline: 'none', paddingRight: search ? 26 : 10, width: 170 }}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}>
+                <X size={11} />
+              </button>
+            )}
+          </div>
+          <button onClick={resetAll} style={btnGhost}><RotateCcw size={14} /> Tout réinitialiser</button>
+        </div>
       </div>
 
       <div style={{ overflowX: 'auto', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, marginTop: 14 }}>
@@ -64,7 +81,7 @@ export default function GestionAcces() {
             </tr>
           </thead>
           <tbody>
-            {ROLE_ORDER.map(role => {
+            {ROLE_ORDER.filter(role => !search.trim() || ROLES[role].label.toLowerCase().includes(search.toLowerCase()) || role.toLowerCase().includes(search.toLowerCase())).map(role => {
               const eff = effective(role);
               const customized = !!sectionOverrides[role];
               const isAdmin = role === 'ADMIN';

@@ -6,7 +6,7 @@ import {
   Eye, Share2, Save, FileText, BarChart3, Map, Image,
   CheckSquare, AlertTriangle, Users, Wallet, Calendar,
   Clock, Bot, Edit3, ChevronDown, ChevronUp,
-  Layers, TrendingUp, X,
+  Layers, TrendingUp, X, Search,
 } from 'lucide-react';
 import {
   useProjectStore, DOMAINE_CFG, type Domaine,
@@ -730,6 +730,7 @@ function RapportTrimestriel() {
       ...d,
       projets: store.projets.filter(p => p.domaine === d.id),
     })).filter(d => filter === 'all' || d.id === filter),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   [store.projets, filter]);
 
   const totalBudget   = store.projets.reduce((s, p) => s + p.budget, 0);
@@ -767,7 +768,7 @@ function RapportTrimestriel() {
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Eye size={13} /> {showPreview ? 'Édition' : 'Aperçu Word'}
             </button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: ORANGE, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => toast.info('Export Word / PDF du rapport trimestriel — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: ORANGE, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Download size={13} /> Exporter Word / PDF
             </button>
           </div>
@@ -894,6 +895,7 @@ export default function StudioRapports() {
   const [titreRapport, setTitreRapport]     = useState('Rapport mensuel — Projet');
   const [activeView, setActiveView]         = useState<'editeur' | 'preview'>('editeur');
   const [selectedModele, setSelectedModele] = useState<string | null>(null);
+  const [catalogSearch, setCatalogSearch]   = useState('');
 
   const projet = useMemo(
     () => store.projets.find(p => p.id === selectedProjet) ?? store.projets[0],
@@ -959,8 +961,8 @@ export default function StudioRapports() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: activeView === 'preview' ? '#EFF6FF' : '#fff', fontSize: 12.5, color: activeView === 'preview' ? NAVY : '#475569', cursor: 'pointer', fontFamily: 'inherit', fontWeight: activeView === 'preview' ? 700 : 400 }}>
                 <Eye size={13} /> {activeView === 'editeur' ? 'Prévisualiser' : 'Éditeur'}
               </button>
-              <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}><Save size={13} /> Enregistrer</button>
-              <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Exporter PDF</button>
+              <button onClick={() => toast.info('Enregistrement du rapport — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}><Save size={13} /> Enregistrer</button>
+              <button onClick={() => toast.info('Export PDF — utilisez le bouton ✨ Générer Rapport Complet dans le panneau droit.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Exporter PDF</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingBottom: 12 }}>
@@ -984,8 +986,19 @@ export default function StudioRapports() {
           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '260px 1fr 260px', gap: 0, overflow: 'hidden' }}>
             {/* Left panel */}
             <div style={{ background: '#fff', borderRight: '1px solid #E2E8F0', overflowY: 'auto', padding: '16px' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Sections disponibles</div>
-              {CATALOGUE.map(cat => {
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Sections disponibles</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10, padding: '5px 8px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#FAFBFC' }}>
+                <Search size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                <input
+                  value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)}
+                  placeholder="Filtrer les sections…"
+                  style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: '#334155', outline: 'none' }}
+                />
+                {catalogSearch && (
+                  <button onClick={() => setCatalogSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, color: '#94A3B8', display: 'flex', alignItems: 'center' }}><X size={11} /></button>
+                )}
+              </div>
+              {CATALOGUE.filter(cat => !catalogSearch.trim() || cat.label.toLowerCase().includes(catalogSearch.toLowerCase()) || cat.desc.toLowerCase().includes(catalogSearch.toLowerCase())).map(cat => {
                 const added = sections.some(s => s.type === cat.type);
                 return (
                   <div key={cat.type} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px', borderRadius: 8, marginBottom: 6, border: '1px solid #E2E8F0', background: added ? '#F8FAFC' : '#fff', opacity: added ? 0.6 : 1, cursor: added ? 'default' : 'pointer' }}
@@ -1023,9 +1036,9 @@ export default function StudioRapports() {
                         <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{cat?.desc}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button onClick={() => moveSection(sec.id, 'up')} disabled={i === 0} style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: i === 0 ? '#F1F5F9' : '#EFF6FF', cursor: i === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: i === 0 ? '#CBD5E1' : NAVY }}><ArrowUp size={12} /></button>
-                        <button onClick={() => moveSection(sec.id, 'down')} disabled={i === sections.length - 1} style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: i === sections.length - 1 ? '#F1F5F9' : '#EFF6FF', cursor: i === sections.length - 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: i === sections.length - 1 ? '#CBD5E1' : NAVY }}><ArrowDown size={12} /></button>
-                        <button onClick={() => removeSection(sec.id)} style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: RED }}><Trash2 size={12} /></button>
+                        <button onClick={() => moveSection(sec.id, 'up')} disabled={i === 0} aria-label="Monter la section" style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: i === 0 ? '#F1F5F9' : '#EFF6FF', cursor: i === 0 ? 'not-allowed' : 'pointer', opacity: i === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: i === 0 ? '#CBD5E1' : NAVY }}><ArrowUp size={12} /></button>
+                        <button onClick={() => moveSection(sec.id, 'down')} disabled={i === sections.length - 1} aria-label="Descendre la section" style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: i === sections.length - 1 ? '#F1F5F9' : '#EFF6FF', cursor: i === sections.length - 1 ? 'not-allowed' : 'pointer', opacity: i === sections.length - 1 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: i === sections.length - 1 ? '#CBD5E1' : NAVY }}><ArrowDown size={12} /></button>
+                        <button onClick={() => removeSection(sec.id)} aria-label="Supprimer la section" style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: RED }}><Trash2 size={12} /></button>
                       </div>
                     </div>
                     <div style={{ padding: '12px 14px', fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>
@@ -1179,7 +1192,7 @@ ${sections.map((s,i) => {
                   <Download size={13} /> {btn.label}
                 </button>
               ))}
-              <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => toast.info('Envoi automatique mensuel — configuration disponible dans les paramètres du rapport.')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <Clock size={13} /> Envoi automatique mensuel
               </button>
             </div>

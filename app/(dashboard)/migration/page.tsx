@@ -10,12 +10,14 @@ import { useRouter } from 'next/navigation';
 import {
   Upload, FileText, Brain, CheckCircle, Rocket,
   ChevronRight, ChevronLeft, X, FilePlus, Loader2,
-  AlertTriangle, FolderOpen, RefreshCw,
+  AlertTriangle, FolderOpen, RefreshCw, Key, Eye, EyeOff,
 } from 'lucide-react';
-import { analyzeDocuments, generateProjectStructure, computeConfidence } from '@/lib/migration/engine';
+import { analyzeDocuments, generateProjectStructure, computeConfidence, extractBITCode } from '@/lib/migration/engine';
 import type { MigrationDocument, MigrationProject, MigrationStep, ExtractedData } from '@/lib/migration/types';
 import { listZipEntries, isArchive, isZip } from '@/lib/migration/zip';
 import { swarmAnalyze, swarmFinalize, swarmProjectToExtracted, type SwarmImmobilisation } from '@/lib/migration/backend';
+import { runSwarm, groqAvailable, getGroqKey } from '@/lib/migration/llmSwarm';
+import { extractZipContents, zipFilesToSwarmDocs, getArchiveType } from '@/lib/migration/zipExtract';
 import { useProjectStore, type Domaine, type Projet } from '@/lib/projectStore';
 import { useAuth } from '@/lib/authStore';
 import { extractFileText } from '@/lib/docText';
@@ -118,6 +120,21 @@ export default function MigrationPage() {
   const [createdId, setCreatedId] = useState<string>('');
   // Champs acceptés par l'humain lors d'une MISE À JOUR d'un projet existant.
   const [acceptedFields, setAcceptedFields] = useState<Record<string, boolean>>({});
+  const [zipProgress, setZipProgress] = useState<string>('');
+  const [swarmProgress, setSwarmProgress] = useState<string>('');
+  const [swarmModel, setSwarmModel] = useState<string>('');
+  // Clé Groq saisie directement dans l'UI (prioritaire sur la variable d'env).
+  // Initialisation : localStorage en priorité, puis variable d'environnement.
+  const [customGroqKey, setCustomGroqKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('sigepp_groq_key') || '';
+      if (stored.startsWith('gsk_')) return stored;
+    }
+    // Repli sur la variable d'env si aucune clé stockée dans le navigateur
+    const envKey = getGroqKey();
+    return envKey || '';
+  });
+  const [showGroqKey, setShowGroqKey] = useState(false);
 
   const currentStep = STEPS[step];
 
@@ -128,7 +145,10 @@ export default function MigrationPage() {
   //    Si le document migré porte un code projet qui existe déjà, on propose une
   //    MISE À JOUR (human-in-the-loop) plutôt qu'une création en double.
   const existingMatch = useMemo<Projet | null>(() => {
-    const code = normCode(extracted?.projectCode);
+    // Recherche par code BIT (prioritaire) puis par projectCode
+    const bitCode  = normCode(extracted?.codeBIT);
+    const projCode = normCode(extracted?.projectCode);
+    const code = bitCode.length >= 4 ? bitCode : projCode;
     if (!code || code.length < 4) return null;
     return store.projets.find(p => normCode(p.code) === code) || null;
   }, [extracted, store.projets]);
@@ -186,41 +206,57 @@ export default function MigrationPage() {
     setError('');
     const newDocs: MigrationDocument[] = [];
     const mkId = () => `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    // On conserve les fichiers RÉELS pour les envoyer au swarm backend (OCR/extraction).
     setRawFiles(prev => [...prev, ...Array.from(files)]);
 
     for (const file of Array.from(files)) {
-      // 1) Archive ZIP : on déplie le dossier projet → 1 document par fichier contenu
-      if (isZip(file.name)) {
+      const archType = getArchiveType(file);
+
+      // 1) Archive ZIP → extraction complète du contenu (textes lisibles)
+      if (archType === 'zip') {
         try {
-          const entries = await listZipEntries(file);
-          if (entries.length === 0) throw new Error('archive vide');
-          for (const e of entries) {
-            const base = e.name.split('/').pop() || e.name;
+          setZipProgress(`Décompression ${file.name}…`);
+          const extracted = await extractZipContents(file, (done, total) => {
+            setZipProgress(`Extraction ${file.name} : ${done}/${total} fichiers…`);
+          });
+          setZipProgress('');
+          if (extracted.length === 0) throw new Error('archive vide');
+          // Entrée archive (pour avoir le nom dans le swarm)
+          newDocs.push({
+            id: mkId(), name: `[ZIP] ${file.name}`, type: 'other',
+            size: file.size, url: '',
+            uploadedAt: new Date().toISOString(), status: 'analyzed',
+            extractedText: extracted.map(f => `${f.basename}: ${f.text.slice(0, 200)}`).join('\n'),
+          });
+          // Un document virtuel par fichier extrait (avec texte réel)
+          for (const ef of extracted) {
+            if (!ef.isText || ef.text.trim().length < 20) continue;
             newDocs.push({
-              id: mkId(), name: base, type: inferDocType(base, ''),
-              size: e.uncompressedSize, url: '',
+              id: mkId(), name: ef.basename, type: inferDocType(ef.basename, ''),
+              size: ef.size, url: '',
               uploadedAt: new Date().toISOString(), status: 'uploaded',
+              extractedText: ef.text,
             });
           }
           continue;
-        } catch {
-          setError(`Impossible de lire l'archive ${file.name} (ZIP64 non géré). Elle sera traitée comme un lot à extraire côté serveur.`);
-          // repli → traitée comme bundle ci-dessous
+        } catch (zipErr) {
+          setZipProgress('');
+          setError(`ZIP ${file.name} : extraction partielle — ${(zipErr as Error).message}`);
+          // Continue avec le ZIP comme bundle
         }
       }
 
-      // 2) RAR / 7z (ou ZIP illisible) : lot transmis pour extraction back-end
-      if (isArchive(file.name)) {
+      // 2) RAR / 7z → liste les noms (extraction impossible côté navigateur)
+      if (archType === 'rar' || archType === '7z') {
         newDocs.push({
           id: mkId(), name: file.name, type: 'other',
           size: file.size, url: URL.createObjectURL(file),
           uploadedAt: new Date().toISOString(), status: 'uploaded',
+          extractedText: `[Archive ${archType.toUpperCase()}] ${file.name} — ${(file.size/1024/1024).toFixed(1)} Mo. Extraction côté serveur requise.`,
         });
         continue;
       }
 
-      // 3) Document simple
+      // 3) Document simple (PDF, DOCX, XLSX, etc.)
       newDocs.push({
         id: mkId(), name: file.name, type: inferDocType(file.name, file.type),
         size: file.size, url: URL.createObjectURL(file),
@@ -238,11 +274,57 @@ export default function MigrationPage() {
     if (docs.length === 0) { setError('Veuillez charger au moins un document.'); return; }
     setLoading(true);
     setError('');
+    setSwarmProgress('Initialisation du swarm IA…');
     try {
-      // 1) PRIORITÉ : Swarm multi-agents backend (LangGraph + OCR open source).
-      //    Plusieurs agents (document intelligence, planificateur, QA, comptable
-      //    immobilisations DAIC…) exploitent les fichiers réels.
+      // ── Prépare les documents avec leur texte extrait pour le swarm ──
+      const fileTexts = await Promise.all(
+        rawFiles.map(async f => {
+          const txt = await extractFileText(f).catch(() => undefined);
+          return { name: f.name, text: txt };
+        })
+      );
+      const textByName = new Map(fileTexts.map(ft => [ft.name, ft.text]));
+
+      // Construit les docs swarm (nom + texte) depuis :
+      //   - les MigrationDocuments (qui ont extractedText pour les ZIP déjà traités)
+      //   - le texte extrait des rawFiles
+      const swarmDocs: { name: string; text: string }[] = docs.map(d => ({
+        name: d.name,
+        text: d.extractedText
+          || textByName.get(d.name)
+          || `Document: ${d.name.replace(/\.[^.]+$/, '')}`,
+      }));
+
+      // ── PRIORITÉ 1 : Swarm Groq LangGraph (multi-agents, client-side) ──
+      // Clé prioritaire : saisie UI > variable d'env NEXT_PUBLIC_GROQ_API_KEY
+      const groqKey = (customGroqKey.trim().startsWith('gsk_') ? customGroqKey.trim() : '') || getGroqKey();
+      if (await groqAvailable(groqKey)) {
+        try {
+          setSwarmProgress('Swarm Groq LangGraph — classification…');
+          const result = await runSwarm(swarmDocs, groqKey, (step, pct) => {
+            setSwarmProgress(`Swarm Groq — ${step} (${pct}%)`);
+          });
+          setSwarmProgress('');
+          setSwarmModel(result.modelUsed);
+          setExtracted(result.extracted);
+          setProject(generateProjectStructure(result.extracted));
+          setSwarmState(null);
+          setImmos([]);
+          setEngineLabel(
+            `🤖 Swarm LangGraph · Groq ${result.modelUsed} · ` +
+            `${result.confidence}% confiance · 5 agents parallèles`
+          );
+          setStep(2);
+          return;
+        } catch (groqErr) {
+          console.warn('[Migration] Groq swarm failed, trying backend:', groqErr);
+          setSwarmProgress('Groq indisponible — essai backend swarm…');
+        }
+      }
+
+      // ── PRIORITÉ 2 : Backend FastAPI swarm (LangGraph Python) ──
       try {
+        setSwarmProgress('Backend swarm (FastAPI LangGraph)…');
         const res = await swarmAnalyze(rawFiles);
         const data = swarmProjectToExtracted(res);
         setExtracted(data);
@@ -252,43 +334,38 @@ export default function MigrationPage() {
         const eng = res.engine || {};
         setEngineLabel(
           `Swarm ${eng.langgraph ? 'LangGraph' : 'séquentiel'} · LLM: ${eng.llm_backend || 'n/a'} · ` +
-          `${(res.qa?.confidence ?? 0)}% confiance · ${(res.immobilisations || []).length} immobilisation(s) DAIC`
+          `${res.qa?.confidence ?? 0}% confiance · ${(res.immobilisations || []).length} immo(s) DAIC`
         );
+        setSwarmProgress('');
         setStep(2);
         return;
       } catch {
-        // 2) REPLI : moteur heuristique local (backend indisponible).
-        setEngineLabel('Mode local (backend swarm indisponible) — extraction heuristique');
+        setSwarmProgress('Backend indisponible — extraction heuristique locale…');
       }
-      // Extraction RÉELLE du texte des fichiers chargés (PDF, Word, Excel, texte)
-      // côté navigateur, pour que le moteur heuristique exploite le contenu réel.
-      const fileTexts = await Promise.all(
-        rawFiles.map(async f => {
-          const txt = await extractFileText(f).catch(() => undefined);
-          return { name: f.name, text: txt };
-        })
-      );
-      const textByName = new Map(fileTexts.map(ft => [ft.name, ft.text]));
+
+      // ── PRIORITÉ 3 : Moteur heuristique local (fallback final) ──
       const docsWithText = docs.map(d => ({
         ...d,
-        extractedText: textByName.get(d.name)
-          || `Projet : ${d.name.replace(/\.[^.]+$/, '')}`,
+        extractedText: d.extractedText || textByName.get(d.name) || `Projet : ${d.name.replace(/\.[^.]+$/, '')}`,
       }));
       const data = await analyzeDocuments(docsWithText);
-      if (fileTexts.some(ft => ft.text && ft.text.length > 40)) {
-        setEngineLabel('Mode local — extraction client (PDF/Word/Excel) du contenu réel des documents');
-      }
       setExtracted(data);
       setProject(generateProjectStructure(data));
       setSwarmState(null);
       setImmos([]);
+      setEngineLabel(
+        `Mode heuristique local · ${computeConfidence(data)}% confiance ` +
+        `(configurez NEXT_PUBLIC_GROQ_API_KEY pour activer le swarm LLM)`
+      );
+      setSwarmProgress('');
       setStep(2);
     } catch (e: any) {
       setError(e.message || 'Erreur lors de l\'analyse');
+      setSwarmProgress('');
     } finally {
       setLoading(false);
     }
-  }, [docs, rawFiles]);
+  }, [docs, rawFiles, customGroqKey]);
 
   // ── Création RÉELLE du projet dans SIGEPP à partir des données extraites ──
   const createInStore = useCallback((): string => {
@@ -301,7 +378,9 @@ export default function MigrationPage() {
       const debut = toISODate(ex.startDate, today);
       const fin = toISODate(ex.endDate, `${new Date().getFullYear() + 2}-12-31`);
       const domaine = inferDomaine(ex.projectType, ex.projectName, ex.location);
-      const code = (ex.projectCode && ex.projectCode.trim())
+      // Priorité : codeBIT (clé unique SENELEC) → projectCode → auto-généré
+      const code = (ex.codeBIT && ex.codeBIT.trim())
+        || (ex.projectCode && ex.projectCode.trim())
         || `PRJ-MIG-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
       const nouveau: Omit<Projet, 'id' | 'dateCreation' | 'dateModification' | 'taches'> = {
@@ -363,7 +442,7 @@ export default function MigrationPage() {
     const fin = toISODate(ex.endDate, `${new Date().getFullYear() + 2}-12-31`);
     const domaine = inferDomaine(ex.projectType, ex.projectName, ex.location);
     const baseNom = ex.projectName || project.name || 'Projet migré';
-    const baseCode = (ex.projectCode && ex.projectCode.trim()) || `PRJ-MIG-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    const baseCode = (ex.codeBIT && ex.codeBIT.trim()) || (ex.projectCode && ex.projectCode.trim()) || `PRJ-MIG-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
     const rawTotal = ex.budget ?? 0;
     const totalM = rawTotal >= 1_000_000 ? Math.round(rawTotal / 1_000_000) : Math.round(rawTotal);
     let firstId = '';
@@ -531,7 +610,7 @@ export default function MigrationPage() {
                       <FileText size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
                       <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
                       <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{(d.size / 1024).toFixed(0)} ko</span>
-                      <button onClick={() => removeDoc(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
+                      <button onClick={() => removeDoc(d.id)} title={`Supprimer ${d.name}`} aria-label={`Supprimer le document ${d.name}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
                         <X size={14} />
                       </button>
                     </div>
@@ -541,7 +620,13 @@ export default function MigrationPage() {
             )}
           </div>
           <div className="card-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button className="btn btn-primary" onClick={() => setStep(1)} disabled={docs.length === 0}>
+            <button
+              className="btn btn-primary"
+              onClick={() => setStep(1)}
+              disabled={docs.length === 0}
+              title={docs.length === 0 ? 'Chargez au moins un document pour continuer' : 'Passer à l\'analyse IA'}
+              style={docs.length === 0 ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+            >
               Continuer <ChevronRight size={14} />
             </button>
           </div>
@@ -555,20 +640,89 @@ export default function MigrationPage() {
             {loading ? (
               <>
                 <Loader2 size={48} style={{ color: 'var(--primary)', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-                <div style={{ fontSize: 16, fontWeight: 700 }}>L'IA analyse vos documents…</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                  Extraction OCR • Classification • Détection des clauses • Génération WBS
-                </div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>Swarm IA en cours…</div>
+                {zipProgress && (
+                  <div style={{ fontSize: 12, color: '#7C3AED', marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                    <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> {zipProgress}
+                  </div>
+                )}
+                {swarmProgress && (
+                  <div style={{ fontSize: 12, color: '#1D4ED8', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                    <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                    {swarmProgress}
+                    {swarmModel && <span style={{ color: '#64748B' }}>· {swarmModel}</span>}
+                  </div>
+                )}
+                {!zipProgress && !swarmProgress && (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                    5 agents parallèles : Classification • Extraction projet • Budget • Risques • QA
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <Brain size={48} style={{ color: 'var(--primary)', margin: '0 auto 16px' }} />
-                <div style={{ fontSize: 16, fontWeight: 700 }}>Prêt pour l'analyse IA</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, marginBottom: 20 }}>
-                  {docs.length} document(s) seront analysés pour extraire automatiquement la structure du projet.
+                <div style={{ fontSize: 16, fontWeight: 700 }}>Swarm LangGraph prêt</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, marginBottom: 4 }}>
+                  {docs.length} document(s) · 5 agents IA (Groq llama-3.3-70b → fallback heuristique)
                 </div>
+                <div style={{ fontSize: 11, color: '#7C3AED', marginBottom: 20 }}>
+                  ZIP/RAR déjà décompressés · PDF texte extrait · Codes BIT extraits · Confiance cible ≥ 95%
+                </div>
+
+                {/* Groq API Key Input */}
+                <div style={{
+                  background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10,
+                  padding: '14px 16px', marginBottom: 20, textAlign: 'left',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <Key size={13} style={{ color: '#F47920' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>Clé API Groq</span>
+                    {customGroqKey.trim().startsWith('gsk_') && (
+                      <span style={{ fontSize: 9, fontWeight: 800, color: '#059669',
+                        background: '#D1FAE5', padding: '1px 6px', borderRadius: 99 }}>CONFIGURÉE</span>
+                    )}
+                    {!customGroqKey.trim().startsWith('gsk_') && (
+                      <span style={{ fontSize: 9, fontWeight: 800, color: '#DC2626',
+                        background: '#FEE2E2', padding: '1px 6px', borderRadius: 99 }}>FALLBACK HEURISTIQUE</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input
+                      type={showGroqKey ? 'text' : 'password'}
+                      value={customGroqKey}
+                      onChange={e => {
+                        setCustomGroqKey(e.target.value);
+                        try { localStorage.setItem('sigepp_groq_key', e.target.value); } catch { /* quota */ }
+                      }}
+                      placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
+                      style={{
+                        flex: 1, padding: '7px 10px', fontSize: 12, fontFamily: 'monospace',
+                        border: '1px solid #CBD5E1', borderRadius: 6, background: '#fff',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGroqKey(v => !v)}
+                      style={{ padding: '7px 8px', background: '#E2E8F0', border: 'none',
+                        borderRadius: 6, cursor: 'pointer', color: '#374151' }}
+                    >
+                      {showGroqKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#64748B', marginTop: 5 }}>
+                    Obtenez une clé gratuite sur{' '}
+                    <span style={{ color: '#3B82F6' }}>console.groq.com/keys</span>
+                    {' '}· Sauvegardée dans le navigateur
+                  </div>
+                </div>
+
                 <button className="btn btn-primary" onClick={runAnalysis}>
-                  <Brain size={14} /> Lancer l'analyse IA
+                  <Brain size={14} /> Lancer le swarm IA
+                  {customGroqKey.trim().startsWith('gsk_') && (
+                    <span style={{ fontSize: 10, opacity: 0.85, marginLeft: 4 }}>· Groq llama-3.3-70b</span>
+                  )}
                 </button>
               </>
             )}
@@ -592,14 +746,24 @@ export default function MigrationPage() {
                 <Brain size={14} /> {engineLabel}
               </div>
             )}
+            {/* Code BIT — clé unique SENELEC */}
+            {extracted.codeBIT && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
+                background: '#FFF7ED', border: '2px solid #F47920', borderRadius: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#F47920', textTransform: 'uppercase' }}>Code BIT</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: '#C2410C', fontFamily: 'monospace' }}>{extracted.codeBIT}</span>
+                <span style={{ fontSize: 10, color: '#9A3412', marginLeft: 4 }}>Clé unique SENELEC/DPE</span>
+              </div>
+            )}
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Nom du projet</label>
                 <input className="form-input" value={extracted.projectName ?? ''} readOnly />
               </div>
               <div className="form-group">
-                <label className="form-label">Code projet</label>
-                <input className="form-input" value={extracted.projectCode ?? 'AUTO-' + Date.now().toString(36).toUpperCase()} readOnly />
+                <label className="form-label">Code BIT / Projet</label>
+                <input className="form-input" value={extracted.codeBIT || extracted.projectCode || 'AUTO-' + Date.now().toString(36).toUpperCase()} readOnly
+                  style={{ fontFamily: 'monospace', fontWeight: 700, color: '#C2410C' }} />
               </div>
               <div className="form-group">
                 <label className="form-label">Budget estimé</label>
@@ -675,10 +839,10 @@ export default function MigrationPage() {
             )}
           </div>
           <div className="card-footer" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setStep(1)}>
+            <button className="btn btn-secondary" onClick={() => setStep(1)} title="Retourner à l'étape d'analyse IA">
               <ChevronLeft size={14} /> Retour analyse
             </button>
-            <button className="btn btn-primary" onClick={() => setStep(3)}>
+            <button className="btn btn-primary" onClick={() => setStep(3)} title="Passer à la validation humaine">
               Valider et continuer <ChevronRight size={14} />
             </button>
           </div>

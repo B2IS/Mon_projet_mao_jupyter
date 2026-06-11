@@ -186,7 +186,7 @@ function TachesPanel({ projet, taches, canEdit }: { projet: Projet; taches: Tach
             <label style={lbl}>Durée (j)</label>
             <input type="number" min={1} value={duree} onChange={e => setDuree(Math.max(1, Number(e.target.value)))} style={inp} />
           </div>
-          <button onClick={addTache} disabled={!nom.trim()} style={{ ...btnPrimary, opacity: nom.trim() ? 1 : 0.5 }}>
+          <button onClick={addTache} disabled={!nom.trim()} title={nom.trim() ? 'Ajouter la tâche' : 'Saisissez un nom de tâche'} style={{ ...btnPrimary, opacity: nom.trim() ? 1 : 0.5, cursor: nom.trim() ? 'pointer' : 'not-allowed' }}>
             <Plus size={14} /> Ajouter
           </button>
         </div>
@@ -227,6 +227,8 @@ function TachesPanel({ projet, taches, canEdit }: { projet: Projet; taches: Tach
                   style={{ ...cellInp, width: 56, textAlign: 'center' }} /></td>
                 {canEdit && <td style={{ ...td, textAlign: 'center' }}>
                   <button onClick={() => { if (confirm(`Supprimer « ${t.nom} » ?`)) { deleteTache(projet.id, t.id); toast.success('Tâche supprimée'); } }}
+                    aria-label={`Supprimer la tâche ${t.nom}`}
+                    title="Supprimer cette tâche"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}><Trash2 size={14} /></button>
                 </td>}
               </tr>
@@ -294,7 +296,7 @@ function RessourcesPanel({ projet, taches, canEdit }: { projet: Projet; taches: 
               <label style={lbl}>Allocation %</label>
               <input type="number" min={0} max={100} value={alloc} onChange={e => setAlloc(Math.max(0, Math.min(100, Number(e.target.value))))} style={inp} />
             </div>
-            <button onClick={affecter} disabled={!ressId} style={{ ...btnPrimary, opacity: ressId ? 1 : 0.5 }}><Plus size={14} /> Affecter</button>
+            <button onClick={affecter} disabled={!ressId} title={ressId ? 'Affecter la ressource à la tâche' : 'Sélectionnez une ressource'} style={{ ...btnPrimary, opacity: ressId ? 1 : 0.5, cursor: ressId ? 'pointer' : 'not-allowed' }}><Plus size={14} /> Affecter</button>
           </div>
         </div>
       )}

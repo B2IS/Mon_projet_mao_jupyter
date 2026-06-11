@@ -1,6 +1,8 @@
 'use client';
 
 import Sidebar from '@/components/layout/Sidebar';
+import TempsTracker from '@/components/layout/TempsTracker';
+import AlertNotifier from '@/components/layout/AlertNotifier';
 import { SidebarContext } from '@/lib/sidebarContext';
 import { ProjectStoreProvider } from '@/lib/projectStore';
 import { I18nProvider } from '@/lib/i18n/I18nContext';
@@ -17,6 +19,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <ProjectStoreProvider>
     <SidebarContext.Provider value={{ open, toggle: () => setOpen(o => !o), close: () => setOpen(false) }}>
       <div className="app-shell">
+        <TempsTracker />
+        <AlertNotifier />
         <Sidebar />
         <div className="app-main">
           {children}

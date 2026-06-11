@@ -452,7 +452,7 @@ export default function Cartographie() {
             <button onClick={handleExportPNG} className="btn btn-sm" style={{ background: 'transparent', border: '1px solid var(--green)', color: 'var(--green)', justifyContent: 'center', fontSize: 11 }}>
               <Download size={10} /> Export PNG
             </button>
-            <button onClick={handleRefresh} disabled={refreshing} className="btn btn-sm" style={{ background: refreshing ? '#EFF6FF' : 'transparent', border: '1px solid #7C3AED', color: '#7C3AED', justifyContent: 'center', fontSize: 11 }}>
+            <button onClick={handleRefresh} disabled={refreshing} className="btn btn-sm" style={{ background: refreshing ? '#EFF6FF' : 'transparent', border: '1px solid #7C3AED', color: '#7C3AED', justifyContent: 'center', fontSize: 11, cursor: refreshing ? 'not-allowed' : 'pointer', opacity: refreshing ? 0.6 : 1 }}>
               <RefreshCw size={10} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
               {refreshing ? 'Actualisation...' : lastRefresh ? `Actualisé ${lastRefresh}` : 'Actualiser carte'}
             </button>
@@ -493,7 +493,7 @@ export default function Cartographie() {
             style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #E2E8F0' }}>
               <span style={{ fontSize: 15, fontWeight: 800, color: '#7C3AED' }}>🗺 Configuration ArcGIS — SIG SENELEC</span>
-              <button onClick={() => setShowArcgisConfig(false)} style={{ background: '#F1F5F9', border: 'none', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', display: 'grid', placeItems: 'center' }}><X size={15} /></button>
+              <button onClick={() => setShowArcgisConfig(false)} aria-label="Fermer la configuration ArcGIS" style={{ background: '#F1F5F9', border: 'none', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', display: 'grid', placeItems: 'center' }}><X size={15} /></button>
             </div>
             <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <p style={{ fontSize: 11.5, color: '#64748B', margin: 0, lineHeight: 1.5 }}>
@@ -642,7 +642,7 @@ export default function Cartographie() {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: 9, fontWeight: 700, color: STATUS_COLOR[selectedPin.status] }}>{selectedPin.code}</span>
-                  <button onClick={() => setSelectedPin(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)', padding: 0 }}><X size={12} /></button>
+                  <button onClick={() => setSelectedPin(null)} aria-label="Fermer la fiche projet" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)', padding: 0 }}><X size={12} /></button>
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', marginBottom: 4 }}>{selectedPin.nom}</div>
                 <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 6 }}><MapPin size={9} style={{ verticalAlign: 'middle' }} /> {selectedPin.region}</div>

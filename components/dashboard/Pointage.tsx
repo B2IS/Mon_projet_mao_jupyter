@@ -12,7 +12,7 @@ import { useAuth, DEMO_ACCOUNTS, type RoleCode } from '@/lib/authStore';
 import { useNotificationStore } from '@/lib/notificationStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import toast from 'react-hot-toast';
-import { Clock, Plus, Trash2, Send, FileDown, CheckCircle2, X } from 'lucide-react';
+import { Clock, Plus, Trash2, Send, FileDown, CheckCircle2, X, Search } from 'lucide-react';
 
 /** Destinataires (email) d'un rôle donné — pour notifier l'étape suivante du circuit. */
 function recipientsForRole(...roles: RoleCode[]): { nom: string; email: string }[] {
@@ -45,10 +45,23 @@ export default function Pointage() {
   const canValiderDept = isRole('CHEF_DEPT', 'ADMIN');
   const isUAGL = isRole('RESP_LOG', 'ADMIN');
 
+  const [bulletinSearch, setBulletinSearch] = useState('');
+
   const mesBulletins = useMemo(() => store.bulletins.filter(b => b.auteurEmail === myEmail), [store.bulletins, myEmail]);
   const aValiderCP = useMemo(() => store.bulletins.filter(b => b.statut === 'soumis_cp'), [store.bulletins]);
   const aValiderDept = useMemo(() => store.bulletins.filter(b => b.statut === 'valide_cp'), [store.bulletins]);
   const aTraiterUAGL = useMemo(() => store.bulletins.filter(b => b.statut === 'valide_dept' || b.statut === 'soumis_uagl'), [store.bulletins]);
+
+  const filterBulletins = (list: typeof mesBulletins) => {
+    if (!bulletinSearch.trim()) return list;
+    const q = bulletinSearch.toLowerCase();
+    return list.filter(b =>
+      `${b.prenom} ${b.nom}`.toLowerCase().includes(q) ||
+      b.mois.toLowerCase().includes(q) ||
+      String(b.annee).includes(q) ||
+      STATUTS[b.statut]?.label.toLowerCase().includes(q)
+    );
+  };
   const sel = store.bulletins.find(b => b.id === selId);
 
   const nouveau = () => {
@@ -74,26 +87,39 @@ export default function Pointage() {
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {/* Liste */}
         <div style={{ width: 280, flexShrink: 0 }}>
-          <SectionTitle>Mes bulletins ({mesBulletins.length})</SectionTitle>
-          {mesBulletins.length === 0 && <div style={{ color: '#94A3B8', fontSize: 12.5, padding: 8 }}>Aucun bulletin.</div>}
-          {mesBulletins.map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} />)}
+          {/* Search bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', marginBottom: 8, borderRadius: 8, border: '1px solid #E2E8F0', background: '#FAFBFC' }}>
+            <Search size={13} style={{ color: '#94A3B8', flexShrink: 0 }} />
+            <input
+              value={bulletinSearch} onChange={e => setBulletinSearch(e.target.value)}
+              placeholder="Rechercher un bulletin…"
+              style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: '#334155', outline: 'none' }}
+            />
+            {bulletinSearch && (
+              <button onClick={() => setBulletinSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#94A3B8', display: 'flex', alignItems: 'center' }}><X size={11} /></button>
+            )}
+          </div>
 
-          {canValiderCP && aValiderCP.length > 0 && (
+          <SectionTitle>Mes bulletins ({filterBulletins(mesBulletins).length}{bulletinSearch ? `/${mesBulletins.length}` : ''})</SectionTitle>
+          {filterBulletins(mesBulletins).length === 0 && <div style={{ color: '#94A3B8', fontSize: 12.5, padding: 8 }}>{bulletinSearch ? 'Aucun résultat.' : 'Aucun bulletin.'}</div>}
+          {filterBulletins(mesBulletins).map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} />)}
+
+          {canValiderCP && filterBulletins(aValiderCP).length > 0 && (
             <>
-              <SectionTitle>À valider (Chef de Projet) — {aValiderCP.length}</SectionTitle>
-              {aValiderCP.map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} valider />)}
+              <SectionTitle>À valider (Chef de Projet) — {filterBulletins(aValiderCP).length}</SectionTitle>
+              {filterBulletins(aValiderCP).map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} valider />)}
             </>
           )}
-          {canValiderDept && aValiderDept.length > 0 && (
+          {canValiderDept && filterBulletins(aValiderDept).length > 0 && (
             <>
-              <SectionTitle>À valider (Chef de Département) — {aValiderDept.length}</SectionTitle>
-              {aValiderDept.map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} valider />)}
+              <SectionTitle>À valider (Chef de Département) — {filterBulletins(aValiderDept).length}</SectionTitle>
+              {filterBulletins(aValiderDept).map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} valider />)}
             </>
           )}
-          {isUAGL && aTraiterUAGL.length > 0 && (
+          {isUAGL && filterBulletins(aTraiterUAGL).length > 0 && (
             <>
-              <SectionTitle>À traiter (Service des Salaires) — {aTraiterUAGL.length}</SectionTitle>
-              {aTraiterUAGL.map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} valider />)}
+              <SectionTitle>À traiter (Service des Salaires) — {filterBulletins(aTraiterUAGL).length}</SectionTitle>
+              {filterBulletins(aTraiterUAGL).map(b => <BulletinCard key={b.id} b={b} active={b.id === selId} onClick={() => setSelId(b.id)} valider />)}
             </>
           )}
         </div>

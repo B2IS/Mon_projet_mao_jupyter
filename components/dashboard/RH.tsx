@@ -474,8 +474,8 @@ export default function RH() {
                               autoFocus
                               style={{ width: 80, fontSize: 12, padding: '2px 6px', border: `1px solid ${NAVY}`, borderRadius: 4 }}
                             />
-                            <button onClick={commitInline} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GREEN }}><Check size={13} /></button>
-                            <button onClick={() => setInlineEdit(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: RED }}><X size={13} /></button>
+                            <button aria-label="Confirmer la modification" onClick={commitInline} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GREEN }}><Check size={13} /></button>
+                            <button aria-label="Annuler la modification" onClick={() => setInlineEdit(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: RED }}><X size={13} /></button>
                           </div>
                         ) : (
                           <span
@@ -500,8 +500,8 @@ export default function RH() {
                               autoFocus
                               style={{ width: 60, fontSize: 12, padding: '2px 6px', border: `1px solid ${NAVY}`, borderRadius: 4 }}
                             />
-                            <button onClick={commitInline} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GREEN }}><Check size={13} /></button>
-                            <button onClick={() => setInlineEdit(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: RED }}><X size={13} /></button>
+                            <button aria-label="Confirmer la modification" onClick={commitInline} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GREEN }}><Check size={13} /></button>
+                            <button aria-label="Annuler la modification" onClick={() => setInlineEdit(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: RED }}><X size={13} /></button>
                           </div>
                         ) : (
                           <span

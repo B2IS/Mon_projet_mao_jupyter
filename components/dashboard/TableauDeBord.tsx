@@ -18,6 +18,7 @@ import {
   Zap, Flag, BarChart3, AlertCircle, CheckCircle2,
   CircleDot, RefreshCw, Calendar, Users, X,
   DollarSign, Activity, Target, Layers, Fuel,
+  Cable, Gauge, Building2, ShieldCheck, Check,
 } from 'lucide-react';
 import { downloadExcel } from '@/lib/exportUtils';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
@@ -104,7 +105,7 @@ function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void
                 </span>
               </div>
             </div>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 7, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}>
+            <button onClick={onClose} aria-label="Fermer le détail du projet" style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 7, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}>
               <X size={14} />
             </button>
           </div>
@@ -200,7 +201,7 @@ function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void
               Ouvrir le cockpit <ArrowUpRight size={13} />
             </button>
           </Link>
-          <button style={{ padding: '8px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <button onClick={() => toast('Téléchargement de la fiche PDF du projet à venir.', { icon: 'ℹ️' })} style={{ padding: '8px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
             <Download size={13} /> Fiche
           </button>
         </div>
@@ -475,7 +476,7 @@ export default function TableauDeBord() {
                 <script>window.onload=()=>window.print()</script>
               </body></html>`);
               w.document.close();
-            }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
+            }} aria-label="Exporter le tableau de bord en PDF" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={13} /> PDF
             </button>
             <button onClick={() => {
@@ -486,11 +487,11 @@ export default function TableauDeBord() {
                 headers: ['Code', 'Projet', 'Avancement', 'CPI', 'SPI', 'Domaine', 'Budget prévu', 'Budget décaissé', 'Statut'],
                 rows: metrics.filtered.map(p => [p.code ?? '', p.nom, p.avancement, +p.cpi.toFixed(2), +p.spi.toFixed(2), p.domaine, p.budget, p.budgetDecaisse, p.statut]),
               });
-            }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
+            }} aria-label="Exporter le tableau de bord en Excel" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={13} /> Excel
             </button>
             </>)}
-            <button onClick={handleRefresh} disabled={refreshing} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, border: 'none', background: C.navy, fontSize: 12.5, color: '#fff', cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit', fontWeight: 700, opacity: refreshing ? 0.75 : 1 }}>
+            <button onClick={handleRefresh} disabled={refreshing} aria-label="Actualiser le tableau de bord" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, border: 'none', background: C.navy, fontSize: 12.5, color: '#fff', cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit', fontWeight: 700, opacity: refreshing ? 0.75 : 1 }}>
               <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.6s linear infinite' : undefined }} /> {refreshing ? 'Actualisation…' : 'Actualiser'}
             </button>
           </div>
@@ -500,14 +501,14 @@ export default function TableauDeBord() {
         {!isSupportProfile && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, padding: '12px 24px 0', overflow: 'hidden' }}>
           {[
-            { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false },
-            { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false },
-            { label: 'Avancement moyen',      value: fmtPct(metrics.avgAv),           sub: isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille global' : 'Mon périmètre', color: C.purple, icon: <Target   size={15} style={{ color: C.purple }} />, alert: false },
-            { label: 'Projets critiques',     value: String(metrics.alertes),         sub: 'CPI < 0.90 ou SPI < 0.85',        color: metrics.alertes > 0 ? C.red : C.green, icon: <AlertTriangle size={15} style={{ color: metrics.alertes > 0 ? C.red : C.green }} />, alert: metrics.alertes > 0 },
-            { label: 'Arbitrages en attente', value: String(arbitrages.length),        sub: 'Décisions requises',               color: C.amber,  icon: <Zap      size={15} style={{ color: C.amber  }} />, alert: arbitrages.length > 0 },
-            { label: 'Jalons prochain 30j',   value: String(metrics.jalonsSoon.length), sub: 'Jalons non atteints',             color: C.orange, icon: <Flag     size={15} style={{ color: C.orange }} />, alert: false },
+            { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels` },
+            { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA` },
+            { label: 'Avancement moyen',      value: fmtPct(metrics.avgAv),           sub: isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille global' : 'Mon périmètre', color: C.purple, icon: <Target   size={15} style={{ color: C.purple }} />, alert: false, title: `Avancement physique moyen du portefeuille : ${fmtPct(metrics.avgAv)}` },
+            { label: 'Projets critiques',     value: String(metrics.alertes),         sub: 'CPI < 0.90 ou SPI < 0.85',        color: metrics.alertes > 0 ? C.red : C.green, icon: <AlertTriangle size={15} style={{ color: metrics.alertes > 0 ? C.red : C.green }} />, alert: metrics.alertes > 0, title: `${metrics.alertes} projet(s) avec CPI < 0,90 ou SPI < 0,85 ou en retard` },
+            { label: 'Arbitrages en attente', value: String(arbitrages.length),        sub: 'Décisions requises',               color: C.amber,  icon: <Zap      size={15} style={{ color: C.amber  }} />, alert: arbitrages.length > 0, title: `${arbitrages.length} décision(s) d'arbitrage requises` },
+            { label: 'Jalons prochain 30j',   value: String(metrics.jalonsSoon.length), sub: 'Jalons non atteints',             color: C.orange, icon: <Flag     size={15} style={{ color: C.orange }} />, alert: false, title: `${metrics.jalonsSoon.length} jalon(s) non atteint(s) à échéance dans les 30 prochains jours` },
           ].map((k, i, arr) => (
-            <div key={k.label} style={{
+            <div key={k.label} title={k.title} style={{
               flex: '1 1 140px', padding: '10px 14px', borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
               background: k.alert ? '#FFF8F8' : 'transparent',
               borderBottom: `3px solid ${k.alert ? k.color : 'transparent'}`,
@@ -544,36 +545,38 @@ export default function TableauDeBord() {
         </div>
       </div>
 
-      {/* ── DPE Energy & Indicateurs Métier Strip (pilotage uniquement) ── */}
-      {canSeeConsolidated && (
-      <div style={{ padding: '0 24px 10px', flexShrink: 0 }}>
-        <div style={{ background: 'linear-gradient(135deg, #1B4F8A 0%, #0F3460 100%)', borderRadius: 10, padding: '12px 16px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 10 }}>
-            ⚡ Indicateurs DPE & Énergie — {isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille consolidé' : 'Mon périmètre'}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+      {/* ══ BODY ════════════════════════════════════════════════ */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+
+        {/* ── DPE Energy & Indicateurs Métier (dans le flux scrollable, compact) ── */}
+        {canSeeConsolidated && (
+        <details open style={{ background: 'linear-gradient(135deg, #1B4F8A 0%, #0F3460 100%)', borderRadius: 10, padding: '8px 12px', marginBottom: 16 }}>
+          <summary style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.7px', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Zap size={12} style={{ color: '#FCD34D' }} /> Indicateurs DPE &amp; Énergie — {isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille consolidé' : 'Mon périmètre'}</span>
+            <span style={{ fontSize: 9, opacity: 0.6, display: 'inline-flex', alignItems: 'center', gap: 2 }}>réduire <ChevronRight size={10} style={{ transform: 'rotate(90deg)' }} /></span>
+          </summary>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 7, marginTop: 8 }}>
             {[
-              { icon: '🔌', label: 'Réseau HTA/BT',    val: `${dpeKpis.kmReseau.toFixed(0)} km`,      sub: 'déployé',         color: '#60A5FA' },
-              { icon: '🏗️', label: 'Postes transfo',    val: String(dpeKpis.postes),                    sub: 'installés',       color: '#34D399' },
-              { icon: '⚡', label: 'MW installés',      val: `${dpeKpis.mwInstalle.toFixed(0)} MW`,    sub: 'production',      color: '#FCD34D' },
-              { icon: '📊', label: 'Compteurs posés',   val: dpeKpis.compteurs.toLocaleString('fr'),   sub: 'actifs',          color: '#C084FC' },
-              { icon: '🔌', label: 'Pertes techn. évitées', val: `${dpeKpis.pertesEvitees.toFixed(1)} GWh`, sub: 'par an (réseau renforcé)', color: '#6EE7B7' },
-              { icon: '✅', label: 'Conformité DPE',    val: `${dpeKpis.conformite}%`,                 sub: 'moy. portefeuille', color: dpeKpis.conformite >= 80 ? '#4ADE80' : '#F87171' },
+              { Icon: Cable,       label: 'Réseau HTA/BT',  val: `${dpeKpis.kmReseau.toFixed(0)} km`,      sub: 'déployé',      color: '#60A5FA' },
+              { Icon: Building2,   label: 'Postes transfo', val: String(dpeKpis.postes),                   sub: 'installés',    color: '#059669' },
+              { Icon: Zap,         label: 'MW installés',   val: `${dpeKpis.mwInstalle.toFixed(0)} MW`,    sub: 'production',   color: '#FCD34D' },
+              { Icon: Gauge,       label: 'Compteurs posés', val: dpeKpis.compteurs.toLocaleString('fr'),  sub: 'actifs',       color: '#C084FC' },
+              { Icon: TrendingDown, label: 'Pertes évitées', val: `${dpeKpis.pertesEvitees.toFixed(1)} GWh`, sub: 'par an',     color: '#6EE7B7' },
+              { Icon: ShieldCheck, label: 'Conformité DPE', val: `${dpeKpis.conformite}%`,                 sub: 'moy. portef.', color: dpeKpis.conformite >= 80 ? '#4ADE80' : '#F87171' },
             ].map(k => (
-              <div key={k.label} style={{ textAlign: 'center', padding: '8px 6px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                <div style={{ fontSize: 16, marginBottom: 3 }}>{k.icon}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.val}</div>
-                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{k.label}</div>
-                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.35)' }}>{k.sub}</div>
+              <div key={k.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 6, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <k.Icon size={14} style={{ color: k.color }} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 800, color: k.color, lineHeight: 1.05 }}>{k.val}</div>
+                  <div style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.label} · {k.sub}</div>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      </div>
-      )}
-
-      {/* ══ BODY ════════════════════════════════════════════════ */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+        </details>
+        )}
 
         {/* ═══════════ COCKPIT SUPPORT (UAGL/assistante/secrétaire/chauffeur) ═══════════ */}
         {activeTab === 'cockpit' && isSupportProfile && (
@@ -683,14 +686,14 @@ export default function TableauDeBord() {
                         {arb.action}
                       </div>
                       {arbDecisions[arb.id] ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 6, background: arbDecisions[arb.id] === 'approuve' ? '#DCFCE7' : '#FEE2E2', color: arbDecisions[arb.id] === 'approuve' ? C.green : C.red, fontSize: 11, fontWeight: 700 }}>
-                          {arbDecisions[arb.id] === 'approuve' ? '✓ Arbitrage approuvé' : '✗ Arbitrage rejeté'}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, background: arbDecisions[arb.id] === 'approuve' ? '#DCFCE7' : '#FEE2E2', color: arbDecisions[arb.id] === 'approuve' ? C.green : C.red, fontSize: 11, fontWeight: 700 }}>
+                          {arbDecisions[arb.id] === 'approuve' ? <><Check size={13} /> Arbitrage approuvé</> : <><X size={13} /> Arbitrage rejeté</>}
                           <button onClick={() => setArbDecisions(d => { const n = { ...d }; delete n[arb.id]; return n; })} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 10, textDecoration: 'underline' }}>Annuler</button>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={() => setArbDecisions(d => ({ ...d, [arb.id]: 'approuve' }))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', background: C.green, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✓ Approuver</button>
-                          <button onClick={() => setArbDecisions(d => ({ ...d, [arb.id]: 'rejete' }))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', background: C.red, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✗ Rejeter</button>
+                          <button onClick={() => setArbDecisions(d => ({ ...d, [arb.id]: 'approuve' }))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', background: C.green, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}><Check size={13} /> Approuver</button>
+                          <button onClick={() => setArbDecisions(d => ({ ...d, [arb.id]: 'rejete' }))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', background: C.red, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}><X size={13} /> Rejeter</button>
                           <button onClick={() => router.push(`/cockpit-projet?projet=${encodeURIComponent(arb.projetId)}`)} style={{ padding: '5px 10px', borderRadius: 6, border: `1px solid ${C.navy}`, background: '#fff', color: C.navy, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Ouvrir</button>
                         </div>
                       )}
@@ -846,6 +849,13 @@ export default function TableauDeBord() {
                 <span style={{ textAlign: 'right' }}>Budget</span><span style={{ textAlign: 'right' }}>Décaissé</span>
               </div>
 
+              {metrics.filtered.length === 0 && (
+                <div style={{ padding: 32, textAlign: 'center', color: '#94A3B8' }}>
+                  <Filter size={28} style={{ margin: '0 auto 8px', display: 'block', color: '#CBD5E1' }} />
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.slate }}>Aucun projet ne correspond aux filtres</div>
+                  <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 4 }}>Modifiez le filtre domaine ou statut pour afficher des projets.</div>
+                </div>
+              )}
               {metrics.filtered.map((p, i) => {
                 const dcfg  = DOMAINE_CFG[p.domaine as Domaine];
                 const scfg  = STATUT_CFG[p.statut as StatutProjet];
@@ -914,7 +924,7 @@ export default function TableauDeBord() {
                       {p.cpi < 0.90 && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: '#FEE2E2', color: C.red }}>CPI {p.cpi.toFixed(2)}</span>}
                       {p.spi < 0.85 && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: '#FFF7ED', color: C.amber }}>SPI {p.spi.toFixed(2)}</span>}
                       {p.statut === 'en_retard' && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: '#FEE2E2', color: C.red }}>RETARD</span>}
-                      <button style={{ padding: '5px 11px', borderRadius: 6, border: 'none', background: C.red, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Analyser</button>
+                      <button onClick={e => { e.stopPropagation(); router.push(`/cockpit-projet?code=${encodeURIComponent(p.code)}`); }} style={{ padding: '5px 11px', borderRadius: 6, border: 'none', background: C.red, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Analyser</button>
                     </div>
                   </div>
                 );

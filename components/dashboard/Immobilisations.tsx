@@ -9,7 +9,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import {
-  Building2, Plus, Trash2, Calculator, X, TrendingDown, Layers, Save,
+  Building2, Plus, Trash2, Calculator, X, TrendingDown, Layers, Save, Search,
 } from 'lucide-react';
 import { useProjectStore } from '@/lib/projectStore';
 import { useTranslation } from '@/lib/i18n/I18nContext';
@@ -33,6 +33,7 @@ export default function Immobilisations() {
   const [projetId, setProjetId] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [planId, setPlanId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   // Sélection du 1er projet visible + seed démonstration
   useEffect(() => {
@@ -46,6 +47,18 @@ export default function Immobilisations() {
     () => immobilisations.filter(i => i.projetId === projetId),
     [immobilisations, projetId]
   );
+
+  const filteredAssets = useMemo(() => {
+    if (!search.trim()) return assets;
+    const q = search.toLowerCase();
+    return assets.filter(a =>
+      a.code.toLowerCase().includes(q) ||
+      a.designation.toLowerCase().includes(q) ||
+      a.categorie.toLowerCase().includes(q) ||
+      (a.localisation || '').toLowerCase().includes(q) ||
+      (a.statut || '').toLowerCase().includes(q)
+    );
+  }, [assets, search]);
 
   const totals = useMemo(() => {
     const brut = assets.reduce((s, a) => s + a.valeurAcquisition, 0);
@@ -90,7 +103,23 @@ export default function Immobilisations() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
           {T('Registre des immobilisations', 'Asset register')}{projet ? ` — ${projet.nom}` : ''}
+          {search && <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 8 }}>{filteredAssets.length}/{assets.length}</span>}
         </span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={T('Rechercher…', 'Search…')}
+              style={{ ...inp, width: 210, paddingLeft: 28, paddingRight: search ? 28 : 10 }}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} aria-label={T('Effacer la recherche', 'Clear search')} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
         <button onClick={() => setShowForm(v => !v)} disabled={!projetId} style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
           background: '#B45309', color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 700,
@@ -98,6 +127,7 @@ export default function Immobilisations() {
         }}>
           {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? T('Fermer', 'Close') : T('Nouvelle immobilisation', 'New asset')}
         </button>
+        </div>
       </div>
 
       {showForm && projetId && (
@@ -117,12 +147,12 @@ export default function Immobilisations() {
             </tr>
           </thead>
           <tbody>
-            {assets.length === 0 && (
+            {filteredAssets.length === 0 && (
               <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#94A3B8' }}>
-                {T('Aucune immobilisation pour ce projet.', 'No assets for this project.')}
+                {search ? T('Aucun résultat pour cette recherche.', 'No results for this search.') : T('Aucune immobilisation pour ce projet.', 'No assets for this project.')}
               </td></tr>
             )}
-            {assets.map(a => {
+            {filteredAssets.map(a => {
               const st = STATUT_IMMO_LABEL[a.statut];
               return (
                 <tr key={a.id} style={{ borderTop: '1px solid #EEF2F7' }}>
@@ -130,15 +160,20 @@ export default function Immobilisations() {
                   <td style={{ padding: '9px 12px' }}>{a.designation}{a.localisation ? <span style={{ color: '#94A3B8' }}> · {a.localisation}</span> : null}</td>
                   <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{a.categorie}</td>
                   <td style={{ padding: '9px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(a.valeurAcquisition)}</td>
-                  <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{a.dateMiseEnService}</td>
+                  <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: '#0F172A' }}>{a.dateMiseEnService}</div>
+                    {a.datePVReception && a.datePVReception !== a.dateMiseEnService && (
+                      <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>PV: {a.datePVReception}</div>
+                    )}
+                  </td>
                   <td style={{ padding: '9px 12px', textAlign: 'center' }}>{a.dureeAmortissement} {T('ans', 'yr')}</td>
                   <td style={{ padding: '9px 12px' }}>{a.methode === 'lineaire' ? T('Linéaire', 'Straight-line') : T('Dégressif', 'Declining')}</td>
                   <td style={{ padding: '9px 12px', textAlign: 'right', color: '#B45309', whiteSpace: 'nowrap' }}>{fmt(amortissementCumule(a))}</td>
                   <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#16A34A', whiteSpace: 'nowrap' }}>{fmt(valeurNetteComptable(a))}</td>
                   <td style={{ padding: '9px 12px' }}><span style={{ fontSize: 11, fontWeight: 700, color: st.color, background: `${st.color}18`, padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{lang === 'en' ? st.en : st.fr}</span></td>
                   <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
-                    <button onClick={() => setPlanId(a.id)} title={T('Plan d\'amortissement', 'Depreciation schedule')} style={iconBtn}><Calculator size={14} /></button>
-                    <button onClick={() => remove(a.id)} title={T('Supprimer', 'Delete')} style={{ ...iconBtn, color: '#DC2626' }}><Trash2 size={14} /></button>
+                    <button onClick={() => setPlanId(a.id)} title={T('Plan d\'amortissement', 'Depreciation schedule')} aria-label={T('Voir le plan d\'amortissement', 'View depreciation schedule')} style={iconBtn}><Calculator size={14} /></button>
+                    <button onClick={() => remove(a.id)} title={T('Supprimer', 'Delete')} aria-label={T('Supprimer l\'immobilisation', 'Delete asset')} style={{ ...iconBtn, color: '#DC2626' }}><Trash2 size={14} /></button>
                   </td>
                 </tr>
               );
@@ -172,7 +207,8 @@ function AssetForm({ projetId, onSave, onCancel, T }: {
 }) {
   const [f, setF] = useState({
     code: '', designation: '', categorie: 'Poste HTA/BT' as CategorieImmo,
-    valeurAcquisition: '', valeurResiduelle: '0', dateMiseEnService: new Date().toISOString().split('T')[0],
+    valeurAcquisition: '', valeurResiduelle: '0', datePVReception: '',
+    dateMiseEnService: new Date().toISOString().split('T')[0],
     dureeAmortissement: '20', methode: 'lineaire' as MethodeAmortissement,
     localisation: '', statut: 'en_service' as StatutImmobilisation,
     classeComptable: '', actifLivrable: '', unite: '', bailleur: '',  // nomenclatures officielles DPE
@@ -190,6 +226,7 @@ function AssetForm({ projetId, onSave, onCancel, T }: {
         </L>
         <L label={T('Valeur brute (M FCFA)', 'Gross value (M FCFA)')}><input style={inp} inputMode="decimal" value={f.valeurAcquisition} onChange={e => setF({ ...f, valeurAcquisition: e.target.value })} /></L>
         <L label={T('Valeur résiduelle', 'Residual value')}><input style={inp} inputMode="decimal" value={f.valeurResiduelle} onChange={e => setF({ ...f, valeurResiduelle: e.target.value })} /></L>
+        <L label={T('Date PV Reception', 'Reception PV date')}><input type="date" style={inp} value={f.datePVReception} onChange={e => setF({ ...f, datePVReception: e.target.value })} /></L>
         <L label={T('Date mise en service', 'In-service date')}><input type="date" style={inp} value={f.dateMiseEnService} onChange={e => setF({ ...f, dateMiseEnService: e.target.value })} /></L>
         <L label={T('Durée (années)', 'Useful life (years)')}><input style={inp} inputMode="numeric" value={f.dureeAmortissement} onChange={e => setF({ ...f, dureeAmortissement: e.target.value })} /></L>
         <L label={T('Méthode', 'Method')}>
@@ -229,7 +266,8 @@ function AssetForm({ projetId, onSave, onCancel, T }: {
         <button disabled={!valid} onClick={() => onSave({
           projetId, code: f.code.trim(), designation: f.designation.trim(), categorie: f.categorie,
           valeurAcquisition: parseFloat(f.valeurAcquisition) || 0, valeurResiduelle: parseFloat(f.valeurResiduelle) || 0,
-          dateMiseEnService: f.dateMiseEnService, dureeAmortissement: parseInt(f.dureeAmortissement) || 1,
+          dateMiseEnService: f.dateMiseEnService, datePVReception: f.datePVReception || undefined,
+          dureeAmortissement: parseInt(f.dureeAmortissement) || 1,
           methode: f.methode, localisation: f.localisation.trim() || undefined, statut: f.statut,
           classeComptable: f.classeComptable || undefined, actifLivrable: f.actifLivrable || undefined,
           unite: f.unite || undefined, bailleur: f.bailleur || undefined,
@@ -255,7 +293,7 @@ function PlanModal({ immo, onClose, onMethode, T, lang }: {
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{T('Plan d\'amortissement', 'Depreciation schedule')}</h3>
             <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748B' }}>{immo.code} — {immo.designation}</p>
           </div>
-          <button onClick={onClose} style={iconBtn}><X size={16} /></button>
+          <button onClick={onClose} aria-label={T('Fermer', 'Close')} style={iconBtn}><X size={16} /></button>
         </div>
         <div style={{ display: 'flex', gap: 8, margin: '12px 0', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: '#64748B' }}>{T('Méthode', 'Method')} :</span>

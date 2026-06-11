@@ -70,6 +70,7 @@ function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void
             </div>
             <button
               onClick={onClose}
+              aria-label="Fermer le détail du projet"
               style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', flexShrink: 0, fontSize: 16, lineHeight: 1 }}
             >×</button>
           </div>
@@ -118,10 +119,10 @@ function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void
             ))}
             <div style={{ marginTop: 6 }}>
               <div style={{ height: 8, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, (projet.budgetDecaisse / projet.budget) * 100)}%`, background: '#16A34A', borderRadius: 4 }} />
+                <div style={{ height: '100%', width: `${Math.min(100, projet.budget > 0 ? (projet.budgetDecaisse / projet.budget) * 100 : 0)}%`, background: '#16A34A', borderRadius: 4 }} />
               </div>
               <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 3, textAlign: 'right' }}>
-                Taux décaissement: {Math.round((projet.budgetDecaisse / projet.budget) * 100)}%
+                Taux décaissement: {projet.budget > 0 ? Math.round((projet.budgetDecaisse / projet.budget) * 100) : 0}%
               </div>
             </div>
           </div>
@@ -1011,7 +1012,7 @@ const STATUTS_PROJ_ALL: StatutProjet[] = ['en_cours', 'planifie', 'termine', 'en
 export default function Portefeuille() {
   const store = useProjectStore();
   const canGlobal = useCanPerform('VOIR_TOUT_PORTEFEUILLE');
-  const [vue, setVue] = useState<'programme' | 'strategique' | 'operationnelle'>('programme');
+  const [vue, setVue] = useState<'programme' | 'strategique' | 'operationnelle' | 'icp'>('programme');
   const [drawerProjet, setDrawerProjet] = useState<Projet | null>(null);
   const [expandedProg, setExpandedProg] = useState<string[]>(['production', 'transport', 'distribution', 'commercial', 'genie_civil']);
 
@@ -1072,7 +1073,7 @@ export default function Portefeuille() {
       const alertes = dp.filter(p => p.statut === 'en_retard' || p.cpi < 0.9).length;
       return { domaine: d, cfg, projets: dp, totalBudget, totalDecaisse, avgCpi, avgSpi, avgProg, alertes };
     });
-  }, [projets]);
+  }, [allProjets]);
 
   function toggleProg(d: string) {
     setExpandedProg(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
@@ -1101,6 +1102,7 @@ export default function Portefeuille() {
               { k: 'programme',     label: '🏛️ Programmes' },
               { k: 'strategique',   label: '📊 Stratégique' },
               { k: 'operationnelle',label: '⚙️ Opérationnel' },
+              { k: 'icp',           label: '📈 Performance ICP' },
             ] as { k: typeof vue; label: string }[]).map(({ k, label }) => (
               <button key={k} onClick={() => setVue(k)} style={{
                 padding: '8px 14px', borderRadius: 8, border: 'none', fontFamily: 'inherit',
@@ -1321,7 +1323,7 @@ export default function Portefeuille() {
                             <div style={{ width: `${p.avancement}%`, height: '100%', background: prog.cfg.color, opacity: 0.8 }} />
                           </div>
                           <span style={{ fontSize: 12, fontWeight: 700, color: prog.cfg.color, width: 36, textAlign: 'right', flexShrink: 0 }}>{p.avancement}%</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: scfg.color, padding: '2px 7px', borderRadius: 4, background: `${scfg.color}14`, flexShrink: 0 }}>{scfg.label}</span>
+                          <span title={`Statut : ${scfg.label}`} style={{ fontSize: 10, fontWeight: 700, color: scfg.color, padding: '2px 7px', borderRadius: 4, background: `${scfg.color}14`, flexShrink: 0 }}>{scfg.label}</span>
                           <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 60 }}>
                             <span style={{ fontSize: 9, color: '#94A3B8', display: 'block' }}>CPI/SPI</span>
                             <span style={{ fontSize: 11, fontWeight: 700, color: p.cpi >= 0.95 ? '#16A34A' : '#EF3340' }}>{p.cpi.toFixed(2)}</span>
@@ -1349,6 +1351,152 @@ export default function Portefeuille() {
       {vue === 'operationnelle' && (
         <VueOperationnelle projets={projets} onSelectProjet={setDrawerProjet} />
       )}
+
+      {/* ── Vue Performance ICP ── */}
+      {vue === 'icp' && (() => {
+        const NAVY2 = '#1B4F8A';
+        const ORANGE2 = '#F47920';
+        const GREEN2 = '#16A34A';
+        const RED2 = '#EF3340';
+        const AMBER2 = '#D97706';
+
+        const rows = projets.map(p => {
+          const budgetInitial = p.budget * 0.95; // budget initial ≈ 95% du budget actuel (avenant moyen +5%)
+          const ev = (p.avancement / 100) * p.budget;  // EV = % avancement × BAC
+          const eac = p.budget > 0 && p.cpi > 0 ? (p.budgetDecaisse + (p.budget - p.budgetDecaisse) / p.cpi) : p.budget;
+          const cda = eac - p.budget;
+          const cdi = p.budgetDecaisse - budgetInitial;
+          const cddPct = budgetInitial > 0 ? ((p.budgetDecaisse - budgetInitial) / budgetInitial) * 100 : 0;
+          const ecdPct = p.budget > 0 ? ((ev - p.budgetDecaisse) / p.budget) * 100 : 0;
+          return { p, eac, cda, cdi, cddPct, ecdPct };
+        });
+
+        const totCDA = rows.reduce((s, r) => s + r.cda, 0);
+        const totCDI = rows.reduce((s, r) => s + r.cdi, 0);
+        const totEAC = rows.reduce((s, r) => s + r.eac, 0);
+        const totBudget = rows.reduce((s, r) => s + r.p.budget, 0);
+        const avgCddPct = rows.length > 0 ? rows.reduce((s, r) => s + r.cddPct, 0) / rows.length : 0;
+        const avgEcdPct = rows.length > 0 ? rows.reduce((s, r) => s + r.ecdPct, 0) / rows.length : 0;
+
+        const fmtM = (v: number) => `${(v / 1000).toFixed(1)} M`;
+        const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+        const cColor = (v: number, inverted = false) => {
+          const ok = inverted ? v <= 0 : v >= 0;
+          return ok ? GREEN2 : RED2;
+        };
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* KPI bar */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[
+                { label: 'CDA Portefeuille', sublabel: 'EAC − BAC', val: fmtM(totCDA), color: cColor(totCDA, true), desc: 'Coût Dépassement Actuel' },
+                { label: 'CDI Portefeuille', sublabel: 'AC − Budget Initial', val: fmtM(totCDI), color: cColor(totCDI, true), desc: 'Coût Dépassement Initial' },
+                { label: 'CDD% Moyen', sublabel: '(AC−Bi)/Bi × 100', val: fmtPct(avgCddPct), color: cColor(avgCddPct, true), desc: 'Coût Dépass. % Moyen' },
+                { label: 'ECD% Moyen', sublabel: '(EV−AC)/BAC × 100', val: fmtPct(avgEcdPct), color: cColor(avgEcdPct), desc: 'Écart Coût/Délai %' },
+              ].map(k => (
+                <div key={k.label} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+                  <div style={{ fontSize: 9, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 }}>{k.desc}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: k.color, marginBottom: 2 }}>{k.val}</div>
+                  <div style={{ fontSize: 10, color: '#64748B' }}>{k.label}</div>
+                  <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 2, fontStyle: 'italic' }}>{k.sublabel}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* EAC vs BAC bar chart */}
+            <div style={{ background: '#fff', borderRadius: 12, padding: 18, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY2, marginBottom: 12 }}>EAC vs BAC par projet (MFCFA)</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {rows.slice(0, 12).map(({ p, eac }) => {
+                  const bac = p.budget / 1000;
+                  const eacM = eac / 1000;
+                  const maxVal = Math.max(bac, eacM);
+                  const bacW = maxVal > 0 ? (bac / maxVal) * 100 : 0;
+                  const eacW = maxVal > 0 ? (eacM / maxVal) * 100 : 0;
+                  const over = eac > p.budget;
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 110, fontSize: 10, color: '#64748B', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.code}</div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <div style={{ width: `${bacW}%`, height: 6, background: NAVY2, borderRadius: 3, minWidth: 2 }} />
+                          <span style={{ fontSize: 9, color: NAVY2, fontWeight: 700 }}>{bac.toFixed(0)}M</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <div style={{ width: `${eacW}%`, height: 6, background: over ? RED2 : GREEN2, borderRadius: 3, minWidth: 2 }} />
+                          <span style={{ fontSize: 9, color: over ? RED2 : GREEN2, fontWeight: 700 }}>{eacM.toFixed(0)}M</span>
+                        </div>
+                      </div>
+                      <div style={{ width: 56, textAlign: 'right', flexShrink: 0, fontSize: 10, fontWeight: 700, color: over ? RED2 : GREEN2 }}>
+                        {over ? '+' : ''}{((eac - p.budget) / 1000).toFixed(0)}M
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 10, display: 'flex', gap: 16, fontSize: 10, color: '#94A3B8' }}>
+                <span><span style={{ display: 'inline-block', width: 10, height: 4, background: NAVY2, borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />BAC (Budget)</span>
+                <span><span style={{ display: 'inline-block', width: 10, height: 4, background: GREEN2, borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />EAC ≤ BAC</span>
+                <span><span style={{ display: 'inline-block', width: 10, height: 4, background: RED2, borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />EAC &gt; BAC (dépassement)</span>
+              </div>
+            </div>
+
+            {/* ICP table */}
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: NAVY2 }}>Tableau ICP Portefeuille</div>
+                <div style={{ fontSize: 10, color: '#94A3B8' }}>CDA = EAC−BAC · CDI = AC−Bi · CDD% = (AC−Bi)/Bi · ECD% = (EV−AC)/BAC</div>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC' }}>
+                      {['Projet', 'CPI', 'SPI', 'EAC (M)', 'BAC (M)', 'CDA (M)', 'CDI (M)', 'CDD%', 'ECD%', 'RAG'].map((h, i) => (
+                        <th key={i} style={{ padding: '9px 12px', textAlign: i < 2 ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.4px', borderBottom: '2px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(({ p, eac, cda, cdi, cddPct, ecdPct }, idx) => {
+                      const rag = p.cpi >= 0.95 && p.spi >= 0.90 ? { color: GREEN2, label: '●' } : p.cpi >= 0.85 || p.spi >= 0.80 ? { color: AMBER2, label: '●' } : { color: RED2, label: '●' };
+                      return (
+                        <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9', background: idx % 2 === 1 ? '#FAFBFC' : '#fff' }}>
+                          <td style={{ padding: '8px 12px' }}>
+                            <div style={{ fontWeight: 700, fontSize: 11, color: NAVY2 }}>{p.code}</div>
+                            <div style={{ fontSize: 10, color: '#94A3B8', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</div>
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: p.cpi >= 0.95 ? GREEN2 : p.cpi >= 0.85 ? AMBER2 : RED2 }}>{p.cpi.toFixed(2)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: p.spi >= 0.90 ? GREEN2 : p.spi >= 0.80 ? AMBER2 : RED2 }}>{p.spi.toFixed(2)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: NAVY2 }}>{(eac / 1000).toFixed(1)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748B' }}>{(p.budget / 1000).toFixed(1)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: cColor(cda, true) }}>{cda >= 0 ? '+' : ''}{(cda / 1000).toFixed(1)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: cColor(cdi, true) }}>{cdi >= 0 ? '+' : ''}{(cdi / 1000).toFixed(1)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: cColor(cddPct, true) }}>{fmtPct(cddPct)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: cColor(ecdPct) }}>{fmtPct(ecdPct)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: 18, color: rag.color }}>{rag.label}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: NAVY2 + '08', borderTop: `2px solid ${NAVY2}30`, fontWeight: 700 }}>
+                      <td colSpan={3} style={{ padding: '9px 12px', fontSize: 12, fontWeight: 800, color: NAVY2 }}>TOTAL / MOYENNE ({rows.length} projets)</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 800, color: NAVY2 }}>{(totEAC / 1000).toFixed(1)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: '#64748B', fontWeight: 700 }}>{(totBudget / 1000).toFixed(1)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 800, color: cColor(totCDA, true) }}>{totCDA >= 0 ? '+' : ''}{(totCDA / 1000).toFixed(1)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 800, color: cColor(totCDI, true) }}>{totCDI >= 0 ? '+' : ''}{(totCDI / 1000).toFixed(1)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 800, color: cColor(avgCddPct, true) }}>{fmtPct(avgCddPct)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 800, color: cColor(avgEcdPct) }}>{fmtPct(avgEcdPct)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Drawer ── */}
       {drawerProjet && (

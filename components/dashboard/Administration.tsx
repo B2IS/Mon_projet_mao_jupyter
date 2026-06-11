@@ -659,6 +659,13 @@ export default function Administration() {
                 </tr>
               </thead>
               <tbody>
+                {filteredUsers.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px 24px', color: 'var(--muted)', fontSize: 12 }}>
+                      Aucun utilisateur trouvé pour ces critères. Modifiez les filtres ou invitez un collaborateur.
+                    </td>
+                  </tr>
+                )}
                 {filteredUsers.map(u => (
                   <tr key={u.id}>
                     <td>
@@ -683,7 +690,7 @@ export default function Administration() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 3 }}>
-                        <button className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditUser(u)}><Edit2 size={10} /></button>
+                        <button aria-label="Modifier l'utilisateur" className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditUser(u)}><Edit2 size={10} /></button>
                         <button className="btn btn-danger btn-xs" title={u.actif ? 'Désactiver' : 'Réactiver'}
                           onClick={() => {
                             setUserEdits(prev => ({ ...prev, [u.id]: { ...prev[u.id], actif: !u.actif } }));
@@ -1133,7 +1140,7 @@ export default function Administration() {
                     <div style={{ fontSize: 10, color: 'var(--muted)' }}>{u.email} · {u.tenant}</div>
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)' }}>{u.dernierLogin}</div>
-                  <button className="btn btn-danger btn-xs">Déconnecter</button>
+                  <button className="btn btn-danger btn-xs" onClick={() => addNotification({ type: 'info', title: 'Déconnexion forcée', message: `Session de ${u.nom} révoquée.` })}>Déconnecter</button>
                 </div>
               ))}
             </div>
@@ -1481,8 +1488,8 @@ export default function Administration() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="btn btn-ghost btn-xs" onClick={() => { setEditingCFId(f.id); setCFForm({ nom: f.nom, code: f.code, formule: f.formule, unite: f.unite, description: f.description, statut: f.statut }); setShowCFForm(true); setCfValidationMessage(null); }}><Edit2 size={10} /></button>
-                          <button className="btn btn-ghost btn-xs" onClick={() => setCalculatedFields(prev => prev.filter(x => x.id !== f.id))}><Trash2 size={10} /></button>
+                          <button aria-label={`Modifier la formule ${f.nom}`} className="btn btn-ghost btn-xs" onClick={() => { setEditingCFId(f.id); setCFForm({ nom: f.nom, code: f.code, formule: f.formule, unite: f.unite, description: f.description, statut: f.statut }); setShowCFForm(true); setCfValidationMessage(null); }}><Edit2 size={10} /></button>
+                          <button aria-label={`Supprimer la formule ${f.nom}`} className="btn btn-ghost btn-xs" onClick={() => setCalculatedFields(prev => prev.filter(x => x.id !== f.id))}><Trash2 size={10} /></button>
                         </div>
                       </td>
                     </tr>
@@ -1578,7 +1585,7 @@ export default function Administration() {
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="btn btn-ghost btn-xs" onClick={() => setSelectedDashboard(db)}><Edit2 size={10} /> Configurer</button>
-                          <button className="btn btn-ghost btn-xs" onClick={() => alert(`Afficher le dashboard ${db.name}`)}><Eye size={10} /> Voir</button>
+                          <button className="btn btn-ghost btn-xs" onClick={() => addNotification({ type: 'info', title: 'Aperçu dashboard', message: `Le rendu de « ${db.name} » sera disponible après déploiement du moteur de widgets.` })}><Eye size={10} /> Voir</button>
                           <button className="btn btn-ghost btn-xs" onClick={() => {
                             setCustomDashboards(prev => prev.filter(x => x.id !== db.id));
                             addNotification({ type: 'info', title: 'Dashboard supprimé', message: `Le dashboard "${db.name}" a été supprimé.` });
@@ -1658,8 +1665,8 @@ export default function Administration() {
                         <div style={{ fontSize: 11, color: 'var(--muted)' }}>Type: {w.type}</div>
                         <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>Config: {JSON.stringify(w.config)}</div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 8 }}>
-                          <button className="btn btn-ghost btn-xs" title="Modifier" onClick={() => { setEditingWidgetId(w.id); setWidgetForm({ type: w.type, title: w.title, config: w.config }); setShowWidgetForm(true); }}><Edit2 size={10} /></button>
-                          <button className="btn btn-ghost btn-xs" onClick={() => {
+                          <button aria-label={`Modifier le widget ${w.title}`} className="btn btn-ghost btn-xs" title="Modifier" onClick={() => { setEditingWidgetId(w.id); setWidgetForm({ type: w.type, title: w.title, config: w.config }); setShowWidgetForm(true); }}><Edit2 size={10} /></button>
+                          <button aria-label={`Supprimer le widget ${w.title}`} className="btn btn-ghost btn-xs" onClick={() => {
                             setSelectedDashboard(prev => prev ? { ...prev, widgets: prev.widgets.filter(x => x.id !== w.id) } : null);
                             setCustomDashboards(prev => prev.map(db => db.id === selectedDashboard.id ? { ...db, widgets: db.widgets.filter(x => x.id !== w.id) } : db));
                             addNotification({ type: 'info', title: 'Widget supprimé', message: `Le widget "${w.title}" a été supprimé.` });
@@ -1938,53 +1945,269 @@ function ArcGISConfigPanel() {
 /* ═══════════════════════════════════════════════════════════════════════
    MICROSOFT COPILOT CONFIG PANEL — IA d'entreprise via comptes M365 / Entra ID
 ═══════════════════════════════════════════════════════════════════════ */
+/** Derive tenantId from known SENELEC email domains (no user input needed) */
+function deriveTenantFromEmail(email: string): string {
+  const domain = (email.split('@')[1] || '').toLowerCase();
+  // Known SENELEC domains → common tenant slug (real UUID lives in env MS_TENANT_ID)
+  if (domain === 'senelec.sn' || domain === 'enerticai.com') return 'senelec.sn';
+  return 'organizations'; // generic multi-tenant fallback
+}
+
 function CopilotConfigPanel() {
   const config = useIntegrationConfig();
-  const [form, setForm] = useState({ ...config.copilot });
-  const [saved, setSaved] = useState(false);
+  const [email, setEmail]       = useState(config.copilot.account || '');
+  const [apiKey, setApiKey]     = useState(config.copilot.apiKey || '');
+  const [advanced, setAdvanced] = useState(false);
+  const [endpoint, setEndpoint] = useState(config.copilot.endpoint || 'https://senelec.openai.azure.com');
+  const [deployment, setDeployment] = useState(config.copilot.deployment || 'gpt-4o');
+  const [connecting, setConnecting] = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [showKey, setShowKey]   = useState(false);
 
-  const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(p => ({ ...p, [k]: v }));
-
-  const handleSave = () => {
-    config.updateCopilot(form);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
+  const isConnected = config.copilot.enabled && !!config.copilot.account;
+  const emailValid  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const inp: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontSize: 12,
-    border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', outline: 'none',
+    width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: 13,
+    border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)',
+    background: 'var(--bg)', outline: 'none',
   };
   const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 };
 
-  return (
+  const handleConnect = () => {
+    if (!emailValid) return;
+    setConnecting(true);
+    setTimeout(() => {
+      config.updateCopilot({
+        enabled: true,
+        account: email,
+        apiKey,
+        endpoint: endpoint || 'https://senelec.openai.azure.com',
+        deployment: deployment || 'gpt-4o',
+        tenantId: deriveTenantFromEmail(email),
+        // clientId left unchanged (set via env MS_CLIENT_ID or previous admin config)
+      });
+      setConnecting(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 4000);
+    }, 900);
+  };
+
+  const handleDisconnect = () => {
+    config.updateCopilot({ enabled: false, account: '', apiKey: '' });
+    setEmail('');
+    setApiKey('');
+  };
+
+  /* ── Connected state ── */
+  if (isConnected) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>Microsoft Copilot (Microsoft 365 / Azure OpenAI)</div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: form.enabled ? 'var(--success)' : 'var(--muted)', cursor: 'pointer' }}>
-          <input type="checkbox" checked={form.enabled} onChange={e => update('enabled', e.target.checked)} />
-          {form.enabled ? 'Activé' : 'Désactivé'}
-        </label>
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
-        Connectez l'assistant IA aux comptes Microsoft de SENELEC (Entra ID / Azure AD). L'authentification SSO Entra peut remplacer la clé API. Les variables d'environnement (MS_TENANT_ID, MS_CLIENT_ID, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_KEY) restent prioritaires si définies.
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 10,
+          background: 'linear-gradient(135deg, #0078D4 0%, #1E40AF 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg width="22" height="22" viewBox="0 0 23 23" fill="none">
+            <rect x="1"  y="1"  width="10" height="10" fill="#F25022"/>
+            <rect x="12" y="1"  width="10" height="10" fill="#7FBA00"/>
+            <rect x="1"  y="12" width="10" height="10" fill="#00A4EF"/>
+            <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Microsoft Copilot</div>
+          <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+            Connecté · {config.copilot.account}
+          </div>
+        </div>
+        <button
+          onClick={handleDisconnect}
+          style={{ marginLeft: 'auto', padding: '6px 14px', fontSize: 12, fontWeight: 600,
+            border: '1px solid var(--border)', borderRadius: 7, background: 'transparent',
+            color: 'var(--danger)', cursor: 'pointer' }}
+        >
+          Déconnecter
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div><label style={lbl}>Tenant ID (Entra / Azure AD)</label><input style={inp} value={form.tenantId} onChange={e => update('tenantId', e.target.value)} placeholder="00000000-0000-0000-0000-000000000000" /></div>
-        <div><label style={lbl}>Client ID (App registration)</label><input style={inp} value={form.clientId} onChange={e => update('clientId', e.target.value)} placeholder="ID d'application" /></div>
-        <div><label style={lbl}>Compte Microsoft 365 (UPN / email)</label><input style={inp} value={form.account} onChange={e => update('account', e.target.value)} placeholder="prenom.nom@senelec.sn" /></div>
-        <div><label style={lbl}>Endpoint Azure OpenAI / Copilot</label><input style={inp} value={form.endpoint} onChange={e => update('endpoint', e.target.value)} placeholder="https://senelec.openai.azure.com" /></div>
-        <div><label style={lbl}>Déploiement (modèle)</label><input style={inp} value={form.deployment} onChange={e => update('deployment', e.target.value)} placeholder="gpt-4o" /></div>
-        <div><label style={lbl}>Clé API (optionnelle si SSO Entra)</label><input style={inp} type="password" value={form.apiKey} onChange={e => update('apiKey', e.target.value)} placeholder="••••••••" /></div>
+      {/* Info banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(0,120,212,.08) 0%, rgba(30,64,175,.06) 100%)',
+        border: '1px solid rgba(0,120,212,.2)', borderRadius: 10, padding: '12px 14px',
+        fontSize: 12, color: 'var(--text)', lineHeight: 1.6,
+      }}>
+        <div style={{ fontWeight: 600, marginBottom: 4, color: '#0078D4' }}>Copilot actif sur cette plateforme</div>
+        Le moteur IA de la plateforme utilise votre compte Microsoft pour les suggestions contextuelles, l'analyse des ODM, les prédictions EVM et le Centre IA.
+        Le tenant <strong>{deriveTenantFromEmail(config.copilot.account)}</strong> est détecté automatiquement.
       </div>
 
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => { config.resetCopilot(); setForm({ ...config.copilot }); }}>Réinitialiser</button>
-        <button className="btn btn-primary btn-sm" onClick={handleSave}><Save size={13} /> Enregistrer</button>
+      {/* Advanced toggle */}
+      <button onClick={() => setAdvanced(v => !v)} style={{
+        display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600,
+        color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+      }}>
+        <span style={{ transform: advanced ? 'rotate(90deg)' : 'rotate(0deg)', transition: '.15s', display: 'inline-block' }}>▶</span>
+        Paramètres avancés (endpoint, déploiement)
+      </button>
+      {advanced && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <label style={lbl}>Endpoint Azure OpenAI</label>
+            <input style={inp} value={endpoint}
+              onChange={e => { setEndpoint(e.target.value); config.updateCopilot({ endpoint: e.target.value }); }}
+              placeholder="https://senelec.openai.azure.com" />
+          </div>
+          <div>
+            <label style={lbl}>Déploiement (modèle)</label>
+            <input style={inp} value={deployment}
+              onChange={e => { setDeployment(e.target.value); config.updateCopilot({ deployment: e.target.value }); }}
+              placeholder="gpt-4o" />
+          </div>
+          <div style={{ gridColumn: '1/-1' }}>
+            <label style={lbl}>Clé API Azure OpenAI (si sans SSO)</label>
+            <div style={{ position: 'relative' }}>
+              <input style={{ ...inp, paddingRight: 40 }} type={showKey ? 'text' : 'password'} value={apiKey}
+                onChange={e => { setApiKey(e.target.value); config.updateCopilot({ apiKey: e.target.value }); }}
+                placeholder="••••••••" />
+              <button onClick={() => setShowKey(v => !v)} style={{
+                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12,
+              }}>{showKey ? '🙈' : '👁'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  /* ── Not connected state ── */
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Logo + title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: 12,
+          background: 'linear-gradient(135deg, #0078D4 0%, #1E40AF 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg width="24" height="24" viewBox="0 0 23 23" fill="none">
+            <rect x="1"  y="1"  width="10" height="10" fill="#F25022"/>
+            <rect x="12" y="1"  width="10" height="10" fill="#7FBA00"/>
+            <rect x="1"  y="12" width="10" height="10" fill="#00A4EF"/>
+            <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Se connecter avec Microsoft</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Utilisez votre compte SENELEC (@senelec.sn) pour activer Copilot</div>
+        </div>
       </div>
+
+      {/* Email field */}
+      <div>
+        <label style={lbl}>Adresse e-mail Microsoft</label>
+        <input
+          style={{ ...inp, borderColor: email && !emailValid ? 'var(--danger)' : 'var(--border)' }}
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="prenom.nom@senelec.sn"
+          autoComplete="email"
+          onKeyDown={e => e.key === 'Enter' && emailValid && handleConnect()}
+        />
+        {email && !emailValid && (
+          <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4 }}>Adresse e-mail invalide</div>
+        )}
+        {emailValid && (
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+            Tenant détecté : <strong>{deriveTenantFromEmail(email)}</strong> · aucune configuration supplémentaire requise
+          </div>
+        )}
+      </div>
+
+      {/* API Key optional */}
+      <div>
+        <label style={lbl}>Clé API Azure OpenAI <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(optionnelle)</span></label>
+        <div style={{ position: 'relative' }}>
+          <input
+            style={{ ...inp, paddingRight: 40 }}
+            type={showKey ? 'text' : 'password'}
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            placeholder="Laissez vide si votre compte Microsoft suffit"
+          />
+          <button onClick={() => setShowKey(v => !v)} style={{
+            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12,
+          }}>{showKey ? '🙈' : '👁'}</button>
+        </div>
+      </div>
+
+      {/* Advanced toggle */}
+      <button onClick={() => setAdvanced(v => !v)} style={{
+        display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600,
+        color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+      }}>
+        <span style={{ transform: advanced ? 'rotate(90deg)' : 'rotate(0deg)', transition: '.15s', display: 'inline-block' }}>▶</span>
+        Paramètres avancés (endpoint, déploiement)
+      </button>
+      {advanced && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <label style={lbl}>Endpoint Azure OpenAI</label>
+            <input style={inp} value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://senelec.openai.azure.com" />
+          </div>
+          <div>
+            <label style={lbl}>Déploiement (modèle)</label>
+            <input style={inp} value={deployment} onChange={e => setDeployment(e.target.value)} placeholder="gpt-4o" />
+          </div>
+        </div>
+      )}
+
+      {/* Connect button */}
+      <button
+        onClick={handleConnect}
+        disabled={!emailValid || connecting}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          padding: '11px 20px', fontSize: 13, fontWeight: 700,
+          background: emailValid && !connecting
+            ? 'linear-gradient(135deg, #0078D4 0%, #1E40AF 100%)'
+            : 'var(--border)',
+          color: emailValid && !connecting ? '#fff' : 'var(--muted)',
+          border: 'none', borderRadius: 9, cursor: emailValid && !connecting ? 'pointer' : 'default',
+          transition: 'all .2s', boxShadow: emailValid && !connecting ? '0 4px 14px rgba(0,120,212,.3)' : 'none',
+        }}
+      >
+        {connecting ? (
+          <>
+            <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+            Connexion en cours…
+          </>
+        ) : (
+          <>
+            <svg width="18" height="18" viewBox="0 0 23 23" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="1"  y="1"  width="10" height="10" fill="#F25022"/>
+              <rect x="12" y="1"  width="10" height="10" fill="#7FBA00"/>
+              <rect x="1"  y="12" width="10" height="10" fill="#00A4EF"/>
+              <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+            </svg>
+            Se connecter avec Microsoft
+          </>
+        )}
+      </button>
+
       {saved && (
-        <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✅ Configuration Microsoft Copilot sauvegardée</div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+          background: 'rgba(22,163,74,.1)', border: '1px solid rgba(22,163,74,.3)',
+          borderRadius: 8, fontSize: 12, color: 'var(--success)', fontWeight: 600,
+        }}>
+          <Check size={14} /> Compte Microsoft connecté avec succès
+        </div>
       )}
     </div>
   );

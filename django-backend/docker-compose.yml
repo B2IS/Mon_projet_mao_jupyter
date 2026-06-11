@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       sigepp_dpe
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: senelec_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  django:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - media:/app/media
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: senelec_dev
+
+  # Optionnel : adminer pour explorer la BDD
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
+  media:

@@ -3,10 +3,11 @@
 import { useState, useRef } from 'react';
 import {
   Mail, Send, Search, Plus, X, ChevronRight, CheckCircle, Clock,
-  AlertCircle, FileText, Filter, Paperclip, Eye, Tag, Archive, GitBranch,
+  AlertCircle, FileText, Filter, Paperclip, Eye, Tag, Archive, GitBranch, FolderOpen,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { useProjectStore } from '@/lib/projectStore';
 import { useParapheurStore, type ParapheurDossier } from '@/lib/parapheurStore';
 import { useNotificationStore } from '@/lib/notificationStore';
 import { TEST_USERS } from '@/lib/authStore';
@@ -79,14 +80,14 @@ interface ANO {
 }
 
 const ENTRANTS: CourrierEntrant[] = [
-  { id: 'e1', num: 'ENT-2026-0412', expediteur: 'MEPC / Direction Générale', objet: 'Demande de rapport trimestriel avancement projets ruraux électrification phase III', recu: '24/05/2026 09:15', priorite: 'URGENT', statut: 'À QUALIFIER', pieceJointe: true },
-  { id: 'e2', num: 'ENT-2026-0411', expediteur: 'Banque Mondiale – TTL', objet: 'Mission de supervision Juillet 2026 – planning et documents à préparer', recu: '23/05/2026 14:30', priorite: 'URGENT', statut: 'QUALIFIÉ', pieceJointe: true },
+  { id: 'e1', num: 'ENT-2026-0412', expediteur: 'MEPC / Direction Générale', objet: 'Demande de rapport trimestriel avancement projets ruraux électrification phase III', recu: '24/05/2026 09:15', priorite: 'URGENT', statut: 'À QUALIFIER', pieceJointe: true, pieces: [{ nom: 'Rapport-T1-2026-MEPC.pdf', ext: 'pdf', url: '', taille: '2.4 MB' }] },
+  { id: 'e2', num: 'ENT-2026-0411', expediteur: 'Banque Mondiale – TTL', objet: 'Mission de supervision Juillet 2026 – planning et documents à préparer', recu: '23/05/2026 14:30', priorite: 'URGENT', statut: 'QUALIFIÉ', pieceJointe: true, pieces: [{ nom: 'Planning-Mission-BM-Juillet2026.pdf', ext: 'pdf', url: '', taille: '1.1 MB' }, { nom: 'Checklist-documents.xlsx', ext: 'xlsx', url: '', taille: '280 KB' }] },
   { id: 'e3', num: 'ENT-2026-0410', expediteur: 'Préfecture de Tambacounda', objet: 'Autorisation de travaux – Réseau BT zone rurale Koumpentoum', recu: '22/05/2026 10:00', priorite: 'NORMAL', statut: 'QUALIFIÉ', pieceJointe: false },
-  { id: 'e4', num: 'ENT-2026-0409', expediteur: 'Ministère de l\'Énergie', objet: 'Circulaire n°2026-018 – Nouvelles directives passation de marchés PUDC', recu: '21/05/2026 08:45', priorite: 'NORMAL', statut: 'DIFFUSÉ', pieceJointe: true },
-  { id: 'e5', num: 'ENT-2026-0408', expediteur: 'AFD – Bureau Dakar', objet: 'Transmission relevé de dépenses C8 – Programme électrification rurale', recu: '20/05/2026 16:20', priorite: 'URGENT', statut: 'DIFFUSÉ', pieceJointe: true },
-  { id: 'e6', num: 'ENT-2026-0407', expediteur: 'Entreprise GTSEN', objet: 'Situation mensuelle chantier lot 3 – Région de Kolda', recu: '19/05/2026 11:00', priorite: 'NORMAL', statut: 'QUALIFIÉ', pieceJointe: true },
+  { id: 'e4', num: 'ENT-2026-0409', expediteur: 'Ministère de l\'Énergie', objet: 'Circulaire n°2026-018 – Nouvelles directives passation de marchés PUDC', recu: '21/05/2026 08:45', priorite: 'NORMAL', statut: 'DIFFUSÉ', pieceJointe: true, pieces: [{ nom: 'Circulaire-2026-018-PUDC.pdf', ext: 'pdf', url: '', taille: '892 KB' }] },
+  { id: 'e5', num: 'ENT-2026-0408', expediteur: 'AFD – Bureau Dakar', objet: 'Transmission relevé de dépenses C8 – Programme électrification rurale', recu: '20/05/2026 16:20', priorite: 'URGENT', statut: 'DIFFUSÉ', pieceJointe: true, pieces: [{ nom: 'Releve-depenses-C8.pdf', ext: 'pdf', url: '', taille: '3.2 MB' }, { nom: 'Annexe-comptable.xlsx', ext: 'xlsx', url: '', taille: '445 KB' }] },
+  { id: 'e6', num: 'ENT-2026-0407', expediteur: 'Entreprise GTSEN', objet: 'Situation mensuelle chantier lot 3 – Région de Kolda', recu: '19/05/2026 11:00', priorite: 'NORMAL', statut: 'QUALIFIÉ', pieceJointe: true, pieces: [{ nom: 'Situation-chantier-Lot3-Mai2026.pdf', ext: 'pdf', url: '', taille: '5.8 MB' }] },
   { id: 'e7', num: 'ENT-2026-0406', expediteur: 'BEI – Luxembourg', objet: 'Demande de no-objection – Révision plan de passation de marchés 2026', recu: '18/05/2026 09:30', priorite: 'URGENT', statut: 'À QUALIFIER', pieceJointe: false },
-  { id: 'e8', num: 'ENT-2026-0405', expediteur: 'Gouvernance locale – Saint-Louis', objet: 'Compte rendu réunion comité de pilotage – Projet PERAL Saint-Louis', recu: '17/05/2026 15:10', priorite: 'INFO', statut: 'DIFFUSÉ', pieceJointe: true },
+  { id: 'e8', num: 'ENT-2026-0405', expediteur: 'Gouvernance locale – Saint-Louis', objet: 'Compte rendu réunion comité de pilotage – Projet PERAL Saint-Louis', recu: '17/05/2026 15:10', priorite: 'INFO', statut: 'DIFFUSÉ', pieceJointe: true, pieces: [{ nom: 'CR-COPIL-PERAL-Saint-Louis.pdf', ext: 'pdf', url: '', taille: '1.6 MB' }] },
 ];
 
 const SORTANTS: CourrierSortant[] = [
@@ -157,7 +158,7 @@ function QualifierPanel({ courrier, onClose, onConfirm }: {
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>Qualifier le courrier</div>
             <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10 }}>{courrier.num}</div>
           </div>
-          <button onClick={onClose} className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={13} /></button>
+          <button onClick={onClose} aria-label="Fermer le panneau" className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={13} /></button>
         </div>
 
         {/* Objet */}
@@ -251,7 +252,7 @@ function NouveauCourrierModal({ sens, onClose, onCreate }: {
       <div style={{ width: 460, background: '#fff', borderRadius: 12, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', padding: 22 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)' }}>{titre}</div>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
+          <button onClick={onClose} aria-label="Fermer la fenêtre" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
         </div>
 
         <label style={lab}>{tiersLabel} *</label>
@@ -325,6 +326,7 @@ export default function Courriers() {
   const router = useRouter();
   const addDossier = useParapheurStore(s => s.addDossier);
   const notifyUser = useNotificationStore(s => s.notifyUser);
+  const { projets } = useProjectStore();
 
   const [tab, setTab] = useState<TabType>('entrants');
   const [search, setSearch] = useState('');
@@ -340,6 +342,9 @@ export default function Courriers() {
   const [newCourrier, setNewCourrier] = useState<null | 'entrant' | 'sortant' | 'ano'>(null);
   const [wfSource, setWfSource] = useState<WorkflowSource | null>(null);
   const [annotPiece, setAnnotPiece] = useState<CourrierPiece | null>(null);
+  const [projetLie, setProjetLie] = useState<Record<string, string>>({});
+  const [gedFolderInput, setGedFolderInput] = useState('');
+  const [gedAction, setGedAction] = useState<string | null>(null); // courrierNum being processed
   // Ouvre le constructeur de workflow (destinataires + rôles) sur un courrier,
   // en transmettant les VRAIES pièces jointes (fichiers réels) au circuit.
   const ouvrirWorkflow = (c: CourrierEntrant) => setWfSource({
@@ -524,7 +529,7 @@ export default function Courriers() {
             <span className="card-title">Courriers entrants ({filteredEntrants.length})</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="btn btn-ghost btn-xs" onClick={() => { setSearch(''); setPeriode('tous'); setDirection('tous'); }}><Filter size={11} /> Réinitialiser</button>
-              <button className="btn btn-navy btn-xs" onClick={() => alert('Les courriers sélectionnés seront archivés.')}><Archive size={11} /> Archiver sélection</button>
+              <button className="btn btn-navy btn-xs" onClick={() => toast.info('Sélectionnez les courriers à archiver puis confirmez.')}><Archive size={11} /> Archiver sélection</button>
             </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -541,6 +546,12 @@ export default function Courriers() {
                 </tr>
               </thead>
               <tbody>
+                {filteredEntrants.length === 0 && (
+                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--muted)', fontSize: 13 }}>
+                    <Mail size={28} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.3 }} />
+                    Aucun courrier entrant{search ? ' correspondant à la recherche' : ''}. <button className="btn btn-primary btn-xs" style={{ marginLeft: 8 }} onClick={() => setNewCourrier('entrant')}><Plus size={11} /> Nouveau</button>
+                  </td></tr>
+                )}
                 {filteredEntrants.map(c => (
                   <tr key={c.id}>
                     <td>
@@ -615,6 +626,12 @@ export default function Courriers() {
                 </tr>
               </thead>
               <tbody>
+                {filteredSortants.length === 0 && (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--muted)', fontSize: 13 }}>
+                    <Send size={28} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.3 }} />
+                    Aucun courrier sortant{search ? ' correspondant à la recherche' : ''}. <button className="btn btn-primary btn-xs" style={{ marginLeft: 8 }} onClick={() => setNewCourrier('sortant')}><Plus size={11} /> Nouveau</button>
+                  </td></tr>
+                )}
                 {filteredSortants.map(c => (
                   <tr key={c.id}>
                     <td>
@@ -692,7 +709,7 @@ export default function Courriers() {
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="btn btn-ghost btn-xs" onClick={() => setDetailItem({ type: 'ano', item: a })}><Eye size={10} /> Voir</button>
-                          {a.statut !== 'Approuvé' && <button className="btn btn-xs" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--green)', border: '1px solid rgba(22,163,74,0.3)' }} onClick={() => alert(`Relance envoyée pour l'ANO ${a.ref}.`)}>Relancer</button>}
+                          {a.statut !== 'Approuvé' && <button className="btn btn-xs" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--green)', border: '1px solid rgba(22,163,74,0.3)' }} onClick={() => toast.success(`Relance envoyée pour l'ANO ${a.ref}.`)}>Relancer</button>}
                         </div>
                       </td>
                     </tr>
@@ -730,17 +747,104 @@ export default function Courriers() {
                 <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>Détail {detailItem.type === 'entrant' ? 'Courrier entrant' : detailItem.type === 'sortant' ? 'Courrier sortant' : 'ANO'}</div>
                 <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10 }}>{detailItem.item.num ?? detailItem.item.ref ?? detailItem.item.id}</div>
               </div>
-              <button onClick={() => setDetailItem(null)} className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={13} /></button>
+              <button onClick={() => setDetailItem(null)} aria-label="Fermer le détail" className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={13} /></button>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {detailItem.type === 'entrant' && (
-                <>
-                  <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Expéditeur</div><div style={{ fontSize: 12, color: '#1E293B' }}>{detailItem.item.expediteur}</div></div>
-                  <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Objet</div><div style={{ fontSize: 12, color: '#1E293B', lineHeight: 1.5 }}>{detailItem.item.objet}</div></div>
-                  <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Reçu le</div><div style={{ fontSize: 12, color: '#1E293B' }}>{detailItem.item.recu}</div></div>
-                  <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Statut</div><div style={{ fontSize: 12 }}>{pillPriorite(detailItem.item.priorite)} {pillStatutEntrant(detailItem.item.statut)}</div></div>
-                </>
-              )}
+              {detailItem.type === 'entrant' && (() => {
+                const c = detailItem.item as CourrierEntrant;
+                const hasPieces = c.pieces && c.pieces.length > 0;
+                return (
+                  <>
+                    {/* Metadata */}
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Expediteur</div><div style={{ fontSize: 12.5, color: '#1E293B', fontWeight: 600 }}>{c.expediteur}</div></div>
+                      <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Objet</div><div style={{ fontSize: 12, color: '#1E293B', lineHeight: 1.5 }}>{c.objet}</div></div>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Recu le</div><div style={{ fontSize: 12, color: '#1E293B' }}>{c.recu}</div></div>
+                        <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Statut</div><div>{pillPriorite(c.priorite)} {pillStatutEntrant(c.statut)}</div></div>
+                      </div>
+                    </div>
+
+                    {/* Documents joints */}
+                    <div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>Documents joints ({hasPieces ? c.pieces!.length : 0})</div>
+                      {hasPieces ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {c.pieces!.map((p, pi) => (
+                            <div key={pi} style={{ border: '1.5px solid #E2E8F0', borderRadius: 10, overflow: 'hidden' }}>
+                              {/* Preview zone */}
+                              <div style={{ background: '#F8FAFC', padding: '18px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer', borderBottom: '1px solid #E2E8F0' }}
+                                onClick={() => setAnnotPiece(p)}>
+                                <div style={{ width: 48, height: 60, background: p.ext === 'pdf' ? '#FEE2E2' : p.ext === 'xlsx' ? '#DCFCE7' : '#DBEAFE', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: p.ext === 'pdf' ? '#DC2626' : p.ext === 'xlsx' ? '#15803D' : '#1D4ED8', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
+                                  .{p.ext.toUpperCase()}
+                                </div>
+                                <div style={{ fontSize: 10.5, fontWeight: 600, color: '#334155', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</div>
+                                <div style={{ fontSize: 9.5, color: '#94A3B8' }}>{p.taille}</div>
+                                <div style={{ fontSize: 9.5, color: '#3D1A6B', fontWeight: 600 }}>Cliquer pour annoter</div>
+                              </div>
+                              {/* Actions document */}
+                              <div style={{ display: 'flex', gap: 6, padding: '8px 10px', flexWrap: 'wrap' }}>
+                                <button className="btn btn-xs" onClick={() => setAnnotPiece(p)}
+                                  style={{ background: 'rgba(244,121,32,0.1)', color: '#F47920', border: '1px solid rgba(244,121,32,0.3)' }}>
+                                  <FileText size={10} /> Annoter
+                                </button>
+                                <button className="btn btn-xs" onClick={() => ouvrirWorkflow(c)}
+                                  style={{ background: 'rgba(124,58,237,0.1)', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.3)' }}>
+                                  <GitBranch size={10} /> Workflow
+                                </button>
+                                <button className="btn btn-xs" onClick={() => setGedAction(c.num)}
+                                  style={{ background: 'rgba(14,52,96,0.08)', color: '#1B4F8A', border: '1px solid rgba(14,52,96,0.2)' }}>
+                                  <FolderOpen size={10} /> Vers GED
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 8, fontSize: 11.5, color: '#94A3B8', textAlign: 'center' }}>
+                          Aucun document joint
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lier a un projet */}
+                    <div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>Lier a un projet</div>
+                      {projetLie[c.id] ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#EFF6FF', borderRadius: 8, fontSize: 12 }}>
+                          <span style={{ flex: 1, fontWeight: 600, color: '#1B4F8A' }}>{projetLie[c.id]}</span>
+                          <button className="btn btn-ghost btn-xs" onClick={() => setProjetLie(p => { const n = { ...p }; delete n[c.id]; return n; })} style={{ color: '#94A3B8' }}><X size={10} /></button>
+                        </div>
+                      ) : (
+                        <select onChange={e => { if (e.target.value) setProjetLie(p => ({ ...p, [c.id]: e.target.value })); e.currentTarget.value = ''; }}
+                          style={{ width: '100%', padding: '7px 9px', borderRadius: 8, border: '1.5px solid #E2E8F0', fontSize: 12, color: '#64748B', background: '#fff', cursor: 'pointer' }}>
+                          <option value="">Selectionner un projet...</option>
+                          {projets.map(p => <option key={p.id} value={p.nom}>{p.nom}</option>)}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Envoyer vers GED modal */}
+                    {gedAction === c.num && (
+                      <div style={{ border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '12px', background: '#FFFBEB' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Enregistrer dans le GED</div>
+                        <div style={{ fontSize: 10.5, color: '#64748B', marginBottom: 6 }}>Nom du dossier de classement</div>
+                        <input value={gedFolderInput} onChange={e => setGedFolderInput(e.target.value)}
+                          placeholder="ex: Courriers BM 2026 / BEST Lot 1"
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '7px 9px', borderRadius: 7, border: '1.5px solid #E2E8F0', fontSize: 12, color: '#0F172A', background: '#fff', marginBottom: 8 }} />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-primary btn-xs" disabled={!gedFolderInput.trim()}
+                            onClick={() => { toast.success('Document envoye vers GED — dossier : ' + gedFolderInput); setGedAction(null); setGedFolderInput(''); }}
+                            style={{ flex: 1 }}>
+                            <FolderOpen size={10} /> Confirmer
+                          </button>
+                          <button className="btn btn-ghost btn-xs" onClick={() => { setGedAction(null); setGedFolderInput(''); }}><X size={10} /></button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               {detailItem.type === 'sortant' && (
                 <>
                   <div><div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Destinataire</div><div style={{ fontSize: 12, color: '#1E293B' }}>{detailItem.item.destinataire}</div></div>

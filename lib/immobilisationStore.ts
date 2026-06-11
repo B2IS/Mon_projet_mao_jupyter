@@ -34,6 +34,7 @@ export interface Immobilisation {
   valeurAcquisition: number; // FCFA (valeur brute)
   valeurResiduelle: number;  // FCFA (valeur à terme)
   dateMiseEnService: string; // 'YYYY-MM-DD'
+  datePVReception?: string;   // YYYY-MM-DD — peut differer de la mise en service
   dureeAmortissement: number;// années
   methode: MethodeAmortissement;
   localisation?: string;
@@ -161,9 +162,9 @@ export const useImmobilisationStore = create<ImmoState>()(
           ({ ...o, projetId, id: uid(), createdAt: now, updatedAt: now });
         set(s => ({
           immobilisations: [...s.immobilisations,
-            mk({ code: 'IMM-PS-001', designation: 'Poste HTA/BT 30/0,4 kV', categorie: 'Poste HTA/BT', valeurAcquisition: 185, valeurResiduelle: 0, dateMiseEnService: '2024-06-01', dureeAmortissement: 20, methode: 'lineaire', statut: 'en_service', localisation: 'Kaolack' }),
-            mk({ code: 'IMM-TR-002', designation: 'Transformateur 160 kVA', categorie: 'Transformateur', valeurAcquisition: 42, valeurResiduelle: 2, dateMiseEnService: '2024-06-01', dureeAmortissement: 15, methode: 'lineaire', statut: 'en_service', localisation: 'Kaolack' }),
-            mk({ code: 'IMM-LG-003', designation: 'Ligne HTA — tronçon 12 km', categorie: 'Ligne HTA', valeurAcquisition: 96, valeurResiduelle: 0, dateMiseEnService: '2024-09-01', dureeAmortissement: 25, methode: 'lineaire', statut: 'en_service', localisation: 'Wack Ngouna' }),
+            mk({ code: 'IMM-PS-001', designation: 'Poste HTA/BT 30/0,4 kV', categorie: 'Poste HTA/BT', valeurAcquisition: 185, valeurResiduelle: 0, dateMiseEnService: '2024-06-01', datePVReception: '2025-11-15', dureeAmortissement: 20, methode: 'lineaire', statut: 'en_service', localisation: 'Kaolack' }),
+            mk({ code: 'IMM-TR-002', designation: 'Transformateur 160 kVA', categorie: 'Transformateur', valeurAcquisition: 42, valeurResiduelle: 2, dateMiseEnService: '2024-06-01', datePVReception: '2025-11-15', dureeAmortissement: 15, methode: 'lineaire', statut: 'en_service', localisation: 'Kaolack' }),
+            mk({ code: 'IMM-LG-003', designation: 'Ligne HTA — tronçon 12 km', categorie: 'Ligne HTA', valeurAcquisition: 96, valeurResiduelle: 0, dateMiseEnService: '2024-09-01', datePVReception: '2025-11-15', dureeAmortissement: 25, methode: 'lineaire', statut: 'en_service', localisation: 'Wack Ngouna' }),
           ],
         }));
       },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, ChevronUp, ChevronDown, Star, CheckCircle, Circle, Clock, AlertCircle, FileText, Send, Plus, Pencil, Trash2, SlidersHorizontal, Settings, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
+import { X, ChevronUp, ChevronDown, Star, CheckCircle, Circle, Clock, AlertCircle, FileText, Send, Plus, Pencil, Trash2, SlidersHorizontal, Settings, ArrowUp, ArrowDown, RotateCcw, Search } from 'lucide-react';
 import { useCriteriaStore } from '@/lib/criteriaStore';
 import { useDecompteCircuit } from '@/lib/decompteCircuitStore';
 import { useAuth } from '@/lib/authStore';
@@ -369,7 +369,7 @@ function MarchePanel({ marche, onClose }: { marche: Marche; onClose: () => void 
               <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.3 }}>{marche.objet}</div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{marche.entreprise}</div>
             </div>
-            <button onClick={onClose} style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex', flexShrink: 0, marginLeft: 12 }}>
+            <button onClick={onClose} aria-label="Fermer le détail du marché" style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex', flexShrink: 0, marginLeft: 12 }}>
               <X size={16} />
             </button>
           </div>
@@ -510,6 +510,7 @@ export default function Marches() {
   const [filterDir,    setFilterDir]    = useState('Tous');
   const [filterType,   setFilterType]   = useState<TypeMarche | 'Tous'>('Tous');
   const [filterBailleur, setFilterBailleur] = useState('Tous');
+  const [search, setSearch] = useState('');
   const [sortCol,      setSortCol]      = useState<keyof Marche>('dateSignature');
   const [sortAsc,      setSortAsc]      = useState(false);
   const [selected,     setSelected]     = useState<Marche | null>(null);
@@ -574,6 +575,16 @@ export default function Marches() {
     if (filterDir      !== 'Tous') rows = rows.filter(m => m.direction === filterDir);
     if (filterType     !== 'Tous') rows = rows.filter(m => m.type      === filterType);
     if (filterBailleur !== 'Tous') rows = rows.filter(m => m.bailleur  === filterBailleur);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(m =>
+        m.reference.toLowerCase().includes(q) ||
+        m.objet.toLowerCase().includes(q) ||
+        m.entreprise.toLowerCase().includes(q) ||
+        m.direction.toLowerCase().includes(q) ||
+        m.bailleur.toLowerCase().includes(q)
+      );
+    }
     rows.sort((a, b) => {
       const av = a[sortCol] as string | number;
       const bv = b[sortCol] as string | number;
@@ -581,7 +592,7 @@ export default function Marches() {
       return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
     return rows;
-  }, [marches, marcheScope, filterStatut, filterDir, filterType, filterBailleur, sortCol, sortAsc]);
+  }, [marches, marcheScope, filterStatut, filterDir, filterType, filterBailleur, search, sortCol, sortAsc]);
 
   function toggleSort(col: keyof Marche) {
     if (sortCol === col) setSortAsc(v => !v);
@@ -651,6 +662,21 @@ export default function Marches() {
         <>
           {/* Filtres */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher un marché…"
+                className="form-input"
+                style={{ paddingLeft: 28, width: 220, paddingRight: search ? 26 : 8 }}
+              />
+              {search && (
+                <button onClick={() => setSearch('')} aria-label="Effacer la recherche" style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}>
+                  <X size={12} />
+                </button>
+              )}
+            </div>
             <select className="form-input" value={filterStatut} onChange={e => setFilterStatut(e.target.value as StatutMarche | 'Tous')}>
               {STATUTS_LIST.map(s => <option key={s} value={s}>{s === 'Tous' ? 'Tous statuts' : STATUT_CFG[s as StatutMarche]?.label ?? s}</option>)}
             </select>
@@ -714,8 +740,8 @@ export default function Marches() {
                         <td>
                           <div style={{ display: 'flex', gap: 4 }}>
                             <button className="btn btn-ghost btn-xs" onClick={() => setSelected(m)}>Détail</button>
-                            <button className="btn btn-ghost btn-xs hide-mobile" title="Modifier" onClick={() => openEdit(m)}><Pencil size={12} /></button>
-                            <button className="btn btn-ghost btn-xs" title="Supprimer" style={{ color: 'var(--red)' }} onClick={() => deleteMarche(m.id)}><Trash2 size={12} /></button>
+                            <button className="btn btn-ghost btn-xs hide-mobile" title="Modifier" aria-label={`Modifier le marché ${m.reference}`} onClick={() => openEdit(m)}><Pencil size={12} /></button>
+                            <button className="btn btn-ghost btn-xs" title="Supprimer" aria-label={`Supprimer le marché ${m.reference}`} style={{ color: 'var(--red)' }} onClick={() => deleteMarche(m.id)}><Trash2 size={12} /></button>
                           </div>
                         </td>
                       </tr>
@@ -724,7 +750,14 @@ export default function Marches() {
                 </tbody>
               </table>
               {filtered.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--muted)', fontSize: 12 }}>Aucun marché correspondant aux filtres</div>
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 12 }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Aucun marché correspondant aux filtres</div>
+                  <div style={{ marginBottom: 12 }}>Ajustez les filtres ou créez un nouveau marché.</div>
+                  <button className="btn btn-primary btn-xs" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={openCreate}>
+                    <Plus size={13} /> Nouveau marché
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1105,9 +1138,9 @@ function CircuitReference({ circuit, canEdit, open, onToggle }: {
                     <input value={e.responsable} onChange={ev => updateEtape(e.id, { responsable: ev.target.value })} style={inpCir} />
                     <input type="number" min={0} value={e.slaJours} onChange={ev => updateEtape(e.id, { slaJours: Math.max(0, Number(ev.target.value)) })} style={{ ...inpCir, textAlign: 'center' }} />
                     <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', paddingRight: 4 }}>
-                      <button className="btn btn-ghost btn-xs" disabled={i === 0} onClick={() => moveEtape(e.id, -1)} title="Monter" style={{ padding: 4, opacity: i === 0 ? 0.3 : 1 }}><ArrowUp size={12} /></button>
-                      <button className="btn btn-ghost btn-xs" disabled={i === circuit.length - 1} onClick={() => moveEtape(e.id, 1)} title="Descendre" style={{ padding: 4, opacity: i === circuit.length - 1 ? 0.3 : 1 }}><ArrowDown size={12} /></button>
-                      <button className="btn btn-ghost btn-xs" onClick={() => { if (confirm(`Supprimer l'étape « ${e.label} » ?`)) removeEtape(e.id); }} title="Supprimer" style={{ padding: 4, color: 'var(--red)' }}><Trash2 size={12} /></button>
+                      <button className="btn btn-ghost btn-xs" disabled={i === 0} onClick={() => moveEtape(e.id, -1)} title="Monter" aria-label={`Monter l'étape ${e.label}`} style={{ padding: 4, opacity: i === 0 ? 0.5 : 1, cursor: i === 0 ? 'not-allowed' : 'pointer' }}><ArrowUp size={12} /></button>
+                      <button className="btn btn-ghost btn-xs" disabled={i === circuit.length - 1} onClick={() => moveEtape(e.id, 1)} title="Descendre" aria-label={`Descendre l'étape ${e.label}`} style={{ padding: 4, opacity: i === circuit.length - 1 ? 0.5 : 1, cursor: i === circuit.length - 1 ? 'not-allowed' : 'pointer' }}><ArrowDown size={12} /></button>
+                      <button className="btn btn-ghost btn-xs" onClick={() => { if (confirm(`Supprimer l'étape « ${e.label} » ?`)) removeEtape(e.id); }} title="Supprimer" aria-label={`Supprimer l'étape ${e.label}`} style={{ padding: 4, color: 'var(--red)' }}><Trash2 size={12} /></button>
                     </div>
                   </>
                 ) : (
@@ -1134,7 +1167,7 @@ function CircuitReference({ circuit, canEdit, open, onToggle }: {
                   className="btn btn-primary btn-xs"
                   disabled={!newLabel.trim()}
                   onClick={() => { addEtape(newLabel, newResp, newSla); setNewLabel(''); setNewResp(''); setNewSla(1); }}
-                  style={{ justifySelf: 'end', marginRight: 4 }}>
+                  style={{ justifySelf: 'end', marginRight: 4, opacity: !newLabel.trim() ? 0.5 : 1, cursor: !newLabel.trim() ? 'not-allowed' : 'pointer' }}>
                   Ajouter
                 </button>
               </div>
@@ -1179,7 +1212,7 @@ function MarcheForm({ initial, onSave, onClose }: { initial: Marche | null; onSa
       <div style={{ width: '100%', maxWidth: 620, background: 'var(--bg-card)', borderRadius: 12, boxShadow: 'var(--shadow-lg)' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-2)', background: 'var(--navy)', color: '#fff', borderRadius: '12px 12px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 15, fontWeight: 800 }}>{initial ? 'Modifier le marché' : 'Nouveau marché'}</span>
-          <button onClick={onClose} style={{ padding: 6, borderRadius: 7, background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={16} /></button>
+          <button onClick={onClose} aria-label="Fermer le formulaire" style={{ padding: 6, borderRadius: 7, background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={16} /></button>
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1 / -1' }}>
@@ -1241,7 +1274,7 @@ function MarcheForm({ initial, onSave, onClose }: { initial: Marche | null; onSa
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-2)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
-          <button className="btn btn-primary btn-sm" disabled={!valid} style={{ opacity: valid ? 1 : 0.5 }} onClick={() => onSave(f)}>
+          <button className="btn btn-primary btn-sm" disabled={!valid} style={{ opacity: valid ? 1 : 0.5, cursor: valid ? 'pointer' : 'not-allowed' }} onClick={() => onSave(f)}>
             {initial ? 'Enregistrer' : 'Créer le marché'}
           </button>
         </div>

@@ -386,7 +386,7 @@ export default function Copilot() {
               onClick={() => send()}
               disabled={!input.trim() || loading}
               className="btn btn-primary"
-              style={{ opacity: !input.trim() || loading ? 0.5 : 1, flexShrink: 0 }}>
+              style={{ opacity: !input.trim() || loading ? 0.5 : 1, cursor: !input.trim() || loading ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
               <Send size={13} />
             </button>
           </div>

@@ -397,7 +397,7 @@ function DetailPanel({ node, onClose, onEdit, onAddChild }: {
           </div>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', lineHeight: 1.4, maxWidth: 200 }}>{node.label}</div>
         </div>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontSize: 14 }}>×</button>
+        <button onClick={onClose} aria-label="Fermer le panneau détail" style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontSize: 14 }}>×</button>
       </div>
 
       <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -616,8 +616,15 @@ export default function WBS() {
 
   const [useStoreData, setUseStoreData] = useState(true);
   const [wbsData, setWbsData]         = useState<WBSNode[]>(WBS_DATA_INITIAL);
+  /** Filtre par projet — '' = tous */
+  const [selectedProjetId, setSelectedProjetId] = useState<string>('');
 
   const activeWbsData = useStoreData ? storeWbsData : wbsData;
+  /** Vue filtrée sur un seul projet si sélectionné */
+  const viewWbsData = useMemo(() => {
+    if (!selectedProjetId) return activeWbsData;
+    return activeWbsData.filter(p => p.id === selectedProjetId || p.label.includes(selectedProjetId));
+  }, [activeWbsData, selectedProjetId]);
 
   const defaultExpandedIds = useMemo(() => {
     const ids = new Set<string>();
@@ -705,13 +712,13 @@ export default function WBS() {
   const expandAll = () => {
     const ids = new Set<string>();
     function walk(n: WBSNode) { ids.add(n.id); n.children?.forEach(walk); }
-    activeWbsData.forEach(walk);
+    viewWbsData.forEach(walk);
     setExpanded(ids);
   };
   const collapseAll = () => setExpanded(new Set());
 
   /* ── Stats ── */
-  const allNodes = useMemo(() => flattenNodes(activeWbsData), [activeWbsData]);
+  const allNodes = useMemo(() => flattenNodes(viewWbsData), [viewWbsData]);
   const taches   = allNodes.filter(n => n.type === 'tache');
   const jalons   = allNodes.filter(n => n.type === 'jalon');
   const termines = taches.filter(n => n.statut === 'termine');
@@ -838,7 +845,11 @@ export default function WBS() {
                 <div style={{ width: 90, marginLeft: 8, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>STATUT</div>
               </div>
 
-              {activeWbsData.map(proj => (
+              {viewWbsData.length === 0 ? (
+                <div style={{ padding: '40px 24px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>
+                  Aucun projet dans le portefeuille. Créez un projet depuis le module Portefeuille.
+                </div>
+              ) : viewWbsData.map(proj => (
                 <WBSRow key={proj.id} node={proj} depth={0}
                   expanded={expanded} onToggle={toggle}
                   selected={selected} onSelect={setSelected} />
@@ -848,15 +859,23 @@ export default function WBS() {
           ) : (
             /* ── TABLE VIEW ── */
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ padding: '8px 14px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-2)', display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ padding: '8px 14px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-2)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* Project selector — scope WBS to one project */}
+                <select value={selectedProjetId} onChange={e => setSelectedProjetId(e.target.value)}
+                  className="form-input" style={{ width: 280, fontSize: 11, fontWeight: selectedProjetId ? 700 : 400 }}>
+                  <option value="">— Tous les projets ({activeWbsData.length}) —</option>
+                  {activeWbsData.map(p => (
+                    <option key={p.id} value={p.id}>{p.code ? `${p.code} — ` : ''}{p.label.replace(/^PRJ[^\s]*\s—\s/, '')}</option>
+                  ))}
+                </select>
                 <input
                   value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                  placeholder="Rechercher par code ou label..."
+                  placeholder="Rechercher code ou tâche…"
                   className="form-input"
-                  style={{ width: 240, fontSize: 11 }}
+                  style={{ width: 220, fontSize: 11 }}
                 />
                 <select value={filterStatut} onChange={e => setFilterStatut(e.target.value as 'tous' | WBSStatut)}
-                  className="form-input" style={{ width: 160, fontSize: 11 }}>
+                  className="form-input" style={{ width: 150, fontSize: 11 }}>
                   <option value="tous">Tous statuts</option>
                   <option value="termine">Terminé</option>
                   <option value="en_cours">En cours</option>
@@ -876,18 +895,25 @@ export default function WBS() {
                     </tr>
                   </thead>
                   <tbody>
+                    {tableNodes.length === 0 && (
+                      <tr>
+                        <td colSpan={10} style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>
+                          Aucun élément ne correspond aux critères de filtre.
+                        </td>
+                      </tr>
+                    )}
                     {tableNodes.map(n => (
                       <tr key={n.id} onClick={() => { setSelected(n); setShowTable(false); }} style={{ cursor: 'pointer', background: n.type === 'jalon' ? 'rgba(245,176,0,0.05)' : undefined }}>
                         <td style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: 'var(--muted)' }}>{n.code}</td>
                         <td style={{ fontWeight: 500, maxWidth: 220 }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={n.label}>
                             {n.type === 'jalon' && <span style={{ marginRight: 4, color: '#D97706' }}>◆</span>}
                             {n.label}
                           </div>
                         </td>
                         <td><span className="pill pill-navy" style={{ fontSize: 9 }}>{TYPE_LABEL[n.type]}</span></td>
                         <td style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 140 }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.responsable}</div>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={n.responsable}>{n.responsable}</div>
                         </td>
                         <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{n.dateDebut}</td>
                         <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{n.dateFin}</td>
@@ -936,7 +962,7 @@ export default function WBS() {
           </div>
         ))}
         <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted)' }}>
-          {allNodes.length} éléments · {activeWbsData.length} projets · Budget total : {activeWbsData.reduce((s, p) => s + (p.budgetMrd ?? 0), 0).toFixed(1)} Mrd FCFA
+          {allNodes.length} éléments · {viewWbsData.length} projet(s) affiché(s) · Budget : {viewWbsData.reduce((s, p) => s + (p.budgetMrd ?? 0), 0).toFixed(1)} Mrd FCFA
           {useStoreData && <span style={{ marginLeft: 8, color: '#16A34A', fontWeight: 700 }}>● Données réelles</span>}
         </div>
       </div>
@@ -951,7 +977,7 @@ export default function WBS() {
             <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: '#fff', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', width: 440, padding: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#1B4F8A' }}>✏ Modifier WBS {editTarget.code}</div>
-                <button onClick={() => setEditTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#94A3B8' }}>×</button>
+                <button onClick={() => setEditTarget(null)} aria-label="Fermer" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#94A3B8' }}>×</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div><label style={lbl}>Libellé *</label><input style={inp} value={nodeForm.label} onChange={e => setNodeForm(f => ({ ...f, label: e.target.value }))} /></div>
@@ -972,7 +998,7 @@ export default function WBS() {
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
                 <button onClick={() => setEditTarget(null)} style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Annuler</button>
-                <button onClick={saveEdit} disabled={!nodeForm.label.trim()} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: nodeForm.label.trim() ? '#1B4F8A' : '#E5E7EB', color: nodeForm.label.trim() ? '#fff' : '#9CA3AF', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>💾 Enregistrer</button>
+                <button onClick={saveEdit} disabled={!nodeForm.label.trim()} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: nodeForm.label.trim() ? '#1B4F8A' : '#E5E7EB', color: nodeForm.label.trim() ? '#fff' : '#9CA3AF', fontSize: 12, fontWeight: 700, cursor: nodeForm.label.trim() ? 'pointer' : 'not-allowed', opacity: nodeForm.label.trim() ? 1 : 0.5 }}>💾 Enregistrer</button>
               </div>
             </div>
           </>
@@ -990,7 +1016,7 @@ export default function WBS() {
             <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: '#fff', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', width: 440, padding: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#1B4F8A' }}>+ Ajouter sous-élément</div>
-                <button onClick={() => setAddParentId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#94A3B8' }}>×</button>
+                <button onClick={() => setAddParentId(null)} aria-label="Fermer" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#94A3B8' }}>×</button>
               </div>
               <div style={{ fontSize: 11, color: '#64748B', marginBottom: 16 }}>Parent : WBS {parent?.code} — {parent?.label}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1016,7 +1042,7 @@ export default function WBS() {
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
                 <button onClick={() => setAddParentId(null)} style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Annuler</button>
-                <button onClick={saveAddChild} disabled={!nodeForm.label.trim()} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: nodeForm.label.trim() ? '#1B4F8A' : '#E5E7EB', color: nodeForm.label.trim() ? '#fff' : '#9CA3AF', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Ajouter</button>
+                <button onClick={saveAddChild} disabled={!nodeForm.label.trim()} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: nodeForm.label.trim() ? '#1B4F8A' : '#E5E7EB', color: nodeForm.label.trim() ? '#fff' : '#9CA3AF', fontSize: 12, fontWeight: 700, cursor: nodeForm.label.trim() ? 'pointer' : 'not-allowed', opacity: nodeForm.label.trim() ? 1 : 0.5 }}>+ Ajouter</button>
               </div>
             </div>
           </>

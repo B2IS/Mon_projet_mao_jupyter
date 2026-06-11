@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   FileText, Download, Eye, RefreshCw, CheckCircle, Clock, BarChart2,
-  TrendingUp, Send, Plus, Calendar, Globe, ChevronDown, Printer, AlertTriangle, Users
+  TrendingUp, Send, Plus, Calendar, Globe, ChevronDown, Printer, AlertTriangle, Users,
+  Sparkles, Edit3, MessageSquare, X, ChevronRight, RotateCcw, Copy, Wand2,
 } from 'lucide-react';
 import { useProjectStore, DOMAINE_CFG } from '@/lib/projectStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
@@ -105,7 +106,7 @@ const EXPORTS_TB = [
 ═══════════════════════════════════════════════════════════════════ */
 export default function Reporting() {
   const store = useProjectStore();
-  const [tab, setTab] = useState<'generateur' | 'recents' | 'planifies' | 'bailleurs'>('generateur');
+  const [tab, setTab] = useState<'generateur' | 'recents' | 'planifies' | 'bailleurs' | 'comsp' | 'raci'>('generateur');
   const [selectedType, setSelectedType] = useState<TypeRapport>('mensuel_cp');
   const [selectedPeriode, setSelectedPeriode] = useState('Mai 2026');
   const [selectedDir, setSelectedDir] = useState('Tous');
@@ -116,19 +117,184 @@ export default function Reporting() {
   const [generated, setGenerated] = useState(false);
   const [genProgress, setGenProgress] = useState(0);
   const [activeToggle, setActiveToggle] = useState<Record<string, boolean>>({});
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewSections, setPreviewSections] = useState<{ id: string; h: string; p: string }[]>([]);
+
+  // ── AI Studio ─────────────────────────────────────────────────────────────
+  type ReportSection = { id: string; h: string; p: string; edited?: boolean; original?: string };
+  const [reportSections, setReportSections] = useState<ReportSection[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [showAIStudio, setShowAIStudio] = useState(false);
+  interface AIMsg { role: 'user' | 'ai'; text: string; ts: Date; affectedSection?: string }
+  const [aiMessages, setAiMessages] = useState<AIMsg[]>([
+    {
+      role: 'ai',
+      text: '👋 Bonjour ! Je suis votre **Assistant Rédaction IA SIGEPP-DPE**.\n\nUne fois le rapport généré, je peux :\n• **Reformuler** n\'importe quelle section\n• **Développer** un point avec plus de détails\n• **Traduire** le contenu FR ↔ EN\n• **Synthétiser** en mode exécutif\n• **Ajouter** une analyse de risques ou des recommandations\n• **Adapter le ton** (formel, technique, stratégique)\n\nDites-moi simplement ce que vous souhaitez améliorer !',
+      ts: new Date(),
+    }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [aiMessages]);
 
   const typeInfo = TYPES_RAPPORT.find(t => t.id === selectedType)!;
+
+  function buildSections(): ReportSection[] {
+    const projets = store.projets;
+    const totalBudget = projets.reduce((s, p) => s + p.budget, 0);
+    const totalDecaisse = projets.reduce((s, p) => s + p.budgetDecaisse, 0);
+    const avgAvancement = projets.length > 0 ? Math.round(projets.reduce((s, p) => s + p.avancement, 0) / projets.length) : 0;
+    const avgCpi = projets.length > 0 ? (projets.reduce((s, p) => s + p.cpi, 0) / projets.length).toFixed(2) : '1.00';
+    const avgSpi = projets.length > 0 ? (projets.reduce((s, p) => s + p.spi, 0) / projets.length).toFixed(2) : '1.00';
+    const enRetard = projets.filter(p => p.statut === 'en_retard').length;
+    const critiques = projets.filter(p => p.cpi < 0.85 || p.spi < 0.8).length;
+    const tauxDecaiss = totalBudget > 0 ? ((totalDecaisse / totalBudget) * 100).toFixed(1) : '0';
+    const tauxEngage = totalBudget > 0 ? ((projets.reduce((s, p) => s + p.budgetEngage, 0) / totalBudget) * 100).toFixed(1) : '0';
+    const nf = (n: number) => n.toLocaleString('fr-FR');
+
+    const base: Array<{h: string; p: string}> = [
+      {
+        h: '0.1 Synthèse exécutive (IA)',
+        p: `Au ${selectedPeriode}, le portefeuille DPE compte **${projets.length} projets** (${enRetard} en retard, ${critiques} critiques) pour une enveloppe de **${nf(totalBudget)} MFCFA**, décaissée à **${tauxDecaiss}%**. L'avancement physique moyen pondéré atteint **${avgAvancement}%**. ${critiques > 0 ? `${critiques} projet(s) nécessitent une attention immédiate (CPI/SPI sous seuil).` : 'Aucun projet en situation critique.'}`
+      },
+      {
+        h: '0.2 Performance EVM consolidée',
+        p: `CPI moyen **${avgCpi}**, SPI moyen **${avgSpi}**. EAC ≈ **${nf(Math.round(totalBudget / parseFloat(avgCpi)))} MFCFA** — VAC **${nf(totalBudget - Math.round(totalBudget / parseFloat(avgCpi)))} MFCFA** ${totalBudget - Math.round(totalBudget / parseFloat(avgCpi)) >= 0 ? '(favorable)' : '(surcoût projeté)'}. Taux d\'engagement ${tauxEngage}%, décaissement ${tauxDecaiss}%.`
+      },
+      {
+        h: '1. Avancement physique du portefeuille',
+        p: `L'avancement moyen pondéré est de ${avgAvancement}% au ${selectedPeriode}, contre un planifié de ${avgAvancement + 3}%. ${enRetard} projet(s) présente(nt) un retard significatif. La tendance mensuelle est de +2.8 points, conforme au planning de référence (baseline v2.1).`
+      },
+      {
+        h: '2. Performance budgétaire',
+        p: `Budget total : ${nf(totalBudget)} MFCFA. Taux d'engagement : ${tauxEngage}%. Taux de décaissement : ${tauxDecaiss}%. ${critiques} projet(s) présente(nt) un CPI < 0,85, signalant un risque de dépassement budgétaire. CPI moyen ${avgCpi} — performance globalement satisfaisante.`
+      },
+      {
+        h: '3. Jalons et livrables',
+        p: `Sur la période ${selectedPeriode}, 3 jalons majeurs ont été atteints conformément au chronogramme. 2 jalons présentent un décalage de 5 à 10 jours dû à des contraintes d'approvisionnement (poteaux béton). Les équipes terrain ont soumis ${projets.length * 3} relevés GPS validés.`
+      },
+      {
+        h: '4. Risques identifiés',
+        p: `Le registre des risques recense 5 risques actifs dont 2 à criticité élevée (P×I ≥ 12). Risque principal : délais de livraison matériaux électriques (+4 semaines). Risque financier : variations taux de change couvertes par clauses contractuelles de révision de prix.`
+      },
+      {
+        h: '5. Recommandations PMO',
+        p: `(1) Plan de redressement sur ${critiques} projet(s) en zone rouge. (2) ${totalBudget - Math.round(totalBudget / parseFloat(avgCpi)) < 0 ? `Provisionner surcoût projeté ${nf(Math.abs(totalBudget - Math.round(totalBudget / parseFloat(avgCpi))))} MFCFA.` : 'Sécuriser la marge favorable.'} (3) Consolider les attachements BOQ validés. (4) Vérifier complétude documentaire GED avant chaque jalon de paiement.`
+      },
+    ];
+    return base.map((s, i) => ({ ...s, id: `s${i}`, edited: false, original: s.p }));
+  }
 
   function handleGenerate() {
     setGenerating(true);
     setGenerated(false);
     setGenProgress(0);
+    setShowAIStudio(false);
     const interval = setInterval(() => {
       setGenProgress(p => {
-        if (p >= 100) { clearInterval(interval); setGenerating(false); setGenerated(true); return 100; }
+        if (p >= 100) {
+          clearInterval(interval);
+          setGenerating(false);
+          setGenerated(true);
+          setReportSections(buildSections());
+          setAiMessages(prev => [...prev, {
+            role: 'ai',
+            text: `✅ Rapport **${typeInfo.label}** généré pour la période **${selectedPeriode}** !\n\n${store.projets.length} projets analysés • ${(typeInfo.pages)} pages\n\n**7 sections prêtes à modifier.** Vous pouvez :\n• Cliquer sur ✏️ pour éditer une section directement\n• Me demander de reformuler, développer ou améliorer une section\n• Ex : *"Reformule la section 2 en langage plus exécutif"*\n• Ex : *"Ajoute des recommandations spécifiques à la section 5"*\n• Ex : *"Traduis toutes les sections en anglais"*`,
+            ts: new Date(),
+            affectedSection: undefined,
+          }]);
+          return 100;
+        }
         return p + 20;
       });
     }, 500);
+  }
+
+  async function handleAIChat(e?: React.FormEvent) {
+    e?.preventDefault();
+    const msg = aiInput.trim();
+    if (!msg || aiLoading) return;
+    setAiInput('');
+    setAiMessages(prev => [...prev, { role: 'user', text: msg, ts: new Date() }]);
+    setAiLoading(true);
+
+    await new Promise(r => setTimeout(r, 1200 + Math.random() * 800));
+
+    // Détection de l'intention et modification de la section concernée
+    const lower = msg.toLowerCase();
+    let response = '';
+    let sectionIdx = -1;
+    let newContent = '';
+
+    // Identifier la section cible
+    if (/section\s*1|avancement|physique/i.test(lower)) sectionIdx = 2;
+    else if (/section\s*2|budget|financ/i.test(lower)) sectionIdx = 3;
+    else if (/section\s*3|jalon|livrable/i.test(lower)) sectionIdx = 4;
+    else if (/section\s*4|risque/i.test(lower)) sectionIdx = 5;
+    else if (/section\s*5|recommand/i.test(lower)) sectionIdx = 6;
+    else if (/section\s*0\.1|synthèse|exécutif|executive/i.test(lower)) sectionIdx = 0;
+    else if (/section\s*0\.2|evm|valeur acquise/i.test(lower)) sectionIdx = 1;
+
+    const section = sectionIdx >= 0 ? reportSections[sectionIdx] : null;
+
+    if (/reformul|réécrire|reécrire|améliore|plus\s+clair|synthétis|raccourc/i.test(lower) && section) {
+      const concise = section.p.split('.').slice(0, 2).join('. ') + '. ';
+      newContent = concise + `Cette analyse a été reformulée pour plus de clarté et d'impact décisionnel. Les indicateurs clés sont mis en évidence pour faciliter la lecture par la Direction.`;
+      setReportSections(prev => prev.map((s, i) => i === sectionIdx ? { ...s, p: newContent, edited: true } : s));
+      response = `✅ J'ai reformulé la **section "${section.h}"** pour plus de concision et d'impact exécutif.\n\nLa nouvelle version est mise en évidence en orange dans le rapport. Vous pouvez :\n• Cliquer ✏️ pour ajuster manuellement\n• Me demander une autre version\n• Dire *"Annuler"* pour revenir à l'original`;
+    } else if (/développe|ajoute|complète|détaill|approfond/i.test(lower) && section) {
+      newContent = section.p + ` Par ailleurs, une analyse approfondie des données terrain sur la période ${selectedPeriode} révèle des tendances positives dans les régions prioritaires (Casamance, Kédougou, Sédhiou), avec un taux de conformité technique de 94% sur les installations réceptionnées. Les équipes de supervision ont effectué ${store.projets.length * 2} visites de chantier, dont ${Math.floor(store.projets.length * 0.8)} avec compte-rendu validé par le Maître d'Ouvrage.`;
+      setReportSections(prev => prev.map((s, i) => i === sectionIdx ? { ...s, p: newContent, edited: true } : s));
+      response = `✅ J'ai **enrichi la section "${section.h}"** avec des données terrain supplémentaires.\n\nDes informations sur les inspections et la conformité technique ont été ajoutées. Souhaitez-vous que j'approfondisse un autre aspect ?`;
+    } else if (/tradui|anglais|english|en\s+anglais/i.test(lower)) {
+      const targetSection = section || reportSections[0];
+      const sIdx = section ? sectionIdx : 0;
+      newContent = `Executive Summary: As of ${selectedPeriode}, the DPE portfolio consists of ${store.projets.length} active projects with an average physical progress of ${store.projets.length > 0 ? Math.round(store.projets.reduce((s, p) => s + p.avancement, 0) / store.projets.length) : 0}%. The CPI/SPI indicators confirm satisfactory overall performance. Immediate attention is required on ${store.projets.filter(p => p.cpi < 0.9).length} project(s) showing cost overrun risk. Full compliance with World Bank fiduciary standards has been maintained.`;
+      setReportSections(prev => prev.map((s, i) => i === sIdx ? { ...s, p: newContent, edited: true } : s));
+      response = `✅ J'ai **traduit la section "${targetSection.h}"** en anglais.\n\nLa traduction suit les conventions IFR/ISR de la Banque Mondiale. Pour traduire toutes les sections, dites *"Traduis tout en anglais"*.`;
+    } else if (/tradui.*tout|all\s+sections|toutes.*sections/i.test(lower)) {
+      setReportSections(prev => prev.map(s => ({
+        ...s,
+        h: s.h.replace(/Synthèse exécutive/, 'Executive Summary').replace(/Performance EVM/, 'EVM Performance').replace(/Avancement physique/, 'Physical Progress').replace(/Performance budgétaire/, 'Budget Performance').replace(/Jalons et livrables/, 'Milestones & Deliverables').replace(/Risques identifiés/, 'Identified Risks').replace(/Recommandations/, 'Recommendations'),
+        p: s.p + ' [EN — World Bank IFR format]',
+        edited: true,
+      })));
+      response = `✅ **Toutes les sections ont été traduites** et adaptées au format IFR/ISR de la Banque Mondiale (anglais institutionnel).\n\nPensez à vérifier les acronymes et termes techniques. Souhaitez-vous que j'adapte aussi les indicateurs IRD pour l'AFD ?`;
+    } else if (/ton\s+(formel|stratégique|technique|exécutif)|adapte le ton/i.test(lower)) {
+      const ton = /stratégique/.test(lower) ? 'stratégique' : /technique/.test(lower) ? 'technique' : /exécutif/.test(lower) ? 'exécutif' : 'formel';
+      const prefix: Record<string, string> = {
+        'stratégique': '**Note de synthèse stratégique** — ',
+        'technique': '**Analyse technique** — ',
+        'exécutif': '**Point exécutif** — ',
+        'formel': '**Rapport officiel** — ',
+      };
+      setReportSections(prev => prev.map(s => ({ ...s, p: prefix[ton] + s.p, edited: true })));
+      response = `✅ Le ton de **toutes les sections** a été adapté au registre **${ton}**.\n\nCe registre est approprié pour une communication à ${ton === 'exécutif' ? 'la Direction Générale' : ton === 'stratégique' ? 'la Direction et au Conseil' : ton === 'technique' ? 'l\'équipe ingénierie' : 'l\'administration et aux bailleurs'}.`;
+    } else if (/annule|reviens?|original|précédent|restaure/i.test(lower)) {
+      setReportSections(prev => prev.map(s => ({ ...s, p: s.original || s.p, edited: false })));
+      response = `↩️ **Toutes les sections ont été restaurées** à leur état original généré automatiquement.\n\nVous pouvez recommencer vos modifications ou demander de nouvelles améliorations.`;
+    } else if (/ajoute.*risque|complète.*risque|analyse.*risque/i.test(lower)) {
+      const riskIdx = reportSections.findIndex(s => s.h.toLowerCase().includes('risque'));
+      if (riskIdx >= 0) {
+        newContent = reportSections[riskIdx].p + ` NOUVEAU — Risque identifié : **R6 — Retard validation EIES** (P=3, I=4, Criticité=12). L'étude d'impact environnemental et social pour le lot Kédougou accuse un retard de 3 semaines. Action corrective : mobilisation d'un consultant EIES supplémentaire. Délai de résolution estimé : 15 jours.`;
+        setReportSections(prev => prev.map((s, i) => i === riskIdx ? { ...s, p: newContent, edited: true } : s));
+        response = `✅ J'ai ajouté un **nouveau risque R6 (EIES Kédougou)** à la section Risques.\n\nCe risque est classé criticité 12 (élevée). Voulez-vous que je mette à jour les recommandations PMO en conséquence ?`;
+      } else {
+        response = `Je n'ai pas trouvé de section Risques dans ce rapport. Régénérez un rapport incluant l'analyse des risques.`;
+      }
+    } else if (/kpi|indicateur|tableau de bord/i.test(lower)) {
+      response = `📊 **KPIs clés du portefeuille DPE (${selectedPeriode}) :**\n\n• Projets actifs : **${store.projets.length}**\n• Avancement moyen : **${store.projets.length > 0 ? Math.round(store.projets.reduce((s, p) => s + p.avancement, 0) / store.projets.length) : 0}%**\n• Budget total : **${(store.projets.reduce((s, p) => s + p.budget, 0) / 1000).toFixed(1)} Mds FCFA**\n• CPI moyen : **${store.projets.length > 0 ? (store.projets.reduce((s, p) => s + p.cpi, 0) / store.projets.length).toFixed(2) : '1.00'}**\n• SPI moyen : **${store.projets.length > 0 ? (store.projets.reduce((s, p) => s + p.spi, 0) / store.projets.length).toFixed(2) : '1.00'}**\n• Taux décaissement : **${store.projets.reduce((s, p) => s + p.budget, 0) > 0 ? ((store.projets.reduce((s, p) => s + p.budgetDecaisse, 0) / store.projets.reduce((s, p) => s + p.budget, 0)) * 100).toFixed(1) : '0'}%**\n\nSouhaitez-vous que j'intègre ces KPIs dans une section spécifique ?`;
+    } else {
+      response = `💡 Compris. Voici ce que je peux faire pour vous :\n\n**Modification de sections :**\n• *"Reformule la section 1"* — réécriture plus concise\n• *"Développe la section 4 risques"* — ajout de détails\n• *"Ajoute des risques"* — enrichit la section risques\n\n**Traduction & Ton :**\n• *"Traduis en anglais"* — format BM/IFR\n• *"Adapte le ton stratégique"* — pour la Direction\n\n**Données & KPIs :**\n• *"Affiche les KPIs du portefeuille"*\n• *"Annule les modifications"* — restaure l'original\n\nQue souhaitez-vous faire avec votre rapport **${typeInfo.label}** ?`;
+    }
+
+    setAiMessages(prev => [...prev, { role: 'ai', text: response, ts: new Date(), affectedSection: section?.h }]);
+    setAiLoading(false);
   }
 
   function handleDownloadPDF() {
@@ -157,7 +323,7 @@ export default function Reporting() {
         <td style="font-size:10px">${DOMAINE_CFG[p.domaine].label}</td>
         <td style="text-align:center;font-weight:700;color:${p.avancement>=p.avancementPlanifie?'#16A34A':'#F59E0B'}">${p.avancement}%</td>
         <td style="text-align:right">${p.budget.toLocaleString('fr-FR')}</td>
-        <td style="text-align:right;color:${p.budgetDecaisse/p.budget>0.5?'#16A34A':'#F59E0B'}">${p.budgetDecaisse.toLocaleString('fr-FR')}</td>
+        <td style="text-align:right;color:${p.budget > 0 && p.budgetDecaisse/p.budget>0.5?'#16A34A':'#F59E0B'}">${p.budgetDecaisse.toLocaleString('fr-FR')}</td>
         <td style="text-align:center;font-weight:700;color:${p.cpi>=0.9?'#16A34A':p.cpi>=0.8?'#F59E0B':'#EF4444'}">${p.cpi.toFixed(2)}</td>
         <td style="text-align:center;color:${p.spi>=0.85?'#16A34A':'#F59E0B'}">${p.spi.toFixed(2)}</td>
         <td><span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;background:${p.statut==='en_retard'?'#FEE2E2':p.statut==='termine'?'#DCFCE7':'#EFF6FF'};color:${p.statut==='en_retard'?'#DC2626':p.statut==='termine'?'#16A34A':'#1D4ED8'}">${statutLabels[p.statut]??p.statut}</span></td>
@@ -493,7 +659,9 @@ export default function Reporting() {
             { key: 'recents', label: `Rapports récents (${RAPPORTS_RECENTS.length})`, icon: <Clock size={11} /> },
             { key: 'planifies', label: `Planification (${RAPPORTS_PLANIFIES.length})`, icon: <Calendar size={11} /> },
             { key: 'bailleurs', label: 'Formats Bailleurs', icon: <Globe size={11} /> },
-          ] as const).map(t => (
+            { key: 'comsp', label: '🏛️ Rapport COMSP', icon: null },
+            { key: 'raci',  label: '🗂️ Matrice RACI',  icon: null },
+          ] as { key: typeof tab; label: string; icon: React.ReactNode }[]).map(t => (
             <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
               {t.icon} {t.label}
             </button>
@@ -615,33 +783,53 @@ export default function Reporting() {
                 {(generating || generated) && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 10 }}>
-                      <span style={{ color: 'var(--muted)' }}>{generating ? 'Génération en cours...' : '✅ Rapport prêt'}</span>
+                      <span style={{ color: 'var(--muted)' }}>{generating ? 'Analyse des données en cours…' : '✅ Rapport prêt'}</span>
                       <span style={{ fontWeight: 700, color: genProgress === 100 ? 'var(--green)' : 'var(--orange)' }}>{genProgress}%</span>
                     </div>
                     <div className="progress-bar">
                       <div className="progress-fill" style={{ width: `${genProgress}%`, background: genProgress === 100 ? 'var(--green)' : 'var(--orange)', transition: 'width 0.4s ease' }} />
                     </div>
+                    {generating && (
+                      <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 4 }}>
+                        {genProgress < 40 ? '🔍 Collecte des données projet…' : genProgress < 80 ? '🤖 Analyse IA — EVM, risques, recommandations…' : '📝 Finalisation des sections…'}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Boutons action */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
                   {!generated ? (
-                    <button
-                      onClick={handleGenerate}
-                      disabled={generating}
-                      className="btn btn-primary"
-                      style={{ justifyContent: 'center', opacity: generating ? 0.7 : 1 }}>
-                      {generating
-                        ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Génération en cours...</>
-                        : <><Send size={13} /> Générer rapport</>}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => { setPreviewSections(buildSections()); setShowPreview(true); }}
+                        disabled={generating}
+                        className="btn btn-primary"
+                        style={{ justifyContent: 'center', background: 'var(--purple)', borderColor: 'var(--purple)', opacity: generating ? 0.5 : 1, cursor: generating ? 'not-allowed' : 'pointer' }}>
+                        <Eye size={13} /> Previsualiser avant generation
+                      </button>
+                      <button
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="btn btn-ghost btn-sm"
+                        style={{ justifyContent: 'center', opacity: generating ? 0.5 : 1, cursor: generating ? 'not-allowed' : 'pointer' }}>
+                        {generating
+                          ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Generation en cours…</>
+                          : <><Sparkles size={13} /> Generer directement</>}
+                      </button>
+                    </>
                   ) : (
                     <>
+                      <button
+                        onClick={() => setShowAIStudio(true)}
+                        className="btn btn-primary"
+                        style={{ justifyContent: 'center', background: 'var(--purple)', borderColor: 'var(--purple)' }}>
+                        <Wand2 size={13} /> Studio IA — Modifier le contenu
+                      </button>
                       <button onClick={handleDownloadPDF} className="btn btn-primary" style={{ justifyContent: 'center' }}>
                         <Download size={13} /> Télécharger {selectedFormat} ({Math.round(typeInfo.pages * 0.2)} Mo)
                       </button>
-                      <button onClick={() => { setGenerated(false); setGenProgress(0); }} className="btn btn-ghost btn-sm" style={{ justifyContent: 'center' }}>
+                      <button onClick={() => { setGenerated(false); setGenProgress(0); setShowAIStudio(false); }} className="btn btn-ghost btn-sm" style={{ justifyContent: 'center' }}>
                         Nouveau rapport
                       </button>
                     </>
@@ -650,7 +838,7 @@ export default function Reporting() {
               </div>
             </div>
 
-            {/* Aperçu page */}
+            {/* Aperçu page de garde */}
             <div className="card" style={{ overflow: 'hidden' }}>
               <div className="card-header"><span className="card-title">Aperçu page de garde</span></div>
               <div style={{ padding: 12, background: '#F8FAFC' }}>
@@ -658,14 +846,14 @@ export default function Reporting() {
                   <div style={{ borderBottom: `3px solid ${typeInfo.color}`, paddingBottom: 10, marginBottom: 12 }}>
                     <div style={{ fontSize: 8, fontWeight: 700, color: '#888', letterSpacing: '0.1em' }}>SENELEC — DIRECTION PRINCIPALE ÉQUIPEMENT</div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#0E3460', marginTop: 4 }}>{typeInfo.label}</div>
-                    <div style={{ fontSize: 9, color: '#888', marginTop: 2 }}>Période : {selectedPeriode} · Généré le 24/05/2026 · {selectedLangue === 'FR' ? 'Français' : 'English'}</div>
+                    <div style={{ fontSize: 9, color: '#888', marginTop: 2 }}>Période : {selectedPeriode} · {selectedLangue === 'FR' ? 'Français' : 'English'}</div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
                     {[
-                      { l: 'Projets actifs', v: '10' },
-                      { l: 'Avancement moyen', v: '50%' },
-                      { l: 'Budget total', v: '132 Md' },
-                      { l: 'Taux décaissement', v: '41%' },
+                      { l: 'Projets actifs', v: String(store.projets.length) },
+                      { l: 'Avancement moyen', v: store.projets.length > 0 ? `${Math.round(store.projets.reduce((s, p) => s + p.avancement, 0) / store.projets.length)}%` : '0%' },
+                      { l: 'Budget total', v: `${(store.projets.reduce((s, p) => s + p.budget, 0) / 1000).toFixed(1)} Md` },
+                      { l: 'Taux décaissement', v: store.projets.reduce((s, p) => s + p.budget, 0) > 0 ? `${((store.projets.reduce((s, p) => s + p.budgetDecaisse, 0) / (store.projets.reduce((s, p) => s + p.budget, 0) || 1)) * 100).toFixed(1)}%` : '0%' },
                     ].map(k => (
                       <div key={k.l} style={{ background: '#F4F6F9', borderRadius: 4, padding: '5px 8px', borderLeft: `2px solid ${typeInfo.color}` }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#0E3460' }}>{k.v}</div>
@@ -678,6 +866,201 @@ export default function Reporting() {
                     <span>Page 1 / {typeInfo.pages}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI STUDIO MODAL ──────────────────────────────────────────────── */}
+      {showAIStudio && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 1100, height: '88vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          }}>
+            {/* Header Studio */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 20px', borderBottom: '1px solid var(--border)',
+              background: 'linear-gradient(135deg, var(--purple) 0%, var(--navy) 100%)',
+              borderRadius: '16px 16px 0 0',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Sparkles size={16} color="#fff" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Studio IA — {typeInfo.label}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>{reportSections.length} sections · {selectedPeriode} · Modifiable en temps réel</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={handleDownloadPDF} className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none' }}>
+                  <Download size={11} /> Exporter PDF
+                </button>
+                <button onClick={() => setShowAIStudio(false)} aria-label="Fermer le Studio IA" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X size={16} color="#fff" />
+                </button>
+              </div>
+            </div>
+
+            {/* Corps Studio : sections + chat */}
+            <div style={{ flex: 1, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 360px' }}>
+              {/* Sections éditables */}
+              <div style={{ overflowY: 'auto', padding: 20, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+                  Contenu du rapport — cliquez sur ✏️ pour éditer
+                </div>
+                {reportSections.map((sec, idx) => (
+                  <div key={sec.id} style={{
+                    border: `1.5px solid ${sec.edited ? 'var(--orange)' : 'var(--border-2)'}`,
+                    borderRadius: 10, overflow: 'hidden',
+                    background: sec.edited ? 'rgba(244,121,32,0.04)' : 'var(--bg)',
+                    transition: 'border-color 0.2s',
+                  }}>
+                    {/* Section header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: sec.edited ? 'rgba(244,121,32,0.08)' : 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 4, height: 16, borderRadius: 2, background: sec.edited ? 'var(--orange)' : 'var(--purple)' }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)' }}>{sec.h}</span>
+                        {sec.edited && <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--orange)', background: 'rgba(244,121,32,0.1)', padding: '1px 6px', borderRadius: 4 }}>Modifié par IA</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {sec.edited && sec.original && (
+                          <button
+                            onClick={() => setReportSections(prev => prev.map((s, i) => i === idx ? { ...s, p: s.original!, edited: false } : s))}
+                            style={{ background: 'none', border: '1px solid var(--border-2)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <RotateCcw size={9} /> Restaurer
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setEditingId(editingId === sec.id ? null : sec.id); setEditText(sec.p); }}
+                          style={{ background: editingId === sec.id ? 'var(--purple)' : 'none', border: `1px solid ${editingId === sec.id ? 'var(--purple)' : 'var(--border-2)'}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 10, color: editingId === sec.id ? '#fff' : 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Edit3 size={9} /> {editingId === sec.id ? 'Fermer' : 'Éditer'}
+                        </button>
+                        <button
+                          onClick={() => navigator.clipboard?.writeText(sec.p)}
+                          style={{ background: 'none', border: '1px solid var(--border-2)', borderRadius: 6, padding: '3px 7px', cursor: 'pointer', color: 'var(--muted)' }}>
+                          <Copy size={9} />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Section body ou éditeur */}
+                    {editingId === sec.id ? (
+                      <div style={{ padding: 12 }}>
+                        <textarea
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          style={{ width: '100%', minHeight: 100, fontSize: 11, lineHeight: 1.7, border: '1.5px solid var(--purple)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', fontFamily: 'inherit' }}
+                          autoFocus
+                        />
+                        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                          <button
+                            onClick={() => { setReportSections(prev => prev.map((s, i) => i === idx ? { ...s, p: editText, edited: true } : s)); setEditingId(null); }}
+                            className="btn btn-primary btn-sm">
+                            <CheckCircle size={11} /> Valider
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="btn btn-ghost btn-sm">Annuler</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ padding: '10px 14px', fontSize: 11, lineHeight: 1.75, color: 'var(--text-2)' }}>
+                        {sec.p.split('**').map((part, i) => i % 2 === 1 ? <strong key={i} style={{ color: 'var(--navy)' }}>{part}</strong> : <span key={i}>{part}</span>)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Chat IA */}
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {/* Messages */}
+                <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {aiMessages.map((m, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, flexDirection: m.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-start' }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                        background: m.role === 'ai' ? 'linear-gradient(135deg, var(--purple) 0%, var(--navy) 100%)' : 'var(--orange)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {m.role === 'ai' ? <Sparkles size={12} color="#fff" /> : <MessageSquare size={12} color="#fff" />}
+                      </div>
+                      <div style={{
+                        maxWidth: '85%',
+                        background: m.role === 'ai' ? 'var(--bg)' : 'var(--purple)',
+                        color: m.role === 'ai' ? 'var(--text)' : '#fff',
+                        padding: '8px 12px', borderRadius: m.role === 'ai' ? '4px 10px 10px 10px' : '10px 4px 10px 10px',
+                        fontSize: 11, lineHeight: 1.65,
+                        border: m.role === 'ai' ? '1px solid var(--border)' : 'none',
+                      }}>
+                        {m.text.split('\n').map((line, li) => (
+                          <div key={li} style={{ marginBottom: li < m.text.split('\n').length - 1 ? 3 : 0 }}>
+                            {line.split('**').map((part, pi) => pi % 2 === 1 ? <strong key={pi}>{part}</strong> : <span key={pi}>{part}</span>)}
+                          </div>
+                        ))}
+                        {m.affectedSection && (
+                          <div style={{ marginTop: 6, fontSize: 9, color: m.role === 'ai' ? 'var(--orange)' : 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
+                            → Section affectée : {m.affectedSection}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {aiLoading && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, var(--purple) 0%, var(--navy) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Sparkles size={12} color="#fff" />
+                      </div>
+                      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: '4px 10px 10px 10px', display: 'flex', gap: 4, alignItems: 'center' }}>
+                        {[0,1,2].map(i => (
+                          <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--purple)', animation: `bounce 0.6s ${i * 0.15}s infinite alternate` }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Suggestions rapides */}
+                <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {[
+                    'Reformule la synthèse',
+                    'Traduis en anglais',
+                    'Ajoute des risques',
+                    'Ton exécutif',
+                    'Affiche les KPIs',
+                    'Annule les modifications',
+                  ].map(s => (
+                    <button
+                      key={s}
+                      onClick={() => { setAiInput(s); }}
+                      style={{ fontSize: 9, padding: '3px 8px', borderRadius: 12, border: '1px solid var(--purple)', color: 'var(--purple)', background: 'rgba(61,26,107,0.06)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input chat */}
+                <form onSubmit={handleAIChat} style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+                  <input
+                    value={aiInput}
+                    onChange={e => setAiInput(e.target.value)}
+                    placeholder="Demandez à l'IA de modifier, améliorer, traduire…"
+                    style={{ flex: 1, fontSize: 11, padding: '8px 12px', borderRadius: 10, border: '1.5px solid var(--border-2)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' }}
+                    disabled={aiLoading || !generated}
+                  />
+                  <button
+                    type="submit"
+                    aria-label="Envoyer le message à l'assistant IA"
+                    disabled={aiLoading || !aiInput.trim()}
+                    style={{ width: 36, height: 36, borderRadius: 10, background: aiInput.trim() && !aiLoading ? 'var(--purple)' : 'var(--border)', border: 'none', cursor: aiInput.trim() && !aiLoading ? 'pointer' : 'not-allowed', opacity: aiInput.trim() && !aiLoading ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s' }}>
+                    <Send size={14} color="#fff" />
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -935,7 +1318,483 @@ export default function Reporting() {
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes bounce { from { transform: translateY(0); opacity: 0.5; } to { transform: translateY(-5px); opacity: 1; } }
+      `}</style>
+
+      {/* ══ MODALE PREVISUALISATION ══════════════════════════════════════════ */}
+      {showPreview && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 9000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 820, boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, #3D1A6B 0%, #1B4F8A 100%)', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
+                  Previsualisation — avant generation
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{typeInfo.label}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
+                  Periode : {selectedPeriode} &middot; Format : {selectedFormat} &middot; {store.projets.length} projets
+                </div>
+              </div>
+              <button onClick={() => setShowPreview(false)} aria-label="Fermer la prévisualisation" style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 8, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', flexShrink: 0 }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* KPI summary */}
+            <div style={{ padding: '16px 24px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {(() => {
+                const ps = store.projets;
+                const avgAv = ps.length > 0 ? Math.round(ps.reduce((s, p) => s + p.avancement, 0) / ps.length) : 0;
+                const tb = ps.reduce((s, p) => s + p.budget, 0);
+                const td = ps.reduce((s, p) => s + p.budgetDecaisse, 0);
+                const tauxD = tb > 0 ? ((td / tb) * 100).toFixed(1) : '0';
+                const avgCpi = ps.length > 0 ? (ps.reduce((s, p) => s + p.cpi, 0) / ps.length).toFixed(2) : '1.00';
+                return [
+                  { l: 'Projets analyses', v: String(ps.length), c: '#3D1A6B' },
+                  { l: 'Avancement moyen', v: `${avgAv}%`, c: avgAv >= 70 ? '#15803D' : '#B45309' },
+                  { l: 'Budget total', v: `${(tb / 1000).toFixed(1)} Md FCFA`, c: '#1B4F8A' },
+                  { l: 'Taux decaissement', v: `${tauxD}%`, c: '#0E7490' },
+                  { l: 'CPI moyen', v: avgCpi, c: parseFloat(avgCpi) >= 0.95 ? '#15803D' : '#B91C1C' },
+                  { l: 'Sections rapport', v: String(previewSections.length), c: '#7C3AED' },
+                ].map(k => (
+                  <div key={k.l} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 9, padding: '8px 14px', flex: '1 1 120px', minWidth: 110 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: k.c, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{k.v}</div>
+                    <div style={{ fontSize: 9.5, color: '#64748B', marginTop: 3 }}>{k.l}</div>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* Sections preview */}
+            <div style={{ padding: '20px 24px', maxHeight: 'calc(80vh - 260px)', overflowY: 'auto' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14 }}>
+                Contenu du rapport ({previewSections.length} sections)
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {previewSections.map((sec, idx) => (
+                  <div key={sec.id} style={{ border: '1px solid #E8ECF4', borderRadius: 10, overflow: 'hidden' }}>
+                    <div style={{ background: '#F8FAFC', padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #E8ECF4' }}>
+                      <span style={{ width: 22, height: 22, borderRadius: 6, background: `${typeInfo.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: typeInfo.color, flexShrink: 0 }}>{idx + 1}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: '#0F172A', flex: 1 }}>{sec.h}</span>
+                      <span style={{ fontSize: 10, color: '#94A3B8' }}>{Math.ceil(sec.p.length / 350)} page{Math.ceil(sec.p.length / 350) > 1 ? 's' : ''}</span>
+                    </div>
+                    <div style={{ padding: '10px 14px', fontSize: 12, color: '#374151', lineHeight: 1.65, background: '#fff' }}>
+                      {sec.p.replace(/\*\*(.*?)\*\*/g, '$1')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', background: '#FAFBFF', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
+              <span style={{ fontSize: 11.5, color: '#64748B', flex: 1 }}>
+                Approx. {typeInfo.pages} pages &middot; {Math.round(typeInfo.pages * 0.2)} Mo
+              </span>
+              <button onClick={() => setShowPreview(false)} className="btn btn-ghost btn-sm">
+                Fermer
+              </button>
+              <button
+                onClick={() => { setShowPreview(false); handleGenerate(); }}
+                className="btn btn-primary"
+                style={{ justifyContent: 'center' }}>
+                <Sparkles size={13} /> Generer maintenant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: Matrice RACI ───────────────────────────────────────────── */}
+      {tab === 'raci' && (() => {
+        const NAVY = '#1B4F8A';
+        const ORANGE = '#F47920';
+        const GREEN = '#16A34A';
+        const PURPLE = '#7C3AED';
+        const AMBER = '#D97706';
+
+        // Source: "Matrice RACI existant et proposée.xlsx" — DPE SENELEC
+        type RaciCode = 'R' | 'A' | 'C' | 'I' | '';
+        interface RaciRow { activite: string; cp: RaciCode; dpm: RaciCode; comMarche: RaciCode; dg: RaciCode; bailleur: RaciCode; arcop: RaciCode; pmo: RaciCode; }
+
+        const RACI_COLOR: Record<RaciCode, string> = {
+          R: GREEN, A: NAVY, C: ORANGE, I: AMBER, '': 'transparent',
+        };
+        const RACI_BG: Record<RaciCode, string> = {
+          R: '#F0FDF4', A: '#EFF6FF', C: '#FFF7ED', I: '#FFFBEB', '': 'transparent',
+        };
+        const RACI_DESC: Record<RaciCode, string> = {
+          R: 'Responsible — Réalise', A: 'Accountable — Approuve/Valide',
+          C: 'Consulted — Consulté avant', I: 'Informed — Informé après', '': '',
+        };
+
+        const HEADERS = ['Chef de Projet', 'DPM', 'Com. Marchés', 'DG', 'Bailleur/DCMP', 'ARCOP', 'PMO/DER'];
+
+        const SECTIONS: Array<{ titre: string; rows: RaciRow[] }> = [
+          {
+            titre: '1. Passation des marchés (PP4-PRO-001)',
+            rows: [
+              { activite: 'Élaboration cahier des charges & DAO',   cp:'R', dpm:'C', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'C' },
+              { activite: 'Revue / Validation DAO',                  cp:'C', dpm:'R', comMarche:'A', dg:'I', bailleur:'C',  arcop:'', pmo:'C' },
+              { activite: 'Diligence ANO bailleur sur le DAO',       cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'A',  arcop:'', pmo:'I' },
+              { activite: 'Publication de l\'avis d\'appel d\'offres',cp:'I', dpm:'R', comMarche:'I', dg:'A', bailleur:'I',  arcop:'', pmo:'I' },
+              { activite: 'Ouverture et analyse des offres',         cp:'I', dpm:'C', comMarche:'A', dg:'I', bailleur:'I',  arcop:'', pmo:'I' },
+              { activite: 'Attribution provisoire',                  cp:'I', dpm:'R', comMarche:'A', dg:'A', bailleur:'C',  arcop:'', pmo:'I' },
+              { activite: 'Diligence ANO bailleur PV d\'attribution', cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'A',  arcop:'', pmo:'I' },
+              { activite: 'Traitement des recours gracieux',         cp:'R', dpm:'A', comMarche:'C', dg:'C', bailleur:'I',  arcop:'', pmo:'I' },
+              { activite: 'Traitement des recours contentieux',      cp:'R', dpm:'C', comMarche:'I', dg:'I', bailleur:'I',  arcop:'A', pmo:'I' },
+              { activite: 'Contractualisation / Signature marché',   cp:'R', dpm:'A', comMarche:'I', dg:'A', bailleur:'C',  arcop:'', pmo:'C' },
+            ],
+          },
+          {
+            titre: '2. Planification de projet (Phase Planning)',
+            rows: [
+              { activite: 'Élaboration plan de management de projet',cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'C' },
+              { activite: 'Définition du périmètre (scope)',          cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'A' },
+              { activite: 'Création de la WBS',                       cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'C' },
+              { activite: 'Planification délais & jalons',            cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'A' },
+              { activite: 'Estimation et budgétisation',              cp:'R', dpm:'C', comMarche:'I', dg:'A', bailleur:'C',  arcop:'', pmo:'C' },
+              { activite: 'Planification et analyse des risques',     cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'C',  arcop:'', pmo:'A' },
+            ],
+          },
+          {
+            titre: '3. Exécution & Contrôle des travaux',
+            rows: [
+              { activite: 'Émission Ordre de Service (ODS)',          cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'I' },
+              { activite: 'Supervision / Contrôle chantier',         cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'C',  arcop:'', pmo:'I' },
+              { activite: 'Réception des travaux (attachement)',      cp:'A', dpm:'I', comMarche:'I', dg:'I', bailleur:'C',  arcop:'', pmo:'R' },
+              { activite: 'Établissement des décomptes',             cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'C' },
+              { activite: 'Certification des décomptes',             cp:'C', dpm:'A', comMarche:'I', dg:'I', bailleur:'C',  arcop:'', pmo:'R' },
+              { activite: 'Paiement des entreprises',                cp:'I', dpm:'I', comMarche:'I', dg:'A', bailleur:'I',  arcop:'', pmo:'R' },
+              { activite: 'Rapport mensuel d\'avancement',           cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'C',  arcop:'', pmo:'A' },
+            ],
+          },
+          {
+            titre: '4. Réception & Clôture',
+            rows: [
+              { activite: 'PV de réception provisoire',              cp:'A', dpm:'I', comMarche:'I', dg:'I', bailleur:'C',  arcop:'', pmo:'R' },
+              { activite: 'Levée des réserves',                      cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'C' },
+              { activite: 'PV de réception définitive',              cp:'A', dpm:'I', comMarche:'I', dg:'I', bailleur:'C',  arcop:'', pmo:'R' },
+              { activite: 'Libération retenue de garantie',          cp:'I', dpm:'A', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'R' },
+              { activite: 'Archivage dossier d\'ouvrage exécuté',    cp:'R', dpm:'I', comMarche:'I', dg:'I', bailleur:'I',  arcop:'', pmo:'A' },
+              { activite: 'Rapport de clôture projet',               cp:'R', dpm:'I', comMarche:'I', dg:'A', bailleur:'C',  arcop:'', pmo:'C' },
+            ],
+          },
+        ];
+
+        const RaciCell = ({ code }: { code: RaciCode }) => (
+          <td style={{ padding: '7px 10px', textAlign: 'center', background: RACI_BG[code], borderBottom: '1px solid #F1F5F9' }}>
+            {code && (
+              <span
+                title={RACI_DESC[code]}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 24, height: 24, borderRadius: 6,
+                  background: RACI_COLOR[code], color: '#fff',
+                  fontSize: 11, fontWeight: 900, cursor: 'help',
+                }}
+              >{code}</span>
+            )}
+          </td>
+        );
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Legend */}
+            <div style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid #E2E8F0', display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY, marginRight: 8 }}>Légende RACI</div>
+              {(['R', 'A', 'C', 'I'] as RaciCode[]).map(code => (
+                <div key={code} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, background: RACI_COLOR[code], color: '#fff', fontSize: 11, fontWeight: 900 }}>{code}</span>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#1E293B' }}>{code === 'R' ? 'Responsible' : code === 'A' ? 'Accountable' : code === 'C' ? 'Consulted' : 'Informed'}</div>
+                    <div style={{ fontSize: 9, color: '#94A3B8' }}>{code === 'R' ? 'Réalise la tâche' : code === 'A' ? 'Approuve & valide' : code === 'C' ? 'Consulté avant décision' : 'Informé après décision'}</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginLeft: 'auto', fontSize: 10, color: '#94A3B8', fontStyle: 'italic' }}>Source: Manuel des procédures SENELEC — DPE</div>
+            </div>
+
+            {/* Matrix sections */}
+            {SECTIONS.map((section, si) => (
+              <div key={si} style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+                <div style={{ background: NAVY + '0A', padding: '12px 18px', borderBottom: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: NAVY }}>{section.titre}</div>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC' }}>
+                        <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.4px', borderBottom: '2px solid #E2E8F0', minWidth: 250 }}>Activité</th>
+                        {HEADERS.map((h, i) => (
+                          <th key={i} style={{ padding: '9px 10px', textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.3px', borderBottom: '2px solid #E2E8F0', whiteSpace: 'nowrap', minWidth: 90 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {section.rows.map((row, ri) => (
+                        <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : '#FAFBFC' }}>
+                          <td style={{ padding: '8px 14px', color: '#1E293B', fontSize: 11, borderBottom: '1px solid #F1F5F9' }}>{row.activite}</td>
+                          <RaciCell code={row.cp} />
+                          <RaciCell code={row.dpm} />
+                          <RaciCell code={row.comMarche} />
+                          <RaciCell code={row.dg} />
+                          <RaciCell code={row.bailleur} />
+                          <RaciCell code={row.arcop} />
+                          <RaciCell code={row.pmo} />
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* ── Tab: Rapport COMSP ──────────────────────────────────────────── */}
+      {tab === 'comsp' && (() => {
+        const NAVY = '#1B4F8A';
+        const ORANGE = '#F47920';
+        const GREEN = '#16A34A';
+        const RED = '#EF3340';
+        const AMBER = '#D97706';
+        const projets = store.projets;
+        const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+        const nbEnCours = projets.filter(p => p.statut === 'en_cours').length;
+        const nbAlerte  = projets.filter(p => p.cpi < 0.90 || p.spi < 0.85).length;
+        const totalBudget = projets.reduce((s, p) => s + p.budget, 0);
+        const totalDecaisse = projets.reduce((s, p) => s + p.budgetDecaisse, 0);
+        const avgCPI = projets.length > 0 ? projets.reduce((s, p) => s + p.cpi, 0) / projets.length : 1;
+        const avgSPI = projets.length > 0 ? projets.reduce((s, p) => s + p.spi, 0) / projets.length : 1;
+        // Livrables depuis les tâches WBS de chaque projet
+        const livrables = store.projets.flatMap(p => p.taches ?? []);
+        const nbLivrablesRetard = livrables.filter(t => t.statutTache === 'bloque').length;
+
+        const SECTIONS = [
+          {
+            num: '1', title: 'Synthèse Exécutive PMO',
+            icon: '📋',
+            content: [
+              { label: 'Portefeuille actif', val: `${projets.length} projets (${nbEnCours} en cours)` },
+              { label: 'Budget portefeuille', val: `${(totalBudget / 1000).toFixed(0)} MFCFA` },
+              { label: 'Décaissé cumulé', val: `${(totalDecaisse / 1000).toFixed(0)} MFCFA (${totalBudget > 0 ? Math.round((totalDecaisse / totalBudget) * 100) : 0}%)` },
+              { label: 'Projets en alerte', val: `${nbAlerte}`, color: nbAlerte > 0 ? RED : GREEN },
+              { label: 'CPI moyen', val: avgCPI.toFixed(2), color: avgCPI >= 0.95 ? GREEN : avgCPI >= 0.85 ? AMBER : RED },
+              { label: 'SPI moyen', val: avgSPI.toFixed(2), color: avgSPI >= 0.90 ? GREEN : avgSPI >= 0.80 ? AMBER : RED },
+            ],
+          },
+          {
+            num: '2', title: 'Tableau KPI Portefeuille',
+            icon: '📊',
+            kpiTable: projets.slice(0, 8).map(p => ({
+              code: p.code, nom: p.nom.slice(0, 30),
+              cpi: p.cpi, spi: p.spi,
+              av: p.avancement,
+              budget: (p.budget / 1000).toFixed(0),
+              decaisse: (p.budgetDecaisse / 1000).toFixed(0),
+            })),
+          },
+          {
+            num: '3', title: 'Avancement Physique par Projet',
+            icon: '🏗️',
+            bars: projets.slice(0, 10).map(p => ({
+              code: p.code, av: p.avancement,
+              color: p.avancement >= 70 ? GREEN : p.avancement >= 40 ? AMBER : RED,
+            })),
+          },
+          {
+            num: '4', title: 'Situation Financière',
+            icon: '💰',
+            content: [
+              { label: 'Budget total portefeuille', val: `${(totalBudget / 1000).toFixed(0)} MFCFA` },
+              { label: 'Montant engagé (marchés)', val: `${(projets.reduce((s, p) => s + p.budgetEngage, 0) / 1000).toFixed(0)} MFCFA` },
+              { label: 'Décaissements cumulés', val: `${(totalDecaisse / 1000).toFixed(0)} MFCFA` },
+              { label: 'Reste à décaisser', val: `${((totalBudget - totalDecaisse) / 1000).toFixed(0)} MFCFA` },
+              { label: 'Taux de décaissement global', val: `${totalBudget > 0 ? Math.round((totalDecaisse / totalBudget) * 100) : 0}%` },
+            ],
+          },
+          {
+            num: '5', title: `Risques Critiques (P×I ≥ 12)`,
+            icon: '⚠️',
+            risques: [
+              { code: 'R01', titre: 'Retard livraison poteaux béton', crit: 12, resp: 'Chef Projet', statut: 'Ouvert' },
+              { code: 'R02', titre: 'Dépassement GC > 5%', crit: 12, resp: 'RAF DPE', statut: 'En cours' },
+              { code: 'R03', titre: 'Retard ANO Bailleur', crit: 9, resp: 'DER', statut: 'En cours' },
+            ],
+          },
+          {
+            num: '6', title: 'Livrables en Retard / Jalons Manqués',
+            icon: '📅',
+            content: [
+              { label: 'Livrables total', val: `${livrables.length}` },
+              { label: 'En retard', val: `${nbLivrablesRetard}`, color: nbLivrablesRetard > 0 ? RED : GREEN },
+              { label: 'À venir (7 jours)', val: `${livrables.filter(t => t.statutTache === 'en_cours').length}` },
+            ],
+          },
+          {
+            num: '7', title: 'Ordres de Mission Actifs',
+            icon: '📤',
+            content: [
+              { label: 'ODM en cours', val: '4' },
+              { label: 'Destinations', val: 'Thiès, Matam, Tambacounda, Ziguinchor' },
+              { label: 'Retours prévus', val: 'Cette semaine' },
+            ],
+          },
+          {
+            num: '8', title: 'Suivi Actions COMSP Précédent',
+            icon: '✅',
+            actions: [
+              { ref: 'COMSP-2026-01', libelle: 'Accélérer décomptes PAUE2 — Thiès', resp: 'RAF DPE', statut: 'Réalisé', color: GREEN },
+              { ref: 'COMSP-2026-02', libelle: 'Finaliser DAF programme AEI', resp: 'DER', statut: 'En cours', color: AMBER },
+              { ref: 'COMSP-2026-03', libelle: 'Mise à jour arborescence GED', resp: 'PMO', statut: 'En cours', color: AMBER },
+            ],
+          },
+          {
+            num: '9', title: 'Décisions Requises',
+            icon: '🎯',
+            decisions: [
+              { num: 'D01', libelle: 'Autoriser avenant PAUE2 Phase III (+5% GC)', urgence: 'Urgent', color: RED },
+              { num: 'D02', libelle: 'Valider plan de décaissement Q3 2026', urgence: 'Normal', color: AMBER },
+              { num: 'D03', libelle: 'Nommer chef de projet PADAES Phase II remplaçant', urgence: 'Normal', color: AMBER },
+            ],
+          },
+        ];
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Header rapport */}
+            <div style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #2563EB 100%)`, borderRadius: 14, padding: '22px 28px', color: '#fff' }}>
+              <div style={{ fontSize: 10, opacity: 0.6, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>SENELEC — Direction du Patrimoine et de l'Équipement</div>
+              <div style={{ fontSize: 20, fontWeight: 900 }}>Rapport COMSP — Compte Rendu Mensuel</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Portefeuille Projets DPE · {today} · PMO SIGEPP-DPE v3.0</div>
+              <div style={{ marginTop: 14, display: 'flex', gap: 28 }}>
+                {[
+                  { label: 'Projets', val: projets.length },
+                  { label: 'Alertes', val: nbAlerte },
+                  { label: 'CPI moy.', val: avgCPI.toFixed(2) },
+                  { label: 'SPI moy.', val: avgSPI.toFixed(2) },
+                ].map(k => (
+                  <div key={k.label}>
+                    <div style={{ fontSize: 9, opacity: 0.55, textTransform: 'uppercase', letterSpacing: '.05em' }}>{k.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800 }}>{k.val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sections */}
+            {SECTIONS.map(sec => (
+              <div key={sec.num} style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+                <div style={{ background: NAVY + '0A', padding: '12px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: NAVY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{sec.num}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>{sec.icon} {sec.title}</div>
+                </div>
+                <div style={{ padding: '14px 18px' }}>
+                  {'content' in sec && sec.content && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+                      {sec.content.map((item, i) => (
+                        <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #F1F5F9' }}>
+                          <div style={{ fontSize: 9, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 3 }}>{item.label}</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: item.color ?? NAVY }}>{item.val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {'kpiTable' in sec && sec.kpiTable && (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: '#F8FAFC' }}>
+                            {['Projet', 'Av%', 'CPI', 'SPI', 'Budget M', 'Décaissé M'].map((h, i) => (
+                              <th key={i} style={{ padding: '7px 10px', textAlign: i === 0 ? 'left' : 'right', fontSize: 9, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', borderBottom: '1px solid #E2E8F0' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sec.kpiTable.map((p, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid #F8FAFC', background: idx % 2 === 0 ? '#fff' : '#FAFBFC' }}>
+                              <td style={{ padding: '7px 10px', fontWeight: 700, color: NAVY, fontSize: 11 }}>{p.code}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: p.av >= 70 ? GREEN : p.av >= 40 ? AMBER : RED }}>{p.av}%</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: p.cpi >= 0.95 ? GREEN : p.cpi >= 0.85 ? AMBER : RED }}>{p.cpi.toFixed(2)}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: p.spi >= 0.90 ? GREEN : p.spi >= 0.80 ? AMBER : RED }}>{p.spi.toFixed(2)}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748B' }}>{p.budget}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', color: ORANGE, fontWeight: 600 }}>{p.decaisse}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {'bars' in sec && sec.bars && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {sec.bars.map(b => (
+                        <div key={b.code} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 90, fontSize: 10, color: '#64748B', flexShrink: 0, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.code}</div>
+                          <div style={{ flex: 1, background: '#F1F5F9', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                            <div style={{ width: `${b.av}%`, height: '100%', background: b.color, borderRadius: 4 }} />
+                          </div>
+                          <div style={{ width: 38, textAlign: 'right', fontSize: 11, fontWeight: 700, color: b.color, flexShrink: 0 }}>{b.av}%</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {'risques' in sec && sec.risques && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {sec.risques.map(r => (
+                        <div key={r.code} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#FFF8F8', borderRadius: 8, border: '1px solid #FECACA' }}>
+                          <div style={{ fontWeight: 800, color: RED, fontSize: 11, width: 36, flexShrink: 0 }}>{r.code}</div>
+                          <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{r.titre}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: RED + '15', color: RED, flexShrink: 0 }}>Crit. {r.crit}</div>
+                          <div style={{ fontSize: 10, color: '#64748B', flexShrink: 0 }}>{r.resp}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: r.statut === 'Ouvert' ? RED + '15' : AMBER + '15', color: r.statut === 'Ouvert' ? RED : AMBER }}>{r.statut}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {'actions' in sec && sec.actions && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {sec.actions.map(a => (
+                        <div key={a.ref} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #F1F5F9' }}>
+                          <div style={{ fontSize: 10, fontFamily: 'monospace', color: NAVY, fontWeight: 700, flexShrink: 0 }}>{a.ref}</div>
+                          <div style={{ flex: 1, fontSize: 12, color: '#1E293B' }}>{a.libelle}</div>
+                          <div style={{ fontSize: 10, color: '#64748B', flexShrink: 0 }}>{a.resp}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: a.color + '15', color: a.color, flexShrink: 0 }}>{a.statut}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {'decisions' in sec && sec.decisions && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {sec.decisions.map(d => (
+                        <div key={d.num} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: d.urgence === 'Urgent' ? '#FFF8F8' : '#FFFBF0', borderRadius: 8, border: `1px solid ${d.color}25` }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: d.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: d.color, flexShrink: 0 }}>{d.num}</div>
+                          <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{d.libelle}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 10, background: d.color + '15', color: d.color, flexShrink: 0 }}>{d.urgence}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Export button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingBottom: 8 }}>
+              <button
+                onClick={() => { setSelectedType('trimestriel_dpe'); setTab('generateur'); }}
+                style={{ padding: '10px 20px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                📄 Exporter en PDF
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

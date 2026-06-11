@@ -15,6 +15,13 @@ export interface MigrationDocument {
 
 export interface ExtractedData {
   projectName?: string;
+  /**
+   * Code BIT — identifiant unique SENELEC/DPE pour le projet.
+   * Clé primaire de réconciliation. Patterns : BEST-SN-001, EIUL-LOT3,
+   * EXP-IRAF-XXX, TBEA-LOT1, DPE-XXXX, BESTSN-CRM-…
+   * Toujours prioritaire sur projectCode pour l'identification.
+   */
+  codeBIT?: string;
   projectCode?: string;
   projectType?: string;
   budget?: number;

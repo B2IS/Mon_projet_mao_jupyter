@@ -1310,16 +1310,16 @@ export default function Workflows() {
                           </div>
                           {/* Actions */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
-                            <button onClick={() => moveStep(step.id, 'up')} disabled={idx === 0} style={{ padding: '3px 6px', border: `1px solid ${C.border}`, borderRadius: 5, background: '#fff', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#CBD5E1' : '#475569' }}>
+                            <button aria-label="Monter l'étape" onClick={() => moveStep(step.id, 'up')} disabled={idx === 0} style={{ padding: '3px 6px', border: `1px solid ${C.border}`, borderRadius: 5, background: '#fff', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#CBD5E1' : '#475569', opacity: idx === 0 ? 0.5 : 1 }}>
                               <ArrowUp size={11} />
                             </button>
-                            <button onClick={() => moveStep(step.id, 'down')} disabled={idx === editingWf.steps.length - 1} style={{ padding: '3px 6px', border: `1px solid ${C.border}`, borderRadius: 5, background: '#fff', cursor: idx === editingWf.steps.length - 1 ? 'not-allowed' : 'pointer', color: idx === editingWf.steps.length - 1 ? '#CBD5E1' : '#475569' }}>
+                            <button aria-label="Descendre l'étape" onClick={() => moveStep(step.id, 'down')} disabled={idx === editingWf.steps.length - 1} style={{ padding: '3px 6px', border: `1px solid ${C.border}`, borderRadius: 5, background: '#fff', cursor: idx === editingWf.steps.length - 1 ? 'not-allowed' : 'pointer', color: idx === editingWf.steps.length - 1 ? '#CBD5E1' : '#475569', opacity: idx === editingWf.steps.length - 1 ? 0.5 : 1 }}>
                               <ArrowDown size={11} />
                             </button>
-                            <button onClick={() => { setEditingStep(step); setStepForm({ label: step.label, role: step.role, action: step.action, slaHeures: step.slaHeures, condition: step.condition, ordre: step.ordre, assigneeEmail: step.assigneeEmail ?? '', assigneeNom: step.assigneeNom ?? '' }); }} style={{ padding: '3px 6px', border: `1px solid ${C.border}`, borderRadius: 5, background: '#EFF6FF', cursor: 'pointer', color: C.navy }}>
+                            <button aria-label={`Modifier l'étape ${step.label}`} onClick={() => { setEditingStep(step); setStepForm({ label: step.label, role: step.role, action: step.action, slaHeures: step.slaHeures, condition: step.condition, ordre: step.ordre, assigneeEmail: step.assigneeEmail ?? '', assigneeNom: step.assigneeNom ?? '' }); }} style={{ padding: '3px 6px', border: `1px solid ${C.border}`, borderRadius: 5, background: '#EFF6FF', cursor: 'pointer', color: C.navy }}>
                               <Edit2 size={11} />
                             </button>
-                            <button onClick={() => removeStep(step.id)} style={{ padding: '3px 6px', border: `1px solid #FEE2E2`, borderRadius: 5, background: '#FEF2F2', cursor: 'pointer', color: C.red }}>
+                            <button aria-label={`Supprimer l'étape ${step.label}`} onClick={() => removeStep(step.id)} style={{ padding: '3px 6px', border: `1px solid #FEE2E2`, borderRadius: 5, background: '#FEF2F2', cursor: 'pointer', color: C.red }}>
                               <Trash2 size={11} />
                             </button>
                           </div>
@@ -1462,6 +1462,7 @@ export default function Workflows() {
                               <Save size={13} /> Enregistrer
                             </button>
                             <button
+                              aria-label="Annuler la modification"
                               onClick={() => { setEditingStep(null); setStepForm({ label: '', role: 'CHEF_PROJ', action: 'approuver', slaHeures: 48, condition: 'Toujours', ordre: 1, assigneeEmail: '', assigneeNom: '' }); }}
                               style={{ padding: '9px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', color: '#64748B', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}
                             >
@@ -1571,6 +1572,7 @@ export default function Workflows() {
                     <Edit2 size={11} /> Éditer
                   </button>
                   <button
+                    aria-label={`Dupliquer le modèle ${wf.nom}`}
                     onClick={() => duplicateTemplate(wf)}
                     style={{ padding: '6px 8px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', color: '#64748B', cursor: 'pointer' }}
                     title="Dupliquer"
@@ -1578,6 +1580,7 @@ export default function Workflows() {
                     <Copy size={11} />
                   </button>
                   <button
+                    aria-label={`Supprimer le modèle ${wf.nom}`}
                     onClick={() => deleteTemplate(wf.id)}
                     style={{ padding: '6px 8px', borderRadius: 6, border: `1px solid #FEE2E2`, background: '#FEF2F2', color: C.red, cursor: 'pointer' }}
                     title="Supprimer"
@@ -1675,7 +1678,7 @@ export default function Workflows() {
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 501, background: '#fff', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', width: 440, padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: C.navy }}>Nouvel élément du parapheur</div>
-              <button onClick={() => setShowNewDossier(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
+              <button aria-label="Fermer" onClick={() => setShowNewDossier(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
             </div>
             <label style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Type d&apos;élément</label>
             <select value={ndForm.type} onChange={e => setNdForm({ ...ndForm, type: e.target.value as TypeDossier })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 13, marginBottom: 10, fontFamily: 'inherit' }}>

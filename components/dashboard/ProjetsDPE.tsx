@@ -198,8 +198,8 @@ function ProjectCard({ projet, onOpen, onStatusChange }: ProjectCardProps) {
             </span>
             <span style={{ fontSize: 9, padding: '1px 7px', borderRadius: 20, background: `${cfg.color}15`, color: cfg.color, fontWeight: 600 }}>{cfg.label}</span>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', lineHeight: 1.3, marginBottom: 2 }}>{projet.nom}</div>
-          <div style={{ fontSize: 11, color: '#6B7280' }}>{projet.description}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', lineHeight: 1.3, marginBottom: 2 }} title={projet.nom}>{projet.nom}</div>
+          <div style={{ fontSize: 11, color: '#6B7280' }} title={projet.description}>{projet.description}</div>
         </div>
         <ChevronRight size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
       </div>
@@ -226,7 +226,7 @@ function ProjectCard({ projet, onOpen, onStatusChange }: ProjectCardProps) {
         </div>
         <div style={{ flex: 1, background: '#F9FAFB', borderRadius: 6, padding: '6px 8px', minWidth: 70 }}>
           <div style={{ fontSize: 9, color: '#9CA3AF', marginBottom: 2 }}>Décaissé</div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: projet.budgetDecaisse / projet.budget > 0.9 ? '#EF3340' : '#1B4F8A' }}>{fmtMFCFA(projet.budgetDecaisse)}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: projet.budget > 0 && projet.budgetDecaisse / projet.budget > 0.9 ? '#EF3340' : '#1B4F8A' }}>{fmtMFCFA(projet.budgetDecaisse)}</div>
         </div>
       </div>
 
@@ -313,7 +313,7 @@ function ProjectCard({ projet, onOpen, onStatusChange }: ProjectCardProps) {
               <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>Changer le statut</div>
               <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{projet.nom}</div>
             </div>
-            <button onClick={() => setShowStatusModal(false)}
+            <button onClick={() => setShowStatusModal(false)} aria-label="Fermer la modale de statut"
               style={{ background: '#F3F4F6', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#6B7280', display: 'flex' }}>
               <X size={14} />
             </button>
@@ -379,7 +379,8 @@ function ProjectCard({ projet, onOpen, onStatusChange }: ProjectCardProps) {
                 padding: '7px 16px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none',
                 background: !reason.trim() || newStatut === projet.statut ? '#E5E7EB' : STATUT_CFG[newStatut].color,
                 color: !reason.trim() || newStatut === projet.statut ? '#9CA3AF' : '#FFF',
-                cursor: !reason.trim() || newStatut === projet.statut ? 'default' : 'pointer',
+                cursor: !reason.trim() || newStatut === projet.statut ? 'not-allowed' : 'pointer',
+                opacity: !reason.trim() || newStatut === projet.statut ? 0.5 : 1,
                 transition: 'background 0.15s',
               }}
             >Confirmer</button>
@@ -479,7 +480,7 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
               <button onClick={() => { onClose(); router.push('/gantt'); }} style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: '#FFF', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600 }}>
                 📅 Planning
               </button>
-              <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#FFF', display: 'flex' }}>
+              <button onClick={onClose} aria-label="Fermer le panneau de détail" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#FFF', display: 'flex' }}>
                 <X size={16} />
               </button>
             </div>
@@ -717,7 +718,7 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>✏️ Modifier le projet</div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{projet.code}</div>
               </div>
-              <button onClick={() => setShowEdit(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
+              <button onClick={() => setShowEdit(false)} aria-label="Annuler la modification" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
             </div>
             <div style={{ overflowY: 'auto', padding: '18px', display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
               {[
@@ -974,7 +975,7 @@ function WizardModal({ onClose }: { onClose: () => void }) {
               <div style={{ fontSize: 16, fontWeight: 700, color: '#FFF' }}>
                 Nouveau Projet — Étape {step} / {totalSteps}
               </div>
-              <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#FFF', display: 'flex' }}>
+              <button onClick={onClose} aria-label="Fermer le wizard" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#FFF', display: 'flex' }}>
                 <X size={16} />
               </button>
             </div>
@@ -1098,7 +1099,7 @@ function WizardModal({ onClose }: { onClose: () => void }) {
                   <div>
                     <label style={labelStyle}>Taux décaissement (%)</label>
                     <input style={{ ...inputStyle, background: '#F3F4F6', color: '#6B7280' }} readOnly
-                      value={form.montantPrevu && form.montantEngage
+                      value={form.montantPrevu && form.montantEngage && parseFloat(form.montantPrevu) > 0
                         ? `${Math.round((parseFloat(form.montantEngage) / parseFloat(form.montantPrevu)) * 100)}%`
                         : '0%'} />
                   </div>
@@ -1162,7 +1163,7 @@ function WizardModal({ onClose }: { onClose: () => void }) {
                       ))}
                     </div>
                     <span style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#1B4F8A' }}>{(c.note * c.poids / 100).toFixed(2)}</span>
-                    <button onClick={() => removeCrit(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', display: 'flex', justifyContent: 'center' }} title="Supprimer"><X size={13} /></button>
+                    <button onClick={() => removeCrit(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', display: 'flex', justifyContent: 'center' }} aria-label={`Supprimer le critère ${c.label}`}><X size={13} /></button>
                   </div>
                 ))}
 
@@ -1307,7 +1308,8 @@ function WizardModal({ onClose }: { onClose: () => void }) {
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '8px 16px', fontSize: 12, fontWeight: 600, borderRadius: 8,
                 border: '1px solid #D1D5DB', background: step === 1 ? '#F9FAFB' : '#FFF',
-                color: step === 1 ? '#D1D5DB' : '#374151', cursor: step === 1 ? 'default' : 'pointer',
+                color: step === 1 ? '#D1D5DB' : '#374151', cursor: step === 1 ? 'not-allowed' : 'pointer',
+                opacity: step === 1 ? 0.5 : 1,
               }}
             >
               <ChevronLeft size={14} /> Précédent
@@ -1325,7 +1327,8 @@ function WizardModal({ onClose }: { onClose: () => void }) {
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '8px 16px', fontSize: 12, fontWeight: 600, borderRadius: 8,
                   border: 'none', background: canNext ? '#F47920' : '#E5E7EB',
-                  color: canNext ? '#FFF' : '#9CA3AF', cursor: canNext ? 'pointer' : 'default',
+                  color: canNext ? '#FFF' : '#9CA3AF', cursor: canNext ? 'pointer' : 'not-allowed',
+                  opacity: canNext ? 1 : 0.5,
                 }}
               >
                 Suivant <ChevronRight size={14} />
@@ -1677,7 +1680,7 @@ export default function ProjetsDPE() {
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
             {[
               { icon: '🔌', label: 'Réseau HTA/BT',    val: `${dpeKpis.kmReseau.toFixed(0)} km`,      sub: 'déployé',         color: '#60A5FA' },
-              { icon: '🏗️', label: 'Postes transfo',    val: String(dpeKpis.postes),                    sub: 'installés',       color: '#34D399' },
+              { icon: '🏗️', label: 'Postes transfo',    val: String(dpeKpis.postes),                    sub: 'installés',       color: '#059669' },
               { icon: '⚡', label: 'MW installés',      val: `${dpeKpis.mwInstalle.toFixed(0)} MW`,    sub: 'production',      color: '#FCD34D' },
               { icon: '📊', label: 'Compteurs posés',   val: dpeKpis.compteurs.toLocaleString('fr'),   sub: 'actifs',          color: '#C084FC' },
               { icon: '🔌', label: 'Pertes techn. évitées', val: `${dpeKpis.pertesEvitees.toFixed(1)} GWh`, sub: 'par an (réseau renforcé)', color: '#6EE7B7' },

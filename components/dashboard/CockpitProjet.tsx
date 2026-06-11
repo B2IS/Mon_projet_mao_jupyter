@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { extractFileText } from '@/lib/docText';
 import { extractStructuredFields, isCopilotLinked } from '@/lib/ai/aiEngine';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CheckCircle2, Clock, AlertTriangle, Circle, ChevronDown,
   Plus, Calendar, Users, Paperclip, BarChart3,
@@ -19,8 +19,9 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import {
-  useProjectStore, DOMAINE_CFG, PHASES_DEFAUT,
+  useProjectStore, DOMAINE_CFG, PHASES_DEFAUT, calculerStatutGlobal,
   type Domaine, type TacheWBS, type StatutTache, type Priorite, type Projet, type TypeTache, type DepType,
+  type StatutGlobal, type PassationMarches, type ProjetHSE, type ProjetQualite,
 } from '@/lib/projectStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
@@ -29,6 +30,7 @@ import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
 import EditableDataTable from '@/components/ui/EditableDataTable';
 import ZonesQuantites from '@/components/dashboard/ZonesQuantites';
+import { useTempsStore } from '@/lib/tempsStore';
 
 // Carte SIG réelle (Leaflet) — client uniquement.
 const ProjetsCarteLeaflet = dynamic(() => import('@/components/ui/ProjetsCarteLeaflet'), {
@@ -77,8 +79,10 @@ const ONGLETS = [
   { id: 'planning',        label: 'Planning',            icon: <Calendar        size={13} /> },
   { id: 'zones',           label: 'Zones & Quantités',  icon: <Layers          size={13} /> },
   { id: 'couts',           label: 'Coûts',               icon: <Wallet          size={13} /> },
+  { id: 'contrat',         label: 'Contrat & Marchés',  icon: <Banknote        size={13} /> },
+  { id: 'hse',             label: 'HSE & Qualité',       icon: <ShieldAlert     size={13} /> },
   { id: 'ressources',      label: 'Ressources',           icon: <Users           size={13} /> },
-  { id: 'risques',         label: 'Risques',              icon: <ShieldAlert     size={13} /> },
+  { id: 'risques',         label: 'Risques',              icon: <Flag            size={13} /> },
   { id: 'documents',       label: 'Documents',            icon: <Paperclip       size={13} /> },
   { id: 'ponderation',     label: 'Pondération',         icon: <Filter          size={13} /> },
   { id: 'carte-sig',       label: 'Carte SIG',            icon: <MapPin          size={13} /> },
@@ -303,6 +307,7 @@ function parseFicheProjet(raw: string): Record<string, string | number | string[
 export default function CockpitProjet() {
   const store = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isRole } = useAuth();
   const [selectedProjetId, setSelectedProjetId]   = useState<string>(() => {
     // Ouvre le projet passé en paramètre (?projet=ID, ?id=ID ou ?code=CODE), sinon le premier visible.
@@ -318,6 +323,24 @@ export default function CockpitProjet() {
     }
     return store.projets[0]?.id ?? '';
   });
+
+  // Résolution robuste du projet depuis l'URL (deep-link alertes, partage de lien).
+  // Réagit aux changements de query (?projet / ?id / ?code) même sans rechargement,
+  // et corrige le cas SSR où window n'est pas lu au 1er rendu.
+  useEffect(() => {
+    // Lit l'URL réelle côté client (fiable même si useSearchParams est vide à l'hydratation).
+    const sp = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const byId = sp.get('projet') || sp.get('id');
+    const byCode = sp.get('code');
+    let target = '';
+    if (byId && store.projets.some(p => p.id === byId)) target = byId;
+    else if (byCode) {
+      const m = store.projets.find(p => p.code === byCode)
+        ?? store.projets.find(p => p.id.toUpperCase() === byCode.toUpperCase());
+      if (m) target = m.id;
+    }
+    if (target && target !== selectedProjetId) setSelectedProjetId(target);
+  }, [searchParams, store.projets]); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeOnglet, setActiveOnglet]            = useState('fiche-executive');
   const [showSelector, setShowSelector]            = useState(false);
   const [selectorQuery, setSelectorQuery]          = useState('');
@@ -362,6 +385,16 @@ export default function CockpitProjet() {
   /* ── Pondération BEST state ──────────────────────────── */
   const [editPoids, setEditPoids]                 = useState<Record<string, number>>({});
   const [editPoidsMode, setEditPoidsMode]         = useState(false);
+  /* ── Contrat / HSE / Qualité / Passation inline-edit — états ─ */
+  const [editingContratField, setEditingContratField] = useState<string | null>(null);
+  const [contratFieldVal, setContratFieldVal]         = useState<string>('');
+  const [editingHseField, setEditingHseField]     = useState<string | null>(null);
+  const [hseFieldVal, setHseFieldVal]             = useState<string>('');
+  const [editingQualField, setEditingQualField]   = useState<string | null>(null);
+  const [qualFieldVal, setQualFieldVal]           = useState<string>('');
+  // saveContratField / saveHseField / saveQualField / savePassationStep
+  // sont déclarés APRÈS projet (useMemo) pour éviter la temporal dead zone.
+
   /* ── Fiche exécutive — inline edit sections ────────── */
   type FicheSection = 'description' | 'contexte' | 'objectifs' | 'livrables' | 'equipe' | 'jalons' | 'kpis' | 'phases' | 'zones' | 'budget';
   const [editingSection, setEditingSection]       = useState<FicheSection | null>(null);
@@ -375,6 +408,12 @@ export default function CockpitProjet() {
     () => store.projets.find(p => p.id === selectedProjetId) ?? store.projets[0],
     [selectedProjetId, store.projets],
   );
+
+  // Détection auto du temps (RescueTime-like) : le projet ouvert ici devient le
+  // projet actif → le heartbeat du tracker accumule le temps bureau sur ce projet.
+  useEffect(() => {
+    if (projet) useTempsStore.getState().setProjetActif(projet.nom);
+  }, [projet?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dcfg = projet ? DOMAINE_CFG[projet.domaine as Domaine] : null;
 
@@ -416,6 +455,93 @@ export default function CockpitProjet() {
 
     return { budgetTotal, engage, decaisse, solde, restDecaiss, tauxEngage, tauxDecaiss, courbe };
   }, [projet]);
+
+  /* KPIs contrat & passation marchés */
+  const kpiContrat = useMemo(() => {
+    if (!projet) return null;
+    const av = projet.avancement;
+    const avPlan = projet.avancementPlanifie;
+
+    // Statut global trafic (manual override or auto)
+    const sg: StatutGlobal = projet.statutGlobal ?? calculerStatutGlobal({
+      cpi: projet.cpi,
+      spi: projet.spi,
+      avancement: av,
+      avancementPlanifie: avPlan,
+    });
+
+    // Financial rates
+    const mMarche = projet.montantMarche ?? projet.budget;
+    const mFact   = projet.montantFacture ?? Math.round(av / 100 * mMarche);
+    const mPay    = projet.montantPaye    ?? projet.budgetDecaisse;
+    const mFin    = projet.montantFinancement ?? projet.budget;
+    const budgDec = projet.budgetDecaisse;
+
+    const tauxFacturation  = mMarche > 0 ? Math.min(200, mFact / mMarche * 100) : 0;
+    const tauxPaiement     = mFact   > 0 ? Math.min(200, mPay  / mFact  * 100) : 0;
+    const tauxDecaissement = mFin    > 0 ? Math.min(200, budgDec / mFin  * 100) : 0;
+    const tauxEngagement   = projet.budget > 0 ? Math.min(200, projet.budgetEngage / projet.budget * 100) : 0;
+
+    // Alert flags
+    const TODAY_MS = new Date('2026-06-09').getTime();
+    const finCaution = projet.dateFinCaution ? new Date(projet.dateFinCaution).getTime() : null;
+    const alertCaution3m = finCaution !== null && (finCaution - TODAY_MS) < 90 * 86400000 && (finCaution - TODAY_MS) > 0;
+    const alertCaution6m = finCaution !== null && (finCaution - TODAY_MS) < 180 * 86400000 && (finCaution - TODAY_MS) > 0;
+
+    // Passation steps progress
+    const pm = projet.passationMarches;
+    const passationGlobal = pm
+      ? Math.round(
+          (pm.elaborationDAC + pm.lancementDAC + pm.ouvertureAnalyse +
+           pm.attributionProvisoire + pm.attributionDefinitive + pm.signatureContrat) / 6
+        )
+      : 0;
+
+    return {
+      sg, mMarche, mFact, mPay, mFin,
+      tauxFacturation, tauxPaiement, tauxDecaissement, tauxEngagement,
+      alertCaution3m, alertCaution6m, passationGlobal,
+      alertCpiRouge: projet.cpi < 1,
+      alertSpiRouge: projet.spi < 1,
+    };
+  }, [projet]);
+
+  /* ── Contrat / HSE / Qualité / Passation inline-edit — sauvegardes ─ */
+  const saveContratField = useCallback((field: string, rawVal: string) => {
+    if (!projet) return;
+    const num = parseFloat(rawVal);
+    const patch: Partial<Projet> = (() => {
+      if (['montantMarche','montantAvenants','montantFacture','montantPaye','montantFinancement'].includes(field))
+        return { [field]: isNaN(num) ? undefined : num };
+      if (['dateODS','dateSignatureContrat','dateFinCaution'].includes(field))
+        return { [field]: rawVal || undefined };
+      return { [field]: rawVal || undefined };
+    })();
+    store.updateProjet(projet.id, patch);
+    setEditingContratField(null);
+  }, [projet, store]);
+
+  const saveHseField = useCallback((field: string, rawVal: string) => {
+    if (!projet) return;
+    const num = parseFloat(rawVal);
+    const currentHse = projet.hse ?? { nbAnomalies: 0, tauxRealisationPGES: 0, tauxRealisationPAR: 0 };
+    store.updateProjet(projet.id, { hse: { ...currentHse, [field]: isNaN(num) ? 0 : num } });
+    setEditingHseField(null);
+  }, [projet, store]);
+
+  const saveQualField = useCallback((field: string, rawVal: string) => {
+    if (!projet) return;
+    const num = parseInt(rawVal, 10);
+    const currentQ = projet.qualite ?? { nbNonConformites: 0, nbControles: 0 };
+    store.updateProjet(projet.id, { qualite: { ...currentQ, [field]: isNaN(num) ? 0 : num } });
+    setEditingQualField(null);
+  }, [projet, store]);
+
+  const savePassationStep = useCallback((step: keyof PassationMarches, val: number) => {
+    if (!projet) return;
+    const current = projet.passationMarches ?? { elaborationDAC: 0, lancementDAC: 0, ouvertureAnalyse: 0, attributionProvisoire: 0, attributionDefinitive: 0, signatureContrat: 0 };
+    store.updateProjet(projet.id, { passationMarches: { ...current, [step]: Math.min(100, Math.max(0, val)) } });
+  }, [projet, store]);
 
   /* Indicateurs métiers Énergie (DPE) */
   const energyMetrics = useMemo(() => {
@@ -1028,6 +1154,7 @@ export default function CockpitProjet() {
             { label: 'CPI',               value: projet.cpi.toFixed(2),     color: projet.cpi >= 0.90 ? C.green : C.red },
             { label: 'SPI',               value: projet.spi.toFixed(2),     color: projet.spi >= 0.85 ? C.green : C.amber },
             { label: 'Budget décaissé',   value: `${Math.round(projet.budgetDecaisse / (projet.budget||1) * 100)}%`, color: C.navy },
+            ...(kpiContrat ? [{ label: 'Statut global', value: kpiContrat.sg === 'vert' ? '● Vert' : kpiContrat.sg === 'orange' ? '● Orange' : '● Rouge', color: kpiContrat.sg === 'vert' ? C.green : kpiContrat.sg === 'orange' ? C.amber : C.red }] : []),
             { label: 'Chef de projet',    value: projet.chefProjet, color: '#475569', text: true },
           ].map((k, i, arr) => (
             <div key={k.label} style={{
@@ -1069,6 +1196,38 @@ export default function CockpitProjet() {
         {/* ─── SYNTHÈSE ──────────────────────────────── */}
         {activeOnglet === 'synthese' && (
           <>
+            {/* Alertes DPE */}
+            {kpiContrat && (kpiContrat.alertCaution3m || kpiContrat.alertCaution6m || kpiContrat.alertCpiRouge || kpiContrat.alertSpiRouge) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {kpiContrat.alertCaution3m && (
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <AlertTriangle size={14} style={{ color: C.red, flexShrink: 0 }} />
+                    <span style={{ color: '#7F1D1D', fontWeight: 600 }}>Caution bancaire expire dans moins de 3 mois</span>
+                    <span style={{ marginLeft: 'auto', color: '#94A3B8', fontSize: 11 }}>{projet.dateFinCaution ? new Date(projet.dateFinCaution).toLocaleDateString('fr-FR') : '—'}</span>
+                  </div>
+                )}
+                {!kpiContrat.alertCaution3m && kpiContrat.alertCaution6m && (
+                  <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <AlertTriangle size={14} style={{ color: C.amber, flexShrink: 0 }} />
+                    <span style={{ color: '#78350F', fontWeight: 600 }}>Caution bancaire expire dans moins de 6 mois</span>
+                    <span style={{ marginLeft: 'auto', color: '#94A3B8', fontSize: 11 }}>{projet.dateFinCaution ? new Date(projet.dateFinCaution).toLocaleDateString('fr-FR') : '—'}</span>
+                  </div>
+                )}
+                {kpiContrat.alertCpiRouge && (
+                  <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <TrendingDown size={14} style={{ color: C.orange, flexShrink: 0 }} />
+                    <span style={{ color: '#7C2D12', fontWeight: 600 }}>CPI &lt; 1 — Dépassement budgétaire en cours · CPI = {projet.cpi.toFixed(2)}</span>
+                  </div>
+                )}
+                {kpiContrat.alertSpiRouge && (
+                  <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <TrendingDown size={14} style={{ color: C.amber, flexShrink: 0 }} />
+                    <span style={{ color: '#7C2D12', fontWeight: 600 }}>SPI &lt; 1 — Retard calendaire en cours · SPI = {projet.spi.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Bandeau projet */}
             <div style={{ background: `linear-gradient(135deg, ${C.navy} 0%, #1e3a6e 100%)`, borderRadius: 12, padding: '20px 24px', color: '#fff' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
@@ -1189,7 +1348,7 @@ export default function CockpitProjet() {
                           {d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                         </div>
                         {overdue && <AlertTriangle size={12} style={{ color: C.red }} />}
-                        <button onClick={() => handleDeleteJalon(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: 0, display: 'flex', opacity: 0.5 }}>
+                        <button onClick={() => handleDeleteJalon(i)} aria-label={`Supprimer le jalon : ${j.label}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: 0, display: 'flex', opacity: 0.5 }}>
                           <X size={10} />
                         </button>
                       </div>
@@ -1394,6 +1553,7 @@ export default function CockpitProjet() {
                               n.has(t.id) ? n.delete(t.id) : n.add(t.id);
                               return n;
                             })}
+                            aria-label={expandedTaches.has(t.id) ? `Réduire la tâche : ${t.nom}` : `Développer la tâche : ${t.nom}`}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}
                           >
                             {expandedTaches.has(t.id)
@@ -1689,6 +1849,24 @@ export default function CockpitProjet() {
               ))}
             </div>
 
+            {/* Taux de performance financière */}
+            {kpiContrat && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                {[
+                  { label: 'Taux de facturation',  value: `${kpiContrat.tauxFacturation.toFixed(1)}%`,  ok: kpiContrat.tauxFacturation >= 80, tip: 'Facturé / Marché' },
+                  { label: 'Taux de paiement',     value: `${kpiContrat.tauxPaiement.toFixed(1)}%`,     ok: kpiContrat.tauxPaiement >= 80,    tip: 'Payé / Facturé' },
+                  { label: 'Taux de décaissement', value: `${kpiContrat.tauxDecaissement.toFixed(1)}%`, ok: kpiContrat.tauxDecaissement >= 60, tip: 'Décaissé / Financement' },
+                  { label: "Taux d'engagement",    value: `${kpiContrat.tauxEngagement.toFixed(1)}%`,   ok: kpiContrat.tauxEngagement >= 70,   tip: 'Engagé / Budget' },
+                ].map(k => (
+                  <div key={k.label} style={{ background: k.ok ? '#F0FDF4' : '#FFF7ED', border: `1px solid ${k.ok ? '#BBF7D0' : '#FDE68A'}`, borderRadius: 10, padding: '12px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: k.ok ? C.green : C.amber }}>{k.value}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#1E293B', marginTop: 4 }}>{k.label}</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>{k.tip}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Courbe S + Bailleurs */}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
               {/* Courbe S */}
@@ -1783,6 +1961,261 @@ export default function CockpitProjet() {
                   <Bar dataKey="SENELEC" fill={C.orange} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </>
+        )}
+
+        {/* ─── CONTRAT & MARCHÉS ──────────────────────── */}
+        {activeOnglet === 'contrat' && kpiContrat && (
+          <>
+            {/* KPIs financiers contrat */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[
+                { label: 'Montant marché',    value: `${(kpiContrat.mMarche ?? 0).toLocaleString('fr-FR')} MFCFA`, color: C.navy,   bg: '#EFF6FF' },
+                { label: 'Montant facturé',   value: `${(kpiContrat.mFact ?? 0).toLocaleString('fr-FR')} MFCFA`,   color: C.orange, bg: '#FFF7ED', sub: `Taux facturation : ${kpiContrat.tauxFacturation.toFixed(1)}%` },
+                { label: 'Montant payé',      value: `${(kpiContrat.mPay ?? 0).toLocaleString('fr-FR')} MFCFA`,    color: C.green,  bg: '#F0FDF4', sub: `Taux paiement : ${kpiContrat.tauxPaiement.toFixed(1)}%` },
+                { label: 'Montant avenants',  value: `${(projet.montantAvenants ?? 0).toLocaleString('fr-FR')} MFCFA`, color: C.amber, bg: '#FFFBEB' },
+              ].map(k => (
+                <div key={k.label} style={{ background: k.bg, border: `1px solid ${k.color}20`, borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 11.5, color: '#64748B', fontWeight: 600, marginBottom: 8 }}>{k.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: k.color }}>{k.value}</div>
+                  {k.sub && <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 4 }}>{k.sub}</div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Taux KPIs 2e rangée */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[
+                { label: 'Taux de facturation',  value: `${kpiContrat.tauxFacturation.toFixed(1)}%`,  ok: kpiContrat.tauxFacturation >= 80 },
+                { label: 'Taux de paiement',     value: `${kpiContrat.tauxPaiement.toFixed(1)}%`,     ok: kpiContrat.tauxPaiement >= 80 },
+                { label: 'Taux de décaissement', value: `${kpiContrat.tauxDecaissement.toFixed(1)}%`, ok: kpiContrat.tauxDecaissement >= 60 },
+                { label: "Taux d'engagement",    value: `${kpiContrat.tauxEngagement.toFixed(1)}%`,   ok: kpiContrat.tauxEngagement >= 70 },
+              ].map(k => (
+                <div key={k.label} style={{ background: k.ok ? '#F0FDF4' : '#FFF7ED', border: `1px solid ${k.ok ? '#BBF7D0' : '#FDE68A'}`, borderRadius: 10, padding: '14px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: k.ok ? C.green : C.amber }}>{k.value}</div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{k.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Dates contractuelles + Code imputation — éditable */}
+            <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px 20px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Calendar size={14} style={{ color: C.orange }} /> Dates contractuelles &amp; Référentiels
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                {([
+                  { label: 'Date ODS',              field: 'dateODS',              type: 'date', raw: projet.dateODS ?? '',              display: projet.dateODS ? new Date(projet.dateODS).toLocaleDateString('fr-FR') : '—',              alert: undefined },
+                  { label: 'Date signature contrat', field: 'dateSignatureContrat', type: 'date', raw: projet.dateSignatureContrat ?? '', display: projet.dateSignatureContrat ? new Date(projet.dateSignatureContrat).toLocaleDateString('fr-FR') : '—', alert: undefined },
+                  { label: 'Date fin caution',       field: 'dateFinCaution',       type: 'date', raw: projet.dateFinCaution ?? '',       display: projet.dateFinCaution ? new Date(projet.dateFinCaution).toLocaleDateString('fr-FR') : '—',       alert: kpiContrat.alertCaution3m ? C.red : kpiContrat.alertCaution6m ? C.amber : undefined },
+                  { label: 'N° de marché',           field: 'numeroMarche',         type: 'text', raw: projet.numeroMarche ?? '',         display: projet.numeroMarche ?? '—',                                                                      alert: undefined },
+                  { label: 'Code imputation Oracle', field: 'codeImputation',       type: 'text', raw: projet.codeImputation ?? '',       display: projet.codeImputation ?? '—',                                                                    alert: undefined },
+                  { label: 'Montant financement',    field: 'montantFinancement',   type: 'number', raw: String(projet.montantFinancement ?? projet.budget), display: `${(projet.montantFinancement ?? projet.budget).toLocaleString('fr-FR')} MFCFA`, alert: undefined },
+                ] as Array<{ label: string; field: string; type: string; raw: string; display: string; alert: string | undefined }>).map(k => (
+                  <div key={k.field} style={{ background: '#F8FAFC', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${k.alert ?? C.navy}`, position: 'relative' }}>
+                    <div style={{ fontSize: 10.5, color: '#94A3B8', marginBottom: 4 }}>{k.label}</div>
+                    {editingContratField === k.field ? (
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <input
+                          type={k.type === 'date' ? 'date' : k.type === 'number' ? 'number' : 'text'}
+                          value={contratFieldVal}
+                          onChange={e => setContratFieldVal(e.target.value)}
+                          autoFocus
+                          onKeyDown={e => { if (e.key === 'Enter') saveContratField(k.field, contratFieldVal); if (e.key === 'Escape') setEditingContratField(null); }}
+                          style={{ flex: 1, border: `1px solid ${C.navy}`, borderRadius: 4, padding: '3px 6px', fontSize: 12, fontFamily: 'inherit' }}
+                        />
+                        <button onClick={() => saveContratField(k.field, contratFieldVal)} aria-label="Enregistrer la valeur" style={{ background: C.green, border: 'none', borderRadius: 4, padding: '3px 7px', cursor: 'pointer' }}>
+                          <Check size={11} color="#fff" />
+                        </button>
+                        <button onClick={() => setEditingContratField(null)} aria-label="Annuler l'édition" style={{ background: '#F1F5F9', border: 'none', borderRadius: 4, padding: '3px 7px', cursor: 'pointer' }}>
+                          <X size={11} color="#64748B" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: k.alert ?? '#1E293B', flex: 1 }}>{k.display}</span>
+                        {canEditFiche && (
+                          <button onClick={() => { setEditingContratField(k.field); setContratFieldVal(k.raw); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4, color: C.navy }}
+                            title="Modifier">
+                            <Pencil size={11} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Passation des marchés — 6 sous-étapes */}
+            {projet.passationMarches && (
+              <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px 20px' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <GitBranch size={14} style={{ color: C.orange }} /> Passation des marchés
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: C.slate }}>Progression globale : <strong style={{ color: C.navy }}>{kpiContrat.passationGlobal}%</strong></span>
+                </div>
+                <div style={{ height: 6, background: '#F1F5F9', borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${kpiContrat.passationGlobal}%`, background: `linear-gradient(90deg, ${C.navy}, ${C.orange})`, borderRadius: 3 }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {([
+                    { key: 'elaborationDAC',       label: 'Élaboration DAC' },
+                    { key: 'lancementDAC',          label: 'Lancement DAC' },
+                    { key: 'ouvertureAnalyse',      label: 'Ouverture & analyse des offres' },
+                    { key: 'attributionProvisoire', label: 'Attribution provisoire' },
+                    { key: 'attributionDefinitive', label: 'Attribution définitive' },
+                    { key: 'signatureContrat',      label: 'Signature du contrat' },
+                  ] as Array<{ key: keyof PassationMarches; label: string }>).map((step, idx) => {
+                    const pct: number = projet.passationMarches![step.key];
+                    const done = pct >= 100;
+                    return (
+                      <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: done ? C.green : '#F1F5F9', border: `2px solid ${done ? C.green : C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {done ? <Check size={11} color="#fff" /> : <span style={{ fontSize: 9, color: '#94A3B8', fontWeight: 700 }}>{idx + 1}</span>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                            <span style={{ fontSize: 11.5, fontWeight: done ? 700 : 500, color: done ? '#1E293B' : '#64748B' }}>{step.label}</span>
+                            {canEditFiche ? (
+                              <input
+                                type="number" min={0} max={100} step={5}
+                                value={pct}
+                                onChange={e => savePassationStep(step.key, parseInt(e.target.value, 10) || 0)}
+                                style={{ width: 52, border: `1px solid ${C.border}`, borderRadius: 4, padding: '1px 4px', fontSize: 11, fontWeight: 700, color: pct >= 100 ? C.green : pct > 0 ? C.orange : '#94A3B8', textAlign: 'right', fontFamily: 'inherit' }}
+                              />
+                            ) : (
+                              <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 100 ? C.green : pct > 0 ? C.orange : '#94A3B8' }}>{pct}%</span>
+                            )}
+                          </div>
+                          <div style={{ height: 5, background: '#F1F5F9', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: pct >= 100 ? C.green : pct > 0 ? C.orange : '#E2E8F0', borderRadius: 3, transition: 'width 0.5s ease' }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ─── HSE & QUALITÉ ──────────────────────────── */}
+        {activeOnglet === 'hse' && (
+          <>
+            {/* Statut global trafic */}
+            {kpiContrat && (
+              <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 54, height: 54, borderRadius: '50%', background: kpiContrat.sg === 'vert' ? '#DCFCE7' : kpiContrat.sg === 'orange' ? '#FFF7ED' : '#FEF2F2', border: `3px solid ${kpiContrat.sg === 'vert' ? C.green : kpiContrat.sg === 'orange' ? C.amber : C.red}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: kpiContrat.sg === 'vert' ? C.green : kpiContrat.sg === 'orange' ? C.amber : C.red }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#1E293B' }}>
+                    Statut global : {kpiContrat.sg === 'vert' ? 'Vert — Sous contrôle' : kpiContrat.sg === 'orange' ? 'Orange — Vigilance requise' : 'Rouge — Action corrective requise'}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 4 }}>
+                    CPI {projet.cpi.toFixed(2)} · SPI {projet.spi.toFixed(2)} · Avancement {projet.avancement}% (planifié {projet.avancementPlanifie}%)
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* HSE */}
+            <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px 20px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <ShieldAlert size={14} style={{ color: C.orange }} /> Hygiène, Sécurité &amp; Environnement (HSE)
+              </div>
+              {(() => {
+                const hse = projet.hse ?? { nbAnomalies: 0, tauxRealisationPGES: 0, tauxRealisationPAR: 0 };
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                    {([
+                      { field: 'nbAnomalies',         label: 'Anomalies HSE',    unit: 'anomalies', val: hse.nbAnomalies,         ok: hse.nbAnomalies === 0,          type: 'int' },
+                      { field: 'tauxRealisationPGES', label: 'Réalisation PGES', unit: '% — Plan Gestion Environnement', val: hse.tauxRealisationPGES, ok: hse.tauxRealisationPGES >= 80, type: 'pct' },
+                      { field: 'tauxRealisationPAR',  label: 'Réalisation PAR',  unit: '% — Plan Action Réinstallation', val: hse.tauxRealisationPAR,  ok: hse.tauxRealisationPAR >= 80,  type: 'pct' },
+                    ] as Array<{ field: string; label: string; unit: string; val: number; ok: boolean; type: string }>).map(k => (
+                      <div key={k.field} style={{ background: k.ok ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${k.ok ? '#BBF7D0' : '#FECACA'}`, borderRadius: 10, padding: '16px' }}>
+                        {editingHseField === k.field ? (
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 6 }}>
+                            <input type="number" min={0} max={k.type === 'pct' ? 100 : 9999}
+                              value={hseFieldVal} onChange={e => setHseFieldVal(e.target.value)} autoFocus
+                              onKeyDown={e => { if (e.key === 'Enter') saveHseField(k.field, hseFieldVal); if (e.key === 'Escape') setEditingHseField(null); }}
+                              style={{ flex: 1, border: `1px solid ${C.navy}`, borderRadius: 4, padding: '3px 6px', fontSize: 14, fontWeight: 800, fontFamily: 'inherit' }}
+                            />
+                            <button onClick={() => saveHseField(k.field, hseFieldVal)} aria-label="Enregistrer la valeur HSE" style={{ background: C.green, border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}><Check size={11} color="#fff" /></button>
+                            <button onClick={() => setEditingHseField(null)} aria-label="Annuler l'édition HSE" style={{ background: '#F1F5F9', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}><X size={11} color="#64748B" /></button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 26, fontWeight: 800, color: k.ok ? C.green : C.red }}>{k.type === 'pct' ? `${k.val}%` : k.val}</span>
+                            {canEditFiche && (
+                              <button onClick={() => { setEditingHseField(k.field); setHseFieldVal(String(k.val)); }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.4, marginLeft: 'auto', color: C.navy }}><Pencil size={12} /></button>
+                            )}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: '#1E293B' }}>{k.label}</div>
+                        <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 2 }}>{k.unit}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Qualité */}
+            <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px 20px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Activity size={14} style={{ color: C.orange }} /> Contrôle qualité
+              </div>
+              {(() => {
+                const qualite = projet.qualite ?? { nbNonConformites: 0, nbControles: 0 };
+                const tauxNonConf = qualite.nbControles > 0
+                  ? (qualite.nbNonConformites / qualite.nbControles * 100)
+                  : 0;
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                    {([
+                      { field: 'nbNonConformites', label: 'Non-conformités',  val: qualite.nbNonConformites, ok: qualite.nbNonConformites === 0, displayColor: qualite.nbNonConformites === 0 ? C.green : C.red, bg: qualite.nbNonConformites === 0 ? '#F0FDF4' : '#FEF2F2', border: qualite.nbNonConformites === 0 ? '#BBF7D0' : '#FECACA' },
+                      { field: 'nbControles',       label: 'Contrôles réalisés', val: qualite.nbControles,     ok: true,                         displayColor: C.navy,                                           bg: '#EFF6FF',    border: '#BFDBFE' },
+                    ] as Array<{ field: string; label: string; val: number; ok: boolean; displayColor: string; bg: string; border: string }>).map(k => (
+                      <div key={k.field} style={{ background: k.bg, border: `1px solid ${k.border}`, borderRadius: 10, padding: 16 }}>
+                        {editingQualField === k.field ? (
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 6 }}>
+                            <input type="number" min={0} value={qualFieldVal} onChange={e => setQualFieldVal(e.target.value)} autoFocus
+                              onKeyDown={e => { if (e.key === 'Enter') saveQualField(k.field, qualFieldVal); if (e.key === 'Escape') setEditingQualField(null); }}
+                              style={{ flex: 1, border: `1px solid ${C.navy}`, borderRadius: 4, padding: '3px 6px', fontSize: 14, fontWeight: 800, fontFamily: 'inherit' }}
+                            />
+                            <button onClick={() => saveQualField(k.field, qualFieldVal)} aria-label="Enregistrer la valeur qualité" style={{ background: C.green, border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}><Check size={11} color="#fff" /></button>
+                            <button onClick={() => setEditingQualField(null)} aria-label="Annuler l'édition qualité" style={{ background: '#F1F5F9', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}><X size={11} color="#64748B" /></button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 26, fontWeight: 800, color: k.displayColor }}>{k.val}</span>
+                            {canEditFiche && (
+                              <button onClick={() => { setEditingQualField(k.field); setQualFieldVal(String(k.val)); }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.4, marginLeft: 'auto', color: C.navy }}><Pencil size={12} /></button>
+                            )}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: '#1E293B' }}>{k.label}</div>
+                      </div>
+                    ))}
+                    <div style={{ background: tauxNonConf <= 5 ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${tauxNonConf <= 5 ? '#BBF7D0' : '#FECACA'}`, borderRadius: 10, padding: 16 }}>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: tauxNonConf <= 5 ? C.green : C.red, marginBottom: 4 }}>{tauxNonConf.toFixed(1)}%</div>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#1E293B' }}>Taux non-conformité</div>
+                      <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 3 }}>(non-conf. / contrôles) × 100</div>
+                    </div>
+                    {qualite.commentaire && (
+                      <div style={{ gridColumn: '1 / -1', background: '#F8FAFC', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#475569', borderLeft: `3px solid ${C.navy}` }}>
+                        {qualite.commentaire}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
@@ -2231,7 +2664,7 @@ export default function CockpitProjet() {
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>✏️ Modifier le projet</div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{projet.code} — {projet.nom}</div>
               </div>
-              <button onClick={() => setShowEditModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={15} /></button>
+              <button onClick={() => setShowEditModal(false)} aria-label="Fermer la fenêtre de modification du projet" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={15} /></button>
             </div>
             {/* Body */}
             <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
@@ -2336,7 +2769,7 @@ export default function CockpitProjet() {
               <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
                 {editTacheId ? '✏️ Modifier la tâche' : '➕ Nouvelle tâche'}
               </div>
-              <button onClick={() => setShowTacheModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
+              <button onClick={() => setShowTacheModal(false)} aria-label="Fermer la fenêtre de tâche" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
             </div>
             <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
@@ -2434,7 +2867,7 @@ export default function CockpitProjet() {
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: '#fff', borderRadius: 12, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.22)' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>🚩 Nouveau jalon</span>
-              <button onClick={() => setShowJalonModal(false)} style={{ background: '#F1F5F9', border: 'none', borderRadius: 5, padding: 5, cursor: 'pointer', display: 'flex' }}><X size={13} /></button>
+              <button onClick={() => setShowJalonModal(false)} aria-label="Fermer la fenêtre de jalon" style={{ background: '#F1F5F9', border: 'none', borderRadius: 5, padding: 5, cursor: 'pointer', display: 'flex' }}><X size={13} /></button>
             </div>
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
@@ -2463,7 +2896,7 @@ export default function CockpitProjet() {
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: '#fff', borderRadius: 14, width: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.22)' }}>
             <div style={{ background: C.navy, padding: '14px 18px', borderRadius: '14px 14px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>📎 Déposer un document</div>
-              <button onClick={() => setShowUploadModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
+              <button onClick={() => setShowUploadModal(false)} aria-label="Fermer la fenêtre de dépôt de document" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
             </div>
             <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
@@ -2498,7 +2931,7 @@ export default function CockpitProjet() {
                   setUploadForm({ nom: '', type: 'Rapport', commentaire: '' });
                 }}
                 disabled={!uploadForm.nom.trim()}
-                style={{ padding: '8px 18px', fontSize: 12, fontWeight: 700, borderRadius: 7, border: 'none', background: uploadForm.nom.trim() ? C.navy : '#E5E7EB', color: uploadForm.nom.trim() ? '#fff' : '#9CA3AF', cursor: 'pointer' }}
+                style={{ padding: '8px 18px', fontSize: 12, fontWeight: 700, borderRadius: 7, border: 'none', background: uploadForm.nom.trim() ? C.navy : '#E5E7EB', color: uploadForm.nom.trim() ? '#fff' : '#9CA3AF', cursor: uploadForm.nom.trim() ? 'pointer' : 'not-allowed', opacity: uploadForm.nom.trim() ? 1 : 0.5 }}
               >
                 📎 Déposer
               </button>
@@ -3041,7 +3474,7 @@ export default function CockpitProjet() {
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 201, background: '#fff', borderRadius: 14, width: 520, boxShadow: '0 24px 64px rgba(0,0,0,0.28)' }}>
             <div style={{ background: C.navy, padding: '14px 18px', borderRadius: '14px 14px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>👁 Aperçu document</div>
-              <button onClick={() => setPreviewDoc(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
+              <button onClick={() => setPreviewDoc(null)} aria-label="Fermer l'aperçu du document" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
             </div>
             <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -3083,7 +3516,7 @@ export default function CockpitProjet() {
           <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 301, background: '#fff', borderRadius: 14, width: 620, boxShadow: '0 24px 64px rgba(0,0,0,0.28)', overflow: 'hidden' }}>
             <div style={{ background: C.navy, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>📍 {editZoneId ? 'Modifier la zone' : 'Ajouter une zone'}</div>
-              <button onClick={() => setShowZoneModal(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
+              <button onClick={() => setShowZoneModal(false)} aria-label="Fermer la fenêtre de zone" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, padding: 6, cursor: 'pointer', color: '#fff', display: 'flex' }}><X size={14} /></button>
             </div>
             <div style={{ padding: '20px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
               {([

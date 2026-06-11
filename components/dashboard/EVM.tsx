@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, ReferenceLine, ComposedChart, Bar, Area,
   AreaChart,
 } from 'recharts';
-import { RefreshCw, ChevronDown, Download } from 'lucide-react';
+import { RefreshCw, ChevronDown, Download, Bot, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, ChevronUp, Search, X } from 'lucide-react';
 import { useProjectStore } from '@/lib/projectStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 
@@ -298,6 +298,7 @@ export default function EVM() {
   }, [store.projets]);
 
   const [selectedProject, setSelectedProject] = useState<string>(() => storeProjects[0]?.val ?? 'P01');
+  const [taskSearch, setTaskSearch] = useState('');
   const [recalculating, setRecalculating] = useState(false);
   const [recalcKey, setRecalcKey] = useState(0);
   const [taskStatuses, setTaskStatuses] = useState<Record<string, CriticalTask['statut']>>(
@@ -315,9 +316,9 @@ export default function EVM() {
 
   const CV   = +(project.EV - project.AC).toFixed(2);
   const SV   = +(project.EV - (project.BAC * project.SPI)).toFixed(2);
-  const EAC  = +(project.BAC / project.CPI).toFixed(1);
+  const EAC  = +(project.CPI > 0 ? project.BAC / project.CPI : project.BAC).toFixed(1);
   const ETC  = +(EAC - project.AC).toFixed(1);
-  const TCPI = +((project.BAC - project.EV) / (project.BAC - project.AC)).toFixed(2);
+  const TCPI = project.BAC !== project.AC ? +((project.BAC - project.EV) / (project.BAC - project.AC)).toFixed(2) : 0;
 
   /* ── Dynamic S-curve data scaled to selected project ──────────────────── */
   const projectSCurveData = useMemo<SCurvePoint[]>(() => {
@@ -365,7 +366,7 @@ export default function EVM() {
     const acScale = projAC / 46.8 || 1;
     const evScale = projEV / 43.1 || 1;
     const eacOpt  = +(projEV + (projBAC - projEV) / 1.0).toFixed(1);
-    const eacProb = +(projEV + (projBAC - projEV) / projCPI).toFixed(1);
+    const eacProb = +(projEV + (projBAC - projEV) / (projCPI > 0 ? projCPI : 1)).toFixed(1);
     const eacPess = +(projEV + (projBAC - projEV) / 0.85).toFixed(1);
     return FORECAST_MONTHS.map((mois, i) => {
       const isActual   = i < 16;
@@ -584,7 +585,14 @@ export default function EVM() {
         </Card>
 
         <Card>
-          <SectionHeader title="Analyse Chemin Critique" pill={`${CRITICAL_TASKS.filter(t => t.statut === 'critique').length} tâches critiques`} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <SectionHeader title="Analyse Chemin Critique" pill={`${CRITICAL_TASKS.filter(t => t.statut === 'critique').length} tâches critiques`} />
+            <div style={{ position: 'relative' }}>
+              <Search size={12} style={{ position: 'absolute', left: 7, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+              <input value={taskSearch} onChange={e => setTaskSearch(e.target.value)} placeholder="Filtrer les tâches…" style={{ padding: '5px 8px 5px 24px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 11, width: 180, paddingRight: taskSearch ? 24 : 8, outline: 'none' }} />
+              {taskSearch && <button onClick={() => setTaskSearch('')} aria-label="Effacer le filtre tâches" style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}><X size={11} /></button>}
+            </div>
+          </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
@@ -595,7 +603,7 @@ export default function EVM() {
                 </tr>
               </thead>
               <tbody>
-                {CRITICAL_TASKS.map(t => {
+                {CRITICAL_TASKS.filter(t => !taskSearch.trim() || t.tache.toLowerCase().includes(taskSearch.toLowerCase())).map(t => {
                   const currentStatus = taskStatuses[t.id] ?? t.statut;
                   return (
                   <tr key={t.id} style={{ background: currentStatus === 'critique' ? RED + '06' : '#fff', borderBottom: '1px solid #F1F5F9' }}>
@@ -674,7 +682,125 @@ export default function EVM() {
         </ResponsiveContainer>
       </Card>
 
+      {/* ── ROW 6 — AI Advisory Panel ─────────────────────────────────────────── */}
+      <AIAdvisoryPanel project={project} CPI={project.CPI} SPI={project.SPI} EAC={EAC} BAC={project.BAC} EV={project.EV} AC={project.AC} CV={CV} />
+
     </div>
+    </div>
+  );
+}
+
+/* ─── AI Advisory Panel ────────────────────────────────────────────────────── */
+interface AIAdvisoryProps {
+  project: ProjectOption;
+  CPI: number; SPI: number; EAC: number; BAC: number; EV: number; AC: number; CV: number;
+}
+
+function AIAdvisoryPanel({ project, CPI, SPI, EAC, BAC, EV, AC, CV }: AIAdvisoryProps) {
+  const [open, setOpen] = useState(true);
+
+  // Generate context-aware AI insights based on real KPI values
+  const insights = useMemo(() => {
+    const items: { type: 'danger' | 'warning' | 'success' | 'info'; title: string; body: string }[] = [];
+    const overrun = EAC - BAC;
+    const overrunPct = BAC > 0 ? +((overrun / BAC) * 100).toFixed(1) : 0;
+
+    // CPI analysis
+    if (CPI < 0.9) {
+      items.push({ type: 'danger', title: 'Dérive coût critique (CPI < 0,9)',
+        body: `Pour chaque FCFA dépensé, seulement ${(CPI * 100).toFixed(0)} F de valeur est produite. Revoir immédiatement les contrats dépassant leur budget.` });
+    } else if (CPI < 1.0) {
+      items.push({ type: 'warning', title: `Coût légèrement dépassé (CPI = ${CPI.toFixed(2)})`,
+        body: `Dépassement de ${Math.abs(CV).toFixed(1)} MFCFA. Resserrer le contrôle des dépenses sur les postes à forte consommation.` });
+    } else {
+      items.push({ type: 'success', title: `Coût maîtrisé (CPI = ${CPI.toFixed(2)})`,
+        body: `Le projet produit plus de valeur que prévu. Maintenir la discipline budgétaire pour consolider cet avantage.` });
+    }
+
+    // SPI analysis
+    if (SPI < 0.85) {
+      items.push({ type: 'danger', title: `Retard de planning sévère (SPI = ${SPI.toFixed(2)})`,
+        body: `Avancement réel très en deçà du plan. Identifier les tâches du chemin critique bloquées et mobiliser des ressources additionnelles.` });
+    } else if (SPI < 0.95) {
+      items.push({ type: 'warning', title: `Léger retard de planning (SPI = ${SPI.toFixed(2)})`,
+        body: `Le planning glisse. Replanifier les jalons intermédiaires et communiquer un nouveau délai réaliste.` });
+    } else {
+      items.push({ type: 'success', title: `Planning respecté (SPI = ${SPI.toFixed(2)})`,
+        body: `Le rythme d'avancement est conforme au planning de référence.` });
+    }
+
+    // EAC forecast
+    if (overrun > 0) {
+      items.push({ type: overrunPct > 10 ? 'danger' : 'warning',
+        title: `Prévision de dépassement final : +${overrun.toFixed(1)} MFCFA (+${overrunPct}%)`,
+        body: `EAC = ${EAC.toFixed(1)} MFCFA vs BAC = ${BAC} MFCFA. Déclencher une revue de budget et préparer un avenant si nécessaire.` });
+    } else {
+      items.push({ type: 'success', title: `Projet dans le budget (EAC = ${EAC.toFixed(1)} MFCFA)`,
+        body: `Aucun dépassement prévu à l'achèvement. Surveiller la tendance CPI pour anticiper toute dérive.` });
+    }
+
+    // SENELEC-specific recommendations
+    if (CPI < 0.95 && SPI < 0.95) {
+      items.push({ type: 'info', title: 'Actions recommandées — DPE SENELEC',
+        body: `1. Convoquer une réunion de revue de projet avec le chef de projet et le contrôleur financier.\n2. Activer le suivi hebdomadaire des jalons critiques.\n3. Envisager une levée de réserves de gestion si le CPI ne s'améliore pas sous 30 jours.` });
+    } else if (CPI >= 1.0 && SPI >= 1.0) {
+      items.push({ type: 'info', title: 'Opportunité — capitaliser sur la performance',
+        body: `Projet performant. Documenter les bonnes pratiques dans la GED pour réplication sur les projets similaires du portefeuille DPE.` });
+    }
+
+    return items;
+  }, [CPI, SPI, EAC, BAC, CV, AC, EV]);
+
+  const COLORS = {
+    danger:  { bg: '#FEF2F2', border: '#FCA5A5', icon: '#DC2626', text: '#991B1B' },
+    warning: { bg: '#FFFBEB', border: '#FDE68A', icon: '#D97706', text: '#92400E' },
+    success: { bg: '#F0FDF4', border: '#BBF7D0', icon: '#16A34A', text: '#14532D' },
+    info:    { bg: '#EFF6FF', border: '#BFDBFE', icon: '#2563EB', text: '#1E3A8A' },
+  };
+
+  const ICONS = {
+    danger:  <AlertTriangle size={15} />,
+    warning: <AlertTriangle size={15} />,
+    success: <CheckCircle2 size={15} />,
+    info:    <Bot size={15} />,
+  };
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,.06)', overflow: 'hidden' }}>
+      <button onClick={() => setOpen(v => !v)}
+        aria-label={open ? 'Masquer le panneau d\'analyse EVM' : 'Afficher le panneau d\'analyse EVM'}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #7C3AED, #4F46E5)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          <Bot size={16} color="#fff" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Analyse EVM — Conseiller de performance</div>
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+            {project.label} · {insights.filter(i => i.type === 'danger').length} critique(s) · {insights.filter(i => i.type === 'warning').length} avertissement(s)
+          </div>
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', background: '#F3F0FF', color: '#7C3AED', borderRadius: 20, flexShrink: 0 }}>
+          SIGEPP-DPE · EVM
+        </span>
+        {open ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
+          {insights.map((ins, i) => {
+            const c = COLORS[ins.type];
+            return (
+              <div key={i} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 9, padding: '11px 13px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6, color: c.icon }}>
+                  {ICONS[ins.type]}
+                  <span style={{ fontSize: 12, fontWeight: 700, color: c.text }}>{ins.title}</span>
+                </div>
+                <div style={{ fontSize: 11, color: c.text, lineHeight: 1.65, whiteSpace: 'pre-line' }}>{ins.body}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

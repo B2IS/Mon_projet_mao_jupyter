@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
   AlertTriangle, Shield, Plus, Download, Filter, X, ChevronUp, ChevronDown,
-  TrendingUp, Clock,
+  TrendingUp, Clock, Search,
 } from 'lucide-react';
 import { useScopeDomaines } from '@/lib/projectStore';
 
@@ -161,7 +161,7 @@ function RisqueDetailModal({ risque, onClose, onUpdate }: { risque: Risque; onCl
             <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, marginBottom: 3 }}>{risque.id} · {risque.domaine} · {risque.categorie}</div>
             <div style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>{risque.description}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontWeight: 700, marginLeft: 12, flexShrink: 0 }}>×</button>
+          <button onClick={onClose} aria-label="Fermer le détail du risque" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontWeight: 700, marginLeft: 12, flexShrink: 0 }}>×</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
@@ -276,7 +276,7 @@ function NouveauRisqueModal({ onClose, onAdd, domaineOptions }: { onClose: () =>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', width: '100%', maxWidth: 560, margin: 16, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ background: '#1B4F8A', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>Nouveau Risque</span>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontWeight: 700 }}>×</button>
+          <button onClick={onClose} aria-label="Fermer le formulaire nouveau risque" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontWeight: 700 }}>×</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
@@ -331,7 +331,7 @@ function NouveauRisqueModal({ onClose, onAdd, domaineOptions }: { onClose: () =>
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Annuler</button>
-          <button onClick={handleSave} disabled={!form.description.trim()} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: form.description.trim() ? '#EF3340' : '#E5E7EB', color: form.description.trim() ? '#fff' : '#9CA3AF', cursor: form.description.trim() ? 'pointer' : 'default', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>💾 Enregistrer</button>
+          <button onClick={handleSave} disabled={!form.description.trim()} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: form.description.trim() ? '#EF3340' : '#E5E7EB', color: form.description.trim() ? '#fff' : '#9CA3AF', cursor: form.description.trim() ? 'pointer' : 'not-allowed', opacity: form.description.trim() ? 1 : 0.5, fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>💾 Enregistrer</button>
         </div>
       </div>
     </div>
@@ -355,6 +355,7 @@ export default function Risques() {
   const monoDomaine = domaineOptions.length === 1;
 
   const [risques, setRisques] = useState<Risque[]>(RISQUES);
+  const [search, setSearch] = useState('');
   const [filterDomaine, setFilterDomaine] = useState<Domaine | 'Tous'>('Tous');
   const [filterCat, setFilterCat] = useState<Categorie | 'Toutes'>('Toutes');
   const [filterCrit, setFilterCrit] = useState<Criticite | 'Toutes'>('Toutes');
@@ -393,6 +394,18 @@ export default function Risques() {
     if (filterDomaine !== 'Tous') list = list.filter(r => r.domaine === filterDomaine);
     if (filterCat !== 'Toutes') list = list.filter(r => r.categorie === filterCat);
     if (filterCrit !== 'Toutes') list = list.filter(r => r.criticite === filterCrit);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(r =>
+        r.id.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q) ||
+        r.responsable.toLowerCase().includes(q) ||
+        r.mesures.toLowerCase().includes(q) ||
+        r.statut.toLowerCase().includes(q) ||
+        r.domaine.toLowerCase().includes(q) ||
+        r.categorie.toLowerCase().includes(q)
+      );
+    }
     return [...list].sort((a, b) => {
       const colMap: Record<string, (r: Risque) => number | string> = {
         score: r => r.score,
@@ -450,7 +463,7 @@ export default function Risques() {
           <button onClick={() => setShowAddModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#EF3340', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
             <Plus size={13} /> Nouveau Risque
           </button>
-          <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+          <button aria-label="Exporter le registre des risques" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
             <Download size={13} /> Exporter
           </button>
         </div>
@@ -615,6 +628,20 @@ export default function Risques() {
             <div style={{ fontSize: 11, color: '#94A3B8' }}>{filtered.length} risques affichés</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher un risque…"
+                style={{ padding: '6px 10px 6px 26px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 11, fontFamily: 'inherit', background: '#F8FAFC', width: 190, paddingRight: search ? 26 : 10, outline: 'none' }}
+              />
+              {search && (
+                <button onClick={() => setSearch('')} aria-label="Effacer la recherche" style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}>
+                  <X size={11} />
+                </button>
+              )}
+            </div>
             <Filter size={13} color="#94A3B8" />
             <select value={filterCat} onChange={e => setFilterCat(e.target.value as Categorie | 'Toutes')} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 11, fontFamily: 'inherit', background: '#F8FAFC' }}>
               <option value="Toutes">Toutes catégories</option>
@@ -671,11 +698,11 @@ export default function Risques() {
                     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 22, borderRadius: 6, background: cellBg(r.score), color: cellColor(r.score), fontSize: 12, fontWeight: 800 }}>{r.score}</span>
                   </td>
                   <td style={{ padding: '9px 10px' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: `${criticiteColor(r.criticite)}18`, color: criticiteColor(r.criticite) }}>{r.criticite}</span>
+                    <span title={`Criticité ${r.criticite} — Score P×I : ${r.score}`} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: `${criticiteColor(r.criticite)}18`, color: criticiteColor(r.criticite) }}>{r.criticite}</span>
                   </td>
                   <td style={{ padding: '9px 10px', fontSize: 11, color: '#64748B', whiteSpace: 'nowrap' }}>{r.responsable}</td>
                   <td style={{ padding: '9px 10px' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: `${statutColor(r.statut)}18`, color: statutColor(r.statut) }}>{r.statut}</span>
+                    <span title={`Statut traitement : ${r.statut} — Progression : ${r.progTraitement}%`} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: `${statutColor(r.statut)}18`, color: statutColor(r.statut) }}>{r.statut}</span>
                   </td>
                   <td style={{ padding: '9px 10px', fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap' }}>{r.dateRevision}</td>
                   <td style={{ padding: '9px 10px' }}>

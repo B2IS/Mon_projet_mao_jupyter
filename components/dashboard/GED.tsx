@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   FileText, File, Image, Download, Share2, Plus, Search, Upload,
   Folder, FolderOpen, ChevronRight, Grid, List, X, CheckCircle,
   Eye, RotateCcw, History, Check, AlertTriangle, Clock,
   ThumbsUp, ThumbsDown, GitBranch, Archive, RefreshCw, Lock, Unlock, Edit2, Save,
+  Trash2, Copy, Mail, Link2,
 } from 'lucide-react';
 import { logAudit, type AuditType } from '@/lib/auditStore';
 import DocumentAnnotator, { type AnnotatedDoc } from '@/components/ui/DocumentAnnotator';
@@ -25,7 +26,7 @@ function gedAudit(action: string, objet: string, detail?: string, type: AuditTyp
 /* ═══════════════════════════════════════════════════════════════════════
    TYPES & MOCK DATA
 ═══════════════════════════════════════════════════════════════════════ */
-type TypeDoc = 'PDF' | 'Word' | 'Excel' | 'Image' | 'SHP';
+type TypeDoc = 'PDF' | 'Word' | 'Excel' | 'Image' | 'SHP' | 'Archive' | 'Autre';
 type StatutValidation = 'Publié' | 'En révision' | 'Soumis' | 'En attente';
 
 interface Document {
@@ -52,11 +53,30 @@ function typeDocFromExt(ext: string): TypeDoc {
   const e = ext.toLowerCase();
   if (e === 'pdf') return 'PDF';
   if (['doc', 'docx', 'odt', 'rtf'].includes(e)) return 'Word';
-  if (['xls', 'xlsx', 'csv'].includes(e)) return 'Excel';
-  if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp'].includes(e)) return 'Image';
-  if (['zip', 'shp', 'kml', 'kmz', 'geojson', 'dwg', 'dxf'].includes(e)) return 'SHP';
-  return 'PDF';
+  if (['xls', 'xlsx', 'csv', 'ods'].includes(e)) return 'Excel';
+  if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp', 'tiff'].includes(e)) return 'Image';
+  if (['shp', 'kml', 'kmz', 'geojson', 'dwg', 'dxf', 'mpp'].includes(e)) return 'SHP';
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(e)) return 'Archive';
+  // Tous les autres formats : Autre (pas de refus)
+  return 'Autre';
 }
+
+/** Règles de conservation documentaire DPE (délai en années) */
+export const CONSERVATION_RULES: Record<string, { duree: number; unite: string; base: string }> = {
+  'Marchés':         { duree: 10, unite: 'ans', base: 'Clôture projet' },
+  'Marchés/Marchés': { duree: 10, unite: 'ans', base: 'Clôture projet' },
+  'Marchés/Avenants':{ duree: 10, unite: 'ans', base: 'Clôture projet' },
+  'Marchés/DAO':     { duree: 7,  unite: 'ans', base: 'Date attribution' },
+  'Marchés/PV réception': { duree: 10, unite: 'ans', base: 'Date PV' },
+  'Finance':         { duree: 10, unite: 'ans', base: 'Clôture exercice' },
+  'Finance/Factures':{ duree: 10, unite: 'ans', base: 'Date émission' },
+  'Finance/Rapports FMR': { duree: 10, unite: 'ans', base: 'Date rapport' },
+  'Études':          { duree: 5,  unite: 'ans', base: 'Date approbation' },
+  'Rapports':        { duree: 5,  unite: 'ans', base: 'Date publication' },
+  'Correspondances': { duree: 5,  unite: 'ans', base: 'Date courrier' },
+  'Cartographie':    { duree: 10, unite: 'ans', base: 'Date as-built' },
+};
+
 const TYPE_TO_CAT: Record<string, { categorie: string; sousCat: string }> = {
   APD: { categorie: 'Études', sousCat: 'APD' },
   APS: { categorie: 'Études', sousCat: 'APS' },
@@ -66,6 +86,13 @@ const TYPE_TO_CAT: Record<string, { categorie: string; sousCat: string }> = {
   Rapport: { categorie: 'Rapports', sousCat: 'Mensuels' },
   Plan: { categorie: 'Cartographie', sousCat: 'Plans' },
   Shapefile: { categorie: 'Cartographie', sousCat: 'Shapefiles' },
+  // ── Types DPE spécifiques (issus des modèles de bordereau / fiche facturation)
+  Bordereau: { categorie: 'Finance', sousCat: 'Bordereaux de prix' },
+  Décompte: { categorie: 'Finance', sousCat: 'Décomptes' },
+  'Fiche facturation': { categorie: 'Finance', sousCat: 'Factures' },
+  Attachement: { categorie: 'Finance', sousCat: 'Attachements' },
+  'PV Réception': { categorie: 'Marchés', sousCat: 'PV réception' },
+  'Ordre de mission': { categorie: 'Correspondances', sousCat: 'ODM' },
 };
 
 const DOCUMENTS: Document[] = [
@@ -227,7 +254,7 @@ function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Doc
       <div style={{ width: '100%', maxWidth: 560, background: 'var(--bg-card)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-2)', background: 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Ajouter un document</div>
-          <button className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }} onClick={onClose}><X size={13} /></button>
+          <button aria-label="Fermer" className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }} onClick={onClose}><X size={13} /></button>
         </div>
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Drop zone */}
@@ -238,7 +265,7 @@ function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Doc
             onClick={() => inputRef.current?.click()}
             style={{ border: `2px dashed ${dragging ? 'var(--orange)' : 'var(--border-2)'}`, borderRadius: 10, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: dragging ? 'rgba(243,146,0,0.05)' : 'var(--bg)', transition: 'all 0.15s' }}
           >
-            <input ref={inputRef} type="file" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />
+            <input ref={inputRef} type="file" style={{ display: 'none' }} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.shp,.kml,.geojson,.txt,.ppt,.pptx,.dwg,.dxf,.zip,.rar" onChange={e => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />
             <Upload size={24} style={{ color: dragging ? 'var(--orange)' : 'var(--muted)', margin: '0 auto 8px', display: 'block' }} />
             {fichier
               ? <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)' }}>📄 {fichier}</div>
@@ -344,7 +371,7 @@ function EditDocModal({ doc, onClose, onSave }: { doc: Document; onClose: () => 
           <input style={inp} value={form.tags.join(', ')} onChange={e => setForm({ ...form, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })} />
 
           <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={replaceFile}
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.shp,.kml,.geojson,.txt,.ppt,.pptx,.dwg" />
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.shp,.kml,.geojson,.txt,.ppt,.pptx,.dwg,.dxf,.zip,.rar" />
           <button onClick={() => fileRef.current?.click()} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', borderRadius: 7, border: '1.5px dashed var(--navy)', background: 'rgba(27,79,138,0.05)', color: 'var(--navy)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             <RefreshCw size={13} /> Remplacer le fichier {form.fileExt ? `(actuel : ${form.fileExt}, ${form.version})` : ''}
           </button>
@@ -359,11 +386,164 @@ function EditDocModal({ doc, onClose, onSave }: { doc: Document; onClose: () => 
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   MODALE — PARTAGER UN DOCUMENT
+═══════════════════════════════════════════════════════════════════════ */
+function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
+  const link = `${typeof window !== 'undefined' ? window.location.origin : 'https://sigepp-dpe.senelec.sn'}/ged?doc=${doc.id}`;
+  const [copied, setCopied] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+
+  const doCopy = () => {
+    navigator.clipboard?.writeText(link).catch(() => undefined);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const doEmail = () => {
+    if (!emailTo.includes('@')) return;
+    // Simuler envoi — en production : appel API
+    setEmailSent(true);
+    setTimeout(() => { setEmailSent(false); setEmailTo(''); }, 3000);
+    gedAudit('Partage document par email', doc.nom, `destinataire : ${emailTo}`);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 360, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+      <div style={{ width: '100%', maxWidth: 460, background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '14px 18px', background: 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}><Share2 size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />Partager le document</span>
+          <button onClick={onClose} className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={12} /></button>
+        </div>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Doc info */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border-2)' }}>
+            <DocIcon type={doc.type} />
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{doc.nom}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)' }}>{doc.version} · {doc.taille} · {doc.statut}</div>
+            </div>
+          </div>
+
+          {/* Lien partageable */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', display: 'block', marginBottom: 6 }}>Lien de partage</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ flex: 1, padding: '7px 10px', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border-2)', fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {link}
+              </div>
+              <button
+                onClick={doCopy}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: copied ? 'var(--green)' : 'var(--navy)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.2s' }}>
+                {copied ? <Check size={12} /> : <Copy size={12} />}
+                {copied ? 'Copié !' : 'Copier'}
+              </button>
+            </div>
+          </div>
+
+          {/* Envoi email */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', display: 'block', marginBottom: 6 }}>Envoyer par e-mail</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                className="form-input"
+                type="email"
+                placeholder="destinataire@senelec.sn"
+                value={emailTo}
+                onChange={e => setEmailTo(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                onClick={doEmail}
+                disabled={!emailTo.includes('@')}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: emailSent ? 'var(--green)' : emailTo.includes('@') ? 'var(--orange)' : '#CBD5E1', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: emailTo.includes('@') ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap', transition: 'background 0.2s' }}>
+                {emailSent ? <Check size={12} /> : <Mail size={12} />}
+                {emailSent ? 'Envoyé !' : 'Envoyer'}
+              </button>
+            </div>
+          </div>
+
+          {/* Info accès */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(27,79,138,0.06)', borderRadius: 7 }}>
+            <Link2 size={12} style={{ color: 'var(--navy)', flexShrink: 0 }} />
+            <span style={{ fontSize: 10.5, color: 'var(--text-2)' }}>Le lien est accessible aux utilisateurs SIGEPP-DPE authentifiés ayant les droits GED.</span>
+          </div>
+        </div>
+        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border-2)', display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Fermer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MODALE — CONFIRMER SUPPRESSION
+═══════════════════════════════════════════════════════════════════════ */
+function DeleteConfirmModal({ doc, onConfirm, onClose }: { doc: Document; onConfirm: () => void; onClose: () => void }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 370, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+      <div style={{ width: '100%', maxWidth: 380, background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '14px 18px', background: 'var(--red)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}><Trash2 size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />Supprimer le document</span>
+          <button onClick={onClose} className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={12} /></button>
+        </div>
+        <div style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(239,51,64,0.05)', borderRadius: 8, border: '1px solid rgba(239,51,64,0.2)', marginBottom: 16 }}>
+            <AlertTriangle size={16} style={{ color: 'var(--red)', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{doc.nom}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)' }}>{doc.version} · {doc.auteur}</div>
+            </div>
+          </div>
+          <p style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.6 }}>
+            Cette action est <strong>irréversible</strong>. Le document sera supprimé de la GED ainsi que de toutes ses versions archivées.
+          </p>
+        </div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-2)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
+          <button
+            onClick={onConfirm}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 16px', background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            <Trash2 size={12} /> Supprimer définitivement
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════════════════════ */
+const LS_GED = 'sigepp-ged-docs-v1';
+
+function loadGedDocs(): Document[] {
+  if (typeof window === 'undefined') return DOCUMENTS;
+  try {
+    const raw = localStorage.getItem(LS_GED);
+    if (!raw) return DOCUMENTS;
+    const saved: Document[] = JSON.parse(raw);
+    // Fusionner : conserver les docs initiaux + les ajouts utilisateur
+    const initIds = new Set(DOCUMENTS.map(d => d.id));
+    const extras = saved.filter(d => !initIds.has(d.id));
+    const merged = DOCUMENTS.map(d => { const s = saved.find(x => x.id === d.id); return s ? { ...d, ...s } : d; });
+    return [...merged, ...extras];
+  } catch { return DOCUMENTS; }
+}
+
+function saveGedDocs(docs: Document[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    // Ne sérialiser que les métadonnées (pas les blob URLs qui sont éphémères)
+    const toSave = docs.map(({ fileUrl, ...meta }) => meta);
+    localStorage.setItem(LS_GED, JSON.stringify(toSave));
+  } catch { /* quota exceeded — ignore */ }
+}
+
 export default function GED() {
   const { user } = useAuth();
-  const [docs, setDocs] = useState<Document[]>(DOCUMENTS);
+  const [docs, setDocs] = useState<Document[]>(() => loadGedDocs());
   const [versions, setVersions] = useState<Record<string, Version[]>>(VERSIONS_MAP);
   const [search, setSearch] = useState('');
   const [tri, setTri] = useState<'date' | 'nom' | 'taille'>('date');
@@ -375,6 +555,10 @@ export default function GED() {
   const [viewerDoc, setViewerDoc] = useState<string | null>(null);
   const [annotDoc, setAnnotDoc] = useState<AnnotatedDoc | null>(null);
   const [wfSource, setWfSource] = useState<WorkflowSource | null>(null);
+
+  // Persistance localStorage — sauvegarde à chaque modification de la liste
+  useEffect(() => { saveGedDocs(docs); }, [docs]);
+
   /** Ouvre le constructeur de workflow (destinataires + rôles) sur un document. */
   const lancerWorkflow = useCallback((d: Document) => {
     setWfSource({
@@ -396,6 +580,14 @@ export default function GED() {
     setDocs(prev => prev.map(d => d.id === updated.id ? { ...updated, date: new Date().toLocaleDateString('fr-FR') } : d));
     gedAudit('Modification de document (GED)', updated.nom, `type ${updated.type} · statut ${updated.statut}`);
     setEditDoc(null);
+  };
+  const [shareDoc, setShareDoc] = useState<Document | null>(null);
+  const [deleteDoc, setDeleteDoc] = useState<Document | null>(null);
+  const confirmDelete = (doc: Document) => {
+    setDocs(prev => prev.filter(d => d.id !== doc.id));
+    setVersions(prev => { const n = { ...prev }; delete n[doc.id]; return n; });
+    gedAudit('Suppression de document (GED)', doc.nom, `v${doc.version} · ${doc.type}`);
+    setDeleteDoc(null);
   };
   const [showVersions, setShowVersions] = useState<string | null>(null);
   const [showWorkflow, setShowWorkflow] = useState<string | null>(null);
@@ -454,9 +646,163 @@ export default function GED() {
   });
 
   const enAttenteValidation = docs.filter(d => d.statut === 'En attente' || d.statut === 'Soumis');
+  const [gedMainTab, setGedMainTab] = useState<'documents' | 'cycle_vie'>('documents');
 
   return (
     <div className="page-content">
+
+      {/* ── Tabs GED ── */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #E2E8F0', marginBottom: 16 }}>
+        {([
+          { id: 'documents',  label: '📁 Documents' },
+          { id: 'cycle_vie',  label: '🔄 Cycle de Vie GED' },
+        ] as const).map(t => (
+          <button
+            key={t.id}
+            onClick={() => setGedMainTab(t.id)}
+            style={{
+              padding: '10px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              border: 'none', background: 'transparent',
+              borderBottom: gedMainTab === t.id ? '3px solid #3D1A6B' : '3px solid transparent',
+              color: gedMainTab === t.id ? '#3D1A6B' : '#64748B',
+              transition: 'all .15s', marginBottom: -2,
+            }}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {/* ── Tab: Cycle de Vie ── */}
+      {gedMainTab === 'cycle_vie' && (() => {
+        const PURPLE = '#3D1A6B';
+        const NAVY = '#1B4F8A';
+        const ORANGE = '#F47920';
+        const GREEN = '#16A34A';
+        const RED = '#EF3340';
+        const PILLARS = [
+          {
+            num: '1', label: 'Acquisition', icon: '📥', color: NAVY,
+            desc: 'Capture et numérisation des documents papier et électroniques',
+            actions: ['Scan / Numérisation', 'Import depuis email / partage réseau', 'Drag & drop fichiers', 'Import API (SI SENELEC)', 'Vérification format & intégrité'],
+            kpi: '98% fichiers conformes',
+          },
+          {
+            num: '2', label: 'Indexation', icon: '🏷️', color: PURPLE,
+            desc: 'Classification automatique et manuelle dans l\'arborescence DPE',
+            actions: ['Métadonnées obligatoires (Projet, Type, Date, Auteur)', 'Classification IA par nom/contenu', 'Tags libres + mots-clés normalisés', 'Lien vers tâche WBS / décompte', 'Validation nomenclature DPE'],
+            kpi: '7 catégories normalisées',
+          },
+          {
+            num: '3', label: 'Stockage & Archivage', icon: '🗄️', color: '#7C3AED',
+            desc: 'Conservation sécurisée selon les règles de conservation DPE',
+            actions: ['Stockage chiffré (AES-256)', 'Versioning automatique (v1→v2→vN)', 'Durées légales : Marchés 10 ans, Études 10 ans, Rapports 5 ans', 'Audit trail immuable (horodatage)', 'Sauvegarde redondante quotidienne'],
+            kpi: '10 ans marchés/finances',
+          },
+          {
+            num: '4', label: 'Diffusion & Destruction', icon: '📤', color: ORANGE,
+            desc: 'Partage contrôlé et fin de vie documentaire traçable',
+            actions: ['Partage par lien sécurisé (expiration)', 'Permissions RBAC (lecture / téléchargement)', 'Workflow approbation avant publication', 'Destruction certifiée avec PV traçabilité', 'Rapport annuel archivage/élimination'],
+            kpi: 'Traçabilité 100% destructions',
+          },
+        ];
+        const CONSERVATION = [
+          { cat: 'Marchés & Contrats', duree: '10 ans', color: RED, note: 'Art. L315-4 Code marchés publics' },
+          { cat: 'Dossiers financiers', duree: '10 ans', color: RED, note: 'Code des obligations civiles et commerciales' },
+          { cat: 'Études & Ingénierie', duree: '10 ans', color: ORANGE, note: 'Décision DPE 2019-04' },
+          { cat: 'Rapports d\'avancement', duree: '5 ans', color: '#D97706', note: 'Politique archivage SENELEC' },
+          { cat: 'Correspondances', duree: '5 ans', color: '#D97706', note: 'Règlement intérieur SENELEC' },
+          { cat: 'Cartographie / SIG', duree: '10 ans', color: ORANGE, note: 'Patrimoine technique permanent' },
+          { cat: 'PV Réception', duree: '15 ans', color: RED, note: 'Responsabilité décennale construction' },
+          { cat: 'Ordres de mission', duree: '5 ans', color: '#D97706', note: 'Politique RH SENELEC' },
+        ];
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* 4 pillars */}
+            <div style={{ background: '#fff', borderRadius: 14, padding: '20px 22px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: PURPLE, marginBottom: 4 }}>Les 4 Piliers du Cycle de Vie Documentaire</div>
+              <div style={{ fontSize: 11, color: '#64748B', marginBottom: 18 }}>Norme GED DPE SENELEC — SIGEPP-DPE v3.0</div>
+              {/* Pipeline arrow */}
+              <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+                {PILLARS.map((p, i) => (
+                  <div key={p.num} style={{ flex: 1, display: 'flex', alignItems: 'stretch' }}>
+                    <div style={{ flex: 1, background: p.color + '0E', border: `1px solid ${p.color}30`, borderRadius: i === 0 ? '10px 0 0 10px' : i === 3 ? '0 10px 10px 0' : 0, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: p.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>{p.icon}</div>
+                        <div>
+                          <div style={{ fontSize: 9, color: '#94A3B8', letterSpacing: '.05em' }}>Pilier {p.num}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: p.color }}>{p.label}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#475569', lineHeight: 1.4 }}>{p.desc}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                        {p.actions.map((a, j) => (
+                          <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 10, color: '#475569' }}>
+                            <span style={{ color: p.color, flexShrink: 0, marginTop: 1 }}>›</span>
+                            {a}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 'auto', paddingTop: 10, fontSize: 9, fontWeight: 700, color: p.color, background: p.color + '10', borderRadius: 4, padding: '4px 8px', textAlign: 'center' }}>{p.kpi}</div>
+                    </div>
+                    {i < 3 && (
+                      <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', flexShrink: 0, zIndex: 1 }}>
+                        <div style={{ width: 0, height: 0, borderTop: '20px solid transparent', borderBottom: '20px solid transparent', borderLeft: `14px solid ${PILLARS[i].color}40` }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Conservation rules */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: PURPLE }}>🗄️ Règles de Conservation Documentaire DPE</div>
+                <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>Durées légales et réglementaires en vigueur</div>
+              </div>
+              <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                {CONSERVATION.map((c, i) => (
+                  <div key={i} style={{ padding: '12px 14px', background: c.color + '08', borderRadius: 8, border: `1px solid ${c.color}25`, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 8, background: c.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, flexShrink: 0, textAlign: 'center', lineHeight: 1.2 }}>
+                      {c.duree.split(' ')[0]}<br /><span style={{ fontSize: 8 }}>ans</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>{c.cat}</div>
+                      <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 2 }}>{c.note}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Destruction workflow */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E2E8F0', padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#DC2626', marginBottom: 14 }}>🗑️ Procédure de Destruction Certifiée</div>
+              <div style={{ display: 'flex', gap: 0, alignItems: 'center', flexWrap: 'wrap' }}>
+                {[
+                  { step: '1', label: 'Identification', desc: 'Durée légale expirée', icon: '🔍', color: '#64748B' },
+                  { step: '2', label: 'Validation DPE', desc: 'Chef de projet + DER', icon: '✓', color: ORANGE },
+                  { step: '3', label: 'PV Destruction', desc: 'Signé + horodaté', icon: '📋', color: PURPLE },
+                  { step: '4', label: 'Suppression', desc: 'Secure erase 7-pass', icon: '🔒', color: RED },
+                  { step: '5', label: 'Archivage PV', desc: 'Traçabilité 30 ans', icon: '✅', color: GREEN },
+                ].map((s, i, arr) => (
+                  <div key={s.step} style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ padding: '10px 14px', background: s.color + '10', borderRadius: 8, border: `1px solid ${s.color}25`, textAlign: 'center', minWidth: 90 }}>
+                      <div style={{ fontSize: 18 }}>{s.icon}</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: s.color, marginTop: 2 }}>{s.label}</div>
+                      <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1 }}>{s.desc}</div>
+                    </div>
+                    {i < arr.length - 1 && <div style={{ fontSize: 18, color: '#CBD5E1', margin: '0 4px' }}>→</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Tab: Documents ── */}
+      {gedMainTab === 'documents' && <>
+
       {/* ── KPIs ── */}
       <div className="kpi-grid">
         <div className="kpi-card navy">
@@ -546,8 +892,8 @@ export default function GED() {
                   <option value="taille">Trier par taille</option>
                 </select>
                 <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border-2)' }}>
-                  <button onClick={() => setVue('liste')} style={{ padding: '5px 10px', background: vue === 'liste' ? 'var(--navy)' : 'transparent', color: vue === 'liste' ? '#fff' : 'var(--muted)', border: 'none', cursor: 'pointer' }}><List size={13} /></button>
-                  <button onClick={() => setVue('grille')} style={{ padding: '5px 10px', background: vue === 'grille' ? 'var(--navy)' : 'transparent', color: vue === 'grille' ? '#fff' : 'var(--muted)', border: 'none', cursor: 'pointer' }}><Grid size={13} /></button>
+                  <button aria-label="Vue liste" onClick={() => setVue('liste')} style={{ padding: '5px 10px', background: vue === 'liste' ? 'var(--navy)' : 'transparent', color: vue === 'liste' ? '#fff' : 'var(--muted)', border: 'none', cursor: 'pointer' }}><List size={13} /></button>
+                  <button aria-label="Vue grille" onClick={() => setVue('grille')} style={{ padding: '5px 10px', background: vue === 'grille' ? 'var(--navy)' : 'transparent', color: vue === 'grille' ? '#fff' : 'var(--muted)', border: 'none', cursor: 'pointer' }}><Grid size={13} /></button>
                 </div>
                 <button className="btn btn-primary btn-sm" onClick={() => setShowUpload(true)}>📤 Ajouter document</button>
               </div>
@@ -602,6 +948,13 @@ export default function GED() {
 
             {vue === 'liste' ? (
               <div style={{ overflowX: 'auto' }}>
+                {filtered.length === 0 && (
+                  <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--muted)' }}>
+                    <Search size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.35 }} />
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Aucun document trouvé</div>
+                    <div style={{ fontSize: 11.5 }}>Modifiez les filtres ou ajoutez un document via « Ajouter document ».</div>
+                  </div>
+                )}
                 <table className="tbl">
                   <thead>
                     <tr>
@@ -637,10 +990,10 @@ export default function GED() {
                         <td>{pillStatut(d.statut)}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 3 }}>
-                            <button className="btn btn-ghost btn-xs" title="Visualiser" onClick={() => setViewerDoc(d.id)}><Eye size={10} /></button>
-                            <button className="btn btn-ghost btn-xs" title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /></button>
-                            <button className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
-                            <button className="btn btn-ghost btn-xs" title="Télécharger" onClick={() => {
+                            <button aria-label="Visualiser" className="btn btn-ghost btn-xs" title="Visualiser" onClick={() => annoter(d)}><Eye size={10} /></button>
+                            <button aria-label="Annoter / commenter" className="btn btn-ghost btn-xs" title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /></button>
+                            <button aria-label="Modifier les métadonnées" className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
+                            <button aria-label="Télécharger" className="btn btn-ghost btn-xs" title="Télécharger" onClick={() => {
                               const a = document.createElement('a');
                               if (d.fileUrl) { a.href = d.fileUrl; a.download = d.nom; }
                               else {
@@ -649,13 +1002,10 @@ export default function GED() {
                               }
                               a.click();
                             }}><Download size={10} /></button>
-                            <button className="btn btn-ghost btn-xs" title="Partager" onClick={() => {
-                              const link = `${window.location.origin}/ged?doc=${d.id}`;
-                              navigator.clipboard?.writeText(link).catch(() => undefined);
-                              alert(`Lien du document copié :\n${link}`);
-                            }}><Share2 size={10} /></button>
-                            <button className="btn btn-ghost btn-xs" title="Workflow validation" onClick={() => setShowWorkflow(d.id)}><GitBranch size={10} /></button>
-                            <button className="btn btn-ghost btn-xs" title="Historique versions" onClick={() => setShowVersions(showVersions === d.id ? null : d.id)}><History size={10} /></button>
+                            <button aria-label="Partager" className="btn btn-ghost btn-xs" title="Partager" onClick={() => setShareDoc(d)}><Share2 size={10} /></button>
+                            <button aria-label="Workflow validation" className="btn btn-ghost btn-xs" title="Workflow validation" onClick={() => setShowWorkflow(d.id)}><GitBranch size={10} /></button>
+                            <button aria-label="Historique des versions" className="btn btn-ghost btn-xs" title="Historique versions" onClick={() => setShowVersions(showVersions === d.id ? null : d.id)}><History size={10} /></button>
+                            <button aria-label="Supprimer" className="btn btn-ghost btn-xs" title="Supprimer" onClick={() => setDeleteDoc(d)} style={{ color: 'var(--red)' }}><Trash2 size={10} /></button>
                           </div>
                         </td>
                       </tr>
@@ -665,6 +1015,13 @@ export default function GED() {
               </div>
             ) : (
               <div className="card-body">
+                {filtered.length === 0 && (
+                  <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted)' }}>
+                    <Search size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.35 }} />
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Aucun document trouvé</div>
+                    <div style={{ fontSize: 11.5 }}>Modifiez les filtres ou ajoutez un document via « Ajouter document ».</div>
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
                   {filtered.map(d => (
                     <div key={d.id} style={{ border: '1px solid var(--border-2)', borderRadius: 10, padding: 14, background: 'var(--bg)', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -681,16 +1038,18 @@ export default function GED() {
                         <span>{d.taille}</span>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => setViewerDoc(d.id)}><Eye size={10} /> Voir</button>
+                        <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => annoter(d)}><Eye size={10} /> Voir</button>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /> Annoter</button>
-                        <button className="btn btn-ghost btn-xs" title="Modifier les métadonnées" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
+                        <button aria-label="Modifier les métadonnées" className="btn btn-ghost btn-xs" title="Modifier les métadonnées" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => {
                           const a = document.createElement('a');
                           if (d.fileUrl) { a.href = d.fileUrl; a.download = d.nom; }
                           else { a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Document : ${d.nom}\nVersion : ${d.version}\nAuteur : ${d.auteur}\nDate : ${d.date}\nStatut : ${d.statut}\n\n(Document SENELEC — SIGEPP-DPE)`); a.download = d.nom.replace(/\s+/g, '_') + '.txt'; }
                           a.click();
                         }}><Download size={10} /> DL</button>
-                        <button className="btn btn-ghost btn-xs" title="Historique versions" onClick={() => setShowVersions(showVersions === d.id ? null : d.id)}><History size={10} /></button>
+                        <button aria-label="Partager" className="btn btn-ghost btn-xs" title="Partager" onClick={() => setShareDoc(d)}><Share2 size={10} /></button>
+                        <button aria-label="Historique des versions" className="btn btn-ghost btn-xs" title="Historique versions" onClick={() => setShowVersions(showVersions === d.id ? null : d.id)}><History size={10} /></button>
+                        <button aria-label="Supprimer" className="btn btn-ghost btn-xs" title="Supprimer" onClick={() => setDeleteDoc(d)} style={{ color: 'var(--red)' }}><Trash2 size={10} /></button>
                       </div>
                     </div>
                   ))}
@@ -731,13 +1090,13 @@ export default function GED() {
                       <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>Taille : {v.taille}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 3 }}>
-                      <button className="btn btn-ghost btn-xs" title="Télécharger cette version" onClick={() => {
+                      <button aria-label={`Télécharger la version ${v.v}`} className="btn btn-ghost btn-xs" title="Télécharger cette version" onClick={() => {
                         const a = document.createElement('a');
                         a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Version ${v.v}\nDate : ${v.date}\nAuteur : ${v.auteur}\nNote : ${v.note}\nTaille : ${v.taille}`);
                         a.download = `version_${v.v}.txt`;
                         a.click();
                       }}><Download size={10} /></button>
-                      {i > 0 && <button className="btn btn-ghost btn-xs" title="Restaurer cette version" onClick={() => {
+                      {i > 0 && <button aria-label={`Restaurer la version ${v.v}`} className="btn btn-ghost btn-xs" title="Restaurer cette version" onClick={() => {
                         setDocs(prev => prev.map(d => d.id === showVersions ? { ...d, version: v.v } : d));
                       }}><RotateCcw size={10} /></button>}
                     </div>
@@ -837,7 +1196,7 @@ export default function GED() {
                     </button>
                   )}
                   {curIdx === WF_STEPS.length - 1 && (
-                    <button className="btn btn-sm" style={{ background: 'rgba(100,116,139,0.1)', color: 'var(--slate)', border: '1px solid rgba(100,116,139,0.3)' }}>
+                    <button className="btn btn-sm" style={{ background: 'rgba(100,116,139,0.1)', color: 'var(--slate)', border: '1px solid rgba(100,116,139,0.3)' }} onClick={() => { toast.info('Archivage en cours de déploiement — fonctionnalité disponible prochainement.'); }}>
                       <Archive size={11} /> Archiver
                     </button>
                   )}
@@ -911,6 +1270,18 @@ export default function GED() {
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onAdd={(doc) => { setDocs(prev => [doc, ...prev]); gedAudit('Dépôt de document (GED)', doc.nom, `v${doc.version} · ${doc.type}`); setShowUpload(false); }} />}
 
       {editDoc && <EditDocModal doc={editDoc} onClose={() => setEditDoc(null)} onSave={saveEditDoc} />}
+
+      {shareDoc && <ShareModal doc={shareDoc} onClose={() => setShareDoc(null)} />}
+
+      {deleteDoc && (
+        <DeleteConfirmModal
+          doc={deleteDoc}
+          onConfirm={() => confirmDelete(deleteDoc)}
+          onClose={() => setDeleteDoc(null)}
+        />
+      )}
+
+      </>}
     </div>
   );
 }

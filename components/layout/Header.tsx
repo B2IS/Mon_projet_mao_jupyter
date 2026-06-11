@@ -1,10 +1,12 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Search, Calendar, ChevronDown, X, AlertTriangle, Clock, CheckCircle, Info, Stamp, LogOut, User, Settings, ArrowLeft, Mail, CheckCheck, Trash2 } from 'lucide-react';
-import { ALERTES_WORKFLOW } from '@/lib/data';
+import { Bell, Calendar, ChevronDown, X, AlertTriangle, Clock, CheckCircle, Info, Stamp, LogOut, Settings, ArrowLeft, Mail, CheckCheck, Trash2 } from 'lucide-react';
+import CommandPalette from '@/components/ui/CommandPalette';
 import { useAuth, ROLES, getDirectionLabel } from '@/lib/authStore';
 import { useNotificationStore, selectInboxFor } from '@/lib/notificationStore';
+import { useProjectStore } from '@/lib/projectStore';
+import { computeLiveAlertes } from '@/lib/alertEngine';
 import { useParapheurStore } from '@/lib/parapheurStore';
 import { useTranslation } from '@/lib/i18n/I18nContext';
 import type { TranslationKey } from '@/lib/i18n/translations';
@@ -82,7 +84,14 @@ export default function Header() {
   const dismissAlerte = useNotificationStore(s => s.dismissAlerte);
   const dismissAlertes = useNotificationStore(s => s.dismissAlertes);
   const dismissed = useMemo(() => new Set(dismissedAlertes), [dismissedAlertes]);
-  const activeAlertes = ALERTES_WORKFLOW.filter(a => a.statut === 'nouvelle' && !dismissed.has(a.id));
+
+  /* Alertes VIVES — recalculées depuis l'état réel du portefeuille (moteur d'alertes). */
+  const projets = useProjectStore().projets;
+  const liveAlertes = useMemo(() => computeLiveAlertes(projets), [projets]);
+  const activeAlertes = useMemo(
+    () => liveAlertes.filter(a => !dismissed.has(a.id)),
+    [liveAlertes, dismissed],
+  );
 
   /* Boîte de réception personnelle (notifications workflow & projet) */
   const inbox = useNotificationStore(s => s.inbox);
@@ -174,11 +183,11 @@ export default function Header() {
   return (
     <header style={{
       height: 'var(--header-h)',
-      background: '#0E3460',
+      background: 'linear-gradient(90deg, #2D1167 0%, #3D1A6B 100%)',
       display: 'flex', alignItems: 'center',
       gap: 10, padding: '0 20px',
       flexShrink: 0,
-      boxShadow: '0 2px 8px rgba(14,52,96,0.25)',
+      boxShadow: '0 2px 8px rgba(45,17,103,0.30)',
       position: 'relative', zIndex: 10,
     }}>
       {/* Mobile spacer for hamburger */}
@@ -212,19 +221,22 @@ export default function Header() {
         borderRadius: 7, padding: '5px 10px',
         color: '#fff', fontSize: 11.5, fontWeight: 700,
         cursor: 'pointer', fontFamily: 'inherit',
-        whiteSpace: 'nowrap',
         flexShrink: 0,
+        maxWidth: 220,
+        minWidth: 0,
       }}>
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F39200', flexShrink: 0 }} />
-        <span className="hide-mobile">{tenantLabel}</span>
-        <ChevronDown size={11} style={{ opacity: 0.7 }} />
+        <span className="hide-mobile" style={{
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+        }}>{tenantLabel}</span>
+        <ChevronDown size={11} style={{ opacity: 0.7, flexShrink: 0 }} />
       </button>
 
       {/* Séparateur */}
       <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} className="hide-mobile" />
 
       {/* Title */}
-      <div style={{ flex: 1, minWidth: 0 }} className="hide-mobile">
+      <div style={{ flex: 1, minWidth: 80 }} className="hide-mobile">
         <div style={{ fontWeight: 700, fontSize: 13.5, color: '#fff', lineHeight: 1.2,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {t(info.labelKey)}
@@ -235,23 +247,8 @@ export default function Header() {
         )}
       </div>
 
-      {/* Search */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 7,
-        padding: '5px 11px',
-        background: 'rgba(255,255,255,0.10)',
-        border: '1px solid rgba(255,255,255,0.18)',
-        borderRadius: 7, width: 200, flexShrink: 0,
-      }}
-        className="hide-tablet"
-      >
-        <Search size={12} style={{ color: 'rgba(255,255,255,0.60)', flexShrink: 0 }} />
-        <input
-          placeholder="Rechercher..."
-          style={{ background: 'transparent', border: 'none', outline: 'none',
-            color: '#fff', fontSize: 12, flex: 1, fontFamily: 'inherit' }}
-        />
-      </div>
+      {/* Command Palette — remplace le champ search statique */}
+      <CommandPalette />
 
       {/* Date */}
       <div style={{
@@ -286,7 +283,7 @@ export default function Header() {
             background: '#F47920',
             fontSize: 9, fontWeight: 800, color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid #0E3460',
+            border: '2px solid #2D1167',
             padding: '0 3px',
           }}>{parapheurBadge}</span>
         )}
@@ -315,9 +312,9 @@ export default function Header() {
               background: '#E2231A',
               fontSize: 9, fontWeight: 800, color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '2px solid #0E3460',
+              border: '2px solid #2D1167',
             }}>
-              {newAlertes}
+              {newAlertes > 9 ? '9+' : newAlertes}
             </span>
           )}
         </button>
@@ -347,7 +344,7 @@ export default function Header() {
               {myInbox.length > 0 && (
                 <button
                   onClick={() => markAllInboxRead(user?.email)}
-                  style={{ fontSize: 10, fontWeight: 600, color: '#1B4F8A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
+                  style={{ fontSize: 10, fontWeight: 600, color: '#3D1A6B', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
                 ><CheckCheck size={12} /> Tout lire</button>
               )}
             </div>
@@ -410,7 +407,11 @@ export default function Header() {
                 const pColor = PRIORITE_COLOR[a.priorite] ?? '#6B7280';
                 return (
                   <div key={a.id}
-                    onClick={() => { router.push('/workflows'); setShowNotifs(false); }}
+                    onClick={() => {
+                      const proj = projets.find(p => (p.code || p.id.toUpperCase()) === a.projetCode);
+                      router.push(proj ? `/cockpit-projet?projet=${proj.id}` : '/portefeuille');
+                      setShowNotifs(false);
+                    }}
                     style={{
                     padding: '10px 16px', borderBottom: '1px solid #F3F4F6',
                     display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer',
@@ -453,12 +454,12 @@ export default function Header() {
               background: '#FAFAFA', borderRadius: '0 0 10px 10px',
             }}>
               <button
-                onClick={() => { dismissAlertes(ALERTES_WORKFLOW.map(a => a.id)); setShowNotifs(false); }}
+                onClick={() => { dismissAlertes(activeAlertes.map(a => a.id)); setShowNotifs(false); }}
                 style={{ fontSize: 10, fontWeight: 600, padding: '5px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#FFF', color: '#374151', cursor: 'pointer' }}
               >Tout marquer traité</button>
               <button
                 onClick={() => { router.push('/workflows'); setShowNotifs(false); }}
-                style={{ fontSize: 10, fontWeight: 600, padding: '5px 10px', borderRadius: 6, border: 'none', background: '#1B4F8A', color: '#FFF', cursor: 'pointer' }}
+                style={{ fontSize: 10, fontWeight: 600, padding: '5px 10px', borderRadius: 6, border: 'none', background: '#3D1A6B', color: '#FFF', cursor: 'pointer' }}
               >Gérer les alertes</button>
             </div>
           </div>

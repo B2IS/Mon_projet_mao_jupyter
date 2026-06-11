@@ -387,7 +387,7 @@ export default function Terrain() {
           <div style={{ background: '#EFF6FF', border: '2px solid #BFDBFE', borderRadius: 10, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#1B4F8A' }}>+ Nouvelle tâche — {addTaskCol}</span>
-              <button onClick={() => setAddTaskCol(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={16} /></button>
+              <button onClick={() => setAddTaskCol(null)} aria-label="Fermer le formulaire" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={16} /></button>
             </div>
             {taskAdded ? (
               <div style={{ padding: '8px 12px', background: '#F0FDF4', borderRadius: 7, color: '#16A34A', fontWeight: 700, fontSize: 12 }}>✅ Tâche ajoutée à la colonne {addTaskCol}</div>
@@ -437,7 +437,7 @@ export default function Terrain() {
                 <span style={{ fontSize: 11, fontWeight: 700, color: KANBAN_COLORS[colName] }}>{colName}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: KANBAN_COLORS[colName], padding: '1px 6px', borderRadius: 99 }}>{filteredCols[colName].length}</span>
-                  <button onClick={() => { setAddTaskCol(colName); setNewTaskForm({ localite: '', agent: '', commentaire: '', type: 'avancement' }); setTaskAdded(false); }} style={{ width: 18, height: 18, borderRadius: '50%', border: 'none', background: KANBAN_COLORS[colName] + '40', color: KANBAN_COLORS[colName], cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13 }}>+</button>
+                  <button onClick={() => { setAddTaskCol(colName); setNewTaskForm({ localite: '', agent: '', commentaire: '', type: 'avancement' }); setTaskAdded(false); }} aria-label={`Ajouter une tâche à ${colName}`} style={{ width: 18, height: 18, borderRadius: '50%', border: 'none', background: KANBAN_COLORS[colName] + '40', color: KANBAN_COLORS[colName], cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13 }}>+</button>
                 </div>
               </div>
               {/* Cards */}
@@ -451,7 +451,7 @@ export default function Terrain() {
                   <div style={{ fontSize: 10, color: '#94A3B8' }}>👤 {m.agent.split(' ')[0]}</div>
                   {m.commentaire && <div style={{ fontSize: 10, color: '#64748B', fontStyle: 'italic', borderTop: '1px solid #F1F5F9', paddingTop: 4 }}>{m.commentaire.substring(0, 60)}{m.commentaire.length > 60 ? '…' : ''}</div>}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-                    <span style={{ fontSize: 10, color: '#94A3B8' }}>{m.dateDebut}</span>
+                    <span style={{ fontSize: 10, color: '#94A3B8' }}>{new Date(m.dateDebut).toLocaleDateString('fr-FR')}</span>
                     {m.photos > 0 && <span style={{ fontSize: 10, color: '#64748B', display: 'flex', alignItems: 'center', gap: 3 }}><Camera size={10} />{m.photos}</span>}
                   </div>
                   <div style={{ height: 4, borderRadius: 99, background: '#E5E7EB', overflow: 'hidden' }}>
@@ -556,7 +556,7 @@ export default function Terrain() {
                   </div>
                 ))}
                 <div style={{ fontSize: 10, color: '#94A3B8', marginLeft: 'auto', alignSelf: 'center' }}>
-                  Dernière saisie: {ch.dernieresSaisie}
+                  Dernière saisie: {new Date(ch.dernieresSaisie).toLocaleDateString('fr-FR')}
                 </div>
               </div>
             </div>
@@ -733,7 +733,7 @@ export default function Terrain() {
                   <td style={{ padding: '10px 12px', fontSize: 11, fontWeight: 600, color: '#1B4F8A' }}>{r.id}</td>
                   <td style={{ padding: '10px 12px', fontSize: 11, color: '#475569' }}>{r.chantier}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{r.localite}</td>
-                  <td style={{ padding: '10px 12px', fontSize: 11, color: '#64748B' }}>{r.date}</td>
+                  <td style={{ padding: '10px 12px', fontSize: 11, color: '#64748B' }}>{new Date(r.date).toLocaleDateString('fr-FR')}</td>
                   <td style={{ padding: '10px 12px', fontSize: 11, color: '#475569' }}>{r.agent}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -793,7 +793,7 @@ export default function Terrain() {
           <div style={{ background: '#FFF1F2', border: '2px solid #FECACA', borderRadius: 10, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#EF3340' }}>🚨 Déclarer une non-conformité</span>
-              <button onClick={() => setNcFormOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={16} color="#EF3340" /></button>
+              <button onClick={() => setNcFormOpen(false)} aria-label="Fermer le formulaire NC" style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={16} color="#EF3340" /></button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               <div>
@@ -853,7 +853,7 @@ export default function Terrain() {
                     )}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 10, color: '#94A3B8' }}>{nc.date}</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8' }}>{new Date(nc.date).toLocaleDateString('fr-FR')}</div>
                     <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>👤 {nc.agent}</div>
                     <div style={{ fontSize: 10, color: nc.delaiTraitement > 10 ? '#EF3340' : '#D97706', fontWeight: 700, marginTop: 2 }}>⏱ {nc.delaiTraitement}j</div>
                   </div>
