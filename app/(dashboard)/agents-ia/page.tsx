@@ -1,13 +1,5 @@
 'use client';
-/**
- * Centre IA — Assistant IA multimodal + Copilot M365.
- * L'analyse multi-agents est intégrée dans Migration IA (/migration) car elle
- * sert naturellement à analyser les projets après import de documents.
- */
-export const dynamic = 'force-dynamic';
-
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import { Bot, Sparkles } from 'lucide-react';
 import AIMultimodalChat from '@/components/ui/AIMultimodalChat';
 import Copilot from '@/components/dashboard/Copilot';
@@ -15,16 +7,7 @@ import Copilot from '@/components/dashboard/Copilot';
 type Tab = 'assistant' | 'copilot';
 
 export default function CentreIAPage() {
-  const searchParams = useSearchParams();
-  const [tab, setTab] = useState<Tab>(() => {
-    const t = searchParams?.get('tab') as Tab | null;
-    return t === 'copilot' ? 'copilot' : 'assistant';
-  });
-
-  useEffect(() => {
-    const t = searchParams?.get('tab') as Tab | null;
-    if (t === 'copilot' || t === 'assistant') setTab(t);
-  }, [searchParams]);
+  const [tab, setTab] = useState<Tab>('assistant');
 
   const tabs: { id: Tab; label: string; icon: typeof Bot }[] = [
     { id: 'assistant', label: 'Assistant IA',  icon: Bot      },
@@ -37,7 +20,7 @@ export default function CentreIAPage() {
         <div style={{ fontSize: 18, fontWeight: 800, color: '#2D1167', marginBottom: 2 }}>Centre IA & Copilot</div>
         <div style={{ fontSize: 12, color: '#64748B', marginBottom: 10 }}>
           Assistant IA multimodal · Copilot M365 — bornés à votre périmètre organisationnel.
-          Pour l'analyse multi-agents d'un projet, rendez-vous dans <strong>Migration IA</strong>.
+          Pour l&apos;analyse multi-agents d&apos;un projet, rendez-vous dans <strong>Migration IA</strong>.
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {tabs.map(t => {
