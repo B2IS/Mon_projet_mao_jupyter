@@ -4,6 +4,8 @@
  * L'analyse multi-agents est intégrée dans Migration IA (/migration) car elle
  * sert naturellement à analyser les projets après import de documents.
  */
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Bot, Sparkles } from 'lucide-react';
