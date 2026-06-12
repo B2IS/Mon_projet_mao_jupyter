@@ -5,8 +5,9 @@ import {
   BookOpen, Plus, Search, Filter, Download,
   ChevronRight, Pencil, Trash2, Copy, Tag,
   CheckSquare, Users, AlertTriangle, FileText, X,
-  History, Paperclip, Eye, Receipt, ClipboardCheck, TrendingUp,
+  History, Paperclip, Eye, Receipt, ClipboardCheck, TrendingUp, ArrowRight,
 } from 'lucide-react';
+import { useBudgetImputationStore } from '@/lib/budgetImputationStore';
 import { downloadExcel } from '@/lib/exportUtils';
 import { useProjectStore, DOMAINE_CFG, type Domaine } from '@/lib/projectStore';
 import { useAttachements, montantAttachement, type Attachement } from '@/lib/attachementStore';
@@ -167,6 +168,7 @@ const inlineInput: React.CSSProperties = {
 ═══════════════════════════════════════════════════ */
 export default function Bordereaux() {
   const store = useProjectStore();
+  const addImputation = useBudgetImputationStore(s => s.addLigne);
   const [activeTab, setActiveTab] = useState<'bordereaux' | 'decomptes' | 'attachements' | 'bibliotheque' | 'matrices'>('bordereaux');
   const [decomptes, setDecomptes] = useState<Decompte[]>(DECOMPTES_DEMO['b1']);
   const [viewDoc, setViewDoc] = useState<AnnotatedDoc | null>(null);
@@ -663,9 +665,36 @@ export default function Bordereaux() {
                       </button>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
                     {d.attachement && (
                       <button onClick={() => { setPendingDecompteId(d.id); decompteFileRef.current?.click(); }} title="Remplacer la pièce" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex' }}><Paperclip size={13} /></button>
+                    )}
+                    {(d.statut === 'certifie' || d.statut === 'paye') && (
+                      <button
+                        title="Créer une imputation budgétaire depuis ce décompte"
+                        onClick={() => {
+                          const b = bSelected;
+                          const montantMFCFA = +(d.montantHT / 1_000_000).toFixed(3);
+                          const annee = d.date.slice(0, 4);
+                          addImputation({
+                            projetCode: b?.projetId || 'HTA-NORD',
+                            projetNom:  `Bordereau ${b?.version ?? ''} — ${d.periode}`,
+                            nature:     'Travaux',
+                            description: `Décompte N°${d.numero} · ${d.periode} · Réf. ${d.factureRef}`,
+                            prevuMFCFA:    montantMFCFA,
+                            engageMFCFA:   montantMFCFA,
+                            decaisseMFCFA: d.statut === 'paye' ? montantMFCFA : 0,
+                            exercice:      annee,
+                            observations:  `Avancement cumulé ${d.avancementCumule}% · ${DECOMPTE_CFG[d.statut].label}`,
+                          });
+                          toast.success(`Imputation créée — ${montantMFCFA.toFixed(2)} M FCFA → Tableur Budget`);
+                        }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 3,
+                          background: '#DCFCE7', color: '#16A34A', border: '1px solid #BBF7D0',
+                          borderRadius: 5, padding: '2px 7px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        <ArrowRight size={10} /> Imputer
+                      </button>
                     )}
                   </div>
                   <button onClick={() => supprimerDecompte(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', display: 'flex' }}><Trash2 size={13} /></button>

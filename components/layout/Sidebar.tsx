@@ -225,6 +225,7 @@ const DOMAINS: Domain[] = [
         label: 'Documents & Collaboration',
         items: [
           { href: '/ged', icon: FolderOpen, label: 'Espace documentaire' },
+          { href: '/canevas', icon: FileText, label: 'Canevas & Documents-types', labelByRole: { DIR_DPE: 'Bibliothèque documentaire DPE' } },
           { href: '/courriers', icon: MessagesSquare, label: 'Courriers' },
           { href: '/workflows', icon: CheckSquare2, label: 'Parapheur & Validations', badge: '8', badgeType: 'danger' },
         ],

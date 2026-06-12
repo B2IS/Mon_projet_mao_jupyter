@@ -1501,6 +1501,15 @@ export const DOMAINE_CFG: Record<Domaine, { label: string; color: string; emoji:
   genie_civil:  { label: 'Génie Civil',   color: '#B45309', emoji: '🏗️', desc: 'Projets propres DGC : bâtiments, routes, ouvrages d\'art, VRD sur sites SENELEC' },
 };
 
+/**
+ * Directions dont les données ont été effectivement chargées dans SIGEPP-DPE.
+ * Toute page affichant un filtre domaine doit griser / masquer les domaines absent.
+ * DPD → distribution | DPT → transport
+ */
+export const LOADED_UNITES:   readonly string[]  = ['DPD', 'DPT'] as const;
+export const LOADED_DOMAINES: readonly Domaine[] = ['distribution', 'transport'] as const;
+export function isDomainLoaded(d: Domaine): boolean { return (LOADED_DOMAINES as readonly string[]).includes(d); }
+
 export const STATUT_CFG: Record<StatutProjet, { label: string; color: string }> = {
   en_cours:  { label: 'En cours',  color: '#F47920' },
   planifie:  { label: 'Planifié',  color: '#1B4F8A' },

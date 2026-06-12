@@ -6,11 +6,42 @@
  *   Phase 2 (parallèle) : ressources + suivi_eval
  *   Phase 3 (séquentiel): chef_projet (synthèse finale)
  *
+ * Backbone LLM : Kimi K2 (Moonshot AI, open-source 1T MoE) utilisé pour
+ * l'analyse sémantique des documents dans chaque agent de migration.
+ * Repli heuristique automatique si clé Kimi absente.
+ *
  * Émet des SSEEvent via le callback `onEvent` à chaque étape.
  */
 
 function nanoid(len = 10): string {
   return Math.random().toString(36).slice(2, 2 + len).padEnd(len, '0');
+}
+
+import { kimiChat, isKimiAvailable, kimiAnalyseProjet } from './kimiClient';
+export { isKimiAvailable };                     // ré-export pour les UI
+export const KIMI_MODEL_LABEL = 'Kimi K2 — Moonshot AI (open-source)';
+
+/** Enrichit le contexte via Kimi K2 si disponible, sinon retourne null. */
+async function kimiEnrich(
+  files: import('./types').SwarmInputFile[],
+  nomProjet: string,
+  onLog: (msg: string) => void,
+): Promise<Partial<import('./types').ProjetCreationContext> | null> {
+  if (!isKimiAvailable() || files.length === 0) return null;
+  try {
+    const docText = files.map(f => `=== ${f.name} (${f.ext}, ${f.size}B) ===`).join('\n\n');
+    onLog(`[Kimi K2] Analyse sémantique de ${files.length} fichier(s)…`);
+    const result = await kimiAnalyseProjet(docText, nomProjet);
+    if (!result) return null;
+    onLog(`[Kimi K2] ✓ ${result.tachesIdentifiees.length} tâches · ${result.risquesMajeurs.length} risques · budget estimé ${result.budgetEstime} MFCFA`);
+    return {
+      budgetEstime: result.budgetEstime || undefined,
+      description:  result.recommandations.slice(0, 2).join(' — ') || undefined,
+    };
+  } catch (e) {
+    onLog(`[Kimi K2] Avertissement : ${String(e)} — mode heuristique activé`);
+    return null;
+  }
 }
 import type {
   SwarmInputFile, ProjetCreationContext,
@@ -93,7 +124,11 @@ export async function runSwarm(
   const runId = nanoid(10);
 
   // ── Contexte initial ────────────────────────────────────────────────────────
-  const projetContext = deriveContext(files, overrides);
+  // ── Kimi K2 pre-enrichment (async, best-effort) ─────────────────────────────
+  const kimiPatch = await kimiEnrich(files, overrides?.nomProjet ?? 'Projet DPE', (msg) => {
+    cb({ type: 'agent_start', agentId: 'planificateur', phase: 0, message: `[Kimi K2] ${msg}`, timestamp: now() });
+  });
+  const projetContext = deriveContext(files, { ...kimiPatch, ...overrides });
 
   const ctx: SwarmContext = {
     runId,
