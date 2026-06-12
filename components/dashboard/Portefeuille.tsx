@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis,
@@ -1028,6 +1028,18 @@ export default function Portefeuille() {
   const [filterSpiMin, setFilterSpiMin]         = useState<number>(0);
   const [filterAvMax, setFilterAvMax]           = useState<number>(100);
   const [filterAlert, setFilterAlert]           = useState<boolean>(false);
+
+  // Lire le filtre de navigation depuis le tableau de bord (ex: clic sur "Projets critiques")
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('pf_nav_filter');
+      if (!raw) return;
+      sessionStorage.removeItem('pf_nav_filter');
+      const f = JSON.parse(raw) as Record<string, boolean>;
+      if (f.alert) { setFilterAlert(true); setShowFilters(true); }
+      if (f.jalons) { setShowFilters(true); }
+    } catch { /* ignore */ }
+  }, []);
 
   const activeFilterCount = [
     filterSearch, filterDomaine !== 'tous', filterRegion !== 'tous',

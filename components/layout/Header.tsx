@@ -48,6 +48,7 @@ const TENANT_LABEL = 'DER — Direction Équipement Réseaux';
 const PRIORITE_COLOR: Record<string, string> = {
   critique: '#EF3340',
   haute: '#F47920',
+  normale: '#F59E0B',
   moyenne: '#F59E0B',
   basse: '#16A34A',
 };
@@ -66,6 +67,7 @@ export default function Header() {
   const { lang, t } = useTranslation();
   const info = TITLES[path] || { labelKey: 'app.title' as TranslationKey, subKey: 'app.subtitle' as TranslationKey };
   const [showNotifs, setShowNotifs] = useState(false);
+  const [bellPos, setBellPos] = useState<{ top: number; right: number; width: number } | null>(null);
   const [today, setToday] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const bellRef = useRef<HTMLButtonElement>(null);
@@ -118,10 +120,24 @@ export default function Header() {
   const newAlertes = (alertesSeen ? 0 : activeAlertes.length) + unreadInbox;
 
   // Ouverture de la cloche → marque l'inbox lu + pastille d'alertes vue.
+  // Le panel passe en position:fixed pour échapper à tout stacking context parent.
   const openBell = () => {
     const willOpen = !showNotifs;
     setShowNotifs(willOpen);
-    if (willOpen) { markAllInboxRead(user?.email); setAlertesSeen(true); persistSeen({ alertes: true }); }
+    if (willOpen) {
+      if (bellRef.current) {
+        const rect = bellRef.current.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const panelW = Math.min(380, vw - 16);
+        const preferredRight = vw - rect.right;
+        const maxRight = vw - panelW - 8;
+        const right = Math.min(Math.max(4, preferredRight), maxRight);
+        setBellPos({ top: rect.bottom + 6, right, width: panelW });
+      }
+      markAllInboxRead(user?.email);
+      setAlertesSeen(true);
+      persistSeen({ alertes: true });
+    }
   };
   // Clic parapheur → on note le niveau vu (la pastille ne revient que sur un nouveau dossier).
   const openParapheur = () => { setParapheurSeen(pendingParapheur); persistSeen({ parapheur: pendingParapheur }); router.push('/workflows'); };
@@ -320,17 +336,17 @@ export default function Header() {
           )}
         </button>
 
-        {/* Notification panel */}
-        {showNotifs && (
+        {/* Notification panel — position:fixed pour échapper au stacking context du header */}
+        {showNotifs && bellPos && (
           <div
             ref={panelRef}
             style={{
-              position: 'absolute', top: 42, right: 0,
-              width: 380, maxHeight: 480, overflowY: 'auto',
+              position: 'fixed', top: bellPos.top, right: bellPos.right,
+              width: bellPos.width, maxHeight: 520, overflowY: 'auto',
               background: '#FFF', borderRadius: 10,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
               border: '1px solid #E5E7EB',
-              zIndex: 200,
+              zIndex: 9999,
             }}
           >
             {/* Panel header */}

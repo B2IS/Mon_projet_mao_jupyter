@@ -501,19 +501,25 @@ export default function TableauDeBord() {
         {!isSupportProfile && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, padding: '12px 24px 0', overflow: 'hidden' }}>
           {[
-            { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels` },
-            { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA` },
-            { label: 'Avancement moyen',      value: fmtPct(metrics.avgAv),           sub: isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille global' : 'Mon périmètre', color: C.purple, icon: <Target   size={15} style={{ color: C.purple }} />, alert: false, title: `Avancement physique moyen du portefeuille : ${fmtPct(metrics.avgAv)}` },
-            { label: 'Projets critiques',     value: String(metrics.alertes),         sub: 'CPI < 0.90 ou SPI < 0.85',        color: metrics.alertes > 0 ? C.red : C.green, icon: <AlertTriangle size={15} style={{ color: metrics.alertes > 0 ? C.red : C.green }} />, alert: metrics.alertes > 0, title: `${metrics.alertes} projet(s) avec CPI < 0,90 ou SPI < 0,85 ou en retard` },
-            { label: 'Arbitrages en attente', value: String(arbitrages.length),        sub: 'Décisions requises',               color: C.amber,  icon: <Zap      size={15} style={{ color: C.amber  }} />, alert: arbitrages.length > 0, title: `${arbitrages.length} décision(s) d'arbitrage requises` },
-            { label: 'Jalons prochain 30j',   value: String(metrics.jalonsSoon.length), sub: 'Jalons non atteints',             color: C.orange, icon: <Flag     size={15} style={{ color: C.orange }} />, alert: false, title: `${metrics.jalonsSoon.length} jalon(s) non atteint(s) à échéance dans les 30 prochains jours` },
+            { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels`, href: '/portefeuille', pfFilter: null },
+            { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA`, href: '/budget', pfFilter: null },
+            { label: 'Avancement moyen',      value: fmtPct(metrics.avgAv),           sub: isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille global' : 'Mon périmètre', color: C.purple, icon: <Target   size={15} style={{ color: C.purple }} />, alert: false, title: `Avancement physique moyen du portefeuille : ${fmtPct(metrics.avgAv)}`, href: '/portefeuille', pfFilter: null },
+            { label: 'Projets critiques',     value: String(metrics.alertes),         sub: 'CPI < 0.90 ou SPI < 0.85',        color: metrics.alertes > 0 ? C.red : C.green, icon: <AlertTriangle size={15} style={{ color: metrics.alertes > 0 ? C.red : C.green }} />, alert: metrics.alertes > 0, title: `${metrics.alertes} projet(s) avec CPI < 0,90 ou SPI < 0,85 ou en retard`, href: '/portefeuille', pfFilter: { alert: true } },
+            { label: 'Arbitrages en attente', value: String(arbitrages.length),        sub: 'Décisions requises',               color: C.amber,  icon: <Zap      size={15} style={{ color: C.amber  }} />, alert: arbitrages.length > 0, title: `${arbitrages.length} décision(s) d'arbitrage requises`, href: '/workflows', pfFilter: null },
+            { label: 'Jalons prochain 30j',   value: String(metrics.jalonsSoon.length), sub: 'Jalons non atteints',             color: C.orange, icon: <Flag     size={15} style={{ color: C.orange }} />, alert: false, title: `${metrics.jalonsSoon.length} jalon(s) non atteint(s) à échéance dans les 30 prochains jours`, href: '/portefeuille', pfFilter: { jalons: true } },
           ].map((k, i, arr) => (
-            <div key={k.label} title={k.title} style={{
-              flex: '1 1 140px', padding: '10px 14px', borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
-              background: k.alert ? '#FFF8F8' : 'transparent',
-              borderBottom: `3px solid ${k.alert ? k.color : 'transparent'}`,
-              transition: 'background 0.1s',
-            }}>
+            <div key={k.label} title={k.title}
+              onClick={() => { if (k.pfFilter) { try { sessionStorage.setItem('pf_nav_filter', JSON.stringify(k.pfFilter)); } catch { /* ignore */ } } router.push(k.href); }}
+              style={{
+                flex: '1 1 140px', padding: '10px 14px', borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
+                background: k.alert ? '#FFF8F8' : 'transparent',
+                borderBottom: `3px solid ${k.alert ? k.color : 'transparent'}`,
+                transition: 'background 0.12s',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => { if (!k.alert) e.currentTarget.style.background = '#F8FAFC'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = k.alert ? '#FFF8F8' : 'transparent'; }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
                 <div style={{ width: 26, height: 26, borderRadius: 6, background: `${k.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {k.icon}
