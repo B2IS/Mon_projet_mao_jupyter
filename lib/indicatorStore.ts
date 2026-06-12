@@ -410,6 +410,37 @@ export const TEMPLATE_INDICATORS: Omit<CustomIndicator, 'id' | 'createdAt' | 'up
     description: 'Somme des budgets de tous les projets visibles',
     formula: 'SUM(budget)', unit: 'fcfa',
   },
+  // ── Indicateurs avancés CDC M16 — variables inter-modules ────────────────
+  {
+    name: 'Taux de signature des marchés', nameEn: 'Contract signing rate',
+    description: 'Marchés signés / projets avec marché (passation complète)',
+    formula: 'MARCHE_NB_SIGNES / MARCHE_NB_PROJETS * 100', unit: 'percent', target: 90,
+    thresholds: { good: 90, warn: 60, direction: 'higher' },
+  },
+  {
+    name: 'Taux de conformité PGES', nameEn: 'ESMP compliance rate',
+    description: 'Taux moyen de réalisation du Plan de Gestion Environnementale et Sociale',
+    formula: 'HSE_TAUX_PGES', unit: 'percent', target: 80,
+    thresholds: { good: 80, warn: 50, direction: 'higher' },
+  },
+  {
+    name: 'Taux de réalisation PAR', nameEn: 'RAP completion rate',
+    description: 'Taux moyen de réalisation du Plan d\'Action de Réinstallation',
+    formula: 'HSE_TAUX_PAR', unit: 'percent', target: 80,
+    thresholds: { good: 80, warn: 50, direction: 'higher' },
+  },
+  {
+    name: 'Ratio budget / marchés', nameEn: 'Budget to contract ratio',
+    description: 'Montant total des marchés vs budget total du portefeuille (should be ≤ 1)',
+    formula: 'MARCHE_MONTANT_TOTAL / BUDGET_TOTAL * 100', unit: 'percent',
+    thresholds: { good: 95, warn: 110, direction: 'lower' },
+  },
+  {
+    name: 'Taux de validation UAGL', nameEn: 'UAGL validation rate',
+    description: 'Bulletins heures supp. validés par l\'UAGL sur le total soumis',
+    formula: 'POINTAGE_NB_VALIDES / POINTAGE_NB_BULLETINS * 100', unit: 'percent',
+    thresholds: { good: 80, warn: 50, direction: 'higher' },
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
