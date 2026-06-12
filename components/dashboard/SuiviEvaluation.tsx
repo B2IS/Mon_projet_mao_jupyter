@@ -121,8 +121,17 @@ const KPI_TOP = [
   { label: 'Anomalies',             value: '6',    color: RED,    desc: 'À traiter',  alert: true },
 ];
 
+/** Détermine le trimestre courant (T1..T4) et l'année en cours. */
+function getCurrentPeriode(): { trimestre: string; annee: number } {
+  const m = new Date().getMonth() + 1; // 1–12
+  const trimestre = m <= 3 ? 'T1' : m <= 6 ? 'T2' : m <= 9 ? 'T3' : 'T4';
+  return { trimestre, annee: new Date().getFullYear() };
+}
+
+const { trimestre: TRIMESTRE_COURANT, annee: ANNEE_COURANTE } = getCurrentPeriode();
+
 const ONGLETS = [
-  { id: 'synthese',    label: 'Synthèse T1 — Indicateurs DPE' },
+  { id: 'synthese',    label: `Synthèse ${TRIMESTRE_COURANT} ${ANNEE_COURANTE} — Indicateurs DPE` },
   { id: 'indicateurs', label: 'Indicateurs à contrôler' },
   { id: 'preuves',     label: 'Preuves & Actions' },
   { id: 'alertes',     label: 'Alertes & Anomalies' },
@@ -205,10 +214,10 @@ export default function SuiviEvaluation() {
       const budget = ps.reduce((s, p) => s + (p.budget || 0), 0);
       const engage = ps.reduce((s, p) => s + (p.budgetEngage || 0), 0);
       const decaisse = ps.reduce((s, p) => s + (p.budgetDecaisse || 0), 0);
-      const b = ps.filter(p => p.statut === 'en_preparation').length;
+      const b = ps.filter(p => p.statut === 'planifie').length;
       const c = ps.filter(p => p.statut === 'en_cours' || p.statut === 'en_retard').length;
       const retard = ps.filter(p => p.statut === 'en_retard').length;
-      const d = ps.filter(p => p.statut === 'bloque' || p.statut === 'resilie').length;
+      const d = ps.filter(p => p.statut === 'suspendu' || p.statut === 'archive').length;
       const e = ps.filter(p => p.statut === 'termine').length;
       const aft = ps.filter(p => p.statut === 'archive').length;
       const tiers = 0;
@@ -219,18 +228,20 @@ export default function SuiviEvaluation() {
       const txBudget = budget > 0 ? Math.round((decaisse / budget) * 100) : 0;
       const txFinPeriode = budget > 0 ? Math.round((decaisse / budget) * 100) : 0;
       return { dom, label: DOMAINE_LABEL[dom] ?? dom, tot, b, c, retard, d, e, aft, tiers, tapp, tapr, trp, budget, engage, decaisse, txAttribue, txBudget, txFinPeriode };
-    }).filter(Boolean) as NonNullable<ReturnType<typeof Array.prototype.map>[0]>[];
+    }).filter((x): x is { dom: string; label: string; tot: number; b: number; c: number; retard: number; d: number; e: number; aft: number; tiers: number; tapp: number; tapr: number; trp: number; budget: number; engage: number; decaisse: number; txAttribue: number; txBudget: number; txFinPeriode: number } => x !== null);
   }, [store.projets]);
 
   const totalStats = useMemo(() => {
-    if (domaineStats.length === 0) return null;
-    const s = domaineStats.reduce((acc, d) => ({
-      tot: acc.tot + d.tot, b: acc.b + d.b, c: acc.c + d.c, retard: acc.retard + d.retard,
-      d: acc.d + d.d, e: acc.e + d.e, aft: acc.aft + d.aft,
-      budget: acc.budget + d.budget, engage: acc.engage + d.engage, decaisse: acc.decaisse + d.decaisse,
+    const validStats = domaineStats;
+    if (validStats.length === 0) return null;
+    type Acc = { tot: number; b: number; c: number; retard: number; d: number; e: number; aft: number; budget: number; engage: number; decaisse: number };
+    const s = validStats.reduce<Acc>((acc, ds) => ({
+      tot: acc.tot + ds.tot, b: acc.b + ds.b, c: acc.c + ds.c, retard: acc.retard + ds.retard,
+      d: acc.d + ds.d, e: acc.e + ds.e, aft: acc.aft + ds.aft,
+      budget: acc.budget + ds.budget, engage: acc.engage + ds.engage, decaisse: acc.decaisse + ds.decaisse,
     }), { tot: 0, b: 0, c: 0, retard: 0, d: 0, e: 0, aft: 0, budget: 0, engage: 0, decaisse: 0 });
-    const tapp = domaineStats.reduce((a, d) => a + d.tapp * d.tot, 0) / (s.tot || 1);
-    const tapr = domaineStats.reduce((a, d) => a + d.tapr * d.tot, 0) / (s.tot || 1);
+    const tapp = validStats.reduce((a, d) => a + d.tapp * d.tot, 0) / (s.tot || 1);
+    const tapr = validStats.reduce((a, d) => a + d.tapr * d.tot, 0) / (s.tot || 1);
     return {
       ...s,
       tapp: Math.round(tapp), tapr: Math.round(tapr),
@@ -763,7 +774,7 @@ export default function SuiviEvaluation() {
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
               <div style={{ padding: '10px 16px', background: NAVY, color: '#fff' }}>
                 <div style={{ fontWeight: 800, fontSize: 13 }}>I. Situation physique par domaine — A = B+C+D+E</div>
-                <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>Données calculées en temps réel depuis le référentiel projets · Période : T1 2026</div>
+                <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>Données calculées en temps réel depuis le référentiel projets · Période : {TRIMESTRE_COURANT} {ANNEE_COURANTE}</div>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
@@ -796,7 +807,7 @@ export default function SuiviEvaluation() {
                         >
                           <td style={{ padding: '7px 10px', color: row.color ?? '#374151', fontWeight: row.bold ? 700 : 400, maxWidth: 260, borderRight: '1px solid #E2E8F0' }}>{row.label}</td>
                           {ds.map((d, i) => {
-                            const v = d ? (d as Record<string, number>)[row.key] ?? 0 : 0;
+                            const v = d ? ((d as unknown as Record<string, number>)[row.key] ?? 0) : 0;
                             return (
                               <td key={i} style={{ padding: '7px 10px', textAlign: 'center', fontWeight: row.bold ? 700 : 400, color: row.color ?? '#1E293B', whiteSpace: 'nowrap', borderRight: '1px solid #E2E8F0' }}>
                                 {row.pct ? `${v}%` : (v === 0 ? '-' : v)}
@@ -846,7 +857,7 @@ export default function SuiviEvaluation() {
                         >
                           <td style={{ padding: '7px 10px', fontWeight: row.bold ? 700 : 400, color: '#374151', maxWidth: 260, borderRight: '1px solid #E2E8F0' }}>{row.label}</td>
                           {ds.map((d, i) => {
-                            const v = d ? (d as Record<string, number>)[row.key] ?? 0 : 0;
+                            const v = d ? ((d as unknown as Record<string, number>)[row.key] ?? 0) : 0;
                             return (
                               <td key={i} style={{ padding: '7px 10px', textAlign: 'right', fontWeight: row.bold ? 700 : 400, color: '#1E293B', whiteSpace: 'nowrap', borderRight: '1px solid #E2E8F0' }}>
                                 {fmt(v)}
