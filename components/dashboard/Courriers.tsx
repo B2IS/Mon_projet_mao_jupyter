@@ -4,7 +4,9 @@ import { useState, useRef } from 'react';
 import {
   Mail, Send, Search, Plus, X, ChevronRight, CheckCircle, Clock,
   AlertCircle, FileText, Filter, Paperclip, Eye, Tag, Archive, GitBranch, FolderOpen,
+  PenLine, Reply,
 } from 'lucide-react';
+import LetterEditor from '@/components/ui/LetterEditor';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useProjectStore } from '@/lib/projectStore';
@@ -342,6 +344,8 @@ export default function Courriers() {
   const [newCourrier, setNewCourrier] = useState<null | 'entrant' | 'sortant' | 'ano'>(null);
   const [wfSource, setWfSource] = useState<WorkflowSource | null>(null);
   const [annotPiece, setAnnotPiece] = useState<CourrierPiece | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorResponseTo, setEditorResponseTo] = useState<CourrierEntrant | null>(null);
   const [projetLie, setProjetLie] = useState<Record<string, string>>({});
   const [gedFolderInput, setGedFolderInput] = useState('');
   const [gedAction, setGedAction] = useState<string | null>(null); // courrierNum being processed
@@ -518,6 +522,7 @@ export default function Courriers() {
               <option>DGC</option>
             </select>
             <button className="btn btn-primary btn-sm" onClick={() => setNewCourrier(tab === 'sortants' ? 'sortant' : tab === 'anos' ? 'ano' : 'entrant')}><Plus size={12} /> Nouveau</button>
+            <button className="btn btn-navy btn-sm" onClick={() => { setEditorOpen(true); setEditorResponseTo(null); }}><PenLine size={12} /> Rédiger</button>
           </div>
         </div>
       </div>
@@ -594,6 +599,13 @@ export default function Courriers() {
                           <button className="btn btn-xs" style={{ background: 'rgba(14,52,96,0.08)', color: 'var(--navy)', border: '1px solid rgba(14,52,96,0.2)' }}
                             onClick={() => diffuser(c.id)}>
                             <Send size={10} /> Diffuser
+                          </button>
+                        )}
+                        {(c.statut === 'QUALIFIÉ' || c.statut === 'DIFFUSÉ') && (
+                          <button className="btn btn-xs" title="Rédiger une réponse officielle (éditeur + IA)"
+                            style={{ background: 'rgba(27,79,138,0.08)', color: '#1B4F8A', border: '1px solid rgba(27,79,138,0.2)' }}
+                            onClick={() => { setEditorResponseTo(c); setEditorOpen(true); }}>
+                            <Reply size={10} /> Répondre
                           </button>
                         )}
                       </div>
@@ -730,6 +742,29 @@ export default function Courriers() {
             <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 4 }}>Utilisez la recherche pour retrouver un courrier archivé</div>
           </div>
         </div>
+      )}
+
+      {/* Éditeur de courrier officiel */}
+      {editorOpen && (
+        <LetterEditor
+          onClose={() => { setEditorOpen(false); setEditorResponseTo(null); }}
+          responseTo={editorResponseTo
+            ? { num: editorResponseTo.num, expediteur: editorResponseTo.expediteur, objet: editorResponseTo.objet, recu: editorResponseTo.recu }
+            : null}
+          onSave={(data) => {
+            setSortants(prev => [{
+              id: `s${Date.now()}`, num: data.num,
+              destinataire: data.destinataire || '—',
+              objet: data.objet || '(Brouillon)',
+              date: new Date().toLocaleDateString('fr-FR'),
+              statut: 'Brouillon',
+            }, ...prev]);
+            setEditorOpen(false);
+            setEditorResponseTo(null);
+            setTab('sortants');
+            toast.success(`Courrier ${data.num} enregistré comme brouillon.`, { duration: 3500 });
+          }}
+        />
       )}
 
       {/* Panel qualifier */}
