@@ -5,9 +5,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import {
   Layers, ChevronRight, ChevronDown, FolderOpen, Activity,
   TrendingUp, AlertTriangle, CheckCircle2, Users, Calendar,
-  Filter, Plus, Download,
+  Filter, Plus, Download, X, Save,
 } from 'lucide-react';
-import { useProjectStore, DOMAINE_CFG, type Domaine } from '@/lib/projectStore';
+import { useProjectStore, DOMAINE_CFG, type Domaine, type StatutProjet } from '@/lib/projectStore';
 
 /* ─── Brand ─────────────────────────────── */
 const NAVY   = '#1B4F8A';
@@ -53,7 +53,46 @@ function fmtBudget(n: number): string {
 export default function Programmes() {
   const store = useProjectStore();
   const [expandedPrg, setExpandedPrg] = useState<string | null>('prg1');
-  const [filtreDomaine, setFiltreDomaine] = useState<string>('tous');
+  // Filtre domaine synchronisé avec le filtre global du Header
+  const filtreDomaine = store.globalDomaine;
+  const setFiltreDomaine = store.setGlobalDomaine;
+
+  // Modal "Ajouter un projet" dans un programme
+  const [addModal, setAddModal] = useState<{ programmeId: string; domaine: Domaine } | null>(null);
+  const [addForm, setAddForm] = useState({ nom: '', code: '', chefProjet: '', budget: '', region: 'Dakar' });
+
+  const submitAddProjet = () => {
+    if (!addModal || !addForm.nom.trim()) return;
+    store.createProjet({
+      domaine: addModal.domaine,
+      nom: addForm.nom.trim(),
+      code: addForm.code.trim(),
+      description: '',
+      chefProjet: addForm.chefProjet.trim(),
+      localisation: addForm.region,
+      region: addForm.region,
+      avancement: 0,
+      avancementPlanifie: 0,
+      budget: parseFloat(addForm.budget) || 0,
+      budgetEngage: 0,
+      budgetDecaisse: 0,
+      dateDebut: new Date().toISOString().split('T')[0],
+      dateFinPrevue: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
+      dateFinEstimee: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
+      statut: 'planifie' as StatutProjet,
+      priorite: 'normale',
+      cpi: 1,
+      spi: 1,
+      bailleurs: [],
+      equipe: [],
+      jalons: [],
+      phases: [],
+      unite: addModal.domaine.toUpperCase().slice(0, 3),
+      programme: `PRG-${addModal.domaine.toUpperCase().slice(0, 3)}-2026`,
+    });
+    setAddModal(null);
+    setAddForm({ nom: '', code: '', chefProjet: '', budget: '', region: 'Dakar' });
+  };
 
   /* Grouper projets en programmes fictifs */
   const programmes: Programme[] = useMemo(() => {
@@ -283,8 +322,8 @@ export default function Programmes() {
                       </div>
                     ) : (
                       projetsRataches.map((p, pi2) => {
-                        const cpiOk = p.cpi >= 0.90;
-                        const spiOk = p.spi >= 0.85;
+                        const trf = p.budgetEngage > 0 ? Math.round((p.budgetDecaisse / p.budgetEngage) * 100) : 0;
+                        const trp = p.avancementPlanifie > 0 ? Math.round((p.avancement / p.avancementPlanifie) * 100) : 100;
                         return (
                           <div key={p.id} style={{
                             padding: '9px 16px 9px 56px',
@@ -307,24 +346,26 @@ export default function Programmes() {
                             </div>
                             <span style={{
                               fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
-                              background: cpiOk ? '#DCFCE7' : '#FEE2E2', color: cpiOk ? GREEN : RED,
-                            }}>CPI {p.cpi.toFixed(2)}</span>
+                              background: trf >= 70 ? '#DCFCE7' : '#FEE2E2', color: trf >= 70 ? GREEN : RED,
+                            }}>TRF {trf}%</span>
                             <span style={{
                               fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
-                              background: spiOk ? '#DCFCE7' : '#FFF7ED', color: spiOk ? GREEN : AMBER,
-                            }}>SPI {p.spi.toFixed(2)}</span>
+                              background: trp >= 80 ? '#DCFCE7' : '#FFF7ED', color: trp >= 80 ? GREEN : AMBER,
+                            }}>TRP {trp}%</span>
                             <ChevronRight size={12} style={{ color: '#CBD5E1' }} />
                           </div>
                         );
                       })
                     )}
                     <div style={{ padding: '8px 16px 8px 56px' }}>
-                      <button style={{
-                        fontSize: 11.5, color: NAVY, background: '#EFF6FF',
-                        border: '1px solid #BFDBFE', padding: '4px 10px', borderRadius: 6,
-                        cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-                        display: 'flex', alignItems: 'center', gap: 4,
-                      }}>
+                      <button
+                        onClick={() => setAddModal({ programmeId: prg.id, domaine: prg.domaine })}
+                        style={{
+                          fontSize: 11.5, color: NAVY, background: '#EFF6FF',
+                          border: '1px solid #BFDBFE', padding: '4px 10px', borderRadius: 6,
+                          cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+                          display: 'flex', alignItems: 'center', gap: 4,
+                        }}>
                         <Plus size={11} /> Ajouter un projet
                       </button>
                     </div>
@@ -336,6 +377,70 @@ export default function Programmes() {
         </div>
 
       </div>
+
+      {/* ── Modal : Ajouter un projet dans un programme ── */}
+      {addModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setAddModal(null)}>
+          <div style={{
+            background: '#fff', borderRadius: 14, padding: '24px 28px', width: '100%', maxWidth: 480,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.22)', border: '1px solid #E2E8F0',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>Nouveau projet</div>
+                <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>
+                  Programme {DOMAINE_CFG[addModal.domaine].emoji} {DOMAINE_CFG[addModal.domaine].label}
+                </div>
+              </div>
+              <button onClick={() => setAddModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+                <X size={18} />
+              </button>
+            </div>
+            {[
+              { key: 'nom', label: 'Libellé du projet *', placeholder: 'Ex : Construction poste HTA Keur Massar', required: true },
+              { key: 'code', label: 'Code BIT / Référence', placeholder: 'Ex : 23DM10014027' },
+              { key: 'chefProjet', label: 'Chef de projet', placeholder: 'Prénom NOM' },
+              { key: 'budget', label: 'Budget global (M FCFA)', placeholder: '0', type: 'number' },
+              { key: 'region', label: 'Région / Zone', placeholder: 'Dakar' },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>{f.label}</label>
+                <input
+                  type={f.type ?? 'text'}
+                  placeholder={f.placeholder}
+                  value={(addForm as Record<string, string>)[f.key]}
+                  onChange={e => setAddForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '8px 12px', borderRadius: 7,
+                    border: '1px solid #E2E8F0', fontSize: 12.5, fontFamily: 'inherit',
+                    outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button onClick={() => setAddModal(null)} style={{ padding: '8px 18px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#374151', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Annuler
+              </button>
+              <button
+                onClick={submitAddProjet}
+                disabled={!addForm.nom.trim()}
+                style={{
+                  padding: '8px 18px', borderRadius: 7, border: 'none',
+                  background: addForm.nom.trim() ? NAVY : '#94A3B8', color: '#fff',
+                  fontSize: 12.5, fontWeight: 700, cursor: addForm.nom.trim() ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                <Save size={13} /> Créer le projet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

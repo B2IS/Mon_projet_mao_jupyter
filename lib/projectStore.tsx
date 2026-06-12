@@ -892,6 +892,9 @@ const PROJETS_INIT: Projet[] = [
 export interface ProjectStore {
   projets: Projet[];
   ressources: Ressource[];
+  // Global domain filter (persisted across pages)
+  globalDomaine: string; // 'tous' | Domaine
+  setGlobalDomaine: (d: string) => void;
   // Project CRUD
   createProjet: (p: Omit<Projet, 'id' | 'dateCreation' | 'dateModification' | 'taches'>) => Projet;
   updateProjet: (id: string, patch: Partial<Projet>) => void;
@@ -988,6 +991,13 @@ function saveRessources(ressources: Ressource[]) {
 export function ProjectStoreProvider({ children }: { children: React.ReactNode }) {
   const [projets, setProjets] = useState<Projet[]>(() => loadProjets());
   const [ressources, setRessources] = useState<Ressource[]>(() => loadRessources());
+  const [globalDomaine, setGlobalDomaineState] = useState<string>(() => {
+    try { return localStorage.getItem('sigepp_global_domaine') ?? 'tous'; } catch { return 'tous'; }
+  });
+  const setGlobalDomaine = useCallback((d: string) => {
+    setGlobalDomaineState(d);
+    try { localStorage.setItem('sigepp_global_domaine', d); } catch { /* ignore */ }
+  }, []);
 
   // Persister à chaque changement
   useEffect(() => { saveProjets(projets); }, [projets]);
@@ -1323,6 +1333,8 @@ export function ProjectStoreProvider({ children }: { children: React.ReactNode }
   const store: ProjectStore = {
     projets,
     ressources,
+    globalDomaine,
+    setGlobalDomaine,
     createProjet,
     updateProjet,
     deleteProjet,

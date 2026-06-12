@@ -1,11 +1,11 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Calendar, ChevronDown, X, AlertTriangle, Clock, CheckCircle, Info, Stamp, LogOut, Settings, ArrowLeft, Mail, CheckCheck, Trash2 } from 'lucide-react';
+import { Bell, Calendar, ChevronDown, X, AlertTriangle, Clock, CheckCircle, Info, Stamp, LogOut, Settings, ArrowLeft, Mail, CheckCheck, Trash2, GitBranch, Filter } from 'lucide-react';
 import CommandPalette from '@/components/ui/CommandPalette';
 import { useAuth, ROLES, getDirectionLabel } from '@/lib/authStore';
 import { useNotificationStore, selectInboxFor } from '@/lib/notificationStore';
-import { useProjectStore } from '@/lib/projectStore';
+import { useProjectStore, DOMAINE_CFG, useScopeDomaines } from '@/lib/projectStore';
 import { computeLiveAlertes } from '@/lib/alertEngine';
 import { useParapheurStore } from '@/lib/parapheurStore';
 import { useTranslation } from '@/lib/i18n/I18nContext';
@@ -87,8 +87,24 @@ export default function Header() {
   const dismissAlertes = useNotificationStore(s => s.dismissAlertes);
   const dismissed = useMemo(() => new Set(dismissedAlertes), [dismissedAlertes]);
 
+  /* Global domain filter */
+  const { projets, globalDomaine, setGlobalDomaine } = useProjectStore();
+  const scopeDomaines = useScopeDomaines();
+  const isMultiDomain = scopeDomaines.length > 1;
+
+  /* Workflows assignés à l'utilisateur (parapheur) */
+  const parapheurDossiers = useParapheurStore(s => s.dossiers);
+  const myWorkflows = useMemo(() => {
+    if (!user?.email) return [];
+    return parapheurDossiers.filter(d =>
+      d.statut === 'en_attente' && (
+        d.etapes?.some(e => e.acteurEmail?.toLowerCase() === user.email?.toLowerCase() && e.statut === 'en_attente') ||
+        d.soumetteur?.toLowerCase().includes((user.prenom + ' ' + user.nom).toLowerCase())
+      )
+    ).slice(0, 8);
+  }, [parapheurDossiers, user]);
+
   /* Alertes VIVES — recalculées depuis l'état réel du portefeuille (moteur d'alertes). */
-  const projets = useProjectStore().projets;
   const liveAlertes = useMemo(() => computeLiveAlertes(projets), [projets]);
   const activeAlertes = useMemo(
     () => liveAlertes.filter(a => !dismissed.has(a.id)),
@@ -278,6 +294,35 @@ export default function Header() {
         <span style={{ textTransform: 'capitalize' }}>{today}</span>
       </div>
 
+      {/* Filtre domaine global — visible sur toutes les pages métier, masqué si mono-domaine */}
+      {isMultiDomain && (
+        <div style={{ position: 'relative', flexShrink: 0 }} className="hide-mobile">
+          <select
+            value={globalDomaine}
+            onChange={e => setGlobalDomaine(e.target.value)}
+            title="Filtre domaine global — appliqué sur toutes les pages"
+            style={{
+              appearance: 'none',
+              padding: '5px 28px 5px 10px',
+              borderRadius: 7,
+              border: globalDomaine !== 'tous' ? '1.5px solid rgba(243,160,32,0.7)' : '1px solid rgba(255,255,255,0.20)',
+              background: globalDomaine !== 'tous' ? 'rgba(243,160,32,0.18)' : 'rgba(255,255,255,0.10)',
+              color: '#fff', fontSize: 11.5, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+              minWidth: 90, maxWidth: 140,
+            }}
+          >
+            <option value="tous" style={{ color: '#000', background: '#fff' }}>Tous les domaines</option>
+            {scopeDomaines.map(d => (
+              <option key={d} value={d} style={{ color: '#000', background: '#fff' }}>
+                {DOMAINE_CFG[d].emoji} {DOMAINE_CFG[d].label}
+              </option>
+            ))}
+          </select>
+          <Filter size={11} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.6)', pointerEvents: 'none' }} />
+        </div>
+      )}
+
       {/* Parapheur / Centre de validation */}
       <button
         onClick={openParapheur}
@@ -403,6 +448,46 @@ export default function Header() {
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D1D5DB', padding: 2, flexShrink: 0 }}
                         title="Supprimer"
                       ><Trash2 size={12} /></button>
+                    </div>
+                  );
+                })}
+                <div style={{ padding: '6px 16px', fontSize: 9.5, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid #F3F4F6', background: '#FAFAFA' }}>
+                  Alertes système
+                </div>
+              </div>
+            )}
+
+            {/* Mes Workflows — dossiers parapheur assignés */}
+            {myWorkflows.length > 0 && (
+              <div>
+                <div style={{ padding: '8px 16px 4px', fontSize: 9.5, fontWeight: 800, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <GitBranch size={11} /> Mes workflows ({myWorkflows.length} en attente)
+                </div>
+                {myWorkflows.map(d => {
+                  const prioriteColor = d.priorite === 'urgent' ? '#EF3340' : d.priorite === 'haute' ? '#F47920' : '#7C3AED';
+                  return (
+                    <div key={d.id}
+                      onClick={() => { router.push('/workflows'); setShowNotifs(false); }}
+                      style={{
+                        padding: '9px 16px', borderBottom: '1px solid #F3F4F6',
+                        display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer',
+                        background: '#FEFBFF',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#F5F0FF')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '#FEFBFF')}
+                    >
+                      <div style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, background: `${prioriteColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <GitBranch size={13} style={{ color: prioriteColor }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.titre}</div>
+                        <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>{d.etapeActuelle} · {d.projet}</div>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 3, alignItems: 'center' }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: `${prioriteColor}15`, color: prioriteColor }}>{d.priorite.toUpperCase()}</span>
+                          <span style={{ fontSize: 9, color: '#94A3B8' }}>Soumis par {d.soumetteur}</span>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}

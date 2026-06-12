@@ -9,7 +9,7 @@ import {
   AlertTriangle, Shield, Plus, Download, Filter, X, ChevronUp, ChevronDown,
   TrendingUp, Clock, Search,
 } from 'lucide-react';
-import { useScopeDomaines } from '@/lib/projectStore';
+import { useScopeDomaines, useProjectStore } from '@/lib/projectStore';
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    TYPES
@@ -347,6 +347,7 @@ const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', bo
 
 export default function Risques() {
   const scopeDomaines = useScopeDomaines();
+  const { globalDomaine, setGlobalDomaine } = useProjectStore();
   // Libellés des domaines visibles par le profil courant (RBAC).
   const domaineOptions = useMemo<Domaine[]>(
     () => scopeDomaines.map(c => DOMAINE_CODE_TO_LABEL[c]).filter(Boolean) as Domaine[],
@@ -356,7 +357,9 @@ export default function Risques() {
 
   const [risques, setRisques] = useState<Risque[]>(RISQUES);
   const [search, setSearch] = useState('');
-  const [filterDomaine, setFilterDomaine] = useState<Domaine | 'Tous'>('Tous');
+  // Filtre domaine synchronisé avec le filtre global du Header
+  const filterDomaine = (globalDomaine === 'tous' ? 'Tous' : globalDomaine) as Domaine | 'Tous';
+  const setFilterDomaine = (v: string) => setGlobalDomaine(v === 'Tous' ? 'tous' : v);
   const [filterCat, setFilterCat] = useState<Categorie | 'Toutes'>('Toutes');
   const [filterCrit, setFilterCrit] = useState<Criticite | 'Toutes'>('Toutes');
   const [sortCol, setSortCol] = useState<string>('score');

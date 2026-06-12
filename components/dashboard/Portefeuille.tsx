@@ -89,10 +89,10 @@ function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void
           {/* KPI mini-grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { label: 'CPI', value: projet.cpi.toFixed(2), color: indColor(projet.cpi) },
-              { label: 'SPI', value: projet.spi.toFixed(2), color: indColor(projet.spi) },
-              { label: 'Avancement', value: `${projet.avancement}%`, color: avColor(projet.avancement) },
-              { label: 'Plan prévu', value: `${projet.avancementPlanifie}%`, color: '#64748B' },
+              { label: 'Taux réal. financière', value: projet.budgetEngage > 0 ? `${Math.round((projet.budgetDecaisse / projet.budgetEngage) * 100)}%` : 'N/A', color: indColor(projet.budgetEngage > 0 ? projet.budgetDecaisse / projet.budgetEngage : 1) },
+              { label: 'Taux réal. prévisions', value: projet.avancementPlanifie > 0 ? `${Math.round((projet.avancement / projet.avancementPlanifie) * 100)}%` : 'N/A', color: indColor(projet.avancementPlanifie > 0 ? projet.avancement / projet.avancementPlanifie : 1) },
+              { label: 'Avancement réalisé', value: `${projet.avancement}%`, color: avColor(projet.avancement) },
+              { label: 'Avancement prévu', value: `${projet.avancementPlanifie}%`, color: '#64748B' },
             ].map(k => (
               <div key={k.label} style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.value}</div>
@@ -226,8 +226,8 @@ function StrategiqueBubbleTooltip({ active, payload }: { active?: boolean; paylo
         <span style={{ color: '#94A3B8' }}>Domaine</span><span style={{ fontWeight: 700, color: cfg.color }}>{cfg.label}</span>
         <span style={{ color: '#94A3B8' }}>Budget</span><span style={{ fontWeight: 700 }}>{fmtBudget(d.y)}</span>
         <span style={{ color: '#94A3B8' }}>Avancement</span><span style={{ fontWeight: 700, color: avColor(d.x) }}>{d.x}%</span>
-        <span style={{ color: '#94A3B8' }}>CPI</span><span style={{ fontWeight: 700, color: indColor(d.cpi) }}>{d.cpi.toFixed(2)}</span>
-        <span style={{ color: '#94A3B8' }}>SPI</span><span style={{ fontWeight: 700, color: indColor(d.spi) }}>{d.spi.toFixed(2)}</span>
+        <span style={{ color: '#94A3B8' }}>TRF</span><span style={{ fontWeight: 700, color: indColor(d.cpi) }}>{Math.round(d.cpi * 100)}%</span>
+        <span style={{ color: '#94A3B8' }}>TRP</span><span style={{ fontWeight: 700, color: indColor(d.spi) }}>{Math.round(d.spi * 100)}%</span>
       </div>
     </div>
   );
@@ -236,13 +236,13 @@ function StrategiqueBubbleTooltip({ active, payload }: { active?: boolean; paylo
 function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSelectProjet: (p: Projet) => void }) {
   // KPI computations
   const kpis = useMemo(() => {
-    if (projets.length === 0) return { budgetTotal: 0, tauxDecaissement: 0, avancementMoyen: 0, cpiMoyen: 0, spiMoyen: 0 };
+    if (projets.length === 0) return { budgetTotal: 0, tauxDecaissement: 0, avancementMoyen: 0, trfMoyen: 0, trpMoyen: 0 };
     const budgetTotal = projets.reduce((s, p) => s + p.budget, 0);
     const tauxDecaissement = projets.reduce((s, p) => s + (p.budgetDecaisse / p.budget) * p.budget, 0) / budgetTotal * 100;
     const avancementMoyen = projets.reduce((s, p) => s + p.avancement * p.budget, 0) / budgetTotal;
-    const cpiMoyen = projets.reduce((s, p) => s + p.cpi, 0) / projets.length;
-    const spiMoyen = projets.reduce((s, p) => s + p.spi, 0) / projets.length;
-    return { budgetTotal, tauxDecaissement, avancementMoyen, cpiMoyen, spiMoyen };
+    const trfMoyen = projets.reduce((s, p) => s + (p.budgetEngage > 0 ? p.budgetDecaisse / p.budgetEngage : 0), 0) / projets.length * 100;
+    const trpMoyen = projets.reduce((s, p) => s + (p.avancementPlanifie > 0 ? p.avancement / p.avancementPlanifie : 1), 0) / projets.length * 100;
+    return { budgetTotal, tauxDecaissement, avancementMoyen, trfMoyen, trpMoyen };
   }, [projets]);
 
   // Bubble data per domain
@@ -326,10 +326,10 @@ function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSele
   // Auto insights
   const insights = useMemo(() => {
     const ins: string[] = [];
-    if (kpis.cpiMoyen < 0.95) ins.push(`CPI moyen de ${kpis.cpiMoyen.toFixed(2)} — coûts sous pression, révision des marchés nécessaire.`);
-    else ins.push(`CPI moyen de ${kpis.cpiMoyen.toFixed(2)} — performance budgétaire satisfaisante.`);
-    if (kpis.spiMoyen < 0.9) ins.push(`SPI moyen de ${kpis.spiMoyen.toFixed(2)} — retards systémiques, renforcer la supervision des chantiers.`);
-    else ins.push(`SPI moyen de ${kpis.spiMoyen.toFixed(2)} — calendrier globalement respecté.`);
+    if (kpis.trfMoyen < 70) ins.push(`TRF moyen de ${kpis.trfMoyen.toFixed(0)}% — exécution financière sous pression, révision des marchés nécessaire.`);
+    else ins.push(`TRF moyen de ${kpis.trfMoyen.toFixed(0)}% — performance financière satisfaisante.`);
+    if (kpis.trpMoyen < 80) ins.push(`TRP moyen de ${kpis.trpMoyen.toFixed(0)}% — retards systémiques sur les prévisions, renforcer la supervision.`);
+    else ins.push(`TRP moyen de ${kpis.trpMoyen.toFixed(0)}% — réalisation des prévisions globalement conforme.`);
     if (critiques.length > 0) ins.push(`${critiques.length} projet(s) critique(s) nécessitent une intervention prioritaire : ${critiques.map(p => p.code).join(', ')}.`);
     else ins.push('Aucun projet en situation critique — maintenir la vigilance sur les projets en alerte.');
     return ins;
@@ -339,8 +339,8 @@ function VueStrategique({ projets, onSelectProjet }: { projets: Projet[]; onSele
     { label: 'Budget total portefeuille', value: fmtBudget(kpis.budgetTotal), color: '#1B4F8A', bg: '#1B4F8A18', sub: `${projets.length} projets` },
     { label: 'Taux de décaissement moyen', value: `${kpis.tauxDecaissement.toFixed(1)}%`, color: '#16A34A', bg: '#16A34A18', sub: 'Pondéré par budget' },
     { label: 'Avancement pondéré', value: `${kpis.avancementMoyen.toFixed(1)}%`, color: '#F47920', bg: '#F4792018', sub: 'Pondéré par budget' },
-    { label: 'CPI moyen portefeuille', value: kpis.cpiMoyen.toFixed(2), color: indColor(kpis.cpiMoyen), bg: `${indColor(kpis.cpiMoyen)}18`, sub: '≥ 1.0 = dans les coûts' },
-    { label: 'SPI moyen portefeuille', value: kpis.spiMoyen.toFixed(2), color: indColor(kpis.spiMoyen), bg: `${indColor(kpis.spiMoyen)}18`, sub: '≥ 1.0 = dans les délais' },
+    { label: 'Taux réal. financière (TRF)', value: `${kpis.trfMoyen.toFixed(0)}%`, color: indColor(kpis.trfMoyen / 100), bg: `${indColor(kpis.trfMoyen / 100)}18`, sub: 'Décaissé / Engagé moyen' },
+    { label: 'Taux réal. prévisions (TRP)', value: `${kpis.trpMoyen.toFixed(0)}%`, color: indColor(kpis.trpMoyen / 100), bg: `${indColor(kpis.trpMoyen / 100)}18`, sub: 'Réalisé / Prévisionnel' },
   ];
 
   const maxBudget = Math.max(...projets.map(p => p.budget), 1);
@@ -654,7 +654,9 @@ function ResourceTooltipOp({ active, payload }: { active?: boolean; payload?: { 
 function VueOperationnelle({ projets, onSelectProjet }: { projets: Projet[]; onSelectProjet: (p: Projet) => void }) {
   const store = useProjectStore();
   const scopeDomaines = useScopeDomaines();
-  const [filterDomaine, setFilterDomaine] = useState<Domaine | 'tous'>('tous');
+  // Filtre domaine connecté au filtre global du Header
+  const filterDomaine = (store.globalDomaine as Domaine | 'tous');
+  const setFilterDomaine = store.setGlobalDomaine;
   const [filterStatut, setFilterStatut] = useState<StatutProjet | 'tous'>('tous');
   const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -1019,7 +1021,9 @@ export default function Portefeuille() {
   /* ── Multi-dimensional Director filters ── */
   const [showFilters, setShowFilters]           = useState(false);
   const [filterSearch, setFilterSearch]         = useState('');
-  const [filterDomaine, setFilterDomaine]       = useState<Domaine | 'tous'>('tous');
+  // Filtre domaine synchronisé avec le filtre global du Header
+  const filterDomaine = store.globalDomaine as Domaine | 'tous';
+  const setFilterDomaine = store.setGlobalDomaine;
   const [filterRegion, setFilterRegion]         = useState<string>('tous');
   const [filterStatut, setFilterStatut]         = useState<StatutProjet | 'tous'>('tous');
   const [filterBailleur, setFilterBailleur]     = useState<string>('tous');
@@ -1298,8 +1302,8 @@ export default function Portefeuille() {
                       { label: 'Budget', val: `${prog.totalBudget.toFixed(0)} M`, color: '#1B4F8A' },
                       { label: 'Décaissé', val: `${prog.totalDecaisse.toFixed(0)} M`, color: '#F47920' },
                       { label: 'Avancement', val: `${prog.avgProg}%`, color: prog.avgProg >= 60 ? '#16A34A' : '#D97706' },
-                      { label: 'CPI', val: prog.avgCpi.toFixed(2), color: prog.avgCpi >= 0.95 ? '#16A34A' : '#EF3340' },
-                      { label: 'SPI', val: prog.avgSpi.toFixed(2), color: prog.avgSpi >= 0.90 ? '#16A34A' : '#D97706' },
+                      { label: 'TRF', val: `${Math.round(prog.avgCpi * 100)}%`, color: prog.avgCpi >= 0.95 ? '#16A34A' : '#EF3340' },
+                      { label: 'TRP', val: `${Math.round(prog.avgSpi * 100)}%`, color: prog.avgSpi >= 0.90 ? '#16A34A' : '#D97706' },
                     ].map(k => (
                       <div key={k.label} style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: 9, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.5px' }}>{k.label}</div>
@@ -1336,11 +1340,11 @@ export default function Portefeuille() {
                           </div>
                           <span style={{ fontSize: 12, fontWeight: 700, color: prog.cfg.color, width: 36, textAlign: 'right', flexShrink: 0 }}>{p.avancement}%</span>
                           <span title={`Statut : ${scfg.label}`} style={{ fontSize: 10, fontWeight: 700, color: scfg.color, padding: '2px 7px', borderRadius: 4, background: `${scfg.color}14`, flexShrink: 0 }}>{scfg.label}</span>
-                          <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 60 }}>
-                            <span style={{ fontSize: 9, color: '#94A3B8', display: 'block' }}>CPI/SPI</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: p.cpi >= 0.95 ? '#16A34A' : '#EF3340' }}>{p.cpi.toFixed(2)}</span>
+                          <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 70 }}>
+                            <span style={{ fontSize: 9, color: '#94A3B8', display: 'block' }}>TRF/TRP</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: p.cpi >= 0.95 ? '#16A34A' : '#EF3340' }}>{Math.round(p.cpi * 100)}%</span>
                             <span style={{ fontSize: 9, color: '#94A3B8' }}>/</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: p.spi >= 0.90 ? '#16A34A' : '#D97706' }}>{p.spi.toFixed(2)}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: p.spi >= 0.90 ? '#16A34A' : '#D97706' }}>{Math.round(p.spi * 100)}%</span>
                           </div>
                         </div>
                       );
@@ -1464,7 +1468,7 @@ export default function Portefeuille() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                   <thead>
                     <tr style={{ background: '#F8FAFC' }}>
-                      {['Projet', 'CPI', 'SPI', 'EAC (M)', 'BAC (M)', 'CDA (M)', 'CDI (M)', 'CDD%', 'ECD%', 'RAG'].map((h, i) => (
+                      {['Projet', 'TRF', 'TRP', 'EAC (M)', 'BAC (M)', 'CDA (M)', 'CDI (M)', 'CDD%', 'ECD%', 'RAG'].map((h, i) => (
                         <th key={i} style={{ padding: '9px 12px', textAlign: i < 2 ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.4px', borderBottom: '2px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -1478,8 +1482,8 @@ export default function Portefeuille() {
                             <div style={{ fontWeight: 700, fontSize: 11, color: NAVY2 }}>{p.code}</div>
                             <div style={{ fontSize: 10, color: '#94A3B8', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</div>
                           </td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: p.cpi >= 0.95 ? GREEN2 : p.cpi >= 0.85 ? AMBER2 : RED2 }}>{p.cpi.toFixed(2)}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: p.spi >= 0.90 ? GREEN2 : p.spi >= 0.80 ? AMBER2 : RED2 }}>{p.spi.toFixed(2)}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: p.cpi >= 0.95 ? GREEN2 : p.cpi >= 0.85 ? AMBER2 : RED2 }}>{Math.round(p.cpi * 100)}%</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: p.spi >= 0.90 ? GREEN2 : p.spi >= 0.80 ? AMBER2 : RED2 }}>{Math.round(p.spi * 100)}%</td>
                           <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: NAVY2 }}>{(eac / 1000).toFixed(1)}</td>
                           <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748B' }}>{(p.budget / 1000).toFixed(1)}</td>
                           <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: cColor(cda, true) }}>{cda >= 0 ? '+' : ''}{(cda / 1000).toFixed(1)}</td>
