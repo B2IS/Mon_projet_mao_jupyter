@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { sendMessage, streamMessage, SYSTEM_PROMPTS, generateReport } from '@/lib/ai/aiEngine';
+import { analyzeDocument } from '@/lib/docText';
 import type { AIMessage, AIAttachment, AIConversation, AIGenerationOptions, AIModel } from '@/lib/ai/aiEngine';
 import MarkdownRenderer from './MarkdownRenderer';
 import { useIntegrationConfig, type CopilotStoredConfig } from '@/lib/integrationConfigStore';
@@ -322,13 +323,14 @@ export default function AIMultimodalChat() {
     }));
     setAttachments(prev => [...prev, ...newAttachments]);
 
-    // Extraction asynchrone du contenu (documents texte / Excel / CSV)
+    // Pipeline LAD : OCR → RAD (classification) → ICR (extraction champs structurés)
     if (type === 'document') {
       newAttachments.forEach((att, i) => {
-        extractFileText(fileArr[i]).then((text) => {
-          if (!text) return;
+        analyzeDocument(fileArr[i]).then(({ texteIA, lad }) => {
+          if (!texteIA) return;
+          const label = lad ? `${lad.docType.icon} ${lad.docType.labelFr} · confiance ${Math.round(lad.docType.confidence * 100)}%` : undefined;
           setAttachments(prev => prev.map(a =>
-            a.id === att.id ? { ...a, extractedText: text } : a
+            a.id === att.id ? { ...a, extractedText: texteIA, ladLabel: label } : a
           ));
         });
       });

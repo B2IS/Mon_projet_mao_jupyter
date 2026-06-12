@@ -1,13 +1,20 @@
 /**
- * docText.ts — Extraction client-side du contenu textuel des documents.
- * Mutualisé entre le chat IA et le wizard de migration.
- *  - .txt / .csv / .json / .md / .xml   → lecture directe
- *  - .xlsx / .xls / .ods                → chaque feuille convertie en CSV
- *  - .pdf                               → texte natif via pdf.js (page par page)
- *  - .docx                              → parsing OOXML (archive ZIP)
- *  - autres (.doc binaire / image)      → undefined (OCR requis côté backend)
+ * docText.ts — Pipeline LAD (Lecture Automatique de Documents) côté client.
+ * Mutualisé entre le chat IA, le wizard de migration et la GED.
+ *
+ * Étapes du pipeline :
+ *  1. OCR/Extraction — lire le texte brut selon le format :
+ *     .txt/.csv/.json/.md/.xml  → lecture directe
+ *     .xlsx/.xls/.ods           → chaque feuille en CSV (SheetJS)
+ *     .pdf                      → texte natif via pdf.js (texte sélectionnable)
+ *     .docx                     → parsing OOXML (archive ZIP)
+ *  2. RAD — classer automatiquement le type de document
+ *  3. ICR — extraire les champs structurés selon le type détecté
  */
 import * as XLSX from 'xlsx';
+import { analyserDocument, formaterPourIA, type ResultatLAD } from './ladRad';
+
+export type { ResultatLAD };
 
 /** Extrait le texte d'un PDF natif (texte sélectionnable) via pdf.js, page par page. */
 export async function extractPdfText(file: File): Promise<string | undefined> {
@@ -60,7 +67,7 @@ export async function extractDocxText(file: File): Promise<string | undefined> {
   }
 }
 
-/** Extrait le contenu textuel d'un fichier uploadé pour le fournir à l'IA / au moteur. */
+/** Extrait le contenu textuel d'un fichier uploadé (OCR brut). */
 export async function extractFileText(file: File): Promise<string | undefined> {
   const name = file.name.toLowerCase();
   const isExcel = /\.(xlsx|xls|xlsm|ods)$/.test(name) ||
@@ -94,4 +101,31 @@ export async function extractFileText(file: File): Promise<string | undefined> {
     return undefined;
   }
   return undefined;
+}
+
+/**
+ * Pipeline LAD complet : OCR → RAD (classification) → ICR (extraction champs).
+ * Applicable à tout type de document DPE (facture, décompte, BPU, DAO, PV, contrat…).
+ * Retourne le texte brut + le résultat structuré LAD + le texte enrichi pour l'IA.
+ */
+export async function analyzeDocument(file: File): Promise<{
+  texte: string | undefined;
+  lad: ResultatLAD | undefined;
+  texteIA: string | undefined;
+}> {
+  const name = file.name.toLowerCase();
+  let methode: ResultatLAD['metadata']['methodeOCR'] = 'natif';
+
+  if (/\.(xlsx|xls|xlsm|ods|csv)$/.test(name)) methode = 'xlsx';
+  else if (/\.docx$/.test(name)) methode = 'jszip';
+  else if (/\.(txt|csv|tsv|json|md|log|xml)$/.test(name)) methode = 'direct';
+
+  const texte = await extractFileText(file);
+  if (!texte) return { texte: undefined, lad: undefined, texteIA: undefined };
+
+  const lad = analyserDocument(texte, file.name, methode, file.size);
+  const entete = formaterPourIA(lad);
+  const texteIA = `${entete}\n\n---\n\n${texte}`;
+
+  return { texte, lad, texteIA };
 }

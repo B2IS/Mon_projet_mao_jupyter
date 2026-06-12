@@ -585,11 +585,11 @@ export default function Budget() {
       </div>
 
       {/* ── TABS ─────────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `2px solid #E2E8F0`, marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 0, borderBottom: `2px solid #E2E8F0`, marginTop: 4, overflowX: 'auto', scrollbarWidth: 'none' }}>
         {([
           { id: 'synthese',         label: '📊 Vue d\'ensemble' },
           { id: 'plan_financier',   label: '📋 Plan Financier' },
-          { id: 'decomptes',        label: '🔢 Décomptes PAUE2' },
+          { id: 'decomptes',        label: '🔢 Décomptes & Factures' },
           { id: 'couts_collectes',  label: '🧾 Coûts Collectés' },
         ] as Array<{ id: typeof budgetTab; label: string }>).map(t => (
           <button
@@ -605,15 +605,15 @@ export default function Budget() {
         ))}
       </div>
 
-      {/* ── TAB: PLAN FINANCIER (BOQ PAUE2) ─────────────────────────────────── */}
+      {/* ── TAB: PLAN FINANCIER ──────────────────────────────────────────────── */}
       {budgetTab === 'plan_financier' && (() => {
-        // Structure BOQ PAUE2 réelle : Fourniture + Révision + Transport + Pose = Total HTVA
+        // Structure BOQ standard DPE : Fourniture + Révision + Transport + Pose = Total HTVA
         const projets = storeProjects.filter(p => domainFilter === 'Tous' || p.domain === domainFilter);
         const totalBudget = projets.reduce((s, p) => s + p.prevu, 0);
         const totalDecaisse = projets.reduce((s, p) => s + p.decaisse, 0);
         const totalMarches  = projets.reduce((s, p) => s + p.marches, 0);
 
-        // Proportionner les 4 lots PAUE2 au budget total du périmètre
+        // Lots types DPE (Fourniture + Révision + Transport + Pose) proportionnés au budget réel
         const LOTS = [
           { item: 1, designation: 'Électrification nouveaux villages (Rural)',  pctFourn: 0.554, pctTrans: 0.022, pctPose: 0.101, pctBudget: 0.608 },
           { item: 2, designation: 'Extension milieu périurbain',                pctFourn: 0.245, pctTrans: 0.007, pctPose: 0.022, pctBudget: 0.249 },
@@ -638,7 +638,7 @@ export default function Budget() {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Récapitulatif général */}
-            <Card title="📊 Récapitulatif Général — Modèle PAUE2/DPE" subtitle="Fourniture · Révision · Transport · Pose · Total HTVA (MFCFA)">
+            <Card title="📊 Structure Budgétaire — Lots & Composantes" subtitle="Fourniture · Révision · Transport · Pose · Total HTVA (MFCFA)">
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                   <thead>
@@ -721,13 +721,13 @@ export default function Budget() {
         );
       })()}
 
-      {/* ── TAB: DÉCOMPTES PAUE2 ─────────────────────────────────────────────── */}
+      {/* ── TAB: DÉCOMPTES & FACTURES ────────────────────────────────────────── */}
       {budgetTab === 'decomptes' && (() => {
         const projets = storeProjects.filter(p => domainFilter === 'Tous' || p.domain === domainFilter);
         const totalBudget = projets.reduce((s, p) => s + p.prevu, 0);
-        // Décomptes PAUE2 réels adaptés au budget
-        const PAUE2_REF = 39_222.379915;  // MFCFA
-        const ratio = totalBudget / PAUE2_REF;
+        // Termes de facturation standards DPE (avances + décomptes progressifs), proportionnés au budget réel
+        const BASE_REF = 39_222.379915;  // MFCFA — base de référence portefeuille
+        const ratio = totalBudget / BASE_REF;
         const DECOMPTES = [
           { num: 'Avance démarrage',    refFA: 'FA0273/20', pct: 20.000, ht: 7200.0 * ratio, note: '20% marché de base' },
           { num: 'Avance appro.',        refFA: 'FA0274/20', pct: 10.000, ht: 3600.0 * ratio, note: '10% appro. poteaux béton' },
@@ -785,7 +785,7 @@ export default function Budget() {
             </div>
 
             {/* Table décomptes */}
-            <Card title="Récapitulatif de la Facturation — Style Fiche Excellec PAUE2" subtitle={`${DECOMPTES.length} termes · TVA 18% · MFCFA`}>
+            <Card title="Récapitulatif de la Facturation — Termes & Décomptes" subtitle={`${DECOMPTES.length} termes · TVA 18% · MFCFA`}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
                   <thead>
@@ -802,18 +802,18 @@ export default function Budget() {
                         background: isAvance(r.num) ? NAVY + '06' : isRev(r.num) ? ORANGE + '05' : idx % 2 === 0 ? '#fff' : '#FAFBFC',
                         fontStyle: isRev(r.num) ? 'italic' : 'normal',
                       }}>
-                        <td style={{ padding: '7px 10px', fontWeight: isAvance(r.num) ? 700 : 500, color: isAvance(r.num) ? NAVY : '#1E293B' }}>
+                        <td style={{ padding: '7px 10px', fontWeight: isAvance(r.num) ? 700 : 500, color: isAvance(r.num) ? NAVY : '#1E293B', whiteSpace: 'nowrap' }}>
                           {r.num}
                           {r.note && <span style={{ fontSize: 9, color: '#94A3B8', marginLeft: 4 }}>({r.note})</span>}
                         </td>
-                        <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 9.5, color: NAVY, fontWeight: 600 }}>{r.refFA}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748B' }}>{r.pct.toFixed(3)}%</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: NAVY }}>{r.ht.toFixed(1)}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', color: '#94A3B8' }}>{r.tva.toFixed(1)}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ded_dem > 0 ? RED : '#CBD5E1' }}>{r.ded_dem > 0 ? `-${r.ded_dem.toFixed(1)}` : '—'}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ded_app > 0 ? RED : '#CBD5E1' }}>{r.ded_app > 0 ? `-${r.ded_app.toFixed(1)}` : '—'}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ret > 0 ? AMBER : '#CBD5E1' }}>{r.ret > 0 ? `-${r.ret.toFixed(1)}` : '—'}</td>
-                        <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: r.net >= 0 ? GREEN : RED }}>{r.net.toFixed(1)}</td>
+                        <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 9.5, color: NAVY, fontWeight: 600, whiteSpace: 'nowrap' }}>{r.refFA}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748B', whiteSpace: 'nowrap' }}>{r.pct.toFixed(3)}%</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{r.ht.toFixed(1)}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', color: '#94A3B8', whiteSpace: 'nowrap' }}>{r.tva.toFixed(1)}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ded_dem > 0 ? RED : '#CBD5E1', whiteSpace: 'nowrap' }}>{r.ded_dem > 0 ? `-${r.ded_dem.toFixed(1)}` : '—'}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ded_app > 0 ? RED : '#CBD5E1', whiteSpace: 'nowrap' }}>{r.ded_app > 0 ? `-${r.ded_app.toFixed(1)}` : '—'}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ret > 0 ? AMBER : '#CBD5E1', whiteSpace: 'nowrap' }}>{r.ret > 0 ? `-${r.ret.toFixed(1)}` : '—'}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: r.net >= 0 ? GREEN : RED, whiteSpace: 'nowrap' }}>{r.net.toFixed(1)}</td>
                         <td style={{ padding: '7px 10px', textAlign: 'right' }}>
                           <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: `${r.sColor}15`, color: r.sColor }}>{r.statut}</span>
                         </td>

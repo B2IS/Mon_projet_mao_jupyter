@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { extractFileText } from '@/lib/docText';
+import { analyzeDocument } from '@/lib/docText';
 import { extractStructuredFields, isCopilotLinked } from '@/lib/ai/aiEngine';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -747,9 +747,12 @@ export default function CockpitProjet() {
       const parts: string[] = [];
       const lus: string[] = []; const illisibles: string[] = [];
       for (const f of files) {
-        const t = await extractFileText(f).catch(() => undefined);
-        if (t && !t.startsWith('⚠️')) { parts.push(`\n===== DOCUMENT : ${f.name} =====\n${t}`); lus.push(f.name); }
-        else illisibles.push(f.name);
+        const { texteIA, lad } = await analyzeDocument(f).catch(() => ({ texteIA: undefined, lad: undefined, texte: undefined }));
+        if (texteIA && !texteIA.startsWith('⚠️')) {
+          const typeLabel = lad ? ` [${lad.docType.icon} ${lad.docType.labelFr}]` : '';
+          parts.push(`\n===== DOCUMENT${typeLabel} : ${f.name} =====\n${texteIA}`);
+          lus.push(f.name);
+        } else illisibles.push(f.name);
       }
       const text = parts.join('\n');
       if (!text) {

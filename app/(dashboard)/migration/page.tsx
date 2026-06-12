@@ -21,7 +21,7 @@ import { extractZipContents, zipFilesToSwarmDocs, getArchiveType } from '@/lib/m
 import { useProjectStore, type Domaine, type Projet } from '@/lib/projectStore';
 import { useAuth } from '@/lib/authStore';
 import AgentsIA from '@/components/dashboard/AgentsIA';
-import { extractFileText } from '@/lib/docText';
+import { extractFileText, analyzeDocument } from '@/lib/docText';
 import { useStructurationStore } from '@/lib/structuration/store';
 import { structurerDepuisBOQ, type BOQInputRow } from '@/lib/structuration/builder';
 import toast from 'react-hot-toast';
@@ -258,16 +258,27 @@ export default function MigrationPage() {
         continue;
       }
 
-      // 3) Document simple (PDF, DOCX, XLSX, etc.) → extraction immédiate du texte
-      setZipProgress(`Lecture ${file.name}…`);
-      const extractedText = await extractFileText(file).catch(() => undefined);
+      // 3) Document simple (PDF, DOCX, XLSX, etc.) → pipeline LAD complet (OCR → RAD → ICR)
+      setZipProgress(`Analyse LAD ${file.name}…`);
+      const { texteIA, lad } = await analyzeDocument(file).catch(() => ({ texteIA: undefined, lad: undefined, texte: undefined }));
       setZipProgress('');
+      // Mapping RAD DocType → MigrationDocument type (RAD prime si confiance ≥ 50%)
+      const LAD_TO_MIGRATION: Record<string, MigrationDocument['type']> = {
+        facture: 'other', decompte: 'other', bpu: 'boq', dao: 'dao',
+        pv_reception: 'pv', contrat: 'contract', bordereau: 'other',
+        rapport_avancement: 'report', bon_commande: 'other', attestation: 'other',
+        plan_technique: 'plan', budget_tableau: 'excel', excel_donnees: 'excel',
+        courrier: 'other', inconnu: 'other',
+      };
+      const docType: MigrationDocument['type'] = (lad && lad.docType.confidence >= 0.5)
+        ? (LAD_TO_MIGRATION[lad.docType.type] ?? inferDocType(file.name, file.type))
+        : inferDocType(file.name, file.type);
       newDocs.push({
-        id: mkId(), name: file.name, type: inferDocType(file.name, file.type),
+        id: mkId(), name: file.name, type: docType,
         size: file.size, url: URL.createObjectURL(file),
         uploadedAt: new Date().toISOString(),
-        status: extractedText ? 'analyzed' : 'uploaded',
-        extractedText,
+        status: texteIA ? 'analyzed' : 'uploaded',
+        extractedText: texteIA,
       });
     }
     setDocs(prev => [...prev, ...newDocs]);
