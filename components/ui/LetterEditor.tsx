@@ -446,28 +446,12 @@ ${sigImgTag}
         {/* ── Barre supérieure ──────────────────────────────────────────── */}
         <div style={{
           background: '#1B4F8A', color: '#fff',
-          padding: '10px 18px',
+          padding: '8px 16px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexShrink: 0, gap: 12,
           boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img
-              src={SENELEC_LOGO_DATA_URI}
-              alt="SENELEC"
-              style={{ height: 34, filter: 'brightness(0) invert(1)', flexShrink: 0 }}
-            />
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: 0.3 }}>
-                Éditeur de courrier officiel SENELEC
-              </div>
-              <div style={{ fontSize: 10, opacity: 0.7, marginTop: 1 }}>
-                {responseTo
-                  ? `Réponse au courrier ${responseTo.num} — ${responseTo.expediteur}`
-                  : 'Nouveau courrier officiel — Direction Principale Équipement'}
-              </div>
-            </div>
-          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} />
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {responseTo && (

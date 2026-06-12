@@ -287,10 +287,18 @@ export default function SuiviEvaluation() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Activity size={22} style={{ color: NAVY }} /> Suivi-Évaluation — Écran opérateur
+              <Activity size={22} style={{ color: NAVY }} /> {getSyntheseLabel(user?.role)}
             </h1>
             <p style={{ fontSize: 12.5, color: '#64748B', margin: '3px 0 0' }}>
-              Vue de travail : indicateurs à consolider · preuves attendues · anomalies · validations en attente
+              {user?.role === 'DIR_DPE'
+                ? 'Vue exécutive — portefeuille global DPE · performance · risques · programmes'
+                : user?.role === 'PMO' || user?.role === 'CHEF_DEPT'
+                  ? 'Multi-projets · consolidation · CPI/SPI · jalons · arbitrages en attente'
+                  : user?.role === 'CHEF_PROJ'
+                    ? 'Mon périmètre projet · avancement · marchés · risques · équipe'
+                    : user?.role === 'CTRL_FIN'
+                      ? 'Contrôle financier · budget · engagements · décaissements · écarts'
+                      : 'Vue de travail : indicateurs à consolider · preuves attendues · anomalies · validations en attente'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

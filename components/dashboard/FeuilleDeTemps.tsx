@@ -5,7 +5,7 @@
  * workflow brouillon → soumis → validé/rejeté, coût auto (heures × taux),
  * export période. Alimente le coût réel projet (imputation temps).
  */
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Clock, ChevronLeft, ChevronRight, Plus, Download, Send,
   Check, X, Trash2, CircleDot, Lock, Search,
@@ -85,6 +85,8 @@ export default function FeuilleDeTemps() {
 
   const [addProjet, setAddProjet] = useState('');
   const [rowSearch, setRowSearch] = useState('');
+  // Justification obligatoire par ligne projet avant soumission
+  const [rowJustif, setRowJustif] = useState<Record<string, string>>({});
 
   const filteredProjetIds = useMemo(() => {
     if (!rowSearch.trim()) return projetIdsLignes;
@@ -135,8 +137,26 @@ export default function FeuilleDeTemps() {
 
   const soumettre = () => {
     if (entriesSemaine.length === 0) { toast.error('Aucune heure saisie cette semaine.'); return; }
+    // Vérifier que chaque ligne avec des heures a une justification
+    const lignesManquantes = projetIdsLignes.filter(pid => {
+      const hasHeures = totalRow(pid) > 0;
+      const hasJustif = (rowJustif[pid] ?? '').trim().length >= 10;
+      return hasHeures && !hasJustif;
+    });
+    if (lignesManquantes.length > 0) {
+      const noms = lignesManquantes.map(pid => {
+        const p = projetsDispo.find(x => x.id === pid);
+        return p?.code ?? pid;
+      }).join(', ');
+      toast.error(`Justificatif requis (10 car. min) pour : ${noms}`);
+      return;
+    }
+    // Propager les justifications dans les entrées
     entriesSemaine.filter(e => e.statut === 'brouillon' || e.statut === 'rejete')
-      .forEach(e => ts.updateEntry(e.id, { statut: 'soumis' }));
+      .forEach(e => {
+        const desc = rowJustif[e.projetId]?.trim() || undefined;
+        ts.updateEntry(e.id, { statut: 'soumis', description: desc });
+      });
     toast.success('Feuille de temps soumise pour validation.');
   };
   const validerSemaine = () => {
@@ -262,24 +282,52 @@ export default function FeuilleDeTemps() {
               {filteredProjetIds.map(pid => {
                 const p = projetsDispo.find(x => x.id === pid);
                 const rowTotal = totalRow(pid);
+                const justif = rowJustif[pid] ?? '';
+                const justifOk = justif.trim().length >= 10;
+                const needsJustif = rowTotal > 0 && !weekLocked;
                 return (
-                  <tr key={pid} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                    <td style={{ padding: '8px 12px', fontSize: 12.5 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: NAVY, background: '#EFF6FF', padding: '1px 6px', borderRadius: 5 }}>{p?.code ?? pid}</span>
-                        <span style={{ fontWeight: 600, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }} title={p?.nom}>{p?.nom ?? '—'}</span>
-                        {!weekLocked && (
-                          <button onClick={() => setLignesAjoutees(l => l.filter(x => x !== pid))}
-                            title="Retirer la ligne (efface aussi les heures)"
-                            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: 2 }}><Trash2 size={13} /></button>
-                        )}
-                      </div>
-                    </td>
-                    {weekDays.map(d => cell(pid, d))}
-                    <td style={{ padding: '8px 6px', textAlign: 'center', borderLeft: `2px solid ${BORDER}`, fontWeight: 800, fontSize: 13, color: rowTotal > 0 ? NAVY : '#CBD5E1' }}>
-                      {rowTotal > 0 ? rowTotal : '—'}
-                    </td>
-                  </tr>
+                  <React.Fragment key={pid}>
+                    <tr style={{ borderBottom: needsJustif ? 'none' : `1px solid ${BORDER}` }}>
+                      <td style={{ padding: '8px 12px', fontSize: 12.5 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: NAVY, background: '#EFF6FF', padding: '1px 6px', borderRadius: 5 }}>{p?.code ?? pid}</span>
+                          <span style={{ fontWeight: 600, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }} title={p?.nom}>{p?.nom ?? '—'}</span>
+                          {!weekLocked && (
+                            <button onClick={() => setLignesAjoutees(l => l.filter(x => x !== pid))}
+                              title="Retirer la ligne"
+                              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: 2 }}><Trash2 size={13} /></button>
+                          )}
+                        </div>
+                      </td>
+                      {weekDays.map(d => cell(pid, d))}
+                      <td style={{ padding: '8px 6px', textAlign: 'center', borderLeft: `2px solid ${BORDER}`, fontWeight: 800, fontSize: 13, color: rowTotal > 0 ? NAVY : '#CBD5E1' }}>
+                        {rowTotal > 0 ? rowTotal : '—'}
+                      </td>
+                    </tr>
+                    {needsJustif && (
+                      <tr style={{ borderBottom: `1px solid ${BORDER}`, background: justifOk ? '#F0FDF4' : '#FFFBEB' }}>
+                        <td colSpan={9} style={{ padding: '6px 12px 8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: justifOk ? GREEN : AMBER, paddingTop: 6, whiteSpace: 'nowrap' }}>
+                              {justifOk ? '✓ Justifié' : '⚠ Justificatif requis'}
+                            </span>
+                            <textarea
+                              value={justif}
+                              onChange={e => setRowJustif(j => ({ ...j, [pid]: e.target.value }))}
+                              placeholder={`Décrivez les activités réalisées sur ${p?.code ?? 'ce projet'} cette semaine (min. 10 caractères)…`}
+                              rows={2}
+                              style={{
+                                flex: 1, fontSize: 12, border: `1.5px solid ${justifOk ? '#BBF7D0' : '#FDE68A'}`,
+                                borderRadius: 7, padding: '6px 10px', resize: 'vertical', fontFamily: 'inherit',
+                                background: justifOk ? '#fff' : '#FFFDF0', outline: 'none', color: '#1E293B',
+                              }}
+                            />
+                            <span style={{ fontSize: 10, color: '#94A3B8', paddingTop: 6, whiteSpace: 'nowrap' }}>{justif.trim().length}/10+</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
