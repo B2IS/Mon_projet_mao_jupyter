@@ -24,18 +24,7 @@
  */
 
 import type { ExtractedData } from './types';
-
-/* ─── Configuration ────────────────────────────────────────────────────────── */
-
-const GROQ_BASE = 'https://api.groq.com/openai/v1';
-
-/** Modèles classés par qualité décroissante — on essaie dans l'ordre. */
-const MODEL_CHAIN = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
-  'gemma2-9b-it',
-];
+import { chatOnce, detectProvider } from '@/lib/llmClient';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -58,52 +47,26 @@ export interface SwarmResult {
   rawState: SwarmState;
 }
 
-/* ─── Helpers LLM ─────────────────────────────────────────────────────────── */
+/* ─── Helpers LLM (souverain via llmClient) ─────────────────────────────────── */
 
-async function groqCall(
-  model: string,
-  system: string,
-  user: string,
-  apiKey: string,
-  maxTokens = 1024,
-): Promise<string> {
-  const resp = await fetch(`${GROQ_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.1, // faible pour maximiser la précision
-    }),
-  });
-  if (!resp.ok) throw new Error(`Groq HTTP ${resp.status}: ${await resp.text()}`);
-  const data = await resp.json();
-  return data.choices?.[0]?.message?.content ?? '';
-}
-
-/** Essaie chaque modèle dans MODEL_CHAIN jusqu'à succès. */
+/**
+ * Appel LLM via llmClient — Ollama-first, Groq fallback.
+ * Le paramètre apiKey est conservé pour compatibilité ascendante mais ignoré
+ * (llmClient gère la clé de façon centralisée et sécurisée).
+ */
 async function callWithFallback(
   system: string,
   user: string,
-  apiKey: string,
+  _apiKey: string,
   maxTokens = 1024,
 ): Promise<{ text: string; model: string }> {
-  for (const model of MODEL_CHAIN) {
-    try {
-      const text = await groqCall(model, system, user, apiKey, maxTokens);
-      if (text && text.trim().length > 10) return { text, model };
-    } catch (e) {
-      console.warn(`[SwarmIA] Model ${model} failed:`, e);
-    }
-  }
-  throw new Error('Tous les modèles Groq ont échoué');
+  const status = await detectProvider();
+  const text = await chatOnce(
+    [{ role: 'system', content: system }, { role: 'user', content: user }],
+    { maxTokens, temperature: 0.1 },
+  );
+  if (!text || text.trim().length < 5) throw new Error('Réponse LLM vide');
+  return { text, model: status.models[0]?.id ?? status.provider };
 }
 
 /** Extrait un JSON de la réponse LLM (gère les blocs ```json ... ```). */
@@ -539,26 +502,15 @@ export async function runSwarm(
   };
 }
 
-/* ─── Vérification disponibilité Groq ─────────────────────────────────────── */
+/* ─── Vérification disponibilité IA ──────────────────────────────────────── */
 
-export async function groqAvailable(apiKey: string): Promise<boolean> {
-  if (!apiKey) return false;
-  try {
-    const resp = await fetch(`${GROQ_BASE}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(3000),
-    });
-    return resp.ok;
-  } catch {
-    return false;
-  }
+/** Vérifie si un provider IA est disponible (Ollama ou Groq). */
+export async function groqAvailable(_apiKey?: string): Promise<boolean> {
+  const status = await detectProvider();
+  return status.available;
 }
 
-/** Retourne la clé Groq depuis l'environnement (client ou serveur). */
+/** @deprecated Utiliser llmClient.detectProvider() */
 export function getGroqKey(): string {
-  return (
-    (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) ||
-    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_GROQ_API_KEY) ||
-    ''
-  );
+  return (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_GROQ_API_KEY) || '';
 }

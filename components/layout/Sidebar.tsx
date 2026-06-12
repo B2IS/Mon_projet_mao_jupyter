@@ -263,6 +263,7 @@ const DOMAINS: Domain[] = [
         items: [
           { href: '/erp-interface', icon: Plug2, label: 'Interface ERP', labelByRole: { DIR_DPE: 'Connecteurs SAP / Oracle / Sage' }, onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN', 'CTRL_FIN'] },
           { href: '/migration', icon: Database, label: 'Migration des données', onlyRoles: ['ADMIN', 'DIR_DPE', 'PMO'] },
+          { href: '/docs', icon: BookOpen, label: 'Documentation API', onlyRoles: ['ADMIN', 'DIR_DPE', 'PMO'] },
         ],
       },
     ],
