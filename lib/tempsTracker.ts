@@ -13,7 +13,8 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { useTempsStore, type PingGeo } from './tempsStore';
+import { useTempsStore, type PingGeo, type Lieu } from './tempsStore';
+import toast from 'react-hot-toast';
 
 const HEARTBEAT_S = 20;        // fréquence du heartbeat
 const IDLE_MS = 90_000;        // au-delà ⇒ inactif (pause)
@@ -142,4 +143,67 @@ export function pointerDepuisSite(lat: number, lng: number, dureeMin = 30): Ping
   const ping = useTempsStore.getState().pointerGeo(lat, lng, dureeMin);
   void sync('/temps/ping/', { lat, lng, duree_min: dureeMin });
   return ping;
+}
+
+/** Interface minimale de l'utilisateur reçu de l'authStore (évite une dépendance circulaire). */
+interface UserMinimal { id: string; prenom: string; nom: string; role: string; }
+
+/**
+ * Détecte la présence à la connexion via GPS (bureau ↔ terrain) et enregistre
+ * une entrée de session dans le store. Doit être monté avec l'utilisateur courant.
+ */
+export function useLoginPresenceDetection(user: UserMinimal | null) {
+  const prevId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const uid = user?.id ?? null;
+    if (uid === prevId.current) return;
+    prevId.current = uid;
+    if (!uid || !user) return; // déconnexion — rien à faire
+
+    const now = new Date();
+    const heureDebut = now.getHours();
+    const nom = `${user.prenom} ${user.nom}`;
+
+    function enregistrer(lieu: Lieu, projet: string, localisation: string) {
+      useTempsStore.getState().ajouter({
+        date: now.toISOString().slice(0, 10),
+        collaborateur: nom,
+        fonction: user!.role,
+        projet,
+        categorie: lieu === 'terrain' ? 'Travaux terrain' : 'Reporting & Admin',
+        lieu,
+        localisation,
+        heureDebut,
+        duree: 0,
+        productivite: 0.8,
+        facturable: false,
+      });
+      if (lieu === 'terrain') {
+        toast.success(`Terrain détecté — ${projet}`, { icon: '📍', duration: 5000 });
+      } else {
+        toast.success('Suivi démarré — Bureau', { icon: '🏢', duration: 4000 });
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const ping = useTempsStore.getState().pointerGeo(latitude, longitude, 0);
+          const lieu: Lieu = ping.dansGeofence ? 'terrain' : 'bureau';
+          const projet = (ping.dansGeofence && ping.projet) ? ping.projet : useTempsStore.getState().projetActif;
+          if (ping.dansGeofence && ping.projet) useTempsStore.getState().setProjetActif(ping.projet);
+          enregistrer(lieu, projet, ping.dansGeofence ? `Géofence — ${ping.projet}` : 'Bureau / Siège');
+          void sync('/temps/session-start/', { lieu, projet, lat: latitude, lng: longitude });
+        },
+        () => {
+          enregistrer('bureau', useTempsStore.getState().projetActif, 'Bureau / Siège');
+        },
+        { enableHighAccuracy: false, timeout: 8_000, maximumAge: 0 },
+      );
+    } else {
+      enregistrer('bureau', useTempsStore.getState().projetActif, 'Bureau / Siège');
+    }
+  }, [user]);
 }

@@ -909,19 +909,19 @@ export default function GED() {
               </div>
               <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {enAttenteValidation.map(d => (
-                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border-2)' }}>
+                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border-2)', flexWrap: 'wrap', minWidth: 0 }}>
                     <DocIcon type={d.type} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nom}</div>
-                      <div style={{ fontSize: 10, color: 'var(--muted)' }}>{d.projet} · {d.auteur} · {d.date}</div>
+                    <div style={{ flex: 1, minWidth: 120, maxWidth: 220, overflow: 'hidden' }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.nom}>{d.nom}</div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.projet} · {d.auteur} · {d.date}</div>
                     </div>
                     {pillStatut(d.statut)}
                     {/* Workflow steps */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--muted)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
                       {(['Soumis','Réviser','Approuver','Publier'] as const).map((step, i) => (
-                        <span key={step} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ padding: '2px 7px', borderRadius: 4, background: i === 0 ? 'var(--navy)' : 'var(--border-2)', color: i === 0 ? '#fff' : 'var(--muted)', fontSize: 9, fontWeight: 600 }}>{step}</span>
-                          {i < 3 && <ChevronRight size={9} style={{ color: 'var(--border-2)' }} />}
+                        <span key={step} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ padding: '2px 6px', borderRadius: 4, background: i === 0 ? 'var(--navy)' : 'var(--border-2)', color: i === 0 ? '#fff' : 'var(--muted)', fontSize: 9, fontWeight: 600, whiteSpace: 'nowrap' }}>{step}</span>
+                          {i < 3 && <ChevronRight size={8} style={{ color: 'var(--border-2)' }} />}
                         </span>
                       ))}
                     </div>
@@ -982,13 +982,13 @@ export default function GED() {
                             </div>
                           </div>
                         </td>
-                        <td style={{ fontSize: 11 }}>{d.projet}</td>
-                        <td style={{ fontSize: 11 }}>{d.auteur}</td>
+                        <td style={{ fontSize: 11, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.projet}>{d.projet}</td>
+                        <td style={{ fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.auteur}>{d.auteur}</td>
                         <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{d.date}</td>
-                        <td style={{ fontSize: 11 }}>{d.taille}</td>
+                        <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{d.taille}</td>
                         <td><span className="pill pill-navy">{d.version}</span></td>
                         <td>{pillStatut(d.statut)}</td>
-                        <td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', gap: 3 }}>
                             <button aria-label="Visualiser" className="btn btn-ghost btn-xs" title="Visualiser" onClick={() => annoter(d)}><Eye size={10} /></button>
                             <button aria-label="Annoter / commenter" className="btn btn-ghost btn-xs" title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /></button>

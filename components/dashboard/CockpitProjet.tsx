@@ -1093,7 +1093,7 @@ export default function CockpitProjet() {
                 <button
                   onClick={() => ficheFileRef.current?.click()}
                   disabled={importingFiche}
-                  title="Importer la fiche projet + rapports + Excel (sélection multiple) — l'IA pré-remplit les champs"
+                  title="Importer la fiche projet (PDF, Word, Excel) — l'IA pré-remplit les champs automatiquement"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
                     borderRadius: 7, border: `1px solid ${C.navy}`, background: `${C.navy}0D`,
@@ -1101,7 +1101,7 @@ export default function CockpitProjet() {
                     opacity: importingFiche ? 0.6 : 1,
                   }}
                 >
-                  {importingFiche ? '⏳ Analyse IA…' : '📄 Importer fiche + rapports (IA)'}
+                  {importingFiche ? '⏳ Analyse en cours…' : '📄 Importer Fiche projet'}
                 </button>
               </>
             )}

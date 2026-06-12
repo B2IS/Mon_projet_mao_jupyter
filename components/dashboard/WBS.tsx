@@ -783,6 +783,22 @@ export default function WBS() {
 
       {/* ── TOOLBAR ── */}
       <div style={{ padding: '8px 14px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-2)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+
+        {/* Filtre projet — premier élément */}
+        <select
+          value={selectedProjetId}
+          onChange={e => { setSelectedProjetId(e.target.value); setSelected(null); }}
+          style={{ padding: '5px 10px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 600, background: '#fff', minWidth: 220, maxWidth: 340 }}
+          title="Sélectionner un projet pour afficher uniquement son WBS"
+        >
+          <option value="">— Tous les projets —</option>
+          {activeWbsData.map(p => (
+            <option key={p.id} value={p.id}>{p.label.slice(0, 60)}</option>
+          ))}
+        </select>
+
+        <div style={{ width: 1, height: 20, background: 'var(--border-2)', flexShrink: 0 }} />
+
         <button className="btn btn-ghost btn-sm" onClick={expandAll}>▼ Tout déplier</button>
         <button className="btn btn-ghost btn-sm" onClick={collapseAll}>▶ Tout replier</button>
 

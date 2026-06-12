@@ -9,11 +9,12 @@
  * Source données réelles : ATTACHEMENT GLOBAL PAUE2 — 4 lots certifiés.
  * Fallback IA intégré quand zonesQuantitesStore est vide.
  */
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Boxes, Wand2, ChevronRight, ChevronDown, CheckCircle2,
   Building2, Trash2, FileText, Download, Eye, EyeOff,
-  Layers, Package, Wrench, Truck, Zap, RefreshCw, Search, X,
+  Layers, Package, Wrench, Truck, Zap, RefreshCw, Search, X, Upload,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useProjectStore } from '@/lib/projectStore';
@@ -172,8 +173,163 @@ export default function Structuration() {
   const [compSearch, setCompSearch] = useState('');
   const [genStep, setGenStep]       = useState(0);
   const [showBOQ, setShowBOQ]       = useState(false);
+  const [importing, setImporting]   = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const projet  = projets.find(p => p.code === projetCode);
+
+  /* ── Import Excel multi-feuilles SENELEC ───────────────────────────────── */
+  function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImporting(true);
+
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const buf = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const wb = XLSX.read(buf, { type: 'array' });
+        const { SheetNames } = wb;
+
+        // ── Feuille 3 "Décomposition Sous-composants" → lookup composant/SC ──
+        const decompSheetName = SheetNames.find(n => /d.comp|sous.comp/i.test(n)) ?? SheetNames[2];
+        const decompLookup = new Map<string, { composant: string; sousComposant: string }>();
+        if (decompSheetName && wb.Sheets[decompSheetName]) {
+          const decompData = XLSX.utils.sheet_to_json<(string | number)[]>(wb.Sheets[decompSheetName], { header: 1, defval: '' });
+          let lastComposant = '';
+          for (const row of decompData) {
+            const comp = String(row[1] ?? '').trim();
+            const sc   = String(row[2] ?? '').trim();
+            const cadre = String(row[3] ?? '').trim().toUpperCase();
+            if (comp) lastComposant = comp;
+            if (cadre && cadre !== 'CADRE BORDEREAU DES PRIX') {
+              decompLookup.set(cadre, { composant: comp || lastComposant, sousComposant: sc });
+            }
+          }
+        }
+
+        // ── Feuilles LOT (à partir de la 4e ou toute feuille ≠ ref) ──
+        const lotSheets = SheetNames.filter((_, i) => i >= 3)
+          .filter(n => !/(liste|raci|decomp|valeur)/i.test(n));
+        // Fallback: si le fichier n'a qu'une seule feuille utile
+        const sheetsToProcess = lotSheets.length > 0 ? lotSheets : [SheetNames[0]];
+
+        // Map composant → { id, nom, sousComposants }
+        const composantsMap = new Map<string, { nom: string; scs: Map<string, { nom: string; code?: string; articles: import('@/lib/structuration/types').ArticleBOQ[] }> }>();
+
+        for (const sheetName of sheetsToProcess) {
+          const ws = wb.Sheets[sheetName];
+          const data = XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1, defval: '' });
+
+          // Trouver la ligne d'en-tête (contient "DESCRIPTION DE LA TACHE")
+          let headerIdx = data.findIndex(row => String(row[0] ?? '').includes('DESCRIPTION DE LA TACHE'));
+          if (headerIdx < 0) headerIdx = 4;
+
+          let currentComposant = sheetName;
+          let currentSC = 'Général';
+          let currentSCCode: string | undefined;
+
+          for (let ri = headerIdx + 1; ri < data.length; ri++) {
+            const row = data[ri];
+            const col0 = String(row[0] ?? '').trim();
+            const col12 = String(row[12] ?? '').trim(); // CLASSIFICATION ACTIF PROJET
+            const col26 = String(row[26] ?? '').trim(); // Article code
+            const col30 = String(row[30] ?? '').trim(); // Unit
+            const col17 = String(row[17] ?? '').trim(); // Unit alt
+            const unit  = col30 || col17 || 'U';
+            const col31 = Number(row[31] ?? 0);         // Quantity
+            const col23 = Number(row[23] ?? 0);         // Quantity alt
+            const qte   = col31 || col23;
+            const f32   = Number(row[32] ?? 0);         // Fourniture CFA
+            const t38   = Number(row[38] ?? 0);         // Transport CFA
+            const m44   = Number(row[44] ?? 0);         // Montage CFA
+            const total = Number(row[50] ?? 0) || (f32 + t38 + m44) * Math.max(qte, 1);
+
+            if (!col0 && !col26) continue; // ligne vide
+
+            const isArticle = col26.length > 0 && (f32 > 0 || t38 > 0 || m44 > 0 || total > 0);
+            const isSection  = col0.length > 3 && !isArticle;
+
+            if (isSection) {
+              // Chercher le composant via col12 ou lookup Décomposition
+              if (col12) currentComposant = col12;
+              else {
+                const mapped = decompLookup.get(col0.toUpperCase());
+                if (mapped?.composant) currentComposant = mapped.composant;
+              }
+              const mappedSC = decompLookup.get(col0.toUpperCase());
+              currentSC = mappedSC?.sousComposant || col0.slice(0, 80);
+              currentSCCode = col26 || undefined;
+            } else if (isArticle) {
+              // Article
+              if (!composantsMap.has(currentComposant)) {
+                composantsMap.set(currentComposant, { nom: currentComposant, scs: new Map() });
+              }
+              const comp = composantsMap.get(currentComposant)!;
+              if (!comp.scs.has(currentSC)) {
+                comp.scs.set(currentSC, { nom: currentSC, code: currentSCCode, articles: [] });
+              }
+              const designation = col0 || `Article ${col26}`;
+              comp.scs.get(currentSC)!.articles.push({
+                id: `imp_${ri}_${sheetName.slice(0, 5)}`,
+                code: col26 || undefined,
+                designation,
+                unite: unit,
+                quantite: qte,
+                prixUnitaire: qte > 0 ? Math.round((f32 + t38 + m44) / Math.max(qte, 1)) : f32 + t38 + m44,
+                fourniture: f32 || undefined,
+                transport: t38 || undefined,
+                montage: m44 || undefined,
+                total: Math.round(total || (f32 + t38 + m44) * Math.max(qte, 1)),
+                devise: 'CFA',
+              });
+            }
+          }
+        }
+
+        // Convertir en StructurationProjet
+        const uid = (p: string) => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const composants: import('@/lib/structuration/types').Composant[] = [];
+        let grandTotal = 0;
+
+        composantsMap.forEach((compData, compNom) => {
+          const sousComposants: import('@/lib/structuration/types').SousComposant[] = [];
+          let compTotal = 0;
+          compData.scs.forEach((scData, scNom) => {
+            const scTotal = scData.articles.reduce((s, a) => s + (a.total || 0), 0);
+            compTotal += scTotal;
+            sousComposants.push({
+              id: uid('sc'), code: scData.code, nom: scNom, attributs: {},
+              articles: scData.articles, total: scTotal, immobilisable: true,
+            });
+          });
+          grandTotal += compTotal;
+          composants.push({ id: uid('cmp'), nom: compNom, code: undefined, attributs: {}, sousComposants, total: compTotal });
+        });
+
+        if (composants.length === 0) {
+          toast.error('Aucune donnée exploitable trouvée dans ce fichier Excel.');
+          setImporting(false);
+          return;
+        }
+
+        const result: import('@/lib/structuration/types').StructurationProjet = {
+          projetCode, projetNom: projet?.nom ?? projetCode,
+          composants, total: grandTotal, dateCreation: new Date().toISOString(),
+          source: `Import Excel — ${sheetsToProcess.length} feuille(s) LOT`,
+          deviseRef: 'CFA', valide: false,
+        };
+        struct.save(result);
+        toast.success(`✅ ${composants.length} composants importés depuis ${sheetsToProcess.length} feuille(s) LOT — ${fmtM(grandTotal)} FCFA`);
+      } catch (err) {
+        console.error(err);
+        toast.error('Erreur de lecture — vérifiez que le fichier est un Excel SENELEC valide.');
+      }
+      setImporting(false);
+    };
+    reader.readAsArrayBuffer(file);
+  }
   const current = struct.byProjet[projetCode];
 
   // BOQ depuis zonesStore
@@ -266,6 +422,25 @@ export default function Structuration() {
               searchPlaceholder="Rechercher un projet…"
             />
           </div>
+          {/* Import Excel SENELEC — multi-feuilles */}
+          <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportExcel} />
+          <button
+            onClick={() => importRef.current?.click()}
+            disabled={!projet || importing}
+            title="Importer un Excel SENELEC multi-feuilles (Feuille 1-3 : référentiel · Feuilles 4+ : LOT/bordereaux)"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '9px 16px', borderRadius: 9, border: `1.5px solid ${NAVY}`,
+              background: '#fff', color: NAVY, fontSize: 13, fontWeight: 700,
+              cursor: (!projet || importing) ? 'not-allowed' : 'pointer',
+              opacity: (!projet || importing) ? 0.6 : 1,
+            }}
+          >
+            {importing
+              ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Import…</>
+              : <><Upload size={14} /> Importer Excel SENELEC</>
+            }
+          </button>
           <button
             onClick={generer}
             disabled={!projet || generating}
@@ -280,7 +455,7 @@ export default function Structuration() {
           >
             {generating
               ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Génération IA…</>
-              : <><Wand2 size={15} /> Générer la structuration (IA)</>
+              : <><Wand2 size={15} /> Générer (IA)</>
             }
           </button>
         </div>

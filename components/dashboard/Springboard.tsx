@@ -11,6 +11,7 @@ import {
   Plus, X, Save, ChevronDown, ChevronRight,
   FileWarning, Zap, BarChart3, Calendar, Flag, Target,
   ArrowUpRight, ArrowDownRight, Minus, Activity,
+  ExternalLink, MapPin, Briefcase, DollarSign, ListChecks,
 } from 'lucide-react';
 import {
   useProjectStore,
@@ -59,6 +60,50 @@ const EMPTY_FORM: IncidentForm = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Demande de ressource UAGL
+// ─────────────────────────────────────────────────────────────────────────────
+type StatutDemandeRessource = 'brouillon' | 'soumis_uagl' | 'uagl_ok' | 'soumis_cab' | 'cab_ok' | 'approuve' | 'rejete';
+type TypeRessource = 'humaine' | 'vehicule' | 'equipement' | 'logistique';
+
+interface DemandeRessource {
+  id: string;
+  projetId: string;
+  projetNom: string;
+  typeRessource: TypeRessource;
+  designation: string;
+  quantite: number;
+  dateDebut: string;
+  dateFin: string;
+  justification: string;
+  statut: StatutDemandeRessource;
+  creePar: string;
+  creeLe: string;
+  uaglCommentaire?: string;
+  cabCommentaire?: string;
+  uaglSource?: string;
+}
+
+const STATUT_RESSOURCE_LABEL: Record<StatutDemandeRessource, string> = {
+  brouillon: 'Brouillon',
+  soumis_uagl: 'Soumis à l\'UAGL',
+  uagl_ok: 'UAGL — Dispo interne vérifiée',
+  soumis_cab: 'Transmis au CAB',
+  cab_ok: 'CAB — Disponibilité confirmée',
+  approuve: 'Approuvé',
+  rejete: 'Rejeté',
+};
+
+const STATUT_RESSOURCE_COLOR: Record<StatutDemandeRessource, string> = {
+  brouillon: '#94A3B8',
+  soumis_uagl: '#3B82F6',
+  uagl_ok: '#0891B2',
+  soumis_cab: '#7C3AED',
+  cab_ok: '#D97706',
+  approuve: '#16A34A',
+  rejete: '#DC2626',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Springboard() {
   const store    = useProjectStore();
   const { user } = useAuth();
@@ -67,6 +112,12 @@ export default function Springboard() {
   const [incForm, setIncForm]         = useState<IncidentForm>(EMPTY_FORM);
   const [expandedInc, setExpandedInc] = useState<string | null>(null);
   const [paForm, setPaForm]           = useState<{ incId: string; synthese: string; proprio: string; date: string } | null>(null);
+  const [detailProjet, setDetailProjet] = useState<Projet | null>(null);
+  const [demandesRessource, setDemandesRessource] = useState<DemandeRessource[]>([]);
+  const [showDemandeForm, setShowDemandeForm] = useState(false);
+  const [demandeForm, setDemandeForm] = useState<Partial<DemandeRessource>>({ typeRessource: 'humaine', quantite: 1 });
+  const isUAGL = user?.role === 'RESP_LOG' || user?.role === 'ADMIN';
+  const isCAB  = user?.email?.includes('abdou.kane') || user?.role === 'ADMIN';
 
   // Filter projects by visibility (store already handles RBAC)
   const projets = store.projets;
@@ -138,6 +189,7 @@ export default function Springboard() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'inherit', background: '#F0F2F5', overflowY: 'auto' }}>
 
       {/* ── HEADER ── */}
@@ -249,7 +301,12 @@ export default function Springboard() {
               const tauxDec = p.budget > 0 ? (p.budgetDecaisse / p.budget) * 100 : 0;
               const tauxEngage = p.budget > 0 ? (p.budgetEngage / p.budget) * 100 : 0;
               return (
-                <div key={p.id} style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <div key={p.id}
+                  onClick={() => setDetailProjet(p)}
+                  style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', gap: 16, alignItems: 'flex-start', cursor: 'pointer', transition: 'box-shadow 0.15s, transform 0.1s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(61,26,107,0.12)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                >
                   {/* RAG indicator */}
                   <div style={{ width: 4, borderRadius: 4, alignSelf: 'stretch', background: rc.color, flexShrink: 0 }} />
 
@@ -325,7 +382,7 @@ export default function Springboard() {
 
       {/* ── TAB: RESSOURCES ── */}
       {tab === 'ressources' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ fontWeight: 800, fontSize: 13, color: NAVY }}>Ressources du projet — Heures hebdomadaires allouées</div>
@@ -389,6 +446,114 @@ export default function Springboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* ── WORKFLOW DEMANDE DE RESSOURCE ── */}
+          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: NAVY }}>Demandes de ressources — Circuit UAGL / CAB</div>
+                <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                  Chef de projet → UAGL (dispo interne) → CAB Abdou KANE (dispo inter-UAGL) → Approuvé
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDemandeForm(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                <Plus size={13} /> Demander une ressource
+              </button>
+            </div>
+
+            {/* Schéma du circuit */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 14, flexWrap: 'wrap', padding: '10px 12px', background: '#F8FAFC', borderRadius: 8 }}>
+              {[
+                { step: '①', label: 'Chef de projet', sub: 'Saisit la demande', color: NAVY },
+                { step: '→', label: '', sub: '', color: '#CBD5E1' },
+                { step: '②', label: 'UAGL', sub: 'Vérifie dispo interne', color: '#0891B2' },
+                { step: '→', label: '', sub: '', color: '#CBD5E1' },
+                { step: '③', label: 'CAB (Abdou KANE)', sub: 'Analyse inter-UAGL', color: '#7C3AED' },
+                { step: '→', label: '', sub: '', color: '#CBD5E1' },
+                { step: '④', label: 'UAGL émetteur', sub: 'Reçoit la ressource', color: '#16A34A' },
+              ].map((s, i) => s.label ? (
+                <div key={i} style={{ textAlign: 'center', minWidth: 90 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: s.color }}>{s.step}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: s.color }}>{s.label}</div>
+                  <div style={{ fontSize: 9, color: '#94A3B8' }}>{s.sub}</div>
+                </div>
+              ) : (
+                <div key={i} style={{ fontSize: 16, color: '#CBD5E1', fontWeight: 700 }}>→</div>
+              ))}
+            </div>
+
+            {/* Liste des demandes */}
+            {demandesRessource.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 12 }}>
+                <Users size={28} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.3 }} />
+                Aucune demande de ressource en cours. Cliquez sur &laquo; Demander une ressource &raquo; pour initier le circuit.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {demandesRessource.map(d => (
+                  <div key={d.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '10px 14px', borderRadius: 8, background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 3 }}>
+                        <span style={{ fontWeight: 700, fontSize: 12, color: NAVY }}>{d.designation}</span>
+                        <span style={{ fontSize: 9, background: '#F1F5F9', color: '#64748B', padding: '1px 6px', borderRadius: 6, fontWeight: 600 }}>{d.typeRessource} × {d.quantite}</span>
+                        <span style={{ fontSize: 9, background: `${STATUT_RESSOURCE_COLOR[d.statut]}15`, color: STATUT_RESSOURCE_COLOR[d.statut], padding: '1px 7px', borderRadius: 6, fontWeight: 700 }}>
+                          {STATUT_RESSOURCE_LABEL[d.statut]}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#64748B' }}>
+                        {d.projetNom} · Du {d.dateDebut} au {d.dateFin}
+                      </div>
+                      {d.justification && <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2, fontStyle: 'italic' }}>{d.justification}</div>}
+                      {d.uaglCommentaire && <div style={{ fontSize: 10, color: '#0891B2', marginTop: 2 }}>UAGL : {d.uaglCommentaire}</div>}
+                      {d.cabCommentaire && <div style={{ fontSize: 10, color: '#7C3AED', marginTop: 2 }}>CAB : {d.cabCommentaire}</div>}
+                    </div>
+                    {/* Actions selon le rôle et le statut */}
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {isUAGL && d.statut === 'soumis_uagl' && (
+                        <>
+                          <button onClick={() => setDemandesRessource(prev => prev.map(r => r.id === d.id ? { ...r, statut: 'uagl_ok', uaglCommentaire: 'Disponibilité interne insuffisante — transmis au CAB' } : r))}
+                            style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#DBEAFE', color: '#1D4ED8', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                            Pas dispo → CAB
+                          </button>
+                          <button onClick={() => setDemandesRessource(prev => prev.map(r => r.id === d.id ? { ...r, statut: 'approuve', uaglCommentaire: 'Ressource disponible en interne' } : r))}
+                            style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#D1FAE5', color: '#065F46', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                            Dispo interne ✓
+                          </button>
+                        </>
+                      )}
+                      {isUAGL && d.statut === 'uagl_ok' && (
+                        <button onClick={() => setDemandesRessource(prev => prev.map(r => r.id === d.id ? { ...r, statut: 'soumis_cab' } : r))}
+                          style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#EDE9FE', color: '#5B21B6', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                          Transmettre au CAB
+                        </button>
+                      )}
+                      {isCAB && d.statut === 'soumis_cab' && (
+                        <>
+                          <button onClick={() => setDemandesRessource(prev => prev.map(r => r.id === d.id ? { ...r, statut: 'cab_ok', cabCommentaire: 'Ressource disponible dans UAGL Dakar — affectation confirmée', uaglSource: 'UAGL Dakar' } : r))}
+                            style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                            Trouver & Valider
+                          </button>
+                          <button onClick={() => setDemandesRessource(prev => prev.map(r => r.id === d.id ? { ...r, statut: 'rejete', cabCommentaire: 'Ressource indisponible sur l\'ensemble du réseau UAGL' } : r))}
+                            style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#FEE2E2', color: '#991B1B', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                            Indisponible
+                          </button>
+                        </>
+                      )}
+                      {isUAGL && d.statut === 'cab_ok' && (
+                        <button onClick={() => setDemandesRessource(prev => prev.map(r => r.id === d.id ? { ...r, statut: 'approuve' } : r))}
+                          style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#D1FAE5', color: '#065F46', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                          Confirmer réception ✓
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -570,5 +735,234 @@ export default function Springboard() {
       )}
 
     </div>
+    {/* ── MODAL DEMANDE RESSOURCE ── */}
+    {showDemandeForm && (
+      <div onClick={() => setShowDemandeForm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 8900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+          <div style={{ background: NAVY, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>Nouvelle demande de ressource</div>
+            <button onClick={() => setShowDemandeForm(false)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 14 }}>×</button>
+          </div>
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ background: '#F0F9FF', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#0369A1' }}>
+              📋 Votre demande sera soumise à l'UAGL qui vérifiera la disponibilité en interne. En cas d'indisponibilité, le CAB (Abdou KANE) analysera les disponibilités dans les autres UAGL.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>PROJET *</label>
+                <select value={demandeForm.projetId || ''} onChange={e => setDemandeForm(f => ({ ...f, projetId: e.target.value, projetNom: projets.find(p => p.id === e.target.value)?.nom || '' }))}
+                  style={{ ...inp, width: '100%' }}>
+                  <option value="">Sélectionner…</option>
+                  {projets.map(p => <option key={p.id} value={p.id}>{p.code}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>TYPE DE RESSOURCE *</label>
+                <select value={demandeForm.typeRessource || 'humaine'} onChange={e => setDemandeForm(f => ({ ...f, typeRessource: e.target.value as TypeRessource }))}
+                  style={{ ...inp, width: '100%' }}>
+                  <option value="humaine">Ressource humaine</option>
+                  <option value="vehicule">Véhicule</option>
+                  <option value="equipement">Équipement / matériel</option>
+                  <option value="logistique">Logistique / autre</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>DÉSIGNATION *</label>
+                <input value={demandeForm.designation || ''} onChange={e => setDemandeForm(f => ({ ...f, designation: e.target.value }))}
+                  placeholder="Ex : Ingénieur électricité HTA, Véhicule 4×4, Groupe électrogène…" style={{ ...inp, width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>QUANTITÉ</label>
+                <input type="number" min={1} value={demandeForm.quantite || 1} onChange={e => setDemandeForm(f => ({ ...f, quantite: Number(e.target.value) }))}
+                  style={{ ...inp, width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>DATE DE DÉBUT *</label>
+                <input type="date" value={demandeForm.dateDebut || ''} onChange={e => setDemandeForm(f => ({ ...f, dateDebut: e.target.value }))} style={{ ...inp, width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>DATE DE FIN *</label>
+                <input type="date" value={demandeForm.dateFin || ''} onChange={e => setDemandeForm(f => ({ ...f, dateFin: e.target.value }))} style={{ ...inp, width: '100%' }} />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>JUSTIFICATION</label>
+                <textarea value={demandeForm.justification || ''} onChange={e => setDemandeForm(f => ({ ...f, justification: e.target.value }))}
+                  rows={2} placeholder="Décrire le besoin et l'urgence…"
+                  style={{ ...inp, width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
+              <button onClick={() => setShowDemandeForm(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Annuler</button>
+              <button
+                disabled={!demandeForm.designation?.trim() || !demandeForm.projetId}
+                onClick={() => {
+                  const now = new Date().toLocaleDateString('fr-FR');
+                  const id = `DR-${Date.now()}`;
+                  setDemandesRessource(prev => [...prev, {
+                    id, projetId: demandeForm.projetId!, projetNom: demandeForm.projetNom || '',
+                    typeRessource: demandeForm.typeRessource as TypeRessource, designation: demandeForm.designation!,
+                    quantite: demandeForm.quantite || 1, dateDebut: demandeForm.dateDebut || '', dateFin: demandeForm.dateFin || '',
+                    justification: demandeForm.justification || '', statut: 'soumis_uagl',
+                    creePar: user ? `${user.prenom} ${user.nom}` : 'Utilisateur', creeLe: now,
+                  }]);
+                  setDemandeForm({ typeRessource: 'humaine', quantite: 1 });
+                  setShowDemandeForm(false);
+                  setTab('ressources');
+                }}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: !demandeForm.designation?.trim() || !demandeForm.projetId ? 0.5 : 1 }}
+              >
+                Soumettre à l'UAGL
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── MODAL DÉTAIL PROJET ── */}
+    {detailProjet && (() => {
+      const p = detailProjet;
+      const rag = p.statutGlobal ?? calculerStatutGlobal({ cpi: p.cpi, spi: p.spi, avancement: p.avancement, avancementPlanifie: p.avancementPlanifie });
+      const rc = ragColor(rag);
+      const tauxDec = p.budget > 0 ? (p.budgetDecaisse / p.budget) * 100 : 0;
+      const tauxEngage = p.budget > 0 ? (p.budgetEngage / p.budget) * 100 : 0;
+      const jalonsAtteints = p.jalons.filter(j => j.atteint).length;
+      const incidents = (p.incidents ?? []).filter(i => i.statut !== 'Ferme' && i.statut !== 'Resolu');
+      return (
+        <div
+          onClick={() => setDetailProjet(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 720, maxHeight: '88vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column' }}
+          >
+            {/* Header */}
+            <div style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, ${NAVY} 100%)`, padding: '18px 24px', borderRadius: '16px 16px 0 0', position: 'relative' }}>
+              <button onClick={() => setDetailProjet(null)} style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', fontSize: 16, display: 'grid', placeItems: 'center' }}>×</button>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{p.code}</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', lineHeight: 1.3, marginBottom: 6, paddingRight: 32 }}>{p.nom}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ background: rc.bg, color: rc.color, border: `1px solid ${rc.border}`, borderRadius: 10, padding: '2px 10px', fontSize: 10, fontWeight: 800 }}>{rc.label}</span>
+                {p.bailleurs?.[0]?.nom && <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 10, padding: '2px 10px', fontSize: 10, fontWeight: 600 }}>Bailleur : {p.bailleurs?.[0]?.nom}</span>}
+                {p.domaine && <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 10, padding: '2px 10px', fontSize: 10, fontWeight: 600 }}>{p.domaine}</span>}
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+              {/* KPIs row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+                {[
+                  { icon: <TrendingUp size={14} />, label: 'Avancement', value: `${p.avancement}%`, sub: `Cible ${p.avancementPlanifie}%`, color: NAVY },
+                  { icon: <Activity size={14} />, label: 'CPI', value: p.cpi.toFixed(2), sub: p.cpi >= 1 ? '✓ Dans les coûts' : '⚠ Dépassement', color: p.cpi >= 1 ? '#16A34A' : '#DC2626' },
+                  { icon: <Clock size={14} />, label: 'SPI', value: p.spi.toFixed(2), sub: p.spi >= 1 ? '✓ Dans les délais' : '⚠ Retard', color: p.spi >= 1 ? '#16A34A' : '#DC2626' },
+                  { icon: <DollarSign size={14} />, label: 'Décaissé', value: `${tauxDec.toFixed(0)}%`, sub: fmtM(p.budgetDecaisse), color: ORANGE },
+                  { icon: <Flag size={14} />, label: 'Jalons', value: `${jalonsAtteints}/${p.jalons.length}`, sub: `${p.jalons.length - jalonsAtteints} restants`, color: '#7C3AED' },
+                  { icon: <AlertTriangle size={14} />, label: 'Incidents', value: String(incidents.length), sub: incidents.filter(i => i.priorite === 'Urgente').length > 0 ? `${incidents.filter(i => i.priorite === 'Urgente').length} urgents` : 'Aucun urgent', color: incidents.length > 0 ? '#DC2626' : '#16A34A' },
+                ].map((k, i) => (
+                  <div key={i} style={{ background: '#F8FAFC', borderRadius: 10, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, color: k.color }}>{k.icon}<span style={{ fontSize: 9, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{k.label}</span></div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: k.color }}>{k.value}</div>
+                    <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1 }}>{k.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Barres avancement */}
+              <div style={{ background: '#F8FAFC', borderRadius: 10, padding: '12px 16px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', marginBottom: 8, textTransform: 'uppercase' }}>Avancement physique</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { label: 'Cible planifiée', pct: p.avancementPlanifie, color: '#CBD5E1' },
+                    { label: 'Réel', pct: p.avancement, color: p.avancement >= p.avancementPlanifie ? '#16A34A' : ORANGE },
+                    { label: 'Budget décaissé', pct: tauxDec, color: ORANGE },
+                    { label: 'Budget engagé', pct: tauxEngage, color: '#3B82F6' },
+                  ].map(b => (
+                    <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#64748B', width: 110, flexShrink: 0 }}>{b.label}</span>
+                      <div style={{ flex: 1, height: 7, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ height: 7, width: `${Math.min(b.pct, 100)}%`, background: b.color, borderRadius: 4, transition: 'width 0.4s' }} />
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#374151', width: 32, textAlign: 'right' }}>{b.pct.toFixed(0)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Infos */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {[
+                  { icon: <Briefcase size={12} />, label: 'Chef de projet', value: p.chefProjet },
+                  { icon: <MapPin size={12} />, label: 'Budget total', value: fmtM(p.budget) },
+                  { icon: <Calendar size={12} />, label: 'Début', value: new Date(p.dateDebut).toLocaleDateString('fr-FR') },
+                  { icon: <Calendar size={12} />, label: 'Fin prévue', value: new Date(p.dateFinPrevue).toLocaleDateString('fr-FR') },
+                  ...(p.bailleurs?.[0]?.nom ? [{ icon: <Target size={12} />, label: 'Bailleur', value: p.bailleurs?.[0]?.nom }] : []),
+                  ...(p.domaine ? [{ icon: <Users size={12} />, label: 'Domaine', value: p.domaine }] : []),
+                ].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#F8FAFC', borderRadius: 8, padding: '8px 12px' }}>
+                    <span style={{ color: NAVY, marginTop: 1 }}>{item.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 1 }}>{item.label}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{item.value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Jalons récents */}
+              {p.jalons.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <ListChecks size={12} style={{ color: ORANGE }} /> Jalons ({jalonsAtteints}/{p.jalons.length} atteints)
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {p.jalons.slice(0, 6).map((j, ji) => {
+                      const dLeft = Math.ceil((new Date(j.date).getTime() - Date.now()) / 86400000);
+                      return (
+                        <div key={ji} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 7, background: j.atteint ? '#F0FDF4' : dLeft < 0 ? '#FEE2E2' : '#F0F9FF', border: `1px solid ${j.atteint ? '#BBF7D0' : dLeft < 0 ? '#FCA5A5' : '#BAE6FD'}` }}>
+                          <span style={{ color: j.atteint ? '#16A34A' : dLeft < 0 ? '#DC2626' : '#0369A1' }}>{j.atteint ? <CheckCircle2 size={12} /> : dLeft < 0 ? <AlertTriangle size={12} /> : <Clock size={12} />}</span>
+                          <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: '#1E293B' }}>{j.label}</span>
+                          <span style={{ fontSize: 10, color: '#64748B' }}>{new Date(j.date).toLocaleDateString('fr-FR')}</span>
+                          {!j.atteint && <span style={{ fontSize: 9, fontWeight: 700, color: dLeft < 0 ? '#DC2626' : '#0369A1' }}>{dLeft < 0 ? `Échu ${Math.abs(dLeft)}j` : `J-${dLeft}`}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Incidents ouverts */}
+              {incidents.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <AlertTriangle size={12} style={{ color: '#DC2626' }} /> Incidents ouverts ({incidents.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {incidents.slice(0, 4).map(inc => (
+                      <div key={inc.id} style={{ display: 'flex', gap: 8, padding: '6px 10px', borderRadius: 7, background: inc.priorite === 'Urgente' ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${inc.priorite === 'Urgente' ? '#FCA5A5' : '#FDE68A'}` }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: inc.priorite === 'Urgente' ? '#DC2626' : '#92400E', flexShrink: 0 }}>{inc.priorite}</span>
+                        <span style={{ fontSize: 11, color: '#1E293B', flex: 1 }}>{inc.synthese}</span>
+                        <span style={{ fontSize: 9, color: '#94A3B8', flexShrink: 0 }}>{inc.statut}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bouton navigation */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
+                <a href="/gestion-projet" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: PURPLE, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                  <ExternalLink size={13} /> Ouvrir dans Gestion de Projet
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+    </>
   );
 }
+
