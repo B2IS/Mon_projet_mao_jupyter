@@ -20,6 +20,8 @@ import {
 import { useProjectStore } from '@/lib/projectStore';
 import { useImmobilisationStore, amortissementCumule, valeurNetteComptable } from '@/lib/immobilisationStore';
 import { useTimesheetStore } from '@/lib/timesheetStore';
+import { usePointage, totalHeures, totalHeuresPonderees } from '@/lib/pointageStore';
+import { useProgrammeStore } from '@/lib/programmeStore';
 import { COURRIERS, ALERTES_WORKFLOW } from '@/lib/data';
 import { DPE_EFFECTIF } from '@/lib/authStore';
 import { useTranslation } from '@/lib/i18n/I18nContext';
@@ -114,6 +116,8 @@ export default function ConstructeurIndicateurs() {
   const { indicators, add, update, remove, seedTemplates } = useIndicatorStore();
   const immobilisations = useImmobilisationStore(s => s.immobilisations);
   const tsEntries = useTimesheetStore(s => s.entries);
+  const bulletins = usePointage(s => s.bulletins);
+  const programmes = useProgrammeStore(s => s.programmes);
 
   // ── Import « toutes les données de l'application » : métriques globales ──
   // Activable par l'utilisateur ; une fois importées, les variables (MAJUSCULES)
@@ -123,8 +127,10 @@ export default function ConstructeurIndicateurs() {
 
   const appVarDefs = useMemo<AppVarDef[]>(() => {
     const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
+    const avg = (arr: number[]) => arr.length ? sum(arr) / arr.length : 0;
     const now = new Date();
-    // Portefeuille projets (tout le périmètre visible, indépendamment de la sélection)
+
+    // ── Portefeuille projets ────────────────────────────────────────────────
     const pf = {
       NB_PROJETS:        projets.length,
       BUDGET_TOTAL:      sum(projets.map(p => p.budget)),
@@ -134,37 +140,96 @@ export default function ConstructeurIndicateurs() {
       NB_PROJETS_TERMINE:projets.filter(p => p.statut === 'termine').length,
       NB_PROJETS_ACTIF:  projets.filter(p => p.statut === 'en_cours').length,
     };
-    // Immobilisations
-    const immoVnc = sum(immobilisations.map(i => valeurNetteComptable(i, now)));
+
+    // ── Immobilisations ─────────────────────────────────────────────────────
+    const immoVnc   = sum(immobilisations.map(i => valeurNetteComptable(i, now)));
     const immoCumul = sum(immobilisations.map(i => amortissementCumule(i, now)));
-    // RH / Feuilles de temps
+
+    // ── RH / Feuilles de temps ──────────────────────────────────────────────
     const rhHeures = sum(tsEntries.map(e => e.heures));
-    const rhCout = sum(tsEntries.map(e => e.coutCalcule ?? 0));
-    // Courriers & alertes (données applicatives)
+    const rhCout   = sum(tsEntries.map(e => e.coutCalcule ?? 0));
+
+    // ── Marchés (issues des champs montantMarche / passationMarches) ────────
+    const projAvecMarche = projets.filter(p => p.montantMarche != null);
+    const marcheTotal    = sum(projAvecMarche.map(p => p.montantMarche ?? 0));
+    const marchesAttrib  = projAvecMarche.filter(p => (p.passationMarches?.attributionDefinitive ?? 0) >= 100).length;
+    const marchesSigne   = projAvecMarche.filter(p => (p.passationMarches?.signatureContrat ?? 0) >= 100).length;
+    const tauxPassation  = projAvecMarche.length
+      ? avg(projAvecMarche.map(p => p.passationMarches?.signatureContrat ?? 0))
+      : 0;
+
+    // ── HSE / PGES / PAR (champ hse optionnel du projet) ───────────────────
+    const projHSE       = projets.filter(p => p.hse != null);
+    const hseAnomalies  = sum(projHSE.map(p => p.hse!.nbAnomalies));
+    const hsePGES       = projHSE.length ? avg(projHSE.map(p => p.hse!.tauxRealisationPGES)) : 0;
+    const hsePAR        = projHSE.length ? avg(projHSE.map(p => p.hse!.tauxRealisationPAR))  : 0;
+
+    // ── Qualité (champ qualite optionnel du projet) ──────────────────────────
+    const projQualite  = projets.filter(p => p.qualite != null);
+    const nonConf      = sum(projQualite.map(p => p.qualite!.nbNonConformites));
+    const controles    = sum(projQualite.map(p => p.qualite!.nbControles));
+
+    // ── Pointage / UAGL (bulletins heures supplémentaires) ─────────────────
+    const bulletinsValides = bulletins.filter(b => b.statut === 'valide_uagl').length;
+    const heuresPonderees  = sum(bulletins.map(b => totalHeuresPonderees(b)));
+    const heuresBrutes     = sum(bulletins.map(b => totalHeures(b)));
+
+    // ── Programmes ──────────────────────────────────────────────────────────
+    const nbProgActifs = programmes.filter(p => p.statut === 'actif').length;
+
+    // ── Courriers & alertes ─────────────────────────────────────────────────
     const courriersEnAttente = COURRIERS.filter(c => c.statut === 'recu' || c.statut === 'en_cours_traitement' || c.statut === 'en_attente_visa').length;
-    const alertesNouvelles = ALERTES_WORKFLOW.filter(a => a.statut === 'nouvelle').length;
+    const alertesNouvelles   = ALERTES_WORKFLOW.filter(a => a.statut === 'nouvelle').length;
+    const alertesCritiques   = ALERTES_WORKFLOW.filter(a => a.priorite === 'critique').length;
 
     return [
-      { key: 'NB_PROJETS',         fr: 'Nombre de projets (total)',       en: 'Total projects',            unit: 'number',  value: pf.NB_PROJETS,        group: 'Portefeuille' },
-      { key: 'BUDGET_TOTAL',       fr: 'Budget total portefeuille',       en: 'Total portfolio budget',    unit: 'fcfa',    value: pf.BUDGET_TOTAL,      group: 'Portefeuille' },
-      { key: 'BUDGET_ENGAGE',      fr: 'Budget engagé (total)',           en: 'Total committed budget',    unit: 'fcfa',    value: pf.BUDGET_ENGAGE,     group: 'Portefeuille' },
-      { key: 'BUDGET_DECAISSE',    fr: 'Budget décaissé (total)',         en: 'Total disbursed budget',    unit: 'fcfa',    value: pf.BUDGET_DECAISSE,   group: 'Portefeuille' },
-      { key: 'NB_PROJETS_RETARD',  fr: 'Projets en retard',               en: 'Delayed projects',          unit: 'number',  value: pf.NB_PROJETS_RETARD, group: 'Portefeuille' },
-      { key: 'NB_PROJETS_TERMINE', fr: 'Projets terminés',                en: 'Completed projects',        unit: 'number',  value: pf.NB_PROJETS_TERMINE,group: 'Portefeuille' },
-      { key: 'NB_PROJETS_ACTIF',   fr: 'Projets en cours',                en: 'Active projects',           unit: 'number',  value: pf.NB_PROJETS_ACTIF,  group: 'Portefeuille' },
-      { key: 'IMMO_NB',            fr: 'Nombre d\'immobilisations',       en: 'Assets count',              unit: 'number',  value: immobilisations.length, group: 'Immobilisations' },
-      { key: 'IMMO_VALEUR_BRUTE',  fr: 'Valeur brute immobilisations',    en: 'Gross asset value',         unit: 'fcfa',    value: sum(immobilisations.map(i => i.valeurAcquisition)), group: 'Immobilisations' },
-      { key: 'IMMO_VNC',           fr: 'Valeur nette comptable (VNC)',    en: 'Net book value',            unit: 'fcfa',    value: immoVnc,              group: 'Immobilisations' },
-      { key: 'IMMO_AMORT_CUMUL',   fr: 'Amortissements cumulés',          en: 'Accumulated depreciation',  unit: 'fcfa',    value: immoCumul,            group: 'Immobilisations' },
-      { key: 'RH_NB_SAISIES',      fr: 'Saisies de temps (RH)',           en: 'Timesheet entries',         unit: 'number',  value: tsEntries.length,     group: 'RH / Temps' },
-      { key: 'RH_HEURES_TOTAL',    fr: 'Heures saisies (total)',          en: 'Total logged hours',        unit: 'number',  value: rhHeures,             group: 'RH / Temps' },
-      { key: 'RH_COUT_TOTAL',      fr: 'Coût RH calculé (total)',         en: 'Total computed labor cost', unit: 'fcfa',    value: rhCout / 1_000_000,   group: 'RH / Temps' },
-      { key: 'COURRIERS_NB',       fr: 'Courriers (total)',               en: 'Mail items',                unit: 'number',  value: COURRIERS.length,     group: 'Courriers & Alertes' },
-      { key: 'COURRIERS_EN_ATTENTE',fr: 'Courriers en attente',          en: 'Pending mail',              unit: 'number',  value: courriersEnAttente,   group: 'Courriers & Alertes' },
-      { key: 'ALERTES_NOUVELLES',  fr: 'Alertes nouvelles',               en: 'New alerts',                unit: 'number',  value: alertesNouvelles,     group: 'Courriers & Alertes' },
-      { key: 'EFFECTIF_DPE',       fr: 'Effectif total DPE',              en: 'Total DPE headcount',       unit: 'number',  value: DPE_EFFECTIF.total,   group: 'Organisation' },
+      // Portefeuille
+      { key: 'NB_PROJETS',          fr: 'Nombre de projets (total)',        en: 'Total projects',              unit: 'number',  value: pf.NB_PROJETS,          group: 'Portefeuille' },
+      { key: 'BUDGET_TOTAL',        fr: 'Budget total portefeuille',        en: 'Total portfolio budget',      unit: 'fcfa',    value: pf.BUDGET_TOTAL,        group: 'Portefeuille' },
+      { key: 'BUDGET_ENGAGE',       fr: 'Budget engagé (total)',            en: 'Total committed budget',      unit: 'fcfa',    value: pf.BUDGET_ENGAGE,       group: 'Portefeuille' },
+      { key: 'BUDGET_DECAISSE',     fr: 'Budget décaissé (total)',          en: 'Total disbursed budget',      unit: 'fcfa',    value: pf.BUDGET_DECAISSE,     group: 'Portefeuille' },
+      { key: 'NB_PROJETS_RETARD',   fr: 'Projets en retard',                en: 'Delayed projects',            unit: 'number',  value: pf.NB_PROJETS_RETARD,   group: 'Portefeuille' },
+      { key: 'NB_PROJETS_TERMINE',  fr: 'Projets terminés',                 en: 'Completed projects',          unit: 'number',  value: pf.NB_PROJETS_TERMINE,  group: 'Portefeuille' },
+      { key: 'NB_PROJETS_ACTIF',    fr: 'Projets en cours',                 en: 'Active projects',             unit: 'number',  value: pf.NB_PROJETS_ACTIF,    group: 'Portefeuille' },
+      // Marchés
+      { key: 'MARCHE_NB_PROJETS',   fr: 'Projets avec marché',              en: 'Projects with contract',      unit: 'number',  value: projAvecMarche.length,  group: 'Marchés' },
+      { key: 'MARCHE_MONTANT_TOTAL',fr: 'Montant total marchés (M FCFA)',   en: 'Total contract amount',       unit: 'fcfa',    value: marcheTotal,            group: 'Marchés' },
+      { key: 'MARCHE_NB_ATTRIB',    fr: 'Marchés attribués définitivement', en: 'Definitively awarded',        unit: 'number',  value: marchesAttrib,          group: 'Marchés' },
+      { key: 'MARCHE_NB_SIGNES',    fr: 'Marchés signés',                   en: 'Signed contracts',            unit: 'number',  value: marchesSigne,           group: 'Marchés' },
+      { key: 'MARCHE_TAUX_PASSATION',fr: 'Taux moyen passation (%)',        en: 'Avg. procurement completion', unit: 'percent', value: tauxPassation,          group: 'Marchés' },
+      // HSE / PGES / PAR
+      { key: 'HSE_NB_ANOMALIES',    fr: 'Anomalies HSE (total)',            en: 'HSE anomalies (total)',        unit: 'number',  value: hseAnomalies,           group: 'HSE / PGES / PAR' },
+      { key: 'HSE_TAUX_PGES',       fr: 'Taux réalisation PGES (%)',        en: 'ESMP completion rate',         unit: 'percent', value: hsePGES,                group: 'HSE / PGES / PAR' },
+      { key: 'HSE_TAUX_PAR',        fr: 'Taux réalisation PAR (%)',         en: 'RAP completion rate',          unit: 'percent', value: hsePAR,                 group: 'HSE / PGES / PAR' },
+      // Qualité
+      { key: 'QUALITE_NON_CONF',    fr: 'Non-conformités qualité',          en: 'Quality non-conformances',    unit: 'number',  value: nonConf,                group: 'Qualité' },
+      { key: 'QUALITE_CONTROLES',   fr: 'Contrôles effectués',              en: 'Quality checks performed',    unit: 'number',  value: controles,              group: 'Qualité' },
+      // Pointage / UAGL
+      { key: 'POINTAGE_NB_BULLETINS',fr: 'Bulletins heures supp. (total)', en: 'Overtime bulletins (total)',   unit: 'number',  value: bulletins.length,       group: 'Pointage / UAGL' },
+      { key: 'POINTAGE_NB_VALIDES', fr: 'Bulletins validés UAGL',          en: 'UAGL-validated bulletins',    unit: 'number',  value: bulletinsValides,       group: 'Pointage / UAGL' },
+      { key: 'POINTAGE_HEURES_POND',fr: 'Heures pondérées (total)',         en: 'Weighted hours (total)',       unit: 'number',  value: heuresPonderees,        group: 'Pointage / UAGL' },
+      { key: 'POINTAGE_HEURES_BRUT',fr: 'Heures brutes (total)',            en: 'Raw hours (total)',            unit: 'number',  value: heuresBrutes,           group: 'Pointage / UAGL' },
+      // Programmes
+      { key: 'PROG_NB_TOTAL',       fr: 'Programmes (total)',               en: 'Programmes (total)',           unit: 'number',  value: programmes.length,      group: 'Programmes' },
+      { key: 'PROG_NB_ACTIFS',      fr: 'Programmes actifs',                en: 'Active programmes',            unit: 'number',  value: nbProgActifs,           group: 'Programmes' },
+      // Immobilisations
+      { key: 'IMMO_NB',             fr: 'Nombre d\'immobilisations',        en: 'Assets count',                unit: 'number',  value: immobilisations.length, group: 'Immobilisations' },
+      { key: 'IMMO_VALEUR_BRUTE',   fr: 'Valeur brute immobilisations',     en: 'Gross asset value',           unit: 'fcfa',    value: sum(immobilisations.map(i => i.valeurAcquisition)), group: 'Immobilisations' },
+      { key: 'IMMO_VNC',            fr: 'Valeur nette comptable (VNC)',     en: 'Net book value',              unit: 'fcfa',    value: immoVnc,                group: 'Immobilisations' },
+      { key: 'IMMO_AMORT_CUMUL',    fr: 'Amortissements cumulés',           en: 'Accumulated depreciation',    unit: 'fcfa',    value: immoCumul,              group: 'Immobilisations' },
+      // RH / Temps
+      { key: 'RH_NB_SAISIES',       fr: 'Saisies de temps (RH)',            en: 'Timesheet entries',            unit: 'number',  value: tsEntries.length,       group: 'RH / Temps' },
+      { key: 'RH_HEURES_TOTAL',     fr: 'Heures saisies (total)',           en: 'Total logged hours',           unit: 'number',  value: rhHeures,               group: 'RH / Temps' },
+      { key: 'RH_COUT_TOTAL',       fr: 'Coût RH calculé (total)',          en: 'Total computed labor cost',    unit: 'fcfa',    value: rhCout / 1_000_000,     group: 'RH / Temps' },
+      // Courriers & Alertes
+      { key: 'COURRIERS_NB',        fr: 'Courriers (total)',                 en: 'Mail items',                  unit: 'number',  value: COURRIERS.length,       group: 'Courriers & Alertes' },
+      { key: 'COURRIERS_EN_ATTENTE',fr: 'Courriers en attente',             en: 'Pending mail',                unit: 'number',  value: courriersEnAttente,     group: 'Courriers & Alertes' },
+      { key: 'ALERTES_NOUVELLES',   fr: 'Alertes nouvelles',                en: 'New alerts',                  unit: 'number',  value: alertesNouvelles,       group: 'Courriers & Alertes' },
+      { key: 'ALERTES_CRITIQUES',   fr: 'Alertes critiques',                en: 'Critical alerts',              unit: 'number',  value: alertesCritiques,       group: 'Courriers & Alertes' },
+      // Organisation
+      { key: 'EFFECTIF_DPE',        fr: 'Effectif total DPE',               en: 'Total DPE headcount',          unit: 'number',  value: DPE_EFFECTIF.total,     group: 'Organisation' },
     ];
-  }, [projets, immobilisations, tsEntries]);
+  }, [projets, immobilisations, tsEntries, bulletins, programmes]);
 
   // Map NOM → valeur, passée à l'évaluateur (uniquement si l'import est actif).
   const appVars = useMemo<Record<string, number>>(() => {
