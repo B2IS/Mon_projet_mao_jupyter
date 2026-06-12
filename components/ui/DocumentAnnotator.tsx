@@ -3,7 +3,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   X, MessageSquarePlus, Highlighter, StickyNote, MousePointer2,
   Pen, Trash2, Download, Save, ZoomIn, ZoomOut, Type,
-  CheckCircle,
+  CheckCircle, Check, XCircle, Clock, ChevronRight, ChevronLeft,
+  ListChecks,
 } from 'lucide-react';
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -34,6 +35,8 @@ export interface AnnotatedDoc {
 
 type Tool = 'select' | 'comment' | 'highlight' | 'note' | 'text' | 'pen';
 
+type RevisionStatut = 'pending' | 'accepted' | 'rejected';
+
 interface Annotation {
   id: string;
   type: Tool;
@@ -44,7 +47,14 @@ interface Annotation {
   author: string;
   at: string;
   points?: { x: number; y: number }[]; // chemins SVG stylo
+  statut?: RevisionStatut;        // mode révision Word
 }
+
+const REVISION_CFG: Record<RevisionStatut, { label: string; bg: string; fg: string; dot: string }> = {
+  pending:  { label: 'En attente', bg: '#FFFBEB', fg: '#92400E', dot: '#F59E0B' },
+  accepted: { label: 'Accepté',    bg: '#F0FDF4', fg: '#15803D', dot: '#22C55E' },
+  rejected: { label: 'Rejeté',     bg: '#FFF1F2', fg: '#B91C1C', dot: '#EF4444' },
+};
 
 const TOOLS: { id: Tool; Icon: typeof MousePointer2; label: string; hint: string }[] = [
   { id: 'select',    Icon: MousePointer2,    label: 'Sélection', hint: 'Cliquez une annotation pour l\'éditer / faire défiler le document' },
@@ -94,6 +104,19 @@ export default function DocumentAnnotator({
   });
   const [activeId, setActiveId]       = useState<string | null>(null);
   const [saved, setSaved]             = useState(false);
+  const [showRevisions, setShowRevisions] = useState(false);
+
+  /* Helpers mode révision */
+  const setStatut = useCallback((id: string, statut: RevisionStatut) => {
+    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, statut } : a));
+  }, []);
+  const acceptAll = useCallback(() => {
+    setAnnotations(prev => prev.map(a => ({ ...a, statut: 'accepted' as RevisionStatut })));
+  }, []);
+  const rejectAll = useCallback(() => {
+    setAnnotations(prev => prev.map(a => ({ ...a, statut: 'rejected' as RevisionStatut })));
+  }, []);
+  const pendingCount = annotations.filter(a => !a.statut || a.statut === 'pending').length;
 
   /* Refs pour le dessin temps-réel */
   const pageRef   = useRef<HTMLDivElement>(null);
@@ -149,7 +172,7 @@ export default function DocumentAnnotator({
       /* comment / note / text → place immédiatement */
       const ann: Annotation = {
         id: newId(), type: tool, x: p.x, y: p.y,
-        text: '', color, author, at: nowLabel(),
+        text: '', color, author, at: nowLabel(), statut: 'pending',
       };
       setAnnotations(prev => [...prev, ann]);
       setActiveId(ann.id);
@@ -210,7 +233,7 @@ export default function DocumentAnnotator({
       if (pts.length > 1) {
         setAnnotations(prev => [...prev, {
           id: newId(), type: 'pen', x: 0, y: 0,
-          points: pts, color, author, at: nowLabel(),
+          points: pts, color, author, at: nowLabel(), statut: 'pending',
         }]);
         setSaved(false);
       }
@@ -223,7 +246,7 @@ export default function DocumentAnnotator({
           id: newId(), type: 'highlight',
           x: Math.min(startPct.x, p.x), y: Math.min(startPct.y, p.y),
           w, h: Math.max(h, 1.5),
-          color, author, at: nowLabel(), text: '',
+          color, author, at: nowLabel(), text: '', statut: 'pending',
         }]);
         setSaved(false);
       }
@@ -306,6 +329,14 @@ export default function DocumentAnnotator({
         <button onClick={exportNotes} style={{ ...darkBtn, padding: '7px 12px', gap: 6, display: 'flex', alignItems: 'center', border: '1px solid #334155', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>
           <Download size={13} /> Annotations
         </button>
+        <button onClick={() => setShowRevisions(v => !v)} title="Panneau révisions (mode Word)" style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
+          borderRadius: 7, border: '1px solid #334155', cursor: 'pointer', fontFamily: 'inherit',
+          background: showRevisions ? '#1B4F8A' : 'transparent', color: showRevisions ? '#fff' : '#CBD5E1',
+          fontSize: 12, fontWeight: 600,
+        }}>
+          <ListChecks size={13} /> Révisions {pendingCount > 0 && <span style={{ background: '#F59E0B', color: '#000', borderRadius: 10, padding: '0 5px', fontSize: 10 }}>{pendingCount}</span>}
+        </button>
         <button onClick={onClose} title="Fermer" style={{ ...darkBtn, padding: 8, marginLeft: 4 }}><X size={18} /></button>
       </div>
 
@@ -342,7 +373,7 @@ export default function DocumentAnnotator({
         </div>
       </div>
 
-      {/* ── Corps : document + panneau latéral ── */}
+      {/* ── Corps : document + panneau révisions ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* Zone document */}
@@ -443,26 +474,63 @@ export default function DocumentAnnotator({
           </div>
         </div>
 
-        {/* ── Panneau annotations ── */}
+        {/* ── Panneau annotations / révisions ── */}
         <aside style={{
-          width: 280, background: '#0F172A', color: '#fff',
+          width: 300, background: '#0F172A', color: '#fff',
           flexShrink: 0, display: 'flex', flexDirection: 'column',
           borderLeft: '1px solid #1E293B',
         }}>
+          {/* En-tête panneau */}
           <div style={{
-            padding: '12px 16px', borderBottom: '1px solid #1E293B',
-            fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: '0.07em', color: '#64748B',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', borderBottom: '1px solid #1E293B',
+            display: 'flex', flexDirection: 'column', gap: 6,
           }}>
-            <span>Annotations ({annotations.length})</span>
-            {annotations.length > 0 && (
-              <button onClick={() => { setAnnotations([]); setActiveId(null); setSaved(false); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', fontSize: 10, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <Trash2 size={11} /> Tout supprimer
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748B' }}>
+                {showRevisions ? `Révisions (${annotations.length})` : `Annotations (${annotations.length})`}
+              </span>
+              {annotations.length > 0 && !showRevisions && (
+                <button onClick={() => { setAnnotations([]); setActiveId(null); setSaved(false); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', fontSize: 10, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <Trash2 size={11} /> Supprimer tout
+                </button>
+              )}
+            </div>
+            {/* Boutons Accept/Reject All — mode révision uniquement */}
+            {showRevisions && annotations.length > 0 && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={acceptAll} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '5px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                  background: '#15803D', color: '#fff', fontSize: 11, fontWeight: 700,
+                }}>
+                  <Check size={11} /> Accepter tout
+                </button>
+                <button onClick={rejectAll} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '5px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                  background: '#B91C1C', color: '#fff', fontSize: 11, fontWeight: 700,
+                }}>
+                  <XCircle size={11} /> Rejeter tout
+                </button>
+              </div>
+            )}
+            {/* Stats révision */}
+            {showRevisions && annotations.length > 0 && (
+              <div style={{ display: 'flex', gap: 4, fontSize: 10 }}>
+                {(['pending', 'accepted', 'rejected'] as RevisionStatut[]).map(s => {
+                  const count = annotations.filter(a => (a.statut ?? 'pending') === s).length;
+                  const cfg = REVISION_CFG[s];
+                  return count > 0 ? (
+                    <span key={s} style={{ padding: '2px 6px', borderRadius: 10, background: cfg.bg, color: cfg.fg, fontWeight: 700 }}>
+                      {count} {cfg.label}
+                    </span>
+                  ) : null;
+                })}
+              </div>
             )}
           </div>
+
           <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {annotations.length === 0 && (
               <div style={{ padding: '32px 16px', textAlign: 'center', color: '#475569', fontSize: 12, lineHeight: 1.6 }}>
@@ -475,6 +543,8 @@ export default function DocumentAnnotator({
                 onActivate={() => setActiveId(a.id)}
                 onTextChange={updateText}
                 onDelete={deleteAnn}
+                showRevision={showRevisions}
+                onSetStatut={setStatut}
               />
             ))}
           </div>
@@ -544,31 +614,40 @@ function Pin({ ann, active, onActivate, onTextChange }: {
 }
 
 /* ── Carte annotation dans le panneau latéral ────────────────────────── */
-function AnnCard({ ann, index, active, onActivate, onTextChange, onDelete }: {
+function AnnCard({ ann, index, active, onActivate, onTextChange, onDelete, showRevision, onSetStatut }: {
   ann: Annotation; index: number; active: boolean;
   onActivate: () => void;
   onTextChange: (id: string, text: string) => void;
   onDelete: (id: string) => void;
+  showRevision?: boolean;
+  onSetStatut?: (id: string, s: RevisionStatut) => void;
 }) {
   const typeLabel: Record<string, string> = {
     comment: 'Commentaire', highlight: 'Surlignage',
     note: 'Note', pen: 'Dessin', text: 'Texte',
   };
+  const statut: RevisionStatut = ann.statut ?? 'pending';
+  const cfg = REVISION_CFG[statut];
   return (
     <div
       onClick={onActivate}
       style={{
         background: active ? '#1E293B' : '#162032',
         borderRadius: 8, padding: 10, cursor: 'pointer',
-        border: active ? `1px solid ${ann.color}` : '1px solid #1E293B',
+        border: active ? `1px solid ${ann.color}` : showRevision ? `1px solid ${cfg.dot}44` : '1px solid #1E293B',
         transition: 'border-color 0.12s',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: ann.color, flexShrink: 0 }} />
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: showRevision ? cfg.dot : ann.color, flexShrink: 0 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: '#CBD5E1', flex: 1 }}>
           {index + 1}. {typeLabel[ann.type] ?? ann.type}
         </span>
+        {showRevision && (
+          <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: cfg.bg, color: cfg.fg, fontWeight: 700 }}>
+            {cfg.label}
+          </span>
+        )}
         <button onClick={e => { e.stopPropagation(); onDelete(ann.id); }}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex', padding: 2, borderRadius: 4 }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#EF4444'; }}
@@ -592,6 +671,34 @@ function AnnCard({ ann, index, active, onActivate, onTextChange, onDelete }: {
         />
       )}
       <div style={{ fontSize: 9, color: '#475569', marginTop: 5 }}>{ann.author} · {ann.at}</div>
+      {/* Boutons accept/reject par annotation */}
+      {showRevision && onSetStatut && statut === 'pending' && (
+        <div style={{ display: 'flex', gap: 4, marginTop: 7 }} onClick={e => e.stopPropagation()}>
+          <button onClick={() => onSetStatut(ann.id, 'accepted')} style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            padding: '4px 0', borderRadius: 5, border: 'none', cursor: 'pointer',
+            background: '#15803D', color: '#fff', fontSize: 10, fontWeight: 700,
+          }}>
+            <Check size={10} /> Accepter
+          </button>
+          <button onClick={() => onSetStatut(ann.id, 'rejected')} style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            padding: '4px 0', borderRadius: 5, border: 'none', cursor: 'pointer',
+            background: '#B91C1C', color: '#fff', fontSize: 10, fontWeight: 700,
+          }}>
+            <XCircle size={10} /> Rejeter
+          </button>
+        </div>
+      )}
+      {showRevision && onSetStatut && statut !== 'pending' && (
+        <button onClick={e => { e.stopPropagation(); onSetStatut(ann.id, 'pending'); }} style={{
+          marginTop: 5, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          padding: '3px 0', borderRadius: 5, border: '1px solid #334155', cursor: 'pointer',
+          background: 'transparent', color: '#64748B', fontSize: 9, fontWeight: 600,
+        }}>
+          <Clock size={9} /> Remettre en attente
+        </button>
+      )}
     </div>
   );
 }

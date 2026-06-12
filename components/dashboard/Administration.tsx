@@ -989,6 +989,65 @@ export default function Administration() {
           </div>
         </div>
 
+        {/* ── Dissociation Fonctions / Rôles ── */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Fonctions organigramme ↔ Rôles SIGEPP</span>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                Une <strong>Fonction</strong> = grade dans l'organigramme DPE (Chef de Projet, Directeur…).
+                Un <strong>Rôle SIGEPP</strong> = droits d'accès plateforme (CHEF_PROJ, PMO, ADMIN…).
+                Ils sont indépendants — un agent peut avoir un rôle différent de sa fonction.
+              </div>
+            </div>
+            <a href="/administration/org-config" className="btn btn-primary btn-sm" style={{ textDecoration: 'none' }}>
+              ⚙️ Configurer l'organigramme
+            </a>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Fonction DPE</th>
+                  <th>Rôle SIGEPP par défaut</th>
+                  <th>Agents concernés</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { fonction: 'Directeur / rang Directeur', role: 'DIR_DPE', desc: 'Directeurs de direction principale, coordonnateurs BM/UE' },
+                  { fonction: 'Chef de Département / rang Chef de Département', role: 'CHEF_DEPT', desc: 'Chefs de département et de service' },
+                  { fonction: 'Chef de Projet / rang Chef de Service', role: 'CHEF_PROJ', desc: 'Chefs de projet affectés à un portefeuille' },
+                  { fonction: 'Expert / Responsable', role: 'EXPERT', desc: 'Experts techniques, responsables S&E' },
+                  { fonction: 'Chef UAGL / Responsable Logistique', role: 'RESP_LOG', desc: 'Responsables logistique, gestionnaires ressources' },
+                  { fonction: 'Chargé / Ingénieur d\'étude', role: 'INGENIEUR', desc: 'Ingénieurs d\'étude et agents de maîtrise' },
+                  { fonction: 'Chef de Cellule Suivi-Évaluation', role: 'PMO', desc: 'PMO, cellule CSE, coordonnateurs de programme' },
+                  { fonction: 'Responsable Marchés / Acheteur', role: 'MARCHES', desc: 'Chargés de passation de marchés' },
+                ].map(row => {
+                  const r = ROLES_LIST.find(x => x.id === row.role);
+                  const count = UTILISATEURS.filter(u => u.roles.includes(row.role as RoleCode)).length;
+                  return (
+                    <tr key={row.role}>
+                      <td style={{ fontWeight: 600, fontSize: 12 }}>{row.fonction}</td>
+                      <td>
+                        {r ? <span style={{ padding: '2px 8px', borderRadius: 6, background: r.color + '18', color: r.color, fontSize: 11, fontWeight: 700 }}>{r.label}</span> : row.role}
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{count}</td>
+                      <td style={{ fontSize: 11, color: 'var(--muted)' }}>{row.desc}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="card-body" style={{ borderTop: '1px solid var(--border-2)', background: '#F8FAFC', fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
+            💡 Pour modifier la règle Fonction→Rôle ou créer de nouvelles fonctions pour une réorganisation future, utilisez le module{' '}
+            <a href="/administration/org-config" style={{ color: 'var(--primary)', fontWeight: 700 }}>Configuration organisationnelle</a> (onglet Postes).
+            Chaque agent peut aussi recevoir un rôle individuel différent de sa fonction via l'onglet Agents.
+          </div>
+        </div>
+
         {/* ── Matrice fine Permissions × Profils applicatifs ── */}
         <div className="card">
           <div className="card-header">
