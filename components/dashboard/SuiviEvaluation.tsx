@@ -15,6 +15,7 @@ import {
 import { downloadExcel } from '@/lib/exportUtils';
 import { useProjectStore, DOMAINE_CFG, type Domaine } from '@/lib/projectStore';
 import { useCanPerform } from '@/lib/hooks/useUserScope';
+import { useAuth } from '@/lib/authStore';
 import MatriceExport from './MatriceExport';
 
 /* ─── Brand ─────────────────────────────── */
@@ -130,13 +131,18 @@ function getCurrentPeriode(): { trimestre: string; annee: number } {
 
 const { trimestre: TRIMESTRE_COURANT, annee: ANNEE_COURANTE } = getCurrentPeriode();
 
-const ONGLETS = [
-  { id: 'synthese',    label: `Synthèse ${TRIMESTRE_COURANT} ${ANNEE_COURANTE} — Indicateurs DPE` },
-  { id: 'indicateurs', label: 'Indicateurs à contrôler' },
-  { id: 'preuves',     label: 'Preuves & Actions' },
-  { id: 'alertes',     label: 'Alertes & Anomalies' },
-  { id: 'reporting',   label: 'Reporting périodique' },
-];
+/** Retourne le libellé du premier onglet en fonction du rôle — CDC §8.8 */
+function getSyntheseLabel(role?: string): string {
+  switch (role) {
+    case 'DIR_DPE':   return `Tableau de Bord Exécutif — Portefeuille DPE`;
+    case 'PMO':       return `Cockpit PMO — Multi-Projets ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
+    case 'CHEF_DEPT': return `Tableau de Direction — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
+    case 'CHEF_PROJ': return `Cockpit Projet — Bilan ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
+    case 'CTRL_FIN':  return `Synthèse Financière — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
+    case 'AUDIT':     return `Audit & Conformité — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
+    default:          return `Suivi & Évaluation — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
+  }
+}
 
 const DOMAINE_LABEL: Record<string, string> = {
   production: 'Production',
@@ -160,9 +166,18 @@ const PERF_INDICATEURS: Array<{ libelle: string; cible: string; compute: (data: 
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════ */
 export default function SuiviEvaluation() {
+  const { user } = useAuth();
   const store = useProjectStore();
   const canGlobal = useCanPerform('VOIR_TOUT_PORTEFEUILLE');
   const [activeTab, setActiveTab] = useState('indicateurs');
+
+  const ONGLETS = [
+    { id: 'synthese',    label: getSyntheseLabel(user?.role) },
+    { id: 'indicateurs', label: 'Indicateurs à contrôler' },
+    { id: 'preuves',     label: 'Preuves & Actions' },
+    { id: 'alertes',     label: 'Alertes & Anomalies' },
+    { id: 'reporting',   label: 'Reporting périodique' },
+  ];
   const [selectedKPI, setSelectedKPI] = useState<string | null>('k1');
   const [consolidating, setConsolidating] = useState(false);
   const [lastConsolidation, setLastConsolidation] = useState<string>('');
@@ -766,9 +781,78 @@ export default function SuiviEvaluation() {
           </div>
         )}
 
-        {/* ════════ TAB: Synthèse T1 — Indicateurs officiels DPE ════════ */}
+        {/* ════════ TAB: Synthèse contextuelle — CDC §8.8 ════════ */}
         {activeTab === 'synthese' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* ── Bandeau rôle-contextuel (CDC §8.8) ─────────────────── */}
+            {(() => {
+              const role = user?.role;
+              const isExec  = role === 'DIR_DPE';
+              const isPMO   = role === 'PMO' || role === 'CHEF_DEPT';
+              const isProj  = role === 'CHEF_PROJ';
+              const isFin   = role === 'CTRL_FIN';
+              const p = store.projets;
+              const cpiMoy  = p.length ? (p.reduce((s,x) => s + x.cpi, 0) / p.length).toFixed(2) : '—';
+              const spiMoy  = p.length ? (p.reduce((s,x) => s + x.spi, 0) / p.length).toFixed(2) : '—';
+              const budgetTotal = (p.reduce((s,x) => s + (x.budget||0), 0) / 1e9).toFixed(1);
+              const decaisseTotal = (p.reduce((s,x) => s + (x.budgetDecaisse||0), 0) / 1e9).toFixed(1);
+              const retards = p.filter(x => x.statut === 'en_retard').length;
+
+              const kpis: Array<{label: string; val: string; sub?: string; color: string}> = isExec ? [
+                { label: 'CPI Portefeuille',   val: cpiMoy,          sub: 'Indice coût',        color: parseFloat(cpiMoy) >= 1 ? GREEN : RED },
+                { label: 'SPI Portefeuille',   val: spiMoy,          sub: 'Indice délais',       color: parseFloat(spiMoy) >= 1 ? GREEN : AMBER },
+                { label: 'Budget consolidé',   val: `${budgetTotal} Md FCFA`, sub: 'Total DPE',  color: NAVY },
+                { label: 'Décaissements',      val: `${decaisseTotal} Md FCFA`, sub: 'Cumulé',   color: GREEN },
+                { label: 'Projets en retard',  val: String(retards),  sub: 'Sur ' + p.length,   color: retards > 0 ? RED : GREEN },
+              ] : isPMO ? [
+                { label: 'Projets actifs',     val: String(p.filter(x => x.statut === 'en_cours').length),  sub: 'En exécution', color: NAVY },
+                { label: 'CPI moyen',          val: cpiMoy,           sub: 'Indice coût',        color: parseFloat(cpiMoy) >= 1 ? GREEN : RED },
+                { label: 'SPI moyen',          val: spiMoy,           sub: 'Indice délais',       color: parseFloat(spiMoy) >= 1 ? GREEN : AMBER },
+                { label: 'Retards',            val: String(retards),  sub: 'Projets en retard',  color: retards > 0 ? RED : GREEN },
+              ] : isProj ? [
+                { label: 'Mes projets',        val: String(p.length), sub: 'Portefeuille personnel', color: NAVY },
+                { label: 'Avancement moyen',   val: `${p.length ? Math.round(p.reduce((s,x)=>s+x.avancement,0)/p.length) : 0}%`, sub: 'Physique', color: GREEN },
+                { label: 'Mon CPI',            val: cpiMoy,           sub: 'Indice coût',        color: parseFloat(cpiMoy) >= 1 ? GREEN : RED },
+              ] : isFin ? [
+                { label: 'Budget total',       val: `${budgetTotal} Md FCFA`, sub: 'Tous projets', color: NAVY },
+                { label: 'Décaissé',           val: `${decaisseTotal} Md FCFA`, sub: 'Cumulé',    color: GREEN },
+                { label: 'Taux décaissement',  val: `${budgetTotal !== '0.0' ? Math.round(parseFloat(decaisseTotal)/parseFloat(budgetTotal)*100) : 0}%`, sub: 'vs budget', color: AMBER },
+              ] : [
+                { label: 'KPI validés',        val: `${scopedIndicateurs.filter(k=>k.statut==='valide').length}/${scopedIndicateurs.length}`, sub: 'Indicateurs confirmés', color: GREEN },
+                { label: 'Anomalies',          val: String(scopedIndicateurs.filter(k=>k.statut==='anomalie').length), sub: 'À traiter', color: RED },
+              ];
+
+              return (
+                <div style={{ background: isExec ? '#1B4F8A' : isPMO ? '#1E3A5F' : isProj ? '#0F5132' : '#2D1B69', borderRadius: 10, padding: '16px 20px', color: '#fff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>{getSyntheseLabel(role)}</div>
+                      <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>
+                        {isExec ? 'Vue Exécutive — Direction Principale Équipement (CDC §8.8 Vue DPE)' :
+                         isPMO  ? 'Vue Multi-Projets — Consolidation portefeuille (CDC §8.8 Vue Direction)' :
+                         isProj ? 'Vue Responsable Projet — Mon périmètre (CDC §8.8 Vue Responsable)' :
+                         isFin  ? 'Vue Financière — Budget & Décaissements' :
+                         'Vue Agent — Mon activité et mes indicateurs (CDC §8.8 Vue Agent)'}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, opacity: 0.65, textAlign: 'right' }}>
+                      <div>{TRIMESTRE_COURANT} {ANNEE_COURANTE}</div>
+                      <div>Calculé en temps réel</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {kpis.map((k, i) => (
+                      <div key={i} style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 8, padding: '10px 16px', minWidth: 120, flex: '1 1 120px' }}>
+                        <div style={{ fontSize: 9, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 0.5 }}>{k.label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', marginTop: 2 }}>{k.val}</div>
+                        {k.sub && <div style={{ fontSize: 9, opacity: 0.6, marginTop: 1 }}>{k.sub}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* I. Situation physique */}
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
