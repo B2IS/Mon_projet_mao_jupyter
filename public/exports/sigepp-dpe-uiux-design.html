@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SIGEPP-DPE — UI/UX Design Document</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --blue-900: #0E3460;
+    --blue-800: #1B4F8A;
+    --blue-600: #2563EB;
+    --blue-100: #EFF6FF;
+    --orange: #F47920;
+    --orange-light: #FFF7ED;
+    --green: #16A34A;
+    --green-light: #F0FDF4;
+    --red: #EF3340;
+    --red-light: #FEF2F2;
+    --purple: #7C3AED;
+    --purple-light: #F5F3FF;
+    --amber: #D97706;
+    --amber-light: #FFFBEB;
+    --slate-900: #0F172A;
+    --slate-700: #334155;
+    --slate-500: #64748B;
+    --slate-300: #CBD5E1;
+    --slate-100: #F1F5F9;
+    --white: #FFFFFF;
+    --bg: #F8FAFC;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--slate-900); line-height: 1.6; }
+
+  /* ── PRINT BUTTON ── */
+  .print-btn { position: fixed; bottom: 28px; right: 28px; background: var(--blue-800); color: #fff; border: none; border-radius: 50px; padding: 14px 26px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(27,79,138,.35); z-index: 999; font-family: inherit; transition: all .15s; }
+  .print-btn:hover { background: var(--blue-900); transform: translateY(-2px); }
+  @media print { .print-btn { display: none; } }
+
+  /* ── PAGE LAYOUT ── */
+  .doc-page { max-width: 900px; margin: 0 auto; padding: 0 40px 60px; }
+
+  /* ── PAGE BREAK ── */
+  .page-break { page-break-before: always; padding-top: 40px; }
+
+  /* ── COVER PAGE ── */
+  .cover { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 80px 40px; max-width: 900px; margin: 0 auto; }
+  .cover-stripe { width: 60px; height: 5px; background: var(--orange); border-radius: 3px; margin-bottom: 32px; }
+  .cover-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--slate-500); margin-bottom: 16px; }
+  .cover-h1 { font-size: 52px; font-weight: 900; line-height: 1.05; color: var(--blue-900); margin-bottom: 8px; }
+  .cover-h1 span { color: var(--orange); }
+  .cover-h2 { font-size: 20px; font-weight: 600; color: var(--blue-800); margin-bottom: 24px; }
+  .cover-desc { font-size: 14px; color: var(--slate-500); max-width: 520px; line-height: 1.8; margin-bottom: 40px; }
+  .cover-meta { display: flex; gap: 32px; }
+  .cover-meta-item { }
+  .cover-meta-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--slate-500); }
+  .cover-meta-val { font-size: 14px; font-weight: 700; color: var(--blue-900); margin-top: 4px; }
+  .cover-bottom { margin-top: auto; padding-top: 60px; border-top: 1px solid var(--slate-300); display: flex; justify-content: space-between; align-items: center; }
+  .cover-bottom-logo { font-size: 12px; font-weight: 800; color: var(--blue-800); }
+  .cover-bottom-conf { font-size: 10px; color: var(--slate-500); font-weight: 600; }
+
+  /* ── TOC ── */
+  .toc-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--slate-500); margin-bottom: 20px; }
+  .toc-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--slate-100); }
+  .toc-num { font-size: 11px; font-weight: 800; color: var(--orange); width: 24px; }
+  .toc-label { font-size: 13px; font-weight: 600; color: var(--slate-700); flex: 1; }
+  .toc-dots { flex: 1; border-bottom: 1px dotted var(--slate-300); }
+  .toc-pg { font-size: 11px; font-weight: 700; color: var(--slate-500); }
+
+  /* ── SECTION HEADERS ── */
+  .section-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--orange); margin-bottom: 8px; }
+  .section-h2 { font-size: 28px; font-weight: 900; color: var(--blue-900); margin-bottom: 8px; line-height: 1.2; }
+  .section-sub { font-size: 13px; color: var(--slate-500); margin-bottom: 28px; line-height: 1.6; }
+  .section-divider { width: 40px; height: 3px; background: var(--orange); border-radius: 2px; margin-bottom: 24px; }
+
+  /* ── CARDS ── */
+  .card { background: var(--white); border-radius: 14px; border: 1px solid var(--slate-300); padding: 22px; }
+  .card-title { font-size: 12px; font-weight: 800; color: var(--blue-800); margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+
+  /* ── COLOR SYSTEM ── */
+  .color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+  .color-swatch { border-radius: 10px; overflow: hidden; border: 1px solid rgba(0,0,0,.06); }
+  .color-swatch-main { height: 64px; }
+  .color-swatch-info { padding: 8px 10px; background: #fff; }
+  .color-swatch-name { font-size: 10px; font-weight: 800; color: var(--slate-700); }
+  .color-swatch-hex { font-size: 9.5px; color: var(--slate-500); font-family: monospace; margin-top: 2px; }
+  .color-swatch-use { font-size: 9px; color: var(--slate-500); margin-top: 2px; line-height: 1.4; }
+
+  /* ── TYPOGRAPHY ── */
+  .type-row { display: flex; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--slate-100); }
+  .type-sample { flex: 1; color: var(--slate-900); }
+  .type-meta { text-align: right; }
+  .type-label { font-size: 9.5px; font-weight: 700; color: var(--slate-500); }
+  .type-spec { font-size: 9px; color: var(--slate-400); font-family: monospace; margin-top: 2px; }
+
+  /* ── SPACING ── */
+  .spacing-row { display: flex; align-items: center; gap: 14px; padding: 8px 0; }
+  .spacing-bar { height: 20px; background: var(--blue-100); border-radius: 4px; border: 1px solid var(--blue-800)22; }
+  .spacing-label { font-size: 10.5px; font-weight: 700; color: var(--slate-700); width: 60px; }
+  .spacing-desc { font-size: 10px; color: var(--slate-500); }
+
+  /* ── COMPONENT SHOWCASE ── */
+  .comp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .comp-section { }
+  .comp-title { font-size: 11px; font-weight: 800; color: var(--slate-500); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+
+  /* Buttons */
+  .btn-demo { display: inline-flex; align-items: center; gap: 7px; padding: 9px 20px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: default; margin: 4px; font-family: inherit; border: none; }
+  .btn-primary { background: var(--blue-800); color: #fff; }
+  .btn-secondary { background: var(--blue-100); color: var(--blue-800); }
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #fca5a5; }
+  .btn-ghost { background: transparent; color: var(--slate-700); border: 1px solid var(--slate-300); }
+  .btn-orange { background: var(--orange); color: #fff; }
+  .btn-sm { padding: 5px 12px; font-size: 11px; border-radius: 6px; }
+  .btn-lg { padding: 12px 26px; font-size: 14px; border-radius: 10px; }
+
+  /* Badges */
+  .bdg { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; margin: 3px; }
+
+  /* Status dots */
+  .status-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-label { font-size: 11.5px; font-weight: 600; color: var(--slate-700); }
+
+  /* Input */
+  .input-demo { width: 100%; padding: 9px 12px; border: 1.5px solid var(--slate-300); border-radius: 8px; font-size: 12px; font-family: inherit; color: var(--slate-900); background: #fff; outline: none; }
+  .input-label { font-size: 11px; font-weight: 700; color: var(--slate-700); margin-bottom: 5px; display: block; }
+  .input-error { border-color: var(--red); }
+  .input-hint { font-size: 10.5px; color: var(--slate-500); margin-top: 4px; }
+  .input-error-msg { font-size: 10.5px; color: var(--red); margin-top: 4px; }
+
+  /* Cards */
+  .kpi-mini { background: #fff; border-radius: 10px; border: 1px solid var(--slate-300); padding: 14px 16px; }
+  .kpi-mini-val { font-size: 22px; font-weight: 900; }
+  .kpi-mini-label { font-size: 10px; color: var(--slate-500); font-weight: 600; margin-top: 3px; }
+  .kpi-mini-delta { font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 3px; margin-top: 6px; }
+
+  /* Table */
+  .table-demo { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .table-demo th { background: var(--slate-100); padding: 8px 12px; text-align: left; font-weight: 800; color: var(--slate-700); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--slate-300); }
+  .table-demo td { padding: 8px 12px; border-bottom: 1px solid var(--slate-100); color: var(--slate-700); }
+  .table-demo tr:last-child td { border-bottom: none; }
+  .table-demo tr:hover td { background: var(--blue-100); }
+
+  /* Alert */
+  .alert { display: flex; gap: 10px; padding: 12px 14px; border-radius: 9px; font-size: 11.5px; margin-bottom: 8px; }
+  .alert-icon { font-size: 15px; flex-shrink: 0; }
+  .alert-title { font-weight: 700; }
+  .alert-body { font-size: 10.5px; margin-top: 2px; opacity: .8; }
+
+  /* Nav sidebar mockup */
+  .sidebar-mockup { background: var(--blue-900); border-radius: 12px; padding: 16px; }
+  .sidebar-logo { font-size: 13px; font-weight: 900; color: #fff; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .sidebar-logo span { color: var(--orange); }
+  .sidebar-section { font-size: 9px; font-weight: 800; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: 1.5px; padding: 12px 8px 6px; }
+  .sidebar-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,.7); cursor: default; margin-bottom: 1px; }
+  .sidebar-item.active { background: rgba(255,255,255,.12); color: #fff; }
+  .sidebar-item-icon { width: 18px; text-align: center; font-size: 13px; }
+
+  /* Progress bar */
+  .progress-wrap { background: var(--slate-100); border-radius: 6px; overflow: hidden; height: 8px; }
+  .progress-bar { height: 100%; border-radius: 6px; }
+
+  /* Gantt mini */
+  .gantt-mini { overflow-x: auto; }
+  .gantt-row { display: flex; align-items: center; gap: 0; margin-bottom: 4px; }
+  .gantt-label { font-size: 10px; font-weight: 600; color: var(--slate-700); width: 120px; flex-shrink: 0; }
+  .gantt-track { flex: 1; height: 22px; background: var(--slate-100); border-radius: 4px; position: relative; overflow: hidden; }
+  .gantt-bar { height: 100%; border-radius: 4px; position: absolute; display: flex; align-items: center; padding: 0 6px; font-size: 9px; font-weight: 700; color: #fff; }
+
+  /* RAG */
+  .rag-row { display: flex; gap: 10px; }
+  .rag-card { flex: 1; border-radius: 9px; padding: 12px; text-align: center; }
+  .rag-val { font-size: 22px; font-weight: 900; }
+  .rag-label { font-size: 9.5px; font-weight: 700; margin-top: 3px; }
+
+  /* Grid helpers */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .mt-16 { margin-top: 16px; }
+  .mt-24 { margin-top: 24px; }
+  .mt-32 { margin-top: 32px; }
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    body { background: #fff; }
+    .cover { page-break-after: always; }
+    .page-break { page-break-before: always; }
+    .doc-page { padding: 0 24px 40px; }
+    @page { size: A4; margin: 20mm 15mm; }
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">🖨️ Imprimer / Exporter PDF</button>
+
+<!-- ═══════ COVER ═══════ -->
+<div class="cover">
+  <div class="cover-stripe"></div>
+  <div class="cover-eyebrow">SENELEC · Direction du Parc Électrique</div>
+  <div class="cover-h1">SIGEPP<span>-DPE</span></div>
+  <div class="cover-h2">UI/UX Design System & Guidelines</div>
+  <div class="cover-desc">Documentation complète du système de design de la plateforme SIGEPP-DPE : palette de couleurs, typographie, composants, patterns d'interaction, conventions d'accessibilité et guide des modules.</div>
+  <div class="cover-meta">
+    <div class="cover-meta-item"><div class="cover-meta-label">Version</div><div class="cover-meta-val">2026.1</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Stack</div><div class="cover-meta-val">Next.js 15 · TypeScript</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Profils</div><div class="cover-meta-val">19 rôles RBAC</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Modules</div><div class="cover-meta-val">50+ pages</div></div>
+  </div>
+  <div class="cover-bottom">
+    <div class="cover-bottom-logo">SIGEPP-DPE · SENELEC</div>
+    <div class="cover-bottom-conf">Confidentiel · Usage interne DPE</div>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 2 — COULEURS ═══════ -->
+<div class="doc-page page-break">
+  <div class="section-eyebrow">01 — Système de design</div>
+  <div class="section-h2">Palette de couleurs</div>
+  <div class="section-divider"></div>
+  <div class="section-sub">La palette est construite autour du bleu institutionnel SENELEC et de l'orange DPE. Chaque couleur a un rôle sémantique précis.</div>
+
+  <div class="color-grid">
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#0E3460"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Blue-900</div>
+        <div class="color-swatch-hex">#0E3460</div>
+        <div class="color-swatch-use">Fond hero, titres couverture</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#1B4F8A"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Blue-800 ★ Primary</div>
+        <div class="color-swatch-hex">#1B4F8A</div>
+        <div class="color-swatch-use">CTA principal, titres, nav active</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#2563EB"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Blue-600</div>
+        <div class="color-swatch-hex">#2563EB</div>
+        <div class="color-swatch-use">Liens, accents, graphiques</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#EFF6FF"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Blue-100</div>
+        <div class="color-swatch-hex">#EFF6FF</div>
+        <div class="color-swatch-use">Arrière-plan cartes bleues</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#F47920"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Orange ★ Accent</div>
+        <div class="color-swatch-hex">#F47920</div>
+        <div class="color-swatch-use">Alertes, accents DPE, badges</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#16A34A"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Green — Success</div>
+        <div class="color-swatch-hex">#16A34A</div>
+        <div class="color-swatch-use">Statut vert, succès, validé</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#EF3340"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Red — Danger</div>
+        <div class="color-swatch-hex">#EF3340</div>
+        <div class="color-swatch-use">Erreurs, statut rouge, suppression</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#D97706"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Amber — Warning</div>
+        <div class="color-swatch-hex">#D97706</div>
+        <div class="color-swatch-use">Avertissements, délais, orange</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#7C3AED"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Purple — IA/Analytics</div>
+        <div class="color-swatch-hex">#7C3AED</div>
+        <div class="color-swatch-use">Modules IA, Analytics, Suivi-Éval</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-main" style="background:#64748B"></div>
+      <div class="color-swatch-info">
+        <div class="color-swatch-name">Slate-500 — Neutral</div>
+        <div class="color-swatch-hex">#64748B</div>
+        <div class="color-swatch-use">Textes secondaires, icônes</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Couleurs RAG (Reporting)</div>
+      <div class="rag-row">
+        <div class="rag-card" style="background:#F0FDF4;color:#16A34A"><div class="rag-val">23</div><div class="rag-label">VERT — On track</div></div>
+        <div class="rag-card" style="background:#FFFBEB;color:#D97706"><div class="rag-val">12</div><div class="rag-label">ORANGE — À risque</div></div>
+        <div class="rag-card" style="background:#FEF2F2;color:#EF3340"><div class="rag-val">7</div><div class="rag-label">ROUGE — En retard</div></div>
+        <div class="rag-card" style="background:#F8FAFC;color:#64748B"><div class="rag-val">35</div><div class="rag-label">GRIS — Non démarré</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Règles d'accessibilité couleur</div>
+      <div style="font-size:11.5px;color:#475569;line-height:1.8;">
+        <div style="margin-bottom:6px;">&#10003; Contraste texte normal : <strong>min 4.5:1</strong> (WCAG AA)</div>
+        <div style="margin-bottom:6px;">&#10003; Contraste grands titres : <strong>min 3:1</strong></div>
+        <div style="margin-bottom:6px;">&#10003; Couleur + icône ou texte pour statuts critiques</div>
+        <div style="margin-bottom:6px;">&#10003; Jamais de gris sur gris (&lt;3:1)</div>
+        <div>&#10003; Dark mode : variantes désaturées, pas inversées</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 3 — TYPO + ESPACEMENTS ═══════ -->
+<div class="doc-page page-break">
+  <div class="section-eyebrow">02 — Typographie & Espacement</div>
+  <div class="section-h2">Échelle typographique</div>
+  <div class="section-divider"></div>
+
+  <div class="card">
+    <div class="type-row">
+      <div class="type-sample" style="font-size:38px;font-weight:900;color:#0E3460;line-height:1.1;">Display — Titre couverture</div>
+      <div class="type-meta"><div class="type-label">Display XL</div><div class="type-spec">38px · 900 · Inter</div></div>
+    </div>
+    <div class="type-row">
+      <div class="type-sample" style="font-size:28px;font-weight:900;color:#1B4F8A;">Titre de section principal</div>
+      <div class="type-meta"><div class="type-label">H1 — Section</div><div class="type-spec">28px · 900 · Inter</div></div>
+    </div>
+    <div class="type-row">
+      <div class="type-sample" style="font-size:20px;font-weight:800;color:#1E293B;">Titre de page / module</div>
+      <div class="type-meta"><div class="type-label">H2 — Page</div><div class="type-spec">20px · 800 · Inter</div></div>
+    </div>
+    <div class="type-row">
+      <div class="type-sample" style="font-size:16px;font-weight:700;color:#1E293B;">Sous-titre de composant</div>
+      <div class="type-meta"><div class="type-label">H3 — Composant</div><div class="type-spec">16px · 700 · Inter</div></div>
+    </div>
+    <div class="type-row">
+      <div class="type-sample" style="font-size:13px;font-weight:600;color:#334155;">Label de carte ou d'en-tête</div>
+      <div class="type-meta"><div class="type-label">Label</div><div class="type-spec">13px · 600 · Inter</div></div>
+    </div>
+    <div class="type-row">
+      <div class="type-sample" style="font-size:13px;font-weight:400;color:#475569;line-height:1.7;">Corps de texte principal. SIGEPP-DPE est la plateforme de pilotage du portefeuille de projets DPE SENELEC.</div>
+      <div class="type-meta"><div class="type-label">Body</div><div class="type-spec">13px · 400 · line-height 1.7</div></div>
+    </div>
+    <div class="type-row">
+      <div class="type-sample" style="font-size:11px;font-weight:600;color:#64748B;">Texte secondaire, métadonnées, hints de formulaire</div>
+      <div class="type-meta"><div class="type-label">Small / Caption</div><div class="type-spec">11px · 600 · Inter</div></div>
+    </div>
+    <div class="type-row" style="border-bottom:none;">
+      <div class="type-sample" style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748B;">Eyebrow label — catégorie</div>
+      <div class="type-meta"><div class="type-label">Eyebrow</div><div class="type-spec">10px · 700 · letter-spacing 2px</div></div>
+    </div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Système d'espacement</div>
+  <div class="section-divider"></div>
+  <div class="card mt-16">
+    <div class="spacing-row"><div class="spacing-bar" style="width:4px;background:#1B4F8A22;border-color:#1B4F8A44;"></div><div class="spacing-label">4px — t-1</div><div class="spacing-desc">Espacement micro : gaps entre éléments inline (badges, icônes)</div></div>
+    <div class="spacing-row"><div class="spacing-bar" style="width:8px;"></div><div class="spacing-label">8px — t-2</div><div class="spacing-desc">Padding interne minimal, gap entre boutons</div></div>
+    <div class="spacing-row"><div class="spacing-bar" style="width:12px;"></div><div class="spacing-label">12px — t-3</div><div class="spacing-desc">Padding input, gap compact liste</div></div>
+    <div class="spacing-row"><div class="spacing-bar" style="width:16px;"></div><div class="spacing-label">16px — t-4</div><div class="spacing-desc">Gap standard entre cartes, padding contenu</div></div>
+    <div class="spacing-row"><div class="spacing-bar" style="width:24px;"></div><div class="spacing-label">24px — t-6</div><div class="spacing-desc">Padding section, margin entre blocs</div></div>
+    <div class="spacing-row"><div class="spacing-bar" style="width:32px;"></div><div class="spacing-label">32px — t-8</div><div class="spacing-desc">Padding page, séparation majeure</div></div>
+    <div class="spacing-row"><div class="spacing-bar" style="width:48px;"></div><div class="spacing-label">48px — t-12</div><div class="spacing-desc">Padding hero / cover sections</div></div>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 4 — BOUTONS + FORMULAIRES ═══════ -->
+<div class="doc-page page-break">
+  <div class="section-eyebrow">03 — Composants UI</div>
+  <div class="section-h2">Boutons & Actions</div>
+  <div class="section-divider"></div>
+
+  <div class="card">
+    <div class="comp-title">Variants de boutons</div>
+    <div style="margin-bottom:14px;">
+      <button class="btn-demo btn-primary">&#128197; Action principale</button>
+      <button class="btn-demo btn-secondary">&#128269; Action secondaire</button>
+      <button class="btn-demo btn-ghost">Annuler</button>
+      <button class="btn-demo btn-danger">&#128465;&#65039; Supprimer</button>
+      <button class="btn-demo btn-orange">&#128276; Alerte</button>
+    </div>
+    <div class="comp-title">Tailles</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button class="btn-demo btn-primary btn-sm">Petit (SM)</button>
+      <button class="btn-demo btn-primary">Moyen (MD)</button>
+      <button class="btn-demo btn-primary btn-lg">Grand (LG)</button>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:#64748B;line-height:1.8;">
+      <strong>Règles :</strong> Un seul bouton primary par vue · Destructive = rouge isolé à droite · Min 44px hauteur mobile · disabled = opacity 0.4 + cursor-not-allowed
+    </div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Badges & Statuts</div>
+  <div class="section-divider"></div>
+  <div class="card mt-16">
+    <div style="margin-bottom:14px;">
+      <span class="bdg" style="background:#F0FDF4;color:#16A34A;">&#9679; Actif</span>
+      <span class="bdg" style="background:#FEF2F2;color:#EF3340;">&#9679; Retard</span>
+      <span class="bdg" style="background:#FFFBEB;color:#D97706;">&#9679; À risque</span>
+      <span class="bdg" style="background:#F1F5F9;color:#64748B;">&#9679; Suspendu</span>
+      <span class="bdg" style="background:#EFF6FF;color:#1B4F8A;">&#9679; En cours</span>
+      <span class="bdg" style="background:#F5F3FF;color:#7C3AED;">&#9884; IA</span>
+      <span class="bdg" style="background:#FFF7ED;color:#F47920;">&#9888;&#65039; Urgent</span>
+    </div>
+    <div>
+      <div class="status-row"><div class="status-dot" style="background:#16A34A;"></div><div class="status-label">Projet vert — avancement nominal, CPI &ge; 0.95</div></div>
+      <div class="status-row"><div class="status-dot" style="background:#D97706;"></div><div class="status-label">Projet orange — retard modéré, CPI 0.80–0.95</div></div>
+      <div class="status-row"><div class="status-dot" style="background:#EF3340;"></div><div class="status-label">Projet rouge — retard critique, CPI &lt; 0.80</div></div>
+      <div class="status-row"><div class="status-dot" style="background:#64748B;"></div><div class="status-label">Projet gris — non démarré ou suspendu</div></div>
+      <div class="status-row"><div class="status-dot" style="background:#1B4F8A;"></div><div class="status-label">Projet bleu — clôturé / réceptionné</div></div>
+    </div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Formulaires</div>
+  <div class="section-divider"></div>
+  <div class="grid-2 mt-16">
+    <div>
+      <label class="input-label">Nom du projet <span style="color:#EF3340;">*</span></label>
+      <input class="input-demo" type="text" value="BEST-LOT1 Extension Dakar"/>
+      <div class="input-hint">Code projet auto-généré à la sauvegarde</div>
+    </div>
+    <div>
+      <label class="input-label">Budget prévisionnel (FCFA) <span style="color:#EF3340;">*</span></label>
+      <input class="input-demo input-error" type="text" value="abc123" style="pointer-events:none;"/>
+      <div class="input-error-msg">&#9888;&#65039; Veuillez saisir un montant numérique valide</div>
+    </div>
+    <div>
+      <label class="input-label">Statut</label>
+      <select class="input-demo" style="appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%2364748B' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px;">
+        <option>En cours</option><option>Suspendu</option><option>Clôturé</option>
+      </select>
+    </div>
+    <div>
+      <label class="input-label">Date de fin prévisionnelle</label>
+      <input class="input-demo" type="text" value="31/12/2026" style="pointer-events:none;"/>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 5 — CARDS + ALERTES ═══════ -->
+<div class="doc-page page-break">
+  <div class="section-eyebrow">04 — Cartes & Alertes</div>
+  <div class="section-h2">Cartes KPI & Données</div>
+  <div class="section-divider"></div>
+
+  <div class="grid-3">
+    <div class="kpi-mini"><div class="kpi-mini-val" style="color:#1B4F8A;">77</div><div class="kpi-mini-label">Projets actifs</div><div class="kpi-mini-delta" style="color:#16A34A;">&#9650; +5 ce trimestre</div></div>
+    <div class="kpi-mini"><div class="kpi-mini-val" style="color:#F47920;">478 Md</div><div class="kpi-mini-label">Budget total FCFA</div><div class="kpi-mini-delta" style="color:#D97706;">&#9660; -2.3% vs baseline</div></div>
+    <div class="kpi-mini"><div class="kpi-mini-val" style="color:#16A34A;">63%</div><div class="kpi-mini-label">Avancement moyen</div><div class="kpi-mini-delta" style="color:#16A34A;">&#9650; +4pts depuis M-1</div></div>
+    <div class="kpi-mini"><div class="kpi-mini-val" style="color:#7C3AED;">0.91</div><div class="kpi-mini-label">CPI moyen portefeuille</div><div class="kpi-mini-delta" style="color:#D97706;">Sous 1.0 — à surveiller</div></div>
+    <div class="kpi-mini"><div class="kpi-mini-val" style="color:#EF3340;">12</div><div class="kpi-mini-label">Projets en retard</div><div class="kpi-mini-delta" style="color:#EF3340;">&#9650; +2 vs mois dernier</div></div>
+    <div class="kpi-mini"><div class="kpi-mini-val" style="color:#16A34A;">1 041</div><div class="kpi-mini-label">Localités BEST</div><div class="kpi-mini-delta" style="color:#64748B;">3 lots actifs</div></div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Barres de progression</div>
+  <div class="section-divider"></div>
+  <div class="card mt-16">
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;"><span style="font-weight:700;">BEST-LOT1 Extension Dakar</span><span style="font-weight:700;color:#16A34A;">78%</span></div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:78%;background:#16A34A;"></div></div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;"><span style="font-weight:700;">Ligne HTA 90kV Touba-Mbacké</span><span style="font-weight:700;color:#D97706;">44%</span></div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:44%;background:#D97706;"></div></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;"><span style="font-weight:700;">Réhabilitation postes HTA Thiès</span><span style="font-weight:700;color:#EF3340;">22%</span></div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:22%;background:#EF3340;"></div></div>
+    </div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Alertes & Notifications</div>
+  <div class="section-divider"></div>
+  <div class="mt-16">
+    <div class="alert" style="background:#FEF2F2;color:#991B1B;">
+      <div class="alert-icon">&#9888;&#65039;</div>
+      <div><div class="alert-title">Retard critique détecté</div><div class="alert-body">Le projet "Ligne HTA Kaolack-Gossas" accuse 45 jours de retard. CPI = 0.72. Action requise avant le 15/07/2026.</div></div>
+    </div>
+    <div class="alert" style="background:#FFFBEB;color:#92400E;">
+      <div class="alert-icon">&#128276;</div>
+      <div><div class="alert-title">Jalon approchant</div><div class="alert-body">Réception provisoire "BEST-LOT2" prévue dans 12 jours. Documents à préparer : PV, liste réserves, décompte final.</div></div>
+    </div>
+    <div class="alert" style="background:#F0FDF4;color:#166534;">
+      <div class="alert-icon">&#10003;</div>
+      <div><div class="alert-title">Marché attribué</div><div class="alert-body">Le marché M-2024-0041 "Fourniture câbles HTA" a été attribué. Notification contractante envoyée.</div></div>
+    </div>
+    <div class="alert" style="background:#EFF6FF;color:#1E40AF;">
+      <div class="alert-icon">&#8505;&#65039;</div>
+      <div><div class="alert-title">Mise à jour disponible</div><div class="alert-body">De nouvelles données BEST ont été importées. 23 localités mises à jour avec coordonnées UTM Zone 28N.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 6 — NAVIGATION + TABLEAU ═══════ -->
+<div class="doc-page page-break">
+  <div class="section-eyebrow">05 — Navigation & Données</div>
+  <div class="section-h2">Sidebar & Navigation</div>
+  <div class="section-divider"></div>
+
+  <div class="grid-2">
+    <div class="sidebar-mockup">
+      <div class="sidebar-logo">SIGEPP<span>-DPE</span></div>
+      <div class="sidebar-section">Tableau de bord</div>
+      <div class="sidebar-item active"><span class="sidebar-item-icon">&#127968;</span> Vue d'ensemble</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#128202;</span> Cockpit Exécutif</div>
+      <div class="sidebar-section">Portefeuille</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#128193;</span> Portefeuille DPE</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#128205;</span> Programmes</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#128196;</span> Projets</div>
+      <div class="sidebar-section">Planification</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#128197;</span> Gantt / Planning</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#9989;</span> Tâches</div>
+      <div class="sidebar-section">Marchés & Achats</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#128204;</span> Marchés</div>
+      <div class="sidebar-item"><span class="sidebar-item-icon">&#128221;</span> Bordereaux</div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">Règles de navigation</div>
+        <div style="font-size:11.5px;color:#475569;line-height:1.9;">
+          <div>&#8594; Sidebar fixe à gauche (240px desktop)</div>
+          <div>&#8594; Collapsed icon-only sur tablette (&lt;1024px)</div>
+          <div>&#8594; Bottom nav mobile (&lt;768px, max 5 items)</div>
+          <div>&#8594; Section active : fond rgba blanc 12%, texte blanc</div>
+          <div>&#8594; Section inactive : texte rgba blanc 70%</div>
+          <div>&#8594; Eyebrow section : rgba blanc 40%, uppercase 9px</div>
+          <div>&#8594; Rôles sans accès : items masqués (pas disabled)</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Onglets de cockpit (14 onglets)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#EFF6FF;color:#1B4F8A;border-radius:6px;">Synthèse</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#EFF6FF;color:#1B4F8A;border-radius:6px;">Fiche</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#F0FDF4;color:#16A34A;border-radius:6px;">Zones</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#FFF7ED;color:#F47920;border-radius:6px;">Planning</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#F5F3FF;color:#7C3AED;border-radius:6px;">Budget</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#FFFBEB;color:#D97706;border-radius:6px;">Marchés</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#FEF2F2;color:#EF3340;border-radius:6px;">Risques</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#EFF6FF;color:#1B4F8A;border-radius:6px;">Ressources</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#F0FDF4;color:#16A34A;border-radius:6px;">SIG</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#F5F3FF;color:#7C3AED;border-radius:6px;">EVM</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#EFF6FF;color:#1B4F8A;border-radius:6px;">Documents</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 9px;background:#FFFBEB;color:#D97706;border-radius:6px;">Workflows</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Tableaux de données</div>
+  <div class="section-divider"></div>
+  <div class="card mt-16">
+    <table class="table-demo">
+      <thead>
+        <tr><th>Code Projet</th><th>Intitulé</th><th>Domaine</th><th>Avancement</th><th>CPI</th><th>Statut</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-family:monospace;font-size:10px;color:#1B4F8A;font-weight:700;">DIST-001</td>
+          <td style="font-weight:600;">BEST-LOT1 Extension Dakar</td>
+          <td><span class="bdg" style="background:#EFF6FF;color:#1B4F8A;font-size:9px;">Distribution</span></td>
+          <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-wrap" style="width:60px;"><div class="progress-bar" style="width:78%;background:#16A34A;"></div></div><span style="font-size:11px;font-weight:700;color:#16A34A;">78%</span></div></td>
+          <td style="font-weight:700;color:#16A34A;">1.02</td>
+          <td><span class="bdg" style="background:#F0FDF4;color:#16A34A;">Actif</span></td>
+        </tr>
+        <tr>
+          <td style="font-family:monospace;font-size:10px;color:#1B4F8A;font-weight:700;">TRANS-007</td>
+          <td style="font-weight:600;">Ligne HTA 90kV Touba-Mbacké</td>
+          <td><span class="bdg" style="background:#FFFBEB;color:#D97706;font-size:9px;">Transport</span></td>
+          <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-wrap" style="width:60px;"><div class="progress-bar" style="width:44%;background:#D97706;"></div></div><span style="font-size:11px;font-weight:700;color:#D97706;">44%</span></div></td>
+          <td style="font-weight:700;color:#D97706;">0.87</td>
+          <td><span class="bdg" style="background:#FFFBEB;color:#D97706;">À risque</span></td>
+        </tr>
+        <tr>
+          <td style="font-family:monospace;font-size:10px;color:#1B4F8A;font-weight:700;">DIST-023</td>
+          <td style="font-weight:600;">Réhabilitation postes HTA Thiès</td>
+          <td><span class="bdg" style="background:#EFF6FF;color:#1B4F8A;font-size:9px;">Distribution</span></td>
+          <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-wrap" style="width:60px;"><div class="progress-bar" style="width:22%;background:#EF3340;"></div></div><span style="font-size:11px;font-weight:700;color:#EF3340;">22%</span></div></td>
+          <td style="font-weight:700;color:#EF3340;">0.71</td>
+          <td><span class="bdg" style="background:#FEF2F2;color:#EF3340;">Retard</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 7 — GANTT + SIG ═══════ -->
+<div class="doc-page page-break">
+  <div class="section-eyebrow">06 — Composants métier</div>
+  <div class="section-h2">Gantt & Planification</div>
+  <div class="section-divider"></div>
+
+  <div class="card">
+    <div class="comp-title">Aperçu Diagramme Gantt — vue mensuelle</div>
+    <div style="display:flex;gap:0;margin-bottom:8px;">
+      <div style="width:120px;flex-shrink:0;"></div>
+      <div style="flex:1;display:grid;grid-template-columns:repeat(8,1fr);gap:0;">
+        <div style="font-size:9px;font-weight:700;color:#94A3B8;text-align:center;padding:4px 2px;">Jan</div>
+        <div style="font-size:9px;font-weight:700;color:#94A3B8;text-align:center;padding:4px 2px;">Fév</div>
+        <div style="font-size:9px;font-weight:700;color:#94A3B8;text-align:center;padding:4px 2px;">Mar</div>
+        <div style="font-size:9px;font-weight:700;color:#94A3B8;text-align:center;padding:4px 2px;">Avr</div>
+        <div style="font-size:9px;font-weight:700;color:#94A3B8;text-align:center;padding:4px 2px;">Mai</div>
+        <div style="font-size:9px;font-weight:700;color:#94A3B8;text-align:center;padding:4px 2px;">Juin</div>
+        <div style="font-size:9px;font-weight:700;color:#94A3B8;text-align:center;padding:4px 2px;">Juil</div>
+        <div style="font-size:9px;font-weight:700;color:#1B4F8A;text-align:center;padding:4px 2px;background:#EFF6FF;border-radius:4px;">Août</div>
+      </div>
+    </div>
+    <div class="gantt-row"><div class="gantt-label">Études préliminaires</div><div class="gantt-track"><div class="gantt-bar" style="left:0%;width:25%;background:#16A34A;">100%</div></div></div>
+    <div class="gantt-row" style="margin-top:4px;"><div class="gantt-label">Passation marchés</div><div class="gantt-track"><div class="gantt-bar" style="left:12%;width:37%;background:#1B4F8A;">87%</div></div></div>
+    <div class="gantt-row" style="margin-top:4px;"><div class="gantt-label">Travaux LOT 1</div><div class="gantt-track"><div class="gantt-bar" style="left:25%;width:62%;background:#F47920;">63%</div></div></div>
+    <div class="gantt-row" style="margin-top:4px;"><div class="gantt-label">Travaux LOT 2</div><div class="gantt-track"><div class="gantt-bar" style="left:37%;width:50%;background:#D97706;">44%</div></div></div>
+    <div class="gantt-row" style="margin-top:4px;"><div class="gantt-label">Réception</div><div class="gantt-track"><div class="gantt-bar" style="left:87%;width:13%;background:#7C3AED;">—</div></div></div>
+    <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">
+      <span style="font-size:10px;font-weight:700;color:#16A34A;">&#11044; Terminé</span>
+      <span style="font-size:10px;font-weight:700;color:#1B4F8A;">&#11044; En cours</span>
+      <span style="font-size:10px;font-weight:700;color:#D97706;">&#11044; À risque</span>
+      <span style="font-size:10px;font-weight:700;color:#7C3AED;">&#11044; Futur</span>
+      <span style="font-size:10px;font-weight:700;color:#64748B;">&#9651; Jalon</span>
+    </div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Cartographie SIG — Conventions</div>
+  <div class="section-divider"></div>
+  <div class="card mt-16">
+    <div class="grid-2">
+      <div>
+        <div class="comp-title">Légende carte réseau</div>
+        <div class="status-row"><div style="width:16px;height:4px;background:#EF3340;border-radius:2px;"></div><div class="status-label">Ligne HTA 90kV / 30kV</div></div>
+        <div class="status-row"><div style="width:16px;height:4px;background:#F47920;border-radius:2px;"></div><div class="status-label">Ligne BT / ER</div></div>
+        <div class="status-row"><div style="width:14px;height:14px;border-radius:50%;background:#1B4F8A;"></div><div class="status-label">Poste HTB / HTA</div></div>
+        <div class="status-row"><div style="width:10px;height:10px;border-radius:50%;background:#16A34A;"></div><div class="status-label">Localité desservie</div></div>
+        <div class="status-row"><div style="width:10px;height:10px;border-radius:50%;background:#D97706;border:2px dashed #D97706;"></div><div class="status-label">Zone projet en cours</div></div>
+      </div>
+      <div>
+        <div class="comp-title">Système de coordonnées</div>
+        <div style="font-size:11.5px;color:#475569;line-height:1.9;">
+          <div><strong>WGS84</strong> — Décimal : 14.6937, -17.4441</div>
+          <div><strong>UTM Zone 28N</strong> — Dakar/Thiès/Diourbel</div>
+          <div>&#8594; Easting 200K–800K · Northing 1.1M–1.8M</div>
+          <div><strong>UTM Zone 29N</strong> — Tambacounda/Kédougou</div>
+          <div>&#8594; Easting &lt;200K ou &gt;800K</div>
+          <div><strong>DMS</strong> — 14°30'12.5"N, 17°26'39.6"W</div>
+          <div style="margin-top:6px;color:#1B4F8A;font-weight:600;">&#8594; Auto-conversion embarquée vers WGS84</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 8 — GRILLE MODULES ═══════ -->
+<div class="doc-page page-break">
+  <div class="section-eyebrow">07 — Inventaire des modules</div>
+  <div class="section-h2">50+ modules — Vue complète</div>
+  <div class="section-divider"></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">&#127968; Pilotage & Gouvernance (9 modules)</div>
+      <div style="font-size:11.5px;line-height:2;color:#475569;">
+        Tableau de bord Direction &nbsp;·&nbsp; Portefeuille DPE &nbsp;·&nbsp; Cockpit Projet (14 onglets) &nbsp;·&nbsp; Programmes &nbsp;·&nbsp; Risques &amp; QHSE &nbsp;·&nbsp; EVM / Valeur Acquise &nbsp;·&nbsp; Gantt / Planning &nbsp;·&nbsp; Suivi-Évaluation &nbsp;·&nbsp; Cartographie SIG
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">&#128296; Exécution & Opérationnel (9 modules)</div>
+      <div style="font-size:11.5px;line-height:2;color:#475569;">
+        Zones &amp; Quantités &nbsp;·&nbsp; Contrats &amp; Marchés &nbsp;·&nbsp; Budget &amp; Décaissements &nbsp;·&nbsp; Réceptions &amp; Paiements &nbsp;·&nbsp; Avancement Terrain &nbsp;·&nbsp; Bordereaux / BOQ &nbsp;·&nbsp; Tâches &amp; Activités &nbsp;·&nbsp; WBS &amp; Structuration &nbsp;·&nbsp; Workflows &amp; Validation
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">&#128101; Support & Transverses (9 modules)</div>
+      <div style="font-size:11.5px;line-height:2;color:#475569;">
+        Ressources Humaines &nbsp;·&nbsp; Temps &amp; Pointage &nbsp;·&nbsp; Immobilisations &nbsp;·&nbsp; Flotte &amp; Logistique &nbsp;·&nbsp; Courriers &amp; GED &nbsp;·&nbsp; Centre IA &amp; Copilot &nbsp;·&nbsp; Reporting &amp; Analytique &nbsp;·&nbsp; Interface ERP &amp; Migration &nbsp;·&nbsp; Administration Système
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">&#128202; Sous-modules & Vues complémentaires</div>
+      <div style="font-size:11.5px;line-height:2;color:#475569;">
+        Constructeur indicateurs &nbsp;·&nbsp; Studio Rapports (IA + Word) &nbsp;·&nbsp; Dashboard Builder &nbsp;·&nbsp; Springboard &nbsp;·&nbsp; Analytique avancée &nbsp;·&nbsp; Copilot IA &nbsp;·&nbsp; Ordres de Mission &nbsp;·&nbsp; Réservation salle &nbsp;·&nbsp; Migration (analyse IA) &nbsp;·&nbsp; Fournisseurs &nbsp;·&nbsp; ERP Interface &nbsp;·&nbsp; Structuration &amp; Canevas
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-24 section-h2" style="font-size:20px;">Principes UX — Règles globales</div>
+  <div class="section-divider"></div>
+  <div class="grid-2 mt-16">
+    <div class="card">
+      <div class="card-title">Accessibilité & Touch</div>
+      <div style="font-size:11.5px;color:#475569;line-height:1.9;">
+        <div>&#10003; Taille cible tactile min 44×44px</div>
+        <div>&#10003; Contraste texte min 4.5:1 (WCAG AA)</div>
+        <div>&#10003; Icônes toujours accompagnées d'un label</div>
+        <div>&#10003; Focus ring visible (2px, couleur blue-800)</div>
+        <div>&#10003; Statuts jamais véhiculés par la couleur seule</div>
+        <div>&#10003; Respect prefers-reduced-motion</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Performance & Responsive</div>
+      <div style="font-size:11.5px;color:#475569;line-height:1.9;">
+        <div>&#10003; Dynamic import pour Leaflet, PDF, charts</div>
+        <div>&#10003; Offline-first (Zustand persist)</div>
+        <div>&#10003; Mobile 375px · Tablette 768px · Desktop 1440px</div>
+        <div>&#10003; Animations 150–300ms, transform/opacity only</div>
+        <div>&#10003; Skeleton screens sur chargements &gt;300ms</div>
+        <div>&#10003; Sidebar collapsed icon sur tablette</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">RBAC & Visibilité</div>
+      <div style="font-size:11.5px;color:#475569;line-height:1.9;">
+        <div>&#10003; Items sans accès : masqués, pas disabled</div>
+        <div>&#10003; DIR_DPE/PMO : tous domaines même si vides</div>
+        <div>&#10003; Tabs admin sensibles : ADMIN exclusif</div>
+        <div>&#10003; canGlobal = niveau RBAC ≤ 1</div>
+        <div>&#10003; Aucun menu vide affiché (no ghost entries)</div>
+        <div>&#10003; Lecture seule = formulaires non éditables</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Formulaires & Feedback</div>
+      <div style="font-size:11.5px;color:#475569;line-height:1.9;">
+        <div>&#10003; Label visible par champ (jamais placeholder seul)</div>
+        <div>&#10003; Erreur sous le champ concerné, couleur rouge</div>
+        <div>&#10003; Toast auto-dismiss en 4 secondes</div>
+        <div>&#10003; Confirmation avant toute action destructive</div>
+        <div>&#10003; Bouton submit : loading spinner + disabled</div>
+        <div>&#10003; Champs requis marqués * rouge</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer" style="text-align:center;padding:28px 0 10px;font-size:11px;color:#94A3B8;border-top:1px solid #E2E8F0;margin-top:32px;">
+    SIGEPP-DPE · UI/UX Design System · SENELEC Direction du Parc Électrique · Version 2026 · Confidentiel
+  </div>
+</div>
+
+</body>
+</html>

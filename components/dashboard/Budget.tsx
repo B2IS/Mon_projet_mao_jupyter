@@ -378,6 +378,8 @@ export default function Budget() {
     .filter(Boolean) as DomainFilter[];
   const isMultiDomain = visibleLabels.length !== 1; // mono-domaine ⇒ pas de bouton « Tous »
   const canSeeDomain = (d: DomainFilter) => visibleLabels.includes(d);
+  // Déclaré ici (avant scopedDomainBudget) pour que le memo puisse l'utiliser comme dépendance.
+  const [domainFilter, setDomainFilter] = useState<DomainFilter>(isMultiDomain ? 'Tous' : (visibleLabels[0] ?? 'Tous'));
 
   /* Build ProjectRow list from real store data */
   const storeProjects = useMemo<ProjectRow[]>(() => {
@@ -404,9 +406,10 @@ export default function Budget() {
   // Données donut/total dérivées des projets SCOPÉS (jamais des constantes tous-domaines).
   const scopedDomainBudget = useMemo<Record<string, number>>(() => {
     const m: Record<string, number> = {};
-    storeProjects.forEach(p => { m[p.domain] = (m[p.domain] ?? 0) + p.prevu; });
+    const src = domainFilter === 'Tous' ? storeProjects : storeProjects.filter(p => p.domain === domainFilter);
+    src.forEach(p => { m[p.domain] = (m[p.domain] ?? 0) + p.prevu; });
     return m;
-  }, [storeProjects]);
+  }, [storeProjects, domainFilter]);
   const totalBudgetScoped = useMemo(() => Object.values(scopedDomainBudget).reduce((s, v) => s + v, 0), [scopedDomainBudget]);
   // Totaux RÉELS du périmètre du profil (engagements/décaissements) — pour ne JAMAIS
   // afficher les chiffres globaux à un profil restreint.
@@ -437,8 +440,6 @@ export default function Budget() {
   }, [scopedDomainBudget, totalBudgetScoped]);
 
   const [year, setYear]         = useState<YearOption>('2025');
-  // Profil mono-domaine ⇒ filtre verrouillé sur son domaine (pas de vue « Tous » multi-domaines).
-  const [domainFilter, setDomainFilter] = useState<DomainFilter>(isMultiDomain ? 'Tous' : (visibleLabels[0] ?? 'Tous'));
   const [sortKey, setSortKey]   = useState<SortKey>('prevu');
   const [sortDir, setSortDir]   = useState<SortDir>('desc');
   const [projectStatuses, setProjectStatuses] = useState<Record<string, ProjectRow['statut']>>({});

@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SIGEPP-DPE — Présentation de la solution</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F4F6F9; color: #1E293B; }
+
+  .nav { display: flex; gap: 0; background: #fff; border-bottom: 2px solid #E2E8F0; position: sticky; top: 0; z-index: 100; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .nav button { padding: 14px 22px; border: none; background: transparent; font-size: 12px; font-weight: 700; color: #64748B; cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; transition: all .15s; font-family: inherit; }
+  .nav button.active { color: #1B4F8A; border-bottom-color: #1B4F8A; background: #F8FAFC; }
+  .nav button:hover:not(.active) { color: #1B4F8A; background: #F8FAFC; }
+
+  .page { display: none; padding: 36px 48px; max-width: 1000px; margin: 0 auto; }
+  .page.active { display: block; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* COVER */
+  .cover-hero { background: linear-gradient(135deg, #0E3460 0%, #1B4F8A 60%, #2563EB 100%); border-radius: 20px; padding: 52px 44px; color: #fff; margin-bottom: 28px; position: relative; overflow: hidden; }
+  .cover-hero::before { content: ''; position: absolute; right: -40px; top: -40px; width: 350px; height: 350px; border-radius: 50%; background: rgba(255,255,255,.04); }
+  .cover-hero::after { content: ''; position: absolute; right: 70px; bottom: -70px; width: 240px; height: 240px; border-radius: 50%; background: rgba(244,121,32,.1); }
+  .cover-logo { font-size: 11px; font-weight: 800; letter-spacing: 3px; color: #F47920; text-transform: uppercase; margin-bottom: 18px; }
+  .cover-title { font-size: 38px; font-weight: 900; line-height: 1.1; margin-bottom: 14px; }
+  .cover-title span { color: #F47920; }
+  .cover-subtitle { font-size: 15px; font-weight: 600; color: rgba(255,255,255,.85); margin-bottom: 10px; }
+  .cover-sub { font-size: 13px; color: rgba(255,255,255,.7); margin-bottom: 30px; line-height: 1.7; max-width: 540px; }
+  .cover-badges { display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge { padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-orange { background: #F47920; color: #fff; }
+  .badge-white { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.3); }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-card { background: #fff; border-radius: 14px; padding: 22px 16px; text-align: center; border: 1px solid #E2E8F0; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .kpi-val { font-size: 30px; font-weight: 900; color: #1B4F8A; }
+  .kpi-lbl { font-size: 11px; color: #64748B; margin-top: 5px; font-weight: 600; line-height: 1.4; }
+
+  .stack-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info-card { background: #fff; border-radius: 14px; padding: 22px; border: 1px solid #E2E8F0; }
+  .info-title { font-size: 13px; font-weight: 800; color: #1B4F8A; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9; font-size: 12px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-val { font-weight: 700; color: #1E293B; }
+
+  /* MODULES */
+  .section-title { font-size: 20px; font-weight: 900; color: #1B4F8A; margin-bottom: 6px; }
+  .section-sub { font-size: 12px; color: #64748B; margin-bottom: 22px; }
+  .modules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .mod-card { background: #fff; border-radius: 12px; border: 1px solid #E2E8F0; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04); transition: box-shadow .15s; }
+  .mod-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .mod-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .mod-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .mod-name { font-size: 12px; font-weight: 800; color: #1E293B; }
+  .mod-tag { font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-top: 3px; display: inline-block; }
+  .mod-desc { font-size: 11px; color: #64748B; line-height: 1.5; margin-bottom: 8px; }
+  .mod-features { list-style: none; }
+  .mod-features li { font-size: 10.5px; color: #475569; padding: 2px 0; padding-left: 12px; position: relative; }
+  .mod-features li::before { content: '›'; position: absolute; left: 0; color: #94A3B8; font-weight: 700; }
+
+  /* RÔLES */
+  .roles-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .role-card { background: #fff; border-radius: 12px; border: 1px solid #E2E8F0; padding: 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .role-icon { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .role-name { font-size: 12.5px; font-weight: 800; color: #1E293B; }
+  .role-desc { font-size: 11px; color: #64748B; margin-top: 3px; line-height: 1.5; }
+  .role-perms { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .perm { font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+
+  /* ARCHI */
+  .archi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .tech-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 7px; font-size: 11px; font-weight: 700; margin: 3px; }
+  .pillar { background: #fff; border-radius: 14px; border: 1px solid #E2E8F0; padding: 22px; }
+  .pillar-title { font-size: 13px; font-weight: 800; color: #1B4F8A; margin-bottom: 14px; }
+  .pillar-list { list-style: none; }
+  .pillar-list li { font-size: 12px; color: #475569; padding: 6px 0; border-bottom: 1px solid #F1F5F9; display: flex; align-items: center; gap: 8px; }
+  .pillar-list li:last-child { border-bottom: none; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* FOOTER */
+  .footer { text-align: center; padding: 28px 0 20px; font-size: 11px; color: #94A3B8; border-top: 1px solid #E2E8F0; margin-top: 32px; }
+
+  @media (max-width: 700px) {
+    .page { padding: 20px 16px; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .stack-row, .modules-grid, .archi-row { grid-template-columns: 1fr; }
+    .roles-grid { grid-template-columns: 1fr; }
+    .cover-title { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button class="active" onclick="show('cover',this)">Vue d'ensemble</button>
+  <button onclick="show('modules1',this)">Pilotage & Gouvernance</button>
+  <button onclick="show('modules2',this)">Exécution & Opérationnel</button>
+  <button onclick="show('modules3',this)">Support & Transverses</button>
+  <button onclick="show('roles',this)">Profils & RBAC</button>
+  <button onclick="show('ia',this)">Fonctionnalités IA</button>
+  <button onclick="show('rbac',this)">Sécurité RBAC/ABAC</button>
+  <button onclick="show('archi',this)">Architecture</button>
+</div>
+
+<!-- PAGE 1 -->
+<div class="page active" id="cover">
+  <div class="cover-hero">
+    <div class="cover-logo">SENELEC &nbsp;·&nbsp; Direction Principale Equipement (DPE)</div>
+    <div class="cover-title">SIGEPP<span>-DPE</span></div>
+    <div class="cover-subtitle">Système Intégré de Gouvernance, d'Exécution et de Pilotage de Projet</div>
+    <div class="cover-sub">Plateforme numérique de gestion du portefeuille de projets d'investissement SENELEC — DPE. Couvre l'intégralité du cycle de vie d'un projet : programmation budgétaire, planification, exécution terrain, gestion contractuelle, marchés et reporting exécutif.</div>
+    <div class="cover-badges">
+      <span class="badge badge-orange">Next.js 15</span>
+      <span class="badge badge-white">77 projets simulés (DPT + DPD)</span>
+      <span class="badge badge-white">19 profils RBAC</span>
+      <span class="badge badge-white">50+ modules</span>
+      <span class="badge badge-white">Version 2026</span>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-val">77</div><div class="kpi-lbl">Projets dans le portefeuille</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#F47920">478 Md</div><div class="kpi-lbl">Budget total FCFA</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#16A34A">50+</div><div class="kpi-lbl">Modules fonctionnels</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#7C3AED">19</div><div class="kpi-lbl">Rôles utilisateurs</div></div>
+  </div>
+
+  <div class="stack-row">
+    <div class="info-card">
+      <div class="info-title">📋 Objet de la solution</div>
+      <p style="font-size:12px;color:#475569;line-height:1.8;">SIGEPP-DPE est la plateforme centrale de pilotage du portefeuille de projets de la Direction Principale Equipement de SENELEC. Elle couvre toutes les dimensions de la gestion de projet : planification, exécution, suivi financier, marchés, ressources humaines, cartographie SIG et reporting exécutif.</p>
+      <br/>
+      <p style="font-size:12px;color:#475569;line-height:1.8;">La solution est conçue pour tous les profils de la DPE (Directeur, PMO, Chefs de projets, Ingénieurs, Contrôleurs) ainsi que les entités transverses (Marchés, Finance, RH, Logistique, SIG).</p>
+    </div>
+    <div class="info-card">
+      <div class="info-title">🏗️ 5 Domaines officiels DPE</div>
+      <div class="info-row"><span>🔋 Production</span><span class="info-val" style="color:#94A3B8;">— (à charger)</span></div>
+      <div class="info-row"><span>⚡ Transport HT/THT</span><span class="info-val">24 projets chargés</span></div>
+      <div class="info-row"><span>🔌 Distribution HTA/BT & ER</span><span class="info-val">53 projets chargés</span></div>
+      <div class="info-row"><span>📊 Commercial & AMI</span><span class="info-val" style="color:#94A3B8;">— (à charger)</span></div>
+      <div class="info-row"><span>🏗️ Génie Civil DGC</span><span class="info-val" style="color:#94A3B8;">— (à charger)</span></div>
+      <div class="info-row" style="background:#EFF6FF;border-radius:6px;padding:5px 8px;margin-top:4px;border:none;">
+        <span style="color:#1B4F8A;font-size:11px;font-weight:700;">🌍 BEST/NG-ECOWAS → programme Distribution</span>
+        <span class="info-val" style="color:#1B4F8A;">3 lots · 1 041 loc.</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page" id="modules1">
+  <div class="section-title">Modules — Pilotage & Gouvernance</div>
+  <div class="section-sub">Outils stratégiques pour les profils Directeur, PMO et Chefs de Département</div>
+  <div class="modules-grid">
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#1B4F8A18">📊</div>
+        <div><div class="mod-name">Tableau de bord Direction</div><span class="mod-tag" style="background:#EFF6FF;color:#1B4F8A">Cockpit Exécutif</span></div></div>
+      <div class="mod-desc">Vue consolidée temps réel du portefeuille DPE</div>
+      <ul class="mod-features"><li>KPIs énergétiques (km HTA/BT, MW, compteurs)</li><li>Indicateurs CPI / SPI / TRF / TRP</li><li>Alertes critiques & jalons 30 jours</li><li>Indicateurs personnalisables par profil</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#7C3AED18">📁</div>
+        <div><div class="mod-name">Portefeuille DPE</div><span class="mod-tag" style="background:#F5F3FF;color:#7C3AED">Multi-vues</span></div></div>
+      <div class="mod-desc">Hiérarchie Portefeuille → Programme → Projet → Lot</div>
+      <ul class="mod-features"><li>Vue Programmes (5 domaines métier)</li><li>Vue Stratégique (matrice budget / avancement)</li><li>Vue Opérationnelle (tâches et charge)</li><li>Performance ICP — EVM, CPI, SPI, EAC</li><li>Analyse multicritères (19 filtres directeur)</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#F4792018">🎯</div>
+        <div><div class="mod-name">Cockpit Projet</div><span class="mod-tag" style="background:#FFF7ED;color:#F47920">Pilotage 360°</span></div></div>
+      <div class="mod-desc">Vue complète d'un projet — 14 onglets de pilotage</div>
+      <ul class="mod-features"><li>Fiche exécutive, synthèse RAG, jalons</li><li>Planning Gantt intégré</li><li>Zones & Quantités (import UTM/DMS/WGS84)</li><li>Carte SIG Leaflet responsive</li><li>Coûts, Marchés, Ressources, Risques…</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#16A34A18">📈</div>
+        <div><div class="mod-name">Programmes</div><span class="mod-tag" style="background:#F0FDF4;color:#16A34A">Portefeuille</span></div></div>
+      <div class="mod-desc">Gestion des programmes d'investissement DPE</div>
+      <ul class="mod-features"><li>Création & paramétrage programme</li><li>Affectation des projets par programme</li><li>KPIs consolidés par domaine</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#EF334018">⚠️</div>
+        <div><div class="mod-name">Risques & QHSE</div><span class="mod-tag" style="background:#FEF2F2;color:#EF3340">Maîtrise des risques</span></div></div>
+      <div class="mod-desc">Registre des risques et actions HSE par projet</div>
+      <ul class="mod-features"><li>Matrice probabilité × impact</li><li>Plans de mitigation & responsables</li><li>Suivi incidents terrain</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#D9770618">📉</div>
+        <div><div class="mod-name">Valeur Acquise (EVM)</div><span class="mod-tag" style="background:#FFFBEB;color:#D97706">Analyse financière</span></div></div>
+      <div class="mod-desc">Analyse EVM complète et indicateurs de performance</div>
+      <ul class="mod-features"><li>BCWS / BCWP / ACWP</li><li>CPI, SPI, EAC, VAC, TCPI</li><li>Courbes S et prévisions de fin</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#1B4F8A18">🗓️</div>
+        <div><div class="mod-name">Gantt / Planning</div><span class="mod-tag" style="background:#EFF6FF;color:#1B4F8A">Planification</span></div></div>
+      <div class="mod-desc">Chronogramme multi-projets avec WBS intégré</div>
+      <ul class="mod-features"><li>Diagramme Gantt interactif (semaine/mois/trim)</li><li>WBS, jalons, dépendances FS/SS/FF</li><li>Ressources, baseline, chemin critique</li><li>Export PDF / Excel</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#7C3AED18">🧭</div>
+        <div><div class="mod-name">Suivi-Évaluation</div><span class="mod-tag" style="background:#F5F3FF;color:#7C3AED">S&amp;E</span></div></div>
+      <div class="mod-desc">Tableaux de bord S&amp;E et indicateurs de résultats</div>
+      <ul class="mod-features"><li>Indicateurs de résultats & d'impacts</li><li>Cadre logique par programme</li><li>Reporting bailleur (AFD, BEI, BM…)</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#16A34A18">🗺️</div>
+        <div><div class="mod-name">Cartographie SIG</div><span class="mod-tag" style="background:#F0FDF4;color:#16A34A">Géospatial</span></div></div>
+      <div class="mod-desc">Cartographie interactive du réseau et des projets</div>
+      <ul class="mod-features"><li>Carte Leaflet multi-couches (HTA, BT, postes)</li><li>1 041 localités BEST (codes ANSD 13 chiffres)</li><li>Coordonnées WGS84 / UTM Zone 28-29N / DMS</li><li>Responsive mobile / tablette / desktop</li></ul>
+    </div>
+
+  </div>
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<!-- PAGE 3 -->
+<div class="page" id="modules2">
+  <div class="section-title">Modules — Exécution & Opérationnel</div>
+  <div class="section-sub">Outils quotidiens pour les Chefs de Projet, Ingénieurs et équipes terrain</div>
+  <div class="modules-grid">
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#1B4F8A18">📋</div>
+        <div><div class="mod-name">Zones & Quantités</div><span class="mod-tag" style="background:#EFF6FF;color:#1B4F8A">BOQ / IPC</span></div></div>
+      <div class="mod-desc">Matrice zones × items + BOQ décomptes intermédiaires</div>
+      <ul class="mod-features"><li>Import Excel avec détection UTM/DMS/WGS84</li><li>Codes ANSD + filtres toponymiques (région/dept/CR)</li><li>Quantités prévues / réalisées / validées</li><li>BOQ / IPC pour décomptes marchés</li><li>Export Excel multi-feuilles</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#F4792018">📜</div>
+        <div><div class="mod-name">Contrats & Marchés</div><span class="mod-tag" style="background:#FFF7ED;color:#F47920">Procurement</span></div></div>
+      <div class="mod-desc">Gestion du cycle complet de passation des marchés</div>
+      <ul class="mod-features"><li>Marchés : travaux, services, fournitures</li><li>Suivi étapes (DAO, soumission, attribution…)</li><li>Décomptes et paiements intermédiaires</li><li>Retenue de garantie, avance de démarrage</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#16A34A18">💰</div>
+        <div><div class="mod-name">Budget & Décaissements</div><span class="mod-tag" style="background:#F0FDF4;color:#16A34A">Finance</span></div></div>
+      <div class="mod-desc">Suivi budgétaire et plan de décaissement par bailleur</div>
+      <ul class="mod-features"><li>Budget initial / révisé / engagé / décaissé</li><li>Plan de décaissement par bailleur</li><li>Écarts & prévisions de fin (EAC)</li><li>Imputation par composante projet</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#7C3AED18">✅</div>
+        <div><div class="mod-name">Réceptions & Paiements</div><span class="mod-tag" style="background:#F5F3FF;color:#7C3AED">Recette</span></div></div>
+      <div class="mod-desc">Processus de réception provisoire et définitive</div>
+      <ul class="mod-features"><li>PV de réception provisoire / définitive</li><li>Levée des réserves</li><li>Décompte final et DGD</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#EF334018">🛠️</div>
+        <div><div class="mod-name">Avancement Terrain</div><span class="mod-tag" style="background:#FEF2F2;color:#EF3340">Terrain</span></div></div>
+      <div class="mod-desc">Suivi terrain et canevas de visite de chantier</div>
+      <ul class="mod-features"><li>Canevas de visite terrain paramétrable</li><li>Photos, observations, non-conformités</li><li>Taux d'avancement par zone</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#D9770618">📑</div>
+        <div><div class="mod-name">Bordereaux / BOQ</div><span class="mod-tag" style="background:#FFFBEB;color:#D97706">Décomptes</span></div></div>
+      <div class="mod-desc">Bordereau des prix et suivi des décomptes mensuels</div>
+      <ul class="mod-features"><li>Articles unitaires avec prix FCFA</li><li>Décomptes mensuels P/R/V</li><li>Calcul automatique IPC et montants</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#1B4F8A18">✔️</div>
+        <div><div class="mod-name">Tâches & Activités</div><span class="mod-tag" style="background:#EFF6FF;color:#1B4F8A">Suivi quotidien</span></div></div>
+      <div class="mod-desc">Suivi des tâches et assignation aux ressources</div>
+      <ul class="mod-features"><li>Tableau Kanban / liste</li><li>Assignation et suivi avancement</li><li>Baseline et chemin critique</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#16A34A18">📄</div>
+        <div><div class="mod-name">WBS & Structuration</div><span class="mod-tag" style="background:#F0FDF4;color:#16A34A">Structure</span></div></div>
+      <div class="mod-desc">Structure de décomposition du travail (WBS)</div>
+      <ul class="mod-features"><li>WBS hiérarchique (lots, phases, activités)</li><li>Codes OTP et imputations analytiques</li><li>Liaison tâches / composantes budget</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#7C3AED18">🔄</div>
+        <div><div class="mod-name">Workflows & Validation</div><span class="mod-tag" style="background:#F5F3FF;color:#7C3AED">Circuits</span></div></div>
+      <div class="mod-desc">Circuits de validation et parapheur numérique</div>
+      <ul class="mod-features"><li>Workflows paramétrables multi-étapes</li><li>Notifications temps réel</li><li>Signature électronique / approbation</li><li>Journal de validation horodaté</li></ul>
+    </div>
+
+  </div>
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<!-- PAGE 4 -->
+<div class="page" id="modules3">
+  <div class="section-title">Modules — Support, RH & Transverses</div>
+  <div class="section-sub">Fonctions support partagées entre toutes les directions</div>
+  <div class="modules-grid">
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#1B4F8A18">👥</div>
+        <div><div class="mod-name">Ressources Humaines</div><span class="mod-tag" style="background:#EFF6FF;color:#1B4F8A">RH</span></div></div>
+      <div class="mod-desc">Gestion du personnel DPE (180+ agents)</div>
+      <ul class="mod-features"><li>Organigramme dynamique DPE</li><li>Fiches agents, postes, directions</li><li>Affectation aux projets (charge RH)</li><li>Grille chaleur charge mensuelle</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#F4792018">⏱️</div>
+        <div><div class="mod-name">Temps & Pointage</div><span class="mod-tag" style="background:#FFF7ED;color:#F47920">Timesheet</span></div></div>
+      <div class="mod-desc">Pointage et valorisation du temps par projet</div>
+      <ul class="mod-features"><li>Feuilles de temps hebdomadaires</li><li>Ventilation par projet / activité</li><li>Validation manager</li><li>Coût du travail par projet</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#16A34A18">🏛️</div>
+        <div><div class="mod-name">Immobilisations</div><span class="mod-tag" style="background:#F0FDF4;color:#16A34A">Patrimoine</span></div></div>
+      <div class="mod-desc">Gestion des actifs et plan d'amortissement</div>
+      <ul class="mod-features"><li>Référentiel des actifs SENELEC</li><li>Mise en service depuis les projets</li><li>Plan d'amortissement (linéaire / dégressif)</li><li>Réceptions techniques</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#7C3AED18">🚗</div>
+        <div><div class="mod-name">Flotte & Logistique</div><span class="mod-tag" style="background:#F5F3FF;color:#7C3AED">UAGL</span></div></div>
+      <div class="mod-desc">Gestion de la flotte véhicules et logistique terrain</div>
+      <ul class="mod-features"><li>Suivi véhicules, carburant, entretien</li><li>Ordres de mission (ODM)</li><li>Réservation de salle / ressources</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#EF334018">📬</div>
+        <div><div class="mod-name">Courriers & GED</div><span class="mod-tag" style="background:#FEF2F2;color:#EF3340">Documentaire</span></div></div>
+      <div class="mod-desc">Gestion documentaire et courriers officiels</div>
+      <ul class="mod-features"><li>Enregistrement courriers arrivée / départ</li><li>GED : classement, versionnage, partage</li><li>Canevas et documents-types DPE</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#D9770618">🤖</div>
+        <div><div class="mod-name">Centre IA & Copilot</div><span class="mod-tag" style="background:#FFFBEB;color:#D97706">Intelligence Artificielle</span></div></div>
+      <div class="mod-desc">Assistant IA intégré (Kimi + Groq / LLaMA 3)</div>
+      <ul class="mod-features"><li>Copilot Exécutif : résumés & alertes auto</li><li>Analyse de documents PDF / contrats</li><li>Studio Rapports : constructeur + export Word</li><li>Agents IA spécialisés par domaine</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#1B4F8A18">📊</div>
+        <div><div class="mod-name">Reporting & Analytique</div><span class="mod-tag" style="background:#EFF6FF;color:#1B4F8A">BI</span></div></div>
+      <div class="mod-desc">Rapports et exports pour bailleurs et Direction</div>
+      <ul class="mod-features"><li>Rapport mensuel, trimestriel, annuel</li><li>Export PDF / Excel / Word</li><li>Tableau de bord personnalisé (builder)</li><li>Constructeur d'indicateurs KPI</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#7C3AED18">🔌</div>
+        <div><div class="mod-name">Interface ERP & Migration</div><span class="mod-tag" style="background:#F5F3FF;color:#7C3AED">Connecteurs</span></div></div>
+      <div class="mod-desc">Connecteurs ERP et outil de migration de données</div>
+      <ul class="mod-features"><li>SAP / Oracle / Sage (interface de connexion)</li><li>Import données budgétaires historiques</li><li>Migration assistée par IA (analyse fichiers)</li></ul>
+    </div>
+
+    <div class="mod-card">
+      <div class="mod-header"><div class="mod-icon" style="background:#16A34A18">🔒</div>
+        <div><div class="mod-name">Administration Système</div><span class="mod-tag" style="background:#F0FDF4;color:#16A34A">Admin</span></div></div>
+      <div class="mod-desc">Paramétrage, sécurité et gestion des accès</div>
+      <ul class="mod-features"><li>Gestion utilisateurs & invitations</li><li>Rôles & Permissions (ADMIN exclusif)</li><li>Journal d'audit horodaté</li><li>Tenants, modules, intégrations</li></ul>
+    </div>
+
+  </div>
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<!-- PAGE 5 -->
+<div class="page" id="roles">
+  <div class="section-title">Profils utilisateurs & Contrôle d'accès (RBAC)</div>
+  <div class="section-sub">19 rôles métier avec contrôle granulaire par module, action et périmètre organisationnel</div>
+  <div class="roles-grid">
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#3D1A6B18">👔</div>
+      <div><div class="role-name">DIR_DPE — Directeur DPE</div>
+        <div class="role-desc">Vision exécutive : portefeuille stratégique, KPIs, arbitrages & relations bailleurs. Accès lecture totale sur tous les domaines, aucune modification opérationnelle.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#3D1A6B18;color:#3D1A6B">Portefeuille global</span>
+          <span class="perm" style="background:#3D1A6B18;color:#3D1A6B">Tous domaines</span>
+          <span class="perm" style="background:#3D1A6B18;color:#3D1A6B">Lecture seule opérationnelle</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#7C3AED18">📊</div>
+      <div><div class="role-name">PMO — Chef de Programmes</div>
+        <div class="role-desc">Pilotage portefeuille multi-projets, EVM, planning consolidé, reporting bailleurs. Visible sur tous les domaines.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#7C3AED18;color:#7C3AED">Portefeuille</span>
+          <span class="perm" style="background:#7C3AED18;color:#7C3AED">Planning</span>
+          <span class="perm" style="background:#7C3AED18;color:#7C3AED">Reporting</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#1B4F8A18">🎯</div>
+      <div><div class="role-name">CHEF_PROJ — Chef de Projet</div>
+        <div class="role-desc">Pilotage complet de ses projets assignés : fiche, budget, marchés, zones, ressources, reporting.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#1B4F8A18;color:#1B4F8A">Ses projets</span>
+          <span class="perm" style="background:#1B4F8A18;color:#1B4F8A">Édition complète</span>
+          <span class="perm" style="background:#1B4F8A18;color:#1B4F8A">Marchés</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#16A34A18">🏢</div>
+      <div><div class="role-name">CHEF_DEPT — Chef de Département</div>
+        <div class="role-desc">Supervision des projets de son département. Validation des tâches et modification dans son périmètre.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#16A34A18;color:#16A34A">Département + projets</span>
+          <span class="perm" style="background:#16A34A18;color:#16A34A">Validation</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#F4792018">⚙️</div>
+      <div><div class="role-name">INGENIEUR / EXPERT — Technique</div>
+        <div class="role-desc">Exécution technique : saisie des avancements, zones & quantités, suivi terrain sur ses projets assignés.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#F4792018;color:#F47920">Saisie zones</span>
+          <span class="perm" style="background:#F4792018;color:#F47920">Avancement</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#EF334018">💼</div>
+      <div><div class="role-name">CTRL_FIN — Contrôleur Financier</div>
+        <div class="role-desc">Consultation financière globale : lecture seule totale sur budgets, marchés, décomptes. Validation financière des marchés.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#EF334018;color:#EF3340">Lecture finance</span>
+          <span class="perm" style="background:#EF334018;color:#EF3340">Validation marchés</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#D9770618">📋</div>
+      <div><div class="role-name">MARCHES — Passation des Marchés</div>
+        <div class="role-desc">Gestion du processus de passation : édition marchés, DAO, attribution, contrats sur tous les projets.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#D9770618;color:#D97706">Marchés</span>
+          <span class="perm" style="background:#D9770618;color:#D97706">Contrats</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#16A34A18">🗺️</div>
+      <div><div class="role-name">SIG — Géomatique</div>
+        <div class="role-desc">Gestion des données géospatiales, cartographie, coordonnées UTM/WGS84, localités ANSD.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#16A34A18;color:#16A34A">Cartographie</span>
+          <span class="perm" style="background:#16A34A18;color:#16A34A">Zones</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#64748B18">🔍</div>
+      <div><div class="role-name">AUDIT — Auditeur</div>
+        <div class="role-desc">Accès lecture totale sur tous les modules à des fins d'audit. Aucune modification possible.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#64748B18;color:#64748B">Lecture globale</span>
+          <span class="perm" style="background:#64748B18;color:#64748B">Journal d'audit</span>
+        </div></div>
+    </div>
+
+    <div class="role-card">
+      <div class="role-icon" style="background:#37415118">⚙️</div>
+      <div><div class="role-name">ADMIN — Administrateur Système</div>
+        <div class="role-desc">Accès complet : paramétrage, utilisateurs, rôles, modules, sécurité, journaux d'audit, tenants.</div>
+        <div class="role-perms">
+          <span class="perm" style="background:#37415118;color:#374151">Accès total</span>
+          <span class="perm" style="background:#37415118;color:#374151">Config système</span>
+          <span class="perm" style="background:#37415118;color:#374151">RBAC</span>
+        </div></div>
+    </div>
+
+    <div class="role-card" style="grid-column: 1 / -1;">
+      <div class="role-icon" style="background:#94A3B818;font-size:13px;font-weight:800;color:#64748B;">+9</div>
+      <div style="flex:1"><div class="role-name">Autres profils opérationnels (9 rôles)</div>
+        <div class="role-desc">Resp. Logistique/UAGL, Immobilisations, Secrétaire, Assistant de Direction, Chauffeur/UAGL, Contrôleur de Projet, Contrôleur de Travaux, Chargé de Mission — chacun avec un périmètre fonctionnel limité à son domaine métier, en lecture ou saisie selon son rôle.</div>
+      </div>
+    </div>
+
+  </div>
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<!-- PAGE 6 -->
+<div class="page" id="ia">
+  <div class="section-title">Fonctionnalités Intelligentes</div>
+  <div class="section-sub">IA embarquée au cœur de chaque métier DPE — migration, structuration, copilot, rapports, agents</div>
+
+  <div class="archi-row">
+    <div class="pillar">
+      <div class="pillar-title">📥 Migration Intelligente</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>Import PDF scanné ou Excel DPT/DPD analysé par Kimi</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Extraction automatique : nom projet, budget, avancement, jalons</li>
+        <li><span class="dot" style="background:#F47920"></span>Mapping intelligent vers le schéma SIGEPP-DPE</li>
+        <li><span class="dot" style="background:#F47920"></span>Aperçu des projets détectés avant validation</li>
+        <li><span class="dot" style="background:#16A34A"></span>Détection d'anomalies : données manquantes, doublons, incohérences</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Historique de migration horodaté par session</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">🏗️ Structuration Intelligente</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#7C3AED"></span>Génération automatique WBS (Structure de Décomposition du Travail)</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Prompt enrichi : contexte DPE, domaine, type projet</li>
+        <li><span class="dot" style="background:#F47920"></span>Groq + LLaMA 3 : génération temps réel en streaming</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Chapitres, lots, sous-tâches et livrables auto-structurés</li>
+        <li><span class="dot" style="background:#16A34A"></span>Éditable après génération — intégration directe au projet</li>
+        <li><span class="dot" style="background:#EF3340"></span>Adaptatif : Production, Transport, Distribution, Commercial, GC</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="archi-row">
+    <div class="pillar">
+      <div class="pillar-title">🤖 Copilot Exécutif</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>Synthèse automatique du portefeuille en langue naturelle</li>
+        <li><span class="dot" style="background:#F47920"></span>Alertes intelligentes : retards, dépassements CPI/SPI, risques</li>
+        <li><span class="dot" style="background:#16A34A"></span>Recommandations contextuelles par domaine et profil</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Analyse PDF contrats / marchés avec extraction de clauses</li>
+        <li><span class="dot" style="background:#D97706"></span>Kimi (Moonshot AI) — contexte long jusqu'à 128K tokens</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">📊 Studio Rapports IA</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#16A34A"></span>Constructeur de rapport interactif avec sélection des sections</li>
+        <li><span class="dot" style="background:#16A34A"></span>Export Word (.docx) réel — formatage DPE, logos, tableaux</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Génération narrative IA basée sur les données filtrées</li>
+        <li><span class="dot" style="background:#F47920"></span>Partage workflow : brouillon → révision → validation → publication</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Templates prédéfinis : Tableau de bord, Suivi EVM, Rapport DPE</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pillar" style="margin-top:8px;">
+    <div class="pillar-title">🧠 Agents IA Spécialisés par Domaine</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+      <span class="tech-pill" style="background:#EFF6FF;color:#1B4F8A;font-weight:700">⚡ Agent Transport HT/THT</span>
+      <span class="tech-pill" style="background:#F0FDF4;color:#16A34A;font-weight:700">🔌 Agent Distribution HTA/BT</span>
+      <span class="tech-pill" style="background:#FFF7ED;color:#F47920;font-weight:700">🔋 Agent Production & Stockage</span>
+      <span class="tech-pill" style="background:#F5F3FF;color:#7C3AED;font-weight:700">📊 Agent Commercial & AMI</span>
+      <span class="tech-pill" style="background:#FEF2F2;color:#EF3340;font-weight:700">🏗️ Agent Génie Civil DGC</span>
+      <span class="tech-pill" style="background:#FFFBEB;color:#D97706">Clés API sécurisées : localStorage + env NEXT_PUBLIC</span>
+      <span class="tech-pill" style="background:#F8FAFC;color:#475569">Jamais de clé API en dur dans le code</span>
+    </div>
+  </div>
+
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<div class="page" id="rbac">
+  <div class="section-title">Sécurité RBAC / ABAC</div>
+  <div class="section-sub">Contrôle d'accès multi-critères — chaque profil ne voit que son périmètre et son domaine</div>
+
+  <div class="archi-row">
+    <div class="pillar">
+      <div class="pillar-title">🔐 RBAC — Contrôle par Rôle</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>19 rôles prédéfinis couvrant toute la hiérarchie DPE</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Niveaux 1→5 : DPE global → direction → cellule → agent → externe</li>
+        <li><span class="dot" style="background:#F47920"></span>canGlobal = niveau ≤ 1 (DIR_DPE, PMO, ADMIN, AUDIT)</li>
+        <li><span class="dot" style="background:#F47920"></span>isOperationalReadOnly : lecture seule opérationnelle</li>
+        <li><span class="dot" style="background:#EF3340"></span>isAdminOnly : onglets d'administration réservés à ADMIN</li>
+        <li><span class="dot" style="background:#16A34A"></span>Permissions granulaires par action : create / read / update / delete</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">🎯 ABAC — Contrôle par Attribut</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#7C3AED"></span>Critère 1 — <strong>Rôle</strong> : permissions d'action héritées du rôle</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Critère 2 — <strong>Direction</strong> : DPT, DPD, DPP, DPC, DGC ou global</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Critère 3 — <strong>Cellule organisationnelle</strong> : unité interne de la direction</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Critère 4 — <strong>Domaine</strong> : transport, distribution, production…</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Critère 5 — <strong>Périmètre projet</strong> : liste explicite des projets autorisés</li>
+        <li><span class="dot" style="background:#D97706"></span>Intersection : un agent ne voit QUE ce que tous les critères autorisent</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="archi-row">
+    <div class="pillar">
+      <div class="pillar-title">👥 Exemples de Profils</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span><strong>DIR_DPE</strong> — vision globale tous domaines, tous modules</li>
+        <li><span class="dot" style="background:#F47920"></span><strong>PMO</strong> — portefeuille complet, rapports, validation workflow</li>
+        <li><span class="dot" style="background:#16A34A"></span><strong>CHEF_PROJET_DPT</strong> — projets Transport uniquement, son équipe</li>
+        <li><span class="dot" style="background:#7C3AED"></span><strong>FINANCIER_DPD</strong> — budget Distribution, pas de RH ni marchés</li>
+        <li><span class="dot" style="background:#EF3340"></span><strong>AUDITEUR</strong> — lecture seule tous modules, aucune modification</li>
+        <li><span class="dot" style="background:#D97706"></span><strong>AGENT_TERRAIN</strong> — ses projets assignés uniquement, saisie seule</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">🛡️ Application Universelle</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>Portefeuille projets — filtré par domaine + direction</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Marchés & contrats — périmètre projet respecté</li>
+        <li><span class="dot" style="background:#F47920"></span>Budget & EVM — chiffres visibles selon le rôle financier</li>
+        <li><span class="dot" style="background:#F47920"></span>Ressources humaines — équipe de sa direction uniquement</li>
+        <li><span class="dot" style="background:#16A34A"></span>SIG / Cartographie — markers filtrés par domaine actif</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Rapports & Analytics — données agrégées du périmètre seul</li>
+        <li><span class="dot" style="background:#EF3340"></span>Administration — onglet visible UNIQUEMENT pour ADMIN</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pillar" style="margin-top:8px;">
+    <div class="pillar-title">⚙️ Matrice des accès — synthèse</div>
+    <div style="overflow-x:auto;margin-top:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:#1B4F8A;color:#fff;">
+            <th style="padding:6px 10px;text-align:left;border-radius:4px 0 0 0;">Module</th>
+            <th style="padding:6px 8px;text-align:center;">DIR_DPE</th>
+            <th style="padding:6px 8px;text-align:center;">PMO</th>
+            <th style="padding:6px 8px;text-align:center;">Chef Projet</th>
+            <th style="padding:6px 8px;text-align:center;">Financier</th>
+            <th style="padding:6px 8px;text-align:center;">Auditeur</th>
+            <th style="padding:6px 8px;text-align:center;border-radius:0 4px 0 0;">Terrain</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#F8FAFC;">
+            <td style="padding:5px 10px;font-weight:600;color:#1B4F8A;">Portefeuille</td>
+            <td style="padding:5px 8px;text-align:center;color:#16A34A;font-weight:700;">✓ Global</td>
+            <td style="padding:5px 8px;text-align:center;color:#16A34A;font-weight:700;">✓ Global</td>
+            <td style="padding:5px 8px;text-align:center;color:#F47920;font-weight:700;">✓ Direction</td>
+            <td style="padding:5px 8px;text-align:center;color:#F47920;font-weight:700;">✓ Direction</td>
+            <td style="padding:5px 8px;text-align:center;color:#64748B;">👁 Lecture</td>
+            <td style="padding:5px 8px;text-align:center;color:#EF3340;">✓ Projets</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 10px;font-weight:600;color:#1B4F8A;">Budget / EVM</td>
+            <td style="padding:5px 8px;text-align:center;color:#16A34A;font-weight:700;">✓ Global</td>
+            <td style="padding:5px 8px;text-align:center;color:#16A34A;font-weight:700;">✓ Global</td>
+            <td style="padding:5px 8px;text-align:center;color:#F47920;font-weight:700;">✓ Direction</td>
+            <td style="padding:5px 8px;text-align:center;color:#16A34A;font-weight:700;">✓ Direction</td>
+            <td style="padding:5px 8px;text-align:center;color:#64748B;">👁 Lecture</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+          </tr>
+          <tr style="background:#F8FAFC;">
+            <td style="padding:5px 10px;font-weight:600;color:#1B4F8A;">Ressources RH</td>
+            <td style="padding:5px 8px;text-align:center;color:#16A34A;font-weight:700;">✓ Global</td>
+            <td style="padding:5px 8px;text-align:center;color:#16A34A;font-weight:700;">✓ Global</td>
+            <td style="padding:5px 8px;text-align:center;color:#F47920;font-weight:700;">✓ Direction</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+            <td style="padding:5px 8px;text-align:center;color:#64748B;">👁 Lecture</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 10px;font-weight:600;color:#1B4F8A;">Administration</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+            <td style="padding:5px 8px;text-align:center;color:#94A3B8;">—</td>
+            <td style="padding:5px 8px;text-align:center;color:#EF3340;font-weight:700;">ADMIN</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<div class="page" id="archi">
+  <div class="section-title">Architecture technique</div>
+  <div class="section-sub">Stack moderne full-TypeScript, offline-first, déploiement cloud</div>
+
+  <div class="archi-row">
+    <div class="pillar">
+      <div class="pillar-title">⚙️ Stack technique</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>Next.js 15 — App Router, Server Components</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>TypeScript strict — 100% typé</li>
+        <li><span class="dot" style="background:#F47920"></span>Zustand + persist — state management offline-first</li>
+        <li><span class="dot" style="background:#F47920"></span>React Leaflet — cartographie SIG (dynamic import)</li>
+        <li><span class="dot" style="background:#16A34A"></span>Recharts — graphiques EVM, KPIs, courbes S</li>
+        <li><span class="dot" style="background:#16A34A"></span>SheetJS / XLSX — import & export Excel</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Lucide React — iconographie système</li>
+        <li><span class="dot" style="background:#7C3AED"></span>React Hot Toast — notifications temps réel</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">🤖 Intelligence Artificielle</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#F47920"></span>Kimi (Moonshot AI) — analyse documents longs</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Groq + LLaMA 3 — génération rapide temps réel</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Clés API sécurisées (localStorage + env NEXT_PUBLIC)</li>
+        <li><span class="dot" style="background:#16A34A"></span>Studio Rapports — export Word réel (docx)</li>
+        <li><span class="dot" style="background:#EF3340"></span>Analyse PDF marchés / contrats</li>
+        <li><span class="dot" style="background:#D97706"></span>Agents IA spécialisés par domaine DPE</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="archi-row">
+    <div class="pillar">
+      <div class="pillar-title">🏗️ Principes d'architecture</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>RBAC granulaire — rôle + direction + cellule</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Multi-tenant ready — isolation par tenant</li>
+        <li><span class="dot" style="background:#F47920"></span>Offline-first — Zustand persist v5</li>
+        <li><span class="dot" style="background:#F47920"></span>Migrations de store versionnées (migrate fn)</li>
+        <li><span class="dot" style="background:#16A34A"></span>Responsive mobile / tablette / desktop</li>
+        <li><span class="dot" style="background:#7C3AED"></span>Dynamic imports SSR-safe (Leaflet, PDF, charts)</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">📦 Données DPE embarquées</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>77 projets initialisés (Transport + Distribution)</li>
+        <li><span class="dot" style="background:#F47920"></span>1 041 localités BEST avec codes ANSD 13 chiffres</li>
+        <li><span class="dot" style="background:#16A34A"></span>180+ agents DPE avec organigramme réel</li>
+        <li><span class="dot" style="background:#7C3AED"></span>PROJETS_INIT figés — code système protégé</li>
+        <li><span class="dot" style="background:#EF3340"></span>Conversion UTM Zone 28/29N → WGS84 embarquée</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pillar">
+    <div class="pillar-title">🌐 Déploiement & Sécurité</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0;margin-top:4px;">
+      <span class="tech-pill" style="background:#EFF6FF;color:#1B4F8A">Branche : sigepp-deploy</span>
+      <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">Vercel / Cloud</span>
+      <span class="tech-pill" style="background:#FFF7ED;color:#F47920">Auth localStorage (MVP)</span>
+      <span class="tech-pill" style="background:#F5F3FF;color:#7C3AED">HTTPS + CORS</span>
+      <span class="tech-pill" style="background:#FEF2F2;color:#EF3340">API keys jamais en dur — env + localStorage</span>
+      <span class="tech-pill" style="background:#FFFBEB;color:#D97706">CI/CD Git → Preview automatique</span>
+      <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">SWC bundler (Next.js Rust compiler)</span>
+    </div>
+  </div>
+
+  <div class="footer">SIGEPP-DPE · SENELEC Direction Principale Equipement · Version 2026 · Confidentiel</div>
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

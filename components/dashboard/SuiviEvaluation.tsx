@@ -201,9 +201,10 @@ export default function SuiviEvaluation() {
 
   const selKPI = scopedIndicateurs.find(k => k.id === selectedKPI) ?? scopedIndicateurs[0];
 
-  /* KPI depuis store si disponible */
+  /* KPI depuis store si disponible — filtrés par domaine global */
   const kpiTop = useMemo(() => {
-    const p = store.projets;
+    const globalDomaine = store.globalDomaine;
+    const p = globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === globalDomaine);
     if (p.length === 0) return KPI_TOP;
     const avgPhys = Math.round(p.reduce((s, x) => s + x.avancement, 0) / p.length);
     const avgFin  = Math.round(p.reduce((s, x) => s + (x.budgetDecaisse / (x.budget || 1)) * 100, 0) / p.length);
@@ -705,7 +706,7 @@ export default function SuiviEvaluation() {
                 <Bell size={14} style={{ color: AMBER }} />
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>Alertes KPI portefeuille</span>
               </div>
-              {store.projets.filter(p => p.cpi < 0.90 || p.spi < 0.85).map((p, i, arr) => {
+              {(store.globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === store.globalDomaine)).filter(p => p.cpi < 0.90 || p.spi < 0.85).map((p, i, arr) => {
                 const dcfg = DOMAINE_CFG[p.domaine as Domaine];
                 return (
                   <div key={p.id} style={{
@@ -731,7 +732,7 @@ export default function SuiviEvaluation() {
                   </div>
                 );
               })}
-              {store.projets.filter(p => p.cpi < 0.90 || p.spi < 0.85).length === 0 && (
+              {(store.globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === store.globalDomaine)).filter(p => p.cpi < 0.90 || p.spi < 0.85).length === 0 && (
                 <div style={{ padding: 24, textAlign: 'center', color: GREEN, fontSize: 13 }}>
                   ✅ Tous les projets respectent les seuils CPI/SPI
                 </div>
@@ -800,7 +801,8 @@ export default function SuiviEvaluation() {
               const isPMO   = role === 'PMO' || role === 'CHEF_DEPT';
               const isProj  = role === 'CHEF_PROJ';
               const isFin   = role === 'CTRL_FIN';
-              const p = store.projets;
+              const gd = store.globalDomaine;
+              const p = gd === 'tous' ? store.projets : store.projets.filter(x => x.domaine === gd);
               const cpiMoy  = p.length ? (p.reduce((s,x) => s + x.cpi, 0) / p.length).toFixed(2) : '—';
               const spiMoy  = p.length ? (p.reduce((s,x) => s + x.spi, 0) / p.length).toFixed(2) : '—';
               const budgetTotal = (p.reduce((s,x) => s + (x.budget||0), 0) / 1e9).toFixed(1);

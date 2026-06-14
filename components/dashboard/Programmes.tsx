@@ -143,8 +143,8 @@ export default function Programmes() {
     p.domaine === 'multi'
   );
 
-  /* Bar chart */
-  const chartData = allPrograms.map(p => ({
+  /* Bar chart — limité aux programmes du filtre actif */
+  const chartData = filtres.map(p => ({
     name: p.domaine === 'multi' ? p.nom.slice(0, 18) : DOMAINE_CFG[p.domaine as Domaine]?.label ?? p.nom,
     budget:   +(p.budget / 1000).toFixed(1),
     decaisse: +(p.decaisse / 1000).toFixed(1),
@@ -289,10 +289,10 @@ export default function Programmes() {
         {/* ─── KPI barre ────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           {[
-            { label: 'Programmes actifs',  value: allPrograms.filter(p => p.statut === 'actif').length, color: NAVY,   icon: <Layers size={16} style={{ color: NAVY }} /> },
-            { label: 'Budget total',        value: fmtBudget(allPrograms.reduce((s, p) => s + p.budget, 0)) + ' FCFA', color: GREEN,  icon: <TrendingUp size={16} style={{ color: GREEN }} /> },
-            { label: 'Projets rattachés',  value: store.projets.length, color: PURPLE, icon: <FolderOpen size={16} style={{ color: PURPLE }} /> },
-            { label: 'Avancement moyen',   value: `${Math.round(allPrograms.reduce((s, p) => s + (Number.isFinite(p.avancement) ? p.avancement : 0), 0) / (allPrograms.length || 1))}%`, color: ORANGE, icon: <Activity size={16} style={{ color: ORANGE }} /> },
+            { label: 'Programmes actifs',  value: filtres.filter(p => p.statut === 'actif').length, color: NAVY,   icon: <Layers size={16} style={{ color: NAVY }} /> },
+            { label: 'Budget total',        value: fmtBudget(filtres.reduce((s, p) => s + p.budget, 0)) + ' FCFA', color: GREEN,  icon: <TrendingUp size={16} style={{ color: GREEN }} /> },
+            { label: 'Projets rattachés',  value: filtres.reduce((s, p) => s + p.projetsIds.length, 0), color: PURPLE, icon: <FolderOpen size={16} style={{ color: PURPLE }} /> },
+            { label: 'Avancement moyen',   value: `${Math.round(filtres.reduce((s, p) => s + (Number.isFinite(p.avancement) ? p.avancement : 0), 0) / (filtres.length || 1))}%`, color: ORANGE, icon: <Activity size={16} style={{ color: ORANGE }} /> },
           ].map(k => (
             <div key={k.label} style={{
               flex: '1 1 160px', background: '#fff', border: `1px solid #E2E8F0`,
@@ -312,7 +312,7 @@ export default function Programmes() {
         </div>
 
         {/* ─── Bar chart ─────────────────────────────────────────── */}
-        {allPrograms.length > 0 && (
+        {filtres.length > 0 && (
           <div style={{
             background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0',
             padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
@@ -347,7 +347,7 @@ export default function Programmes() {
               <Layers size={14} style={{ color: NAVY }} />
               Hiérarchie Portefeuille DPE
               <span style={{ fontSize: 10.5, color: '#94A3B8', marginLeft: 4 }}>
-                {filtres.length} programmes · {store.projets.length} projets
+                {filtres.length} programmes · {filtres.reduce((s, p) => s + p.projetsIds.length, 0)} projets
               </span>
             </div>
             {prgStore.programmes.length > 0 && (

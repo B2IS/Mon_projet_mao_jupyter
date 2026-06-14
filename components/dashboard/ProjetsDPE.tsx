@@ -1411,31 +1411,26 @@ export default function ProjetsDPE() {
   }, [projets, filterDomaine, filterStatut, search]);
 
   const kpis = useMemo(() => ({
-    total: projets.length,
-    en_cours: projets.filter(p => p.statut === 'en_cours').length,
-    termines: projets.filter(p => p.statut === 'termine').length,
-    en_retard: projets.filter(p => p.statut === 'en_retard').length,
-    budget: projets.reduce((acc, p) => acc + p.budget, 0),
-  }), [projets]);
+    total: filtered.length,
+    en_cours: filtered.filter(p => p.statut === 'en_cours').length,
+    termines: filtered.filter(p => p.statut === 'termine').length,
+    en_retard: filtered.filter(p => p.statut === 'en_retard').length,
+    budget: filtered.reduce((acc, p) => acc + p.budget, 0),
+  }), [filtered]);
 
-  // DPE energy KPIs (dérivés des données store + coefficients sectoriels)
+  // DPE energy KPIs — calculés sur les projets filtrés par domaine actif
   const dpeKpis = useMemo(() => {
-    const distrib = projets.filter(p => p.domaine === 'distribution');
-    const prod    = projets.filter(p => p.domaine === 'production');
-    const trans   = projets.filter(p => p.domaine === 'transport');
-    // Coefficients calibrés sur des ratios physiques réalistes (budget en MFCFA) :
-    //  • ~25 m de réseau HTA/BT et ~1 compteur posé par MFCFA de distribution exécuté ;
-    //  • un poste de transformation ≈ 12 MFCFA (≈ 0,08 poste / MFCFA) ;
-    //  • production : MW installés ≈ 0,01 MW / MFCFA (très capitalistique).
+    const distrib = filtered.filter(p => p.domaine === 'distribution');
+    const prod    = filtered.filter(p => p.domaine === 'production');
+    const trans   = filtered.filter(p => p.domaine === 'transport');
     const kmReseau   = distrib.reduce((s, p) => s + (p.budget * 0.025 * p.avancement / 100), 0);
     const mwInstalle = prod.reduce((s, p) => s + (p.budget * 0.01 * p.avancement / 100), 0);
     const compteurs  = Math.round(distrib.reduce((s, p) => s + (p.budget * 1.0 * p.avancement / 100), 0));
-    // Pertes techniques évitées (GWh/an) — impact réel des renforcements réseau (distribution + transport).
     const pertesEvitees = [...distrib, ...trans].reduce((s, p) => s + (p.budget * 0.0012 * p.avancement / 100), 0);
-    const conformite = Math.round(projets.reduce((s, p) => s + (p.avancement >= 80 ? 92 : p.avancement >= 50 ? 75 : 55), 0) / Math.max(1, projets.length));
+    const conformite = Math.round(filtered.reduce((s, p) => s + (p.avancement >= 80 ? 92 : p.avancement >= 50 ? 75 : 55), 0) / Math.max(1, filtered.length));
     const postes     = Math.round(distrib.reduce((s, p) => s + (p.budget * 0.08 * p.avancement / 100), 0) + trans.reduce((s, p) => s + (p.budget * 0.02 * p.avancement / 100), 0));
     return { kmReseau, mwInstalle, compteurs, pertesEvitees, conformite, postes };
-  }, [projets]);
+  }, [filtered]);
 
   const handleStatusChange = useCallback((id: string, statut: StatutProjet, reason: string) => {
     store.changeStatut(id, statut, reason);

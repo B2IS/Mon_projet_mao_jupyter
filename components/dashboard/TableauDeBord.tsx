@@ -267,19 +267,19 @@ export default function TableauDeBord() {
       .filter(pr => filtreDomaine === 'tous' || pr.domaine === filtreDomaine)
       .filter(pr => filtreStatut  === 'tous' || pr.statut  === filtreStatut);
 
-    const tot  = p.length;
-    const tb   = p.reduce((s, x) => s + x.budget, 0);
-    const td   = p.reduce((s, x) => s + x.budgetDecaisse, 0);
-    const te   = p.reduce((s, x) => s + x.budgetEngage, 0);
+    const tot  = filtered.length;
+    const tb   = filtered.reduce((s, x) => s + x.budget, 0);
+    const td   = filtered.reduce((s, x) => s + x.budgetDecaisse, 0);
+    const te   = filtered.reduce((s, x) => s + x.budgetEngage, 0);
     const engPct  = tb > 0 ? (td / tb) * 100 : 0;
-    const critiques = p.filter(x => x.cpi < 0.90 || x.spi < 0.85 || x.statut === 'en_retard');
+    const critiques = filtered.filter(x => x.cpi < 0.90 || x.spi < 0.85 || x.statut === 'en_retard');
     const alertes   = critiques.length;
-    const avgAv  = p.length > 0 ? p.reduce((s, x) => s + x.avancement, 0) / p.length : 0;
+    const avgAv  = filtered.length > 0 ? filtered.reduce((s, x) => s + x.avancement, 0) / filtered.length : 0;
     const now = Date.now();
     const ms30 = 30 * 24 * 60 * 60 * 1000;
-    const jalonsSoon = p.flatMap(pr => pr.jalons.filter(j => !j.atteint && new Date(j.date).getTime() - now <= ms30)).slice(0, 5);
+    const jalonsSoon = filtered.flatMap(pr => pr.jalons.filter(j => !j.atteint && new Date(j.date).getTime() - now <= ms30)).slice(0, 5);
 
-    /* Domaine breakdown for bar chart */
+    /* Domaine breakdown for bar chart — always from full portfolio */
     const domaineMap: Record<string, { budget: number; decaisse: number; count: number; color: string; label: string }> = {};
     p.forEach(pr => {
       const dcfg = DOMAINE_CFG[pr.domaine as Domaine];

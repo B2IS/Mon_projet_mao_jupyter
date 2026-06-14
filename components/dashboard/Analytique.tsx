@@ -476,27 +476,30 @@ export default function Analytique() {
     [filteredStoreProjets]
   );
 
+  /* quand le domaine sélectionné n'a aucun projet réel, les graphiques de démo sont vidés */
+  const domainHasRealData = domain === 'Tous' || filteredStoreProjets.length > 0;
+
   const filteredProjects = useMemo(() =>
-    domain === 'Tous' ? PROJECTS_BUDGET : PROJECTS_BUDGET.filter(p => p.domain === domain),
-    [domain]
+    !domainHasRealData ? [] : domain === 'Tous' ? PROJECTS_BUDGET : PROJECTS_BUDGET.filter(p => p.domain === domain),
+    [domain, domainHasRealData]
   );
 
   const filteredRisk = useMemo(() =>
-    domain === 'Tous' ? RISK_POINTS : RISK_POINTS.filter(p => p.domain === (domain as string)),
-    [domain]
+    !domainHasRealData ? [] : domain === 'Tous' ? RISK_POINTS : RISK_POINTS.filter(p => p.domain === (domain as string)),
+    [domain, domainHasRealData]
   );
 
   const filteredScatter = useMemo(() =>
-    domain === 'Tous' ? DELAY_SCATTER : DELAY_SCATTER.filter(p => p.domain === domain),
-    [domain]
+    !domainHasRealData ? [] : domain === 'Tous' ? DELAY_SCATTER : DELAY_SCATTER.filter(p => p.domain === domain),
+    [domain, domainHasRealData]
   );
 
   /* ── Period-sliced monthly trend ─────────────────────────────────────────── */
   const trendData = useMemo(() => {
+    if (!domainHasRealData) return [];
     const sliced = period === 'Mois'      ? MONTHLY_TREND.slice(-3)
                  : period === 'Trimestre' ? MONTHLY_TREND.slice(-6)
                  : MONTHLY_TREND;
-    // When a specific domain is selected, zero out other domain lines so only active stands out
     if (domain === 'Tous') return sliced;
     return sliced.map(row => ({
       mois:         row.mois,
@@ -509,7 +512,7 @@ export default function Analytique() {
                   : domain === 'Distribution' ? row.Distribution
                   : row.Commercial,
     }));
-  }, [period, domain]);
+  }, [period, domain, domainHasRealData]);
 
   const scatterOnTime  = filteredScatter.filter(p => p.status === 'ontime');
   const scatterDelayed = filteredScatter.filter(p => p.status === 'delayed');
@@ -555,15 +558,23 @@ export default function Analytique() {
           </select>
         </div>
 
-        {/* Domain filter */}
+        {/* Domain filter — seuls les domaines ayant des projets réels sont actifs */}
         <div style={{ display: 'flex', gap: 0, border: `1px solid ${ORANGE}30`, borderRadius: 7, overflow: 'hidden' }}>
-          {(['Tous', 'Production', 'Transport', 'Distribution', 'Commercial', 'Génie Civil'] as Domain[]).map(d => (
-            <button key={d} onClick={() => setDomain(d)} style={{
-              padding: '7px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
-              background: domain === d ? ORANGE : '#fff', color: domain === d ? '#fff' : ORANGE,
-              transition: 'all .15s',
-            }}>{d}</button>
-          ))}
+          {(['Tous', 'Production', 'Transport', 'Distribution', 'Commercial', 'Génie Civil'] as Domain[]).map(d => {
+            const hasData = d === 'Tous' || store.projets.some(p => p.domaine === DOMAIN_TO_DOMAINE[d]);
+            return (
+              <button key={d} onClick={() => hasData && setDomain(d)} style={{
+                padding: '7px 12px', fontSize: 11, fontWeight: 600,
+                cursor: hasData ? 'pointer' : 'not-allowed', border: 'none',
+                background: domain === d ? ORANGE : '#fff',
+                color: domain === d ? '#fff' : hasData ? ORANGE : '#CBD5E1',
+                opacity: hasData ? 1 : 0.55,
+                transition: 'all .15s',
+              }} title={hasData ? undefined : 'Aucun projet dans ce domaine'}>
+                {d}{!hasData && ' (0)'}
+              </button>
+            );
+          })}
         </div>
 
         <div style={{ display: 'flex', gap: 6 }}>
@@ -600,6 +611,17 @@ export default function Analytique() {
           </button>
         </div>
       </div>
+
+      {/* ── Bandeau domaine vide ─────────────────────────────────────────────── */}
+      {!domainHasRealData && (
+        <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 18 }}>📭</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E' }}>Aucun projet chargé pour le domaine &laquo;{domain}&raquo;</div>
+            <div style={{ fontSize: 11.5, color: '#B45309', marginTop: 2 }}>Les indicateurs et graphiques ci-dessous n&rsquo;affichent que les données réelles du store. Importez des projets dans ce domaine pour les alimenter.</div>
+          </div>
+        </div>
+      )}
 
       {/* ── Indicateurs personnalisés ────────────────────────────────────────── */}
       <IndicatorWidget showLink compact={false} />
@@ -723,7 +745,7 @@ export default function Analytique() {
         <Card>
           <SectionHeader title="Performance par domaine — 4 axes" />
           <ResponsiveContainer width="100%" height={280}>
-            <RadarChart data={DOMAIN_PERF} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
+            <RadarChart data={DOMAIN_PERF.filter(d => store.projets.some(p => p.domaine === DOMAIN_TO_DOMAINE[d.domain as Exclude<Domain,'Tous'>]))} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
               <PolarGrid stroke="#E2E8F0" />
               <PolarAngleAxis dataKey="domain" tick={{ fontSize: 10, fill: '#374151' }} />
               <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 8, fill: '#94A3B8' }} />
