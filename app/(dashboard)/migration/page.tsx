@@ -527,61 +527,13 @@ export default function MigrationPage() {
               /* ── Fichiers + formulaire ── */
               <div style={{ display:'grid', gridTemplateColumns:'1fr 360px', gap:20, alignItems:'start' }}>
 
-                {/* Colonne gauche : liste + bouton */}
-                <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                {/* Colonne gauche : barre d'action fixe + liste scrollable */}
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
 
-                  {/* Badges domaines */}
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                    {Object.entries(domainCounts).map(([domain, count]) => {
-                      const fmtD = FMT_DEFS.find(f=>f.domain===domain);
-                      const Icon = fmtD?.icon ?? FileText;
-                      const color = fmtD?.color ?? '#64748B';
-                      return (
-                        <div key={domain} style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 12px', borderRadius:20, border:`1px solid ${color}28`, background:`${color}10` }}>
-                          <Icon size={11} color={color} />
-                          <span style={{ fontSize:11.5, fontWeight:700, color }}>{domain} · {count}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Liste fichiers */}
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                    {files.map(f => {
-                      const fmtF = getFmt(f.ext);
-                      const Icon  = fmtF?.icon ?? FileText;
-                      const color = fmtF?.color ?? '#64748B';
-                      return (
-                        <div key={f.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px',
-                          background:T.card, border:`1px solid ${T.border}`, borderRadius:11,
-                          borderLeft:`4px solid ${color}`, boxShadow:T.shadow,
-                        }}>
-                          <div style={{ width:34, height:34, borderRadius:8, background:`${color}14`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                            <Icon size={15} color={color} />
-                          </div>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:13, fontWeight:600, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.name}</div>
-                            <div style={{ display:'flex', gap:8, marginTop:2, alignItems:'center' }}>
-                              <span style={{ fontSize:11, color:T.muted }}>{fmt(f.size)}</span>
-                              <span style={{ fontSize:10.5, padding:'1px 7px', borderRadius:8, background:`${color}14`, color, fontWeight:600 }}>
-                                {fmtF?.domain ?? f.ext.toUpperCase()}
-                              </span>
-                              {fmtF && <span style={{ fontSize:10, color:T.muted }}>{fmtF.label}</span>}
-                            </div>
-                          </div>
-                          <button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter(x=>x.id!==f.id))}}
-                            style={{ background:'none', border:'none', cursor:'pointer', color:T.muted, padding:4, borderRadius:5, display:'flex', alignItems:'center' }}>
-                            <X size={14} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Ajouter + Bouton analyse */}
-                  <div style={{ display:'flex', gap:10 }}>
+                  {/* Barre d'action principale — toujours visible */}
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                     <button onClick={()=>fileRef.current?.click()}
-                      style={{ padding:'10px 16px', border:`1.5px solid ${T.border}`, borderRadius:10, background:T.card, fontSize:12.5, cursor:'pointer', color:T.sub, display:'flex', alignItems:'center', gap:6, fontFamily:'inherit' }}>
+                      style={{ padding:'10px 14px', border:`1.5px solid ${T.border}`, borderRadius:10, background:T.card, fontSize:12.5, cursor:'pointer', color:T.sub, display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', flexShrink:0, fontWeight:600 }}>
                       <FilePlus size={13} /> Ajouter
                     </button>
                     <button onClick={()=>setStep('swarm')} style={{
@@ -592,9 +544,60 @@ export default function MigrationPage() {
                       boxShadow:`0 4px 14px ${T.violet}40`, fontFamily:'inherit',
                     }}>
                       <Brain size={16} />
-                      Analyser avec les 18 agents IA
-                      <span style={{ background:'rgba(255,255,255,.2)', borderRadius:12, padding:'1px 10px', fontSize:12 }}>{files.length}</span>
+                      Lancer l&apos;analyse — {files.length} fichier{files.length > 1 ? 's' : ''}
+                      <ChevronRight size={15} />
                     </button>
+                    <button onClick={()=>setFiles([])} title="Tout supprimer"
+                      style={{ padding:'10px 12px', border:`1.5px solid #FECACA`, borderRadius:10, background:'#FFF5F5', fontSize:12, cursor:'pointer', color:'#DC2626', display:'flex', alignItems:'center', flexShrink:0 }}>
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  {/* Badges domaines */}
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                    {Object.entries(domainCounts).map(([domain, count]) => {
+                      const fmtD = FMT_DEFS.find(f=>f.domain===domain);
+                      const Icon = fmtD?.icon ?? FileText;
+                      const color = fmtD?.color ?? '#64748B';
+                      return (
+                        <div key={domain} style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, border:`1px solid ${color}28`, background:`${color}10` }}>
+                          <Icon size={10} color={color} />
+                          <span style={{ fontSize:11, fontWeight:700, color }}>{domain} · {count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Liste fichiers — scrollable, hauteur max fixe */}
+                  <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:360, overflowY:'auto', paddingRight:4 }}>
+                    {files.map(f => {
+                      const fmtF = getFmt(f.ext);
+                      const Icon  = fmtF?.icon ?? FileText;
+                      const color = fmtF?.color ?? '#64748B';
+                      return (
+                        <div key={f.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
+                          background:T.card, border:`1px solid ${T.border}`, borderRadius:10,
+                          borderLeft:`4px solid ${color}`, boxShadow:T.shadow, flexShrink:0,
+                        }}>
+                          <div style={{ width:30, height:30, borderRadius:7, background:`${color}14`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <Icon size={13} color={color} />
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:12.5, fontWeight:600, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.name}</div>
+                            <div style={{ display:'flex', gap:6, marginTop:1, alignItems:'center' }}>
+                              <span style={{ fontSize:10.5, color:T.muted }}>{fmt(f.size)}</span>
+                              <span style={{ fontSize:10, padding:'1px 6px', borderRadius:7, background:`${color}14`, color, fontWeight:600 }}>
+                                {fmtF?.label ?? f.ext.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          <button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter(x=>x.id!==f.id))}}
+                            style={{ background:'none', border:'none', cursor:'pointer', color:T.muted, padding:4, borderRadius:5, display:'flex', alignItems:'center', flexShrink:0 }}>
+                            <X size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
