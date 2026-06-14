@@ -564,11 +564,15 @@ function GanttView({ taches, collapsed }: GanttViewProps) {
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <table style={{ width: '100%', minWidth: 660, borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: 220 }} />
+          <col />
+        </colgroup>
         <thead>
           <tr style={{ background: '#1B4F8A', color: '#fff' }}>
-            <th style={{ padding: '8px 12px', textAlign: 'left', width: 260, whiteSpace: 'nowrap' }}>Tâche</th>
-            <th style={{ padding: '8px 12px', width: '100%', minWidth: 400 }}>Calendrier</th>
+            <th style={{ padding: '8px 12px', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Tâche</th>
+            <th style={{ padding: '8px 12px', minWidth: 400 }}>Calendrier</th>
           </tr>
         </thead>
         <tbody>
@@ -584,7 +588,7 @@ function GanttView({ taches, collapsed }: GanttViewProps) {
                   borderBottom: '1px solid #F1F5F9',
                 }}
               >
-                <td style={{ padding: '6px 12px', fontWeight: isRecap ? 700 : 400, paddingLeft: 12 + (t.niveau - 1) * 16 }}>
+                <td style={{ padding: '6px 12px', fontWeight: isRecap ? 700 : 400, paddingLeft: 12 + (t.niveau - 1) * 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>
                   {isJalon && <Diamond size={10} style={{ color: '#F59E0B', marginRight: 4 }} />}
                   {t.nom}
                 </td>
