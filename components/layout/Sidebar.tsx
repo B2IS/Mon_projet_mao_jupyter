@@ -171,13 +171,10 @@ const DOMAINS: Domain[] = [
     shortLabel: 'Actifs',
     groups: [
       {
-        /* Immobilisations : entrée unique dans le sidebar → onglets internes */
+        /* Immobilisations : entrée unique → navigation interne via onglets du workspace */
         label: 'Immobilisations & Patrimoine',
         items: [
-          { href: '/immobilisations', icon: Building2, label: 'Registre des actifs', labelByRole: { RESP_LOG: 'Patrimoine & Inventaire' } },
-          { href: '/immobilisations/receptions', icon: ClipboardCheck, label: 'PV de réception (MES)', onlySection: 'immobilisations' },
-          { href: '/immobilisations/amortissements', icon: Calculator, label: 'Plans d\'amortissement', onlySection: 'immobilisations' },
-          { href: '/immobilisations/referentiel', icon: Boxes, label: 'Référentiel de structuration', onlySection: 'immobilisations' },
+          { href: '/immobilisations', icon: Building2, label: 'Immobilisations & Patrimoine', labelByRole: { RESP_LOG: 'Patrimoine & Inventaire', IMMO: 'Registre des actifs' } },
         ],
       },
       {

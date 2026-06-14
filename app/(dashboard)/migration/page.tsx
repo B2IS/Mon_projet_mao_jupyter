@@ -52,7 +52,8 @@ const FMT_DEFS: FmtDef[] = [
   { exts:['xer'],            label:'XER Planning', domain:'Planning',      icon:Calendar,  color:'#1D4ED8' },
   { exts:['mpp','xml'],      label:'MPP Planning',    domain:'Planning',      icon:Calendar,  color:'#1E40AF' },
   { exts:['zip','rar'],      label:'Archive',       domain:'Archive',       icon:Archive,   color:'#64748B' },
-  { exts:['png','jpg','jpeg','svg','pptx','ppt'], label:'Média', domain:'Autre', icon:FileText, color:'#64748B' },
+  { exts:['png','jpg','jpeg','tiff','tif','bmp'], label:'Image / PDF scanné', domain:'Document scanné', icon:FileText, color:'#DC2626' },
+  { exts:['svg','pptx','ppt'], label:'Présentation', domain:'Autre', icon:FileText, color:'#64748B' },
 ];
 const getFmt = (ext: string) => FMT_DEFS.find(f => f.exts.includes(ext.toLowerCase()));
 
@@ -100,7 +101,7 @@ const inferDomaine = (n='',t=''):Domaine => {
   return 'distribution';
 };
 
-const ALLOWED = new Set(['pdf','xlsx','xls','csv','docx','doc','dxf','dwg','kml','kmz','shp','dbf','scd','cid','icd','xer','mpp','xml','zip','rar','png','jpg','jpeg','svg','pptx','ppt']);
+const ALLOWED = new Set(['pdf','xlsx','xls','csv','docx','doc','dxf','dwg','kml','kmz','shp','dbf','scd','cid','icd','xer','mpp','xml','zip','rar','png','jpg','jpeg','tiff','tif','bmp','svg','pptx','ppt']);
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMPOSANTS
@@ -485,18 +486,19 @@ export default function MigrationPage() {
               <div style={{ fontSize:12.5, color:T.muted, marginBottom:16 }}>ou cliquez pour sélectionner — max 100 Mo par fichier</div>
               <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:7 }}>
                 {[
-                  {l:'PDF · Word · Excel', c:'#2563EB'},
+                  {l:'PDF · PDF scanné · Word · Excel', c:'#DC2626'},
                   {l:'DXF · DWG — Plans DAO', c:'#7C3AED'},
                   {l:'KML · SHP — SIG / Géo', c:'#D97706'},
                   {l:'SCD · CID — Supervision réseau', c:'#0F766E'},
                   {l:'XER · MPP — Planification projet', c:'#1D4ED8'},
+                  {l:'Images scannées — PNG · JPG · TIFF', c:'#B45309'},
                   {l:'ZIP · RAR — Archives', c:'#64748B'},
                 ].map(({l,c}) => (
                   <span key={l} style={{ fontSize:10.5, fontWeight:600, padding:'3px 10px', borderRadius:20, background:`${c}12`, color:c, border:`1px solid ${c}28` }}>{l}</span>
                 ))}
               </div>
               <input ref={fileRef} type="file" multiple
-                accept=".pdf,.xlsx,.xls,.csv,.docx,.doc,.dxf,.dwg,.kml,.kmz,.shp,.dbf,.scd,.cid,.icd,.xer,.mpp,.xml,.zip,.rar,.png,.jpg,.jpeg,.pptx,.ppt"
+                accept=".pdf,.xlsx,.xls,.csv,.docx,.doc,.dxf,.dwg,.kml,.kmz,.shp,.dbf,.scd,.cid,.icd,.xer,.mpp,.xml,.zip,.rar,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.svg,.pptx,.ppt"
                 style={{ display:'none' }}
                 onChange={e=>{if(e.target.files)addFiles(e.target.files);e.target.value='';}}
               />
@@ -504,8 +506,9 @@ export default function MigrationPage() {
 
             {files.length === 0 ? (
               /* ── Écran vide ── */
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
                 {[
+                  { icon:FileText, color:'#DC2626', t:'PDF & Documents', s:'PDF texte ou scanné, Word, PV, rapports' },
                   { icon:FileCode, color:'#7C3AED', t:'Plans DAO', s:'DXF, DWG — Postes HTB, schémas unifilaires' },
                   { icon:Map,      color:'#D97706', t:'Données SIG', s:'KML, KMZ, Shapefile — Tracés lignes, pylônes' },
                   { icon:Cpu,      color:'#0F766E', t:'Config SCADA', s:'SCD, CID, ICD — CEI 61850 IED & protections' },
