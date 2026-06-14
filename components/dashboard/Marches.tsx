@@ -516,7 +516,7 @@ export default function Marches() {
       {activeTab === 'marches' && (
         <>
           {/* Filtres */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="filter-bar" style={{ gap: 8 }}>
             <div style={{ position: 'relative' }}>
               <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
               <input
