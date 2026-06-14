@@ -351,6 +351,13 @@ export default function CockpitProjet() {
     if (target && target !== selectedProjetId) setSelectedProjetId(target);
   }, [searchParams, store.projets]); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeOnglet, setActiveOnglet]            = useState('fiche-executive');
+  const [mapNarrow, setMapNarrow] = useState(false);
+  useEffect(() => {
+    const check = () => setMapNarrow(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const [coutsSubTab, setCoutsSubTab]              = useState<'vue' | 'plan' | 'decomptes' | 'couts' | 'imputations'>('vue');
   const [showSelector, setShowSelector]            = useState(false);
   const [selectorQuery, setSelectorQuery]          = useState('');
@@ -2761,11 +2768,14 @@ export default function CockpitProjet() {
                 🛰️ <strong style={{ color: C.green }}>{zonePins.length} localité(s) géolocalisée(s)</strong> affichées sur la carte en temps réel depuis les Zones &amp; Quantités.
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16, height: 480 }}>
+            <div style={mapNarrow
+              ? { display: 'flex', flexDirection: 'column', gap: 16 }
+              : { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }
+            }>
               {/* Carte SIG réelle (Leaflet) — projet + localités dynamiques */}
-              <div style={{ borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+              <div style={{ borderRadius: 12, overflow: 'hidden', position: 'relative', minHeight: mapNarrow ? 280 : 480 }}>
                 <ProjetsCarteLeaflet
-                  height={480}
+                  height={mapNarrow ? 280 : 480}
                   projets={[
                     {
                       id: projet.id, nom: projet.nom, code: projet.code, region: projet.region,

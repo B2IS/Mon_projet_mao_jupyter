@@ -1077,20 +1077,22 @@ export default function Portefeuille() {
   }, [allProjets, filterSearch, filterDomaine, filterRegion, filterStatut, filterBailleur, filterPriorite, filterCpiMin, filterSpiMin, filterAvMax, filterAlert]);
 
   // Programme-level grouping (Portefeuille > Programme > Projet hierarchy per CDC)
+  // KPIs = tous les projets du domaine (allProjets) ; liste affichée = projets filtrés
   const programmes = useMemo(() => {
     const domains: Domaine[] = ['production', 'transport', 'distribution', 'commercial', 'genie_civil'];
     return domains.map(d => {
-      const dp = allProjets.filter(p => p.domaine === d);
+      const dpAll = allProjets.filter(p => p.domaine === d); // KPIs non filtrés
+      const dp    = projets.filter(p => p.domaine === d);    // liste filtrée (recherche/domaine/statut…)
       const cfg = DOMAINE_CFG[d];
-      const totalBudget = dp.reduce((s, p) => s + p.budget, 0);
-      const totalDecaisse = dp.reduce((s, p) => s + p.budgetDecaisse, 0);
-      const avgCpi = dp.length > 0 ? (dp.reduce((s, p) => s + p.cpi, 0) / dp.length) : 1;
-      const avgSpi = dp.length > 0 ? (dp.reduce((s, p) => s + p.spi, 0) / dp.length) : 1;
-      const avgProg = dp.length > 0 ? Math.round(dp.reduce((s, p) => s + p.avancement, 0) / dp.length) : 0;
-      const alertes = dp.filter(p => p.statut === 'en_retard' || p.cpi < 0.9).length;
-      return { domaine: d, cfg, projets: dp, totalBudget, totalDecaisse, avgCpi, avgSpi, avgProg, alertes };
+      const totalBudget   = dpAll.reduce((s, p) => s + p.budget, 0);
+      const totalDecaisse = dpAll.reduce((s, p) => s + p.budgetDecaisse, 0);
+      const avgCpi  = dpAll.length > 0 ? (dpAll.reduce((s, p) => s + p.cpi, 0) / dpAll.length) : 1;
+      const avgSpi  = dpAll.length > 0 ? (dpAll.reduce((s, p) => s + p.spi, 0) / dpAll.length) : 1;
+      const avgProg = dpAll.length > 0 ? Math.round(dpAll.reduce((s, p) => s + p.avancement, 0) / dpAll.length) : 0;
+      const alertes = dpAll.filter(p => p.statut === 'en_retard' || p.cpi < 0.9).length;
+      return { domaine: d, cfg, projets: dp, totalProjets: dpAll.length, totalBudget, totalDecaisse, avgCpi, avgSpi, avgProg, alertes };
     });
-  }, [allProjets]);
+  }, [allProjets, projets]);
 
   function toggleProg(d: string) {
     setExpandedProg(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
@@ -1156,7 +1158,7 @@ export default function Portefeuille() {
               onClick={() => setShowFilters(v => !v)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: `1px solid ${showFilters ? '#1B4F8A' : '#E2E8F0'}`, background: showFilters ? '#EFF6FF' : '#fff', color: showFilters ? '#1B4F8A' : '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              Filtres directeur {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+              Analyse portefeuille {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
             </button>
           </div>
         </div>
@@ -1166,7 +1168,7 @@ export default function Portefeuille() {
       {showFilters && (
         <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 20px', marginBottom: 16, boxShadow: '0 4px 16px rgba(27,79,138,0.1)', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#1B4F8A' }}>Filtrage multi-dimensionnel — Vue Directeur</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1B4F8A' }}>Analyse multicritères du portefeuille</div>
             <div style={{ flex: 1, height: 1, background: '#E2E8F0', marginLeft: 8 }} />
             <span style={{ fontSize: 11, color: '#94A3B8' }}>{projets.length} / {allProjets.length} projets sélectionnés</span>
           </div>
@@ -1285,7 +1287,7 @@ export default function Portefeuille() {
       {/* ── Vue Programme (new) ── */}
       {vue === 'programme' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {programmes.filter(prog => prog.projets.length > 0).map(prog => {
+          {programmes.filter(prog => canGlobal || prog.projets.length > 0).map(prog => {
             const isExpanded = expandedProg.includes(prog.domaine);
             return (
               <div key={prog.domaine} style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.05)' }}>
@@ -1299,7 +1301,12 @@ export default function Portefeuille() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: prog.cfg.color }}>Programme {prog.cfg.label}</div>
-                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>{prog.projets.length} projet{prog.projets.length > 1 ? 's' : ''} · {prog.cfg.desc}</div>
+                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                      {prog.projets.length < prog.totalProjets
+                        ? <><strong style={{ color: '#F47920' }}>{prog.projets.length}/{prog.totalProjets}</strong> projets · </>
+                        : <>{prog.totalProjets} projet{prog.totalProjets !== 1 ? 's' : ''} · </>
+                      }{prog.cfg.desc}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
                     {[

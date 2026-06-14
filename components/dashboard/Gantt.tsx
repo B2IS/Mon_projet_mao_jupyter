@@ -1171,7 +1171,7 @@ export default function Gantt() {
           <>
             {ganttReadOnly && (
               <span style={{ fontSize: 11, color: '#94A3B8', padding: '6px 10px', background: '#F8FAFC', borderRadius: 4, border: '1px solid #E5E7EB' }}>
-                👁 Lecture seule — modification réservée au Chef de Projet
+                Lecture seule &mdash; modification réservée au Chef de Projet
               </span>
             )}
             {!ganttReadOnly && <>

@@ -59,6 +59,87 @@ interface Props {
 
 const slug = (s: string) => normHeader(s).slice(0, 24) || `item${Math.random().toString(36).slice(2, 6)}`;
 
+/* ─── Conversion de coordonnées ────────────────────────────────────────────── */
+
+/** Convertit UTM → WGS84. Zone 28N (la plus fréquente au Sénégal) par défaut. */
+function utmToLatLng(easting: number, northing: number, zone = 28): { lat: number; lng: number } {
+  const a = 6378137.0, e2 = 0.00669437999014, k0 = 0.9996;
+  const x = easting - 500000;
+  const y = northing; // hémisphère Nord → FN = 0
+  const M = y / k0;
+  const mu = M / (a * (1 - e2 / 4 - (3 * e2 ** 2) / 64 - (5 * e2 ** 3) / 256));
+  const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+  const phi1 = mu
+    + ((3 * e1) / 2 - (27 * e1 ** 3) / 32) * Math.sin(2 * mu)
+    + ((21 * e1 ** 2) / 16 - (55 * e1 ** 4) / 32) * Math.sin(4 * mu)
+    + ((151 * e1 ** 3) / 96) * Math.sin(6 * mu);
+  const N1 = a / Math.sqrt(1 - e2 * Math.sin(phi1) ** 2);
+  const T1 = Math.tan(phi1) ** 2;
+  const C1 = (e2 / (1 - e2)) * Math.cos(phi1) ** 2;
+  const R1 = (a * (1 - e2)) / (1 - e2 * Math.sin(phi1) ** 2) ** 1.5;
+  const D = x / (N1 * k0);
+  const latRad = phi1 - ((N1 * Math.tan(phi1)) / R1) * (
+    D ** 2 / 2
+    - (5 + 3 * T1 + 10 * C1 - 4 * C1 ** 2 - 9 * (e2 / (1 - e2))) * D ** 4 / 24
+    + (61 + 90 * T1 + 298 * C1 + 45 * T1 ** 2 - 252 * (e2 / (1 - e2)) - 3 * C1 ** 2) * D ** 6 / 720
+  );
+  const lon0 = ((zone - 1) * 6 - 180 + 3) * (Math.PI / 180);
+  const lngRad = lon0 + (
+    D - (1 + 2 * T1 + C1) * D ** 3 / 6
+    + (5 - 2 * C1 + 28 * T1 - 3 * C1 ** 2 + 8 * (e2 / (1 - e2)) + 24 * T1 ** 2) * D ** 5 / 120
+  ) / Math.cos(phi1);
+  return { lat: latRad * (180 / Math.PI), lng: lngRad * (180 / Math.PI) };
+}
+
+/** Détermine le fuseau UTM probable pour le Sénégal à partir de l'Easting.
+ *  Zone 28N : la majorité (Dakar, Thiès, Diourbel, Ziguinchor…)
+ *  Zone 29N : est du Sénégal (Tambacounda, Kédougou)
+ *  Critère : un Easting UTM28 < 200 000 ou > 800 000 suggère zone 29. */
+function guessUtmZone(easting: number): number {
+  return easting < 200000 || easting > 800000 ? 29 : 28;
+}
+
+/** Détecte si une paire de valeurs ressemble à de l'UTM (Easting + Northing en mètres). */
+function isUtmPair(e: string, n: string): boolean {
+  const ev = parseFloat(String(e).replace(',', '.').replace(/\s/g, ''));
+  const nv = parseFloat(String(n).replace(',', '.').replace(/\s/g, ''));
+  if (isNaN(ev) || isNaN(nv)) return false;
+  // Northing Sénégal : 1 100 000 – 1 900 000 m ; Easting : 100 000 – 900 000 m
+  return nv > 100000 && nv < 2000000 && ev > 100000 && ev < 1000000;
+}
+
+/** Parse le format DMS « 14°30'12.5"N » ou « 14 30 12.5 N » → degrés décimaux. */
+function parseDMS(s: string): number | null {
+  const t = String(s).trim();
+  const m = t.match(/^(-?\d+(?:\.\d+)?)[°\s]+(\d+(?:\.\d+)?)['\s]+(\d+(?:\.\d+)?)["\s]*([NSEWnsew])?/);
+  if (m) {
+    const dd = parseFloat(m[1]) + parseFloat(m[2]) / 60 + parseFloat(m[3]) / 3600;
+    const dir = m[4]?.toUpperCase();
+    return (dir === 'S' || dir === 'W') ? -dd : dd;
+  }
+  // Format « 14°30'N » (sans secondes)
+  const m2 = t.match(/^(-?\d+(?:\.\d+)?)[°\s]+(\d+(?:\.\d+)?)['\s]*([NSEWnsew])?/);
+  if (m2) {
+    const dd = parseFloat(m2[1]) + parseFloat(m2[2]) / 60;
+    const dir = m2[3]?.toUpperCase();
+    return (dir === 'S' || dir === 'W') ? -dd : dd;
+  }
+  return null;
+}
+
+/** Normalise une valeur de coordonnée : DMS, UTM northing/easting, ou décimal direct.
+ *  Pour UTM, appeler utmToLatLng séparément (besoin des deux valeurs). */
+function parseCoordDecimal(s: string): number | undefined {
+  const t = String(s).trim();
+  if (!t) return undefined;
+  // DMS ?
+  const dms = parseDMS(t);
+  if (dms !== null) return dms;
+  // Décimal standard
+  const v = parseFloat(t.replace(/\s/g, '').replace(',', '.'));
+  return isNaN(v) ? undefined : v;
+}
+
 /** Le projet relève-t-il du programme BEST / CPBM-UE (→ référentiel des 1041 localités) ? */
 function isProjetBEST(programme?: string, nom?: string, code?: string): boolean {
   return /\b(best|cpbm|padaes)\b/i.test(`${programme ?? ''} ${nom ?? ''} ${code ?? ''}`);
@@ -216,6 +297,8 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
       else if (n.includes('allot') || n.includes('lot') || n.includes('tranche')) m[h] = 'lot';
       else if (n === 'lat' || n.includes('latitude')) m[h] = 'lat';
       else if (n === 'lng' || n === 'lon' || n.includes('longitude')) m[h] = 'lng';
+      else if (/(northing|utm_n|coord_n|^[ny]$)/.test(n)) m[h] = 'utm_n';
+      else if (/(easting|utm_e|coord_e|^[ex]$)/.test(n)) m[h] = 'utm_e';
       else if (n.includes('statut') || n.includes('etat')) m[h] = 'statut';
       else if (n.includes('observ') || n.includes('commentaire') || n.includes('remarque')) m[h] = 'obs';
       else m[h] = 'ignore'; // l'utilisateur décidera si c'est une quantité
@@ -257,7 +340,30 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
       if (!localite && !get('code')) return; // ligne vide
       const id = `z${Date.now()}_${idx}`;
       const latS = get('lat'), lngS = get('lng');
+      const utmE = get('utm_e'), utmN = get('utm_n');
       const cacrv = get('cacrv');
+
+      // Résolution des coordonnées : UTM → WGS84, puis DMS, puis décimal
+      let resolvedLat: number | undefined;
+      let resolvedLng: number | undefined;
+      if (utmE && utmN && isUtmPair(utmE, utmN)) {
+        const e = parseFloat(utmE.replace(',', '.').replace(/\s/g, ''));
+        const n = parseFloat(utmN.replace(',', '.').replace(/\s/g, ''));
+        const converted = utmToLatLng(e, n, guessUtmZone(e));
+        resolvedLat = converted.lat;
+        resolvedLng = converted.lng;
+      } else if (latS && lngS && isUtmPair(lngS, latS)) {
+        // Colonnes nommées "lat"/"lng" mais contenant Easting/Northing UTM
+        const e = parseFloat(lngS.replace(',', '.').replace(/\s/g, ''));
+        const n = parseFloat(latS.replace(',', '.').replace(/\s/g, ''));
+        const converted = utmToLatLng(e, n, guessUtmZone(e));
+        resolvedLat = converted.lat;
+        resolvedLng = converted.lng;
+      } else {
+        resolvedLat = latS ? parseCoordDecimal(latS) : undefined;
+        resolvedLng = lngS ? parseCoordDecimal(lngS) : undefined;
+      }
+
       zones.push({
         id, code, localite,
         region: get('region') || undefined,
@@ -266,8 +372,8 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
         cacrv: cacrv || undefined,
         commune: get('commune') || cacrv,
         lot: get('lot') || 'Lot 1',
-        lat: latS ? parseNum(latS) : undefined,
-        lng: lngS ? parseNum(lngS) : undefined,
+        lat: resolvedLat,
+        lng: resolvedLng,
         statut: get('statut') ? detectStatut(get('statut')) : 'non_demarre',
         observation: get('obs'),
       });
@@ -686,8 +792,10 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: 'cacrv', label: 'Commune (CACRV)' },
   { value: 'commune', label: 'Commune' },
   { value: 'lot', label: 'Lot / Allotissement' },
-  { value: 'lat', label: 'Latitude' },
-  { value: 'lng', label: 'Longitude' },
+  { value: 'lat', label: 'Latitude (WGS84)' },
+  { value: 'lng', label: 'Longitude (WGS84)' },
+  { value: 'utm_n', label: '📐 UTM Northing (Y)' },
+  { value: 'utm_e', label: '📐 UTM Easting (X)' },
   { value: 'statut', label: 'Statut' },
   { value: 'obs', label: 'Observation' },
   { value: 'qty', label: '➕ Quantité (item)' },
@@ -700,6 +808,42 @@ function ImportPreviewPanel({ preview, onChangeMapping, onCancel, onApply }: {
   onApply: () => void;
 }) {
   const { headers, rows, mapping } = preview;
+
+  // Détection du format de coordonnées à partir des données
+  const coordInfo = useMemo(() => {
+    const latCol = headers.find(h => mapping[h] === 'lat');
+    const lngCol = headers.find(h => mapping[h] === 'lng');
+    const utmNCol = headers.find(h => mapping[h] === 'utm_n');
+    const utmECol = headers.find(h => mapping[h] === 'utm_e');
+    const sample = rows.slice(0, 5);
+
+    if (utmNCol && utmECol) {
+      const s = sample[0];
+      if (s) {
+        const eIdx = headers.indexOf(utmECol), nIdx = headers.indexOf(utmNCol);
+        if (isUtmPair(s[eIdx], s[nIdx])) {
+          const zone = guessUtmZone(parseFloat(s[eIdx].replace(',', '.')));
+          return { format: 'utm' as const, zone, msg: `Coordonnées UTM Zone ${zone}N détectées → conversion automatique vers WGS84` };
+        }
+      }
+    }
+    if (latCol && lngCol) {
+      const s = sample[0];
+      if (s) {
+        const latIdx = headers.indexOf(latCol), lngIdx = headers.indexOf(lngCol);
+        const latV = s[latIdx], lngV = s[lngIdx];
+        if (isUtmPair(lngV, latV))
+          return { format: 'utm' as const, zone: guessUtmZone(parseFloat(lngV.replace(',', '.'))), msg: `Colonnes lat/lng contiennent des valeurs UTM → conversion automatique Zone ${guessUtmZone(parseFloat(lngV.replace(',', '.')))}N` };
+        if (/[°'"NSEW]/.test(latV) || /[°'"NSEW]/.test(lngV))
+          return { format: 'dms' as const, zone: 0, msg: 'Format DMS (degrés-minutes-secondes) détecté → conversion automatique' };
+        const n = parseFloat(latV.replace(',', '.'));
+        if (!isNaN(n) && n >= 10 && n <= 17)
+          return { format: 'wgs84' as const, zone: 0, msg: 'Coordonnées WGS84 décimales (format standard)' };
+      }
+    }
+    return null;
+  }, [headers, rows, mapping]);
+
   return (
     <div style={{ background: '#fff', borderRadius: 10, border: `2px solid ${C.purple}`, overflow: 'hidden' }}>
       <div style={{ padding: '10px 14px', background: `${C.purple}0C`, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -707,6 +851,16 @@ function ImportPreviewPanel({ preview, onChangeMapping, onCancel, onApply }: {
         <button onClick={onCancel} style={ghostBtn(C.slate)}>Annuler</button>
         <button onClick={onApply} style={{ ...primaryBtn, background: C.purple }}><Save size={12} /> Importer</button>
       </div>
+      {coordInfo && (
+        <div style={{
+          padding: '6px 14px', fontSize: 11, fontWeight: 600,
+          background: coordInfo.format === 'wgs84' ? '#ECFDF5' : coordInfo.format === 'utm' ? '#EFF6FF' : '#FFF7ED',
+          color: coordInfo.format === 'wgs84' ? '#16A34A' : coordInfo.format === 'utm' ? '#1B4F8A' : '#D97706',
+          borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          {coordInfo.format === 'utm' ? '📐' : coordInfo.format === 'dms' ? '🧭' : '🌍'} {coordInfo.msg}
+        </div>
+      )}
       <div style={{ overflowX: 'auto', maxHeight: 360 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
@@ -741,7 +895,40 @@ function ImportPreviewPanel({ preview, onChangeMapping, onCancel, onApply }: {
 /* ─── Zone modal ───────────────────────────────────────────────────────────── */
 function ZoneModal({ zone, lots, onCancel, onSave }: { zone: ZoneRow; lots: string[]; onCancel: () => void; onSave: (z: ZoneRow) => void }) {
   const [f, setF] = useState<ZoneRow>(zone);
+  const [rawLat, setRawLat] = useState(zone.lat != null ? String(zone.lat) : '');
+  const [rawLng, setRawLng] = useState(zone.lng != null ? String(zone.lng) : '');
   const set = (patch: Partial<ZoneRow>) => setF(v => ({ ...v, ...patch }));
+
+  // Détection du format à la saisie
+  const coordHint = useMemo(() => {
+    if (!rawLat && !rawLng) return null;
+    if (isUtmPair(rawLng, rawLat)) {
+      const zone = guessUtmZone(parseFloat(rawLng.replace(',', '.')));
+      return { type: 'utm', label: `📐 UTM Zone ${zone}N → conversion auto au moment de l'enregistrement` };
+    }
+    if (/[°'"NSEW]/.test(rawLat) || /[°'"NSEW]/.test(rawLng))
+      return { type: 'dms', label: '🧭 DMS → conversion auto au moment de l\'enregistrement' };
+    const n = parseFloat(rawLat.replace(',', '.'));
+    if (!isNaN(n) && n > 10 && n < 18)
+      return { type: 'wgs84', label: '🌍 WGS84 décimal (standard)' };
+    return null;
+  }, [rawLat, rawLng]);
+
+  function handleSave() {
+    let lat: number | undefined;
+    let lng: number | undefined;
+    if (isUtmPair(rawLng, rawLat)) {
+      const e = parseFloat(rawLng.replace(',', '.'));
+      const n = parseFloat(rawLat.replace(',', '.'));
+      const conv = utmToLatLng(e, n, guessUtmZone(e));
+      lat = conv.lat; lng = conv.lng;
+    } else {
+      lat = rawLat ? (parseCoordDecimal(rawLat) ?? undefined) : undefined;
+      lng = rawLng ? (parseCoordDecimal(rawLng) ?? undefined) : undefined;
+    }
+    onSave({ ...f, lat, lng });
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.45)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onCancel}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 16px 40px rgba(0,0,0,0.25)' }}>
@@ -761,19 +948,28 @@ function ZoneModal({ zone, lots, onCancel, onSave }: { zone: ZoneRow; lots: stri
               {(Object.keys(STATUT_CFG) as StatutZone[]).map(s => <option key={s} value={s}>{STATUT_CFG[s].label}</option>)}
             </select>
           </label>
-          <label style={lblStyle}>Latitude
-            <input type="number" step="0.0001" value={f.lat ?? ''} onChange={e => set({ lat: e.target.value ? parseFloat(e.target.value) : undefined })} style={inp} placeholder="14.7167" />
+          <label style={lblStyle}>
+            Latitude / Northing (Y)
+            <input value={rawLat} onChange={e => setRawLat(e.target.value)} style={inp} placeholder="14.7167 ou 1 627 000 (UTM)" />
           </label>
-          <label style={lblStyle}>Longitude
-            <input type="number" step="0.0001" value={f.lng ?? ''} onChange={e => set({ lng: e.target.value ? parseFloat(e.target.value) : undefined })} style={inp} placeholder="-17.4677" />
+          <label style={lblStyle}>
+            Longitude / Easting (X)
+            <input value={rawLng} onChange={e => setRawLng(e.target.value)} style={inp} placeholder="-17.4677 ou 285 000 (UTM)" />
           </label>
+          {coordHint && (
+            <div style={{ gridColumn: '1 / -1', fontSize: 10.5, padding: '5px 9px', borderRadius: 6,
+              background: coordHint.type === 'wgs84' ? '#ECFDF5' : coordHint.type === 'utm' ? '#EFF6FF' : '#FFF7ED',
+              color: coordHint.type === 'wgs84' ? '#16A34A' : coordHint.type === 'utm' ? '#1B4F8A' : '#D97706', fontWeight: 600 }}>
+              {coordHint.label}
+            </div>
+          )}
           <label style={{ ...lblStyle, gridColumn: '1 / -1' }}>Observation
             <textarea value={f.observation} onChange={e => set({ observation: e.target.value })} style={{ ...inp, minHeight: 60, resize: 'vertical' }} />
           </label>
         </div>
         <div style={{ padding: '12px 18px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onCancel} style={ghostBtn(C.slate)}>Annuler</button>
-          <button onClick={() => onSave(f)} style={primaryBtn}><Save size={12} /> Enregistrer</button>
+          <button onClick={handleSave} style={primaryBtn}><Save size={12} /> Enregistrer</button>
         </div>
       </div>
     </div>
