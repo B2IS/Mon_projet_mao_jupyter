@@ -509,7 +509,7 @@ export default function TableauDeBord() {
 
         {/* ── KPI Row (6 cartes PROJET) — masquée pour les profils SUPPORT (UAGL/assistante/secrétaire/chauffeur) ── */}
         {!isSupportProfile && (
-        <div style={{ display: 'flex', flexWrap: 'nowrap', padding: '12px 24px 0' }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', padding: '12px 24px 0', scrollbarWidth: 'none' }}>
           {[
             { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels`, href: '/portefeuille', pfFilter: null },
             { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA`, href: '/budget', pfFilter: null },
@@ -521,7 +521,7 @@ export default function TableauDeBord() {
             <div key={k.label} title={k.title}
               onClick={() => { if (k.pfFilter) { try { sessionStorage.setItem('pf_nav_filter', JSON.stringify(k.pfFilter)); } catch { /* ignore */ } } router.push(k.href); }}
               style={{
-                flex: '1 1 0', minWidth: 0,
+                flex: '1 1 0', minWidth: 110,
                 padding: '10px 14px', borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
                 background: k.alert ? '#FFF8F8' : 'transparent',
                 borderBottom: `3px solid ${k.alert ? k.color : 'transparent'}`,
@@ -548,7 +548,7 @@ export default function TableauDeBord() {
         )}
 
         {/* Onglets */}
-        <div style={{ display: 'flex', padding: '0 24px', marginTop: 4, overflowX: 'auto', scrollbarWidth: 'thin' }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', padding: '0 24px', marginTop: 4, overflowX: 'auto', scrollbarWidth: 'thin' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id as typeof activeTab)} style={{
               padding: '8px 16px', border: 'none', flexShrink: 0, whiteSpace: 'nowrap',
