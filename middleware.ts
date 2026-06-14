@@ -1,73 +1,61 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 import { canAccess, SESSION_COOKIE } from '@/lib/authTypes';
-import type { RoleCode, SessionPayload } from '@/lib/authTypes';
+import type { RoleCode } from '@/lib/authTypes';
 
-// Chemins publics — pas de vérification d'auth
+const SECRET_KEY = new TextEncoder().encode(
+  process.env.SIGEPP_JWT_SECRET ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
+);
+
 const PUBLIC_PREFIXES = ['/login', '/api/', '/_next/', '/favicon', '/icons/', '/images/'];
-
-// Chemins dashboard connus — tout ce qui n'est pas public
-// On protège tout sauf les PUBLIC_PREFIXES ci-dessus.
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(p => pathname.startsWith(p)) || pathname === '/';
 }
 
-export function middleware(request: NextRequest) {
+function redirectLogin(request: NextRequest, returnUrl?: string): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = '/login';
+  if (returnUrl) url.searchParams.set('returnUrl', returnUrl);
+  url.search = returnUrl ? url.search : '';
+  return NextResponse.redirect(url);
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Laisser passer les ressources statiques et chemins publics
-  if (isPublic(pathname) || pathname.includes('.')) {
-    return NextResponse.next();
-  }
+  if (isPublic(pathname) || pathname.includes('.')) return NextResponse.next();
 
-  const sessionCookie = request.cookies.get(SESSION_COOKIE)?.value;
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!token) return redirectLogin(request, pathname);
 
-  // Pas de session → login (avec returnUrl)
-  if (!sessionCookie) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('returnUrl', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Décoder la session
-  let payload: SessionPayload | null = null;
+  // Verify JWT signature — rejects tampered or expired tokens
+  let role: RoleCode | undefined;
   try {
-    payload = JSON.parse(decodeURIComponent(sessionCookie)) as SessionPayload;
+    const { payload } = await jwtVerify(token, SECRET_KEY, {
+      issuer: 'sigepp-dpe',
+      audience: 'sigepp-dpe-client',
+    });
+    role = payload.role as RoleCode | undefined;
   } catch {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    return NextResponse.redirect(loginUrl);
+    const res = redirectLogin(request, pathname);
+    res.cookies.set({ name: SESSION_COOKIE, value: '', maxAge: 0, path: '/' });
+    return res;
   }
 
-  const role = payload?.role as RoleCode | undefined;
-  if (!role) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // ADMIN et AUDIT ont accès à tout (wildcard '*' dans ROLE_ROUTES)
-  if (role === 'ADMIN' || role === 'AUDIT') {
-    return NextResponse.next();
-  }
-
-  // Vérification RBAC — le pathname correspond aux routes SIGEPP
-  // (ex. /tableau-de-bord, /projets, /budget…)
+  if (!role) return redirectLogin(request, pathname);
+  if (role === 'ADMIN' || role === 'AUDIT') return NextResponse.next();
   if (!canAccess(role, pathname)) {
-    const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = '/tableau-de-bord';
-    homeUrl.search = '';
-    return NextResponse.redirect(homeUrl);
+    const url = request.nextUrl.clone();
+    url.pathname = '/tableau-de-bord';
+    url.search = '';
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  // Appliquer le middleware sur toutes les routes sauf les ressources statiques Next.js
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

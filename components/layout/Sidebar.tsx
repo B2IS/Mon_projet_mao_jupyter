@@ -16,7 +16,7 @@ import {
   Settings, ShieldCheck, LayoutGrid,
   ChevronRight, Menu, X, LogOut, Repeat, Check, Search, Command,
   BarChart2, Sparkles, Banknote, AlertCircle,
-  Target, Database, Plug2, MessagesSquare, Users,
+  Target, Database, Plug2, MessagesSquare,
 } from 'lucide-react';
 import { getAnalytics } from '@/lib/data';
 import { useAuth, ROLES, DEMO_ACCOUNTS, type SidebarSectionId, type RoleCode, getDirectionLabel } from '@/lib/authStore';
@@ -209,7 +209,7 @@ const DOMAINS: Domain[] = [
           { href: '/suivi-evaluation', icon: Activity, label: 'KPI & Suivi-Évaluation' },
           { href: '/analytique', icon: PieChart, label: 'Analytique & BI' },
           { href: '/constructeur-indicateurs', icon: Calculator, label: 'Constructeur d\'Indicateurs', onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN', 'CHEF_DEPT'] },
-          { href: '/gouvernance', icon: Users, label: 'Groupes de Travail', onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN', 'CHEF_DEPT'] },
+
         ],
       },
       {
@@ -340,7 +340,7 @@ export default function Sidebar() {
     .filter(i => path === i.href || path.startsWith(i.href + '/'))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? '';
 
-  const handleLogout = () => { logout(); router.push('/login'); };
+  const handleLogout = async () => { await logout(); router.push('/login'); };
   const switchProfile = (email: string) => {
     login(email, 'dpe2026');
     setShowProfileSwitch(false);
