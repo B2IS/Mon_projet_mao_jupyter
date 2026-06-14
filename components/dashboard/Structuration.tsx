@@ -175,6 +175,25 @@ export default function Structuration() {
   const [showBOQ, setShowBOQ]       = useState(false);
   const [importing, setImporting]   = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab]   = useState<'boq' | 'pv' | 'valeurs' | 'actifs'>('boq');
+
+  /* ── PV Mise en service (données mock liées aux réceptions) ── */
+  const [pvMES, setPvMES] = useState([
+    { id: 'pv1', ref: 'PVD-DER-2026-002', projet: 'Électrification Rurale 19 Localités — Thiès', entreprise: 'ELEC AFRIQUE SARL', dateReception: '2026-04-15', dateMES: '2026-05-01', valeurMES: 485_000_000, categorie: 'Réseau HTA/BT', localite: 'Thiès - 19 localités', statut: 'valide' as const, linked: false },
+    { id: 'pv2', ref: 'PVD-CPBM-2026-001', projet: 'PASE — Accès électricité zones péri-urbaines', entreprise: 'TRACTEBEL ENGIE', dateReception: '2026-03-22', dateMES: '2026-04-10', valeurMES: 620_000_000, categorie: 'Réseau BT péri-urbain', localite: 'Guédiawaye', statut: 'valide' as const, linked: true },
+    { id: 'pv3', ref: 'PVD-DEP-2026-003', projet: 'Réhabilitation Centrale Cap des Biches', entreprise: 'GE POWER AFRICA', dateReception: '2026-02-10', dateMES: '2026-03-01', valeurMES: 715_000_000, categorie: 'Production électrique', localite: 'Dakar — Cap des Biches', statut: 'valide' as const, linked: true },
+    { id: 'pv4', ref: 'PVD-DIT-2026-004', projet: 'Déploiement compteurs AMI', entreprise: 'LANDIS+GYR', dateReception: '2026-05-18', dateMES: '', valeurMES: 245_000_000, categorie: 'Comptage / AMI', localite: 'Dakar — Lot 1', statut: 'en_cours' as const, linked: false },
+  ]);
+
+  /* ── Valeurs actifs (liste pour suivi patrimonial) ── */
+  const [valeursRows, setValeursRows] = useState([
+    { id: 'v1', code: 'IMMO-2026-0001', designation: 'Réseau HTA 33kV — 19 localités Thiès', categorie: 'Réseau HTA/BT', dateMES: '2026-05-01', valeurAcquisition: 485_000_000, duree: 30, tauxAmort: 3.33, amortAnnuel: 16_166_667, amortCumul: 1_347_222, vnc: 483_652_778, uniteAffect: 'DER — Thiès' },
+    { id: 'v2', code: 'IMMO-2026-0002', designation: 'Réseau BT péri-urbain Guédiawaye', categorie: 'Réseau BT', dateMES: '2026-04-10', valeurAcquisition: 620_000_000, duree: 25, tauxAmort: 4.0, amortAnnuel: 24_800_000, amortCumul: 4_960_000, vnc: 615_040_000, uniteAffect: 'DIT — Dakar' },
+    { id: 'v3', code: 'IMMO-2026-0003', designation: 'Turbine TAG-3 Cap des Biches — 50MW', categorie: 'Production', dateMES: '2026-03-01', valeurAcquisition: 715_000_000, duree: 20, tauxAmort: 5.0, amortAnnuel: 35_750_000, amortCumul: 10_725_000, vnc: 704_275_000, uniteAffect: 'DEP — Dakar' },
+  ]);
+  const [vColsVisible, setVColsVisible] = useState<Record<string,boolean>>({ code: true, designation: true, categorie: true, dateMES: true, valeurAcquisition: true, duree: true, tauxAmort: true, amortAnnuel: true, amortCumul: true, vnc: true, uniteAffect: true });
+  const [pvSearch, setPvSearch] = useState('');
+  const [valSearch, setValSearch] = useState('');
 
   const projet  = projets.find(p => p.code === projetCode);
 
@@ -461,6 +480,16 @@ export default function Structuration() {
         </div>
       </div>
 
+      {/* ── Onglets ─────────────────────────────────────────────────────── */}
+      <div className="tabs">
+        {([['boq','📋 BOQ / Bordereau'],['pv','📄 PV Mise en Service'],['valeurs','💰 Liste Valeurs & Amort.'],['actifs','🏗 Structuration Actifs']] as const).map(([t,lbl]) => (
+          <button key={t} className={`tab${activeTab === t ? ' active' : ''}`} onClick={() => setActiveTab(t)}>{lbl}</button>
+        ))}
+      </div>
+
+      {/* ── Onglet BOQ ── */}
+      {activeTab === 'boq' && <>
+
       {/* ── BOQ détecté ─────────────────────────────────────────────────── */}
       <div style={{
         background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12,
@@ -738,6 +767,182 @@ export default function Structuration() {
                 <span>{lot.icone}</span> {lot.composant.split(' — ')[0]}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }`}</style>
+
+      </> /* fin onglet BOQ */}
+
+      {/* ── Onglet PV Mise en Service ──────────────────────────────────── */}
+      {activeTab === 'pv' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>PV de Réception & Mise en service — liens avec les actifs</div>
+            <div style={{ position: 'relative' }}>
+              <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+              <input value={pvSearch} onChange={e => setPvSearch(e.target.value)} placeholder="Rechercher PV…" style={{ padding: '6px 8px 6px 26px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 12, width: 200, outline: 'none' }} />
+            </div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 900 }}>
+              <thead>
+                <tr style={{ background: '#F8FAFC', color: '#94A3B8', fontSize: 10, textTransform: 'uppercase' }}>
+                  {['Référence PV', 'Projet', 'Entreprise', 'Date réception', 'Date MES', 'Valeur MES (FCFA)', 'Catégorie', 'Statut', 'Lié actif', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '9px 10px', textAlign: 'left', fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pvMES.filter(p => !pvSearch || p.ref.toLowerCase().includes(pvSearch.toLowerCase()) || p.projet.toLowerCase().includes(pvSearch.toLowerCase())).map(pv => (
+                  <tr key={pv.id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '9px 10px', fontFamily: 'monospace', fontWeight: 700, color: NAVY, fontSize: 11 }}>{pv.ref}</td>
+                    <td style={{ padding: '9px 10px', maxWidth: 200 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: '#1E293B' }} title={pv.projet}>{pv.projet}</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8' }}>{pv.localite}</div>
+                    </td>
+                    <td style={{ padding: '9px 10px', fontSize: 11, color: '#475569' }}>{pv.entreprise}</td>
+                    <td style={{ padding: '9px 10px', fontSize: 11 }}>{pv.dateReception}</td>
+                    <td style={{ padding: '9px 10px', fontSize: 11, fontWeight: pv.dateMES ? 600 : 400, color: pv.dateMES ? '#16A34A' : '#94A3B8' }}>{pv.dateMES || '—'}</td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: NAVY }}>{(pv.valeurMES/1e6).toFixed(1)} M</td>
+                    <td style={{ padding: '9px 10px', fontSize: 11 }}>
+                      <span style={{ padding: '2px 7px', borderRadius: 10, background: '#EFF6FF', color: NAVY, fontWeight: 700, fontSize: 10 }}>{pv.categorie}</span>
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700,
+                        background: pv.statut === 'valide' ? '#DCFCE7' : '#FFF7ED',
+                        color: pv.statut === 'valide' ? '#15803D' : '#C2410C' }}>
+                        {pv.statut === 'valide' ? '✓ Validé' : '⏳ En cours'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      {pv.linked
+                        ? <span style={{ fontSize: 10, fontWeight: 700, color: '#16A34A' }}>✓ Lié</span>
+                        : <span style={{ fontSize: 10, color: '#94A3B8' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      {pv.statut === 'valide' && !pv.linked && (
+                        <button onClick={() => { setPvMES(prev => prev.map(p => p.id === pv.id ? { ...p, linked: true } : p)); toast.success(`PV ${pv.ref} lié à un actif`); }}
+                          style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: ORANGE, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                          + Lier actif
+                        </button>
+                      )}
+                      {pv.linked && <button style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #E2E8F0', background: '#fff', fontSize: 11, color: '#475569', cursor: 'pointer' }} onClick={() => setActiveTab('valeurs')}>Voir valeur</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 11, color: '#94A3B8', padding: '4px 0' }}>
+            💡 Les PV définitifs validés et mis en service doivent être liés à une fiche d&apos;immobilisation pour déclencher l&apos;amortissement.
+          </div>
+        </div>
+      )}
+
+      {/* ── Onglet Liste Valeurs & Amortissement ───────────────────────── */}
+      {activeTab === 'valeurs' && (() => {
+        const fmt = (n: number) => n >= 1e6 ? `${(n/1e6).toFixed(1)} M` : n.toLocaleString('fr-FR');
+        const colDefs: { key: keyof typeof valeursRows[0]; label: string }[] = [
+          { key: 'code', label: 'Code' }, { key: 'designation', label: 'Désignation' }, { key: 'categorie', label: 'Catégorie' },
+          { key: 'dateMES', label: 'MES' }, { key: 'valeurAcquisition', label: 'Val. acquisition' }, { key: 'duree', label: 'Durée (ans)' },
+          { key: 'tauxAmort', label: 'Taux %' }, { key: 'amortAnnuel', label: 'Amort/an' }, { key: 'amortCumul', label: 'Cumul amort.' },
+          { key: 'vnc', label: 'VNC' }, { key: 'uniteAffect', label: 'Affectataire' },
+        ];
+        const visibleCols = colDefs.filter(c => valeursRows.length > 0 && vColsVisible[c.key] !== false);
+        const filtered = valeursRows.filter(r => !valSearch || r.designation.toLowerCase().includes(valSearch.toLowerCase()) || r.code.toLowerCase().includes(valSearch.toLowerCase()));
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Liste des valeurs d&apos;actifs & plan d&apos;amortissement</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+                  <input value={valSearch} onChange={e => setValSearch(e.target.value)} placeholder="Rechercher…" style={{ padding: '6px 8px 6px 26px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 12, width: 180, outline: 'none' }} />
+                </div>
+                <button onClick={() => setValeursRows(prev => [...prev, { id: `v${Date.now()}`, code: `IMMO-${new Date().getFullYear()}-${String(prev.length+1).padStart(4,'0')}`, designation: 'Nouvel actif', categorie: 'Réseau HTA/BT', dateMES: new Date().toISOString().slice(0,10), valeurAcquisition: 0, duree: 20, tauxAmort: 5, amortAnnuel: 0, amortCumul: 0, vnc: 0, uniteAffect: '' }])}
+                  style={{ padding: '6px 12px', borderRadius: 7, border: 'none', background: GREEN, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Ajouter ligne</button>
+              </div>
+            </div>
+
+            {/* Sélecteur colonnes visibles */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '8px 12px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginRight: 4, alignSelf: 'center' }}>Colonnes :</span>
+              {colDefs.map(c => (
+                <button key={c.key} onClick={() => setVColsVisible(prev => ({ ...prev, [c.key]: !prev[c.key] }))}
+                  style={{ padding: '3px 9px', borderRadius: 12, border: '1px solid', borderColor: vColsVisible[c.key] !== false ? NAVY : '#E2E8F0', background: vColsVisible[c.key] !== false ? NAVY : '#fff', color: vColsVisible[c.key] !== false ? '#fff' : '#64748B', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC', color: '#94A3B8', fontSize: 10, textTransform: 'uppercase' }}>
+                    {visibleCols.map(c => <th key={c.key} style={{ padding: '9px 10px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{c.label}</th>)}
+                    <th style={{ padding: '9px 10px' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(row => (
+                    <tr key={row.id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                      {visibleCols.map(c => (
+                        <td key={c.key} style={{ padding: '8px 10px' }}>
+                          {typeof row[c.key] === 'number' && c.key !== 'duree' && c.key !== 'tauxAmort'
+                            ? <input type="number" value={row[c.key] as number}
+                                onChange={e => setValeursRows(prev => prev.map(r => r.id === row.id ? { ...r, [c.key]: Number(e.target.value) } : r))}
+                                style={{ width: 90, padding: '3px 6px', border: '1px solid #E2E8F0', borderRadius: 5, fontSize: 11, textAlign: 'right', fontWeight: 700, color: c.key === 'vnc' ? GREEN : NAVY }} />
+                            : <input type={c.key === 'dateMES' ? 'date' : 'text'} value={String(row[c.key])}
+                                onChange={e => setValeursRows(prev => prev.map(r => r.id === row.id ? { ...r, [c.key]: c.key === 'duree' || c.key === 'tauxAmort' ? Number(e.target.value) : e.target.value } : r))}
+                                style={{ width: c.key === 'designation' ? 180 : c.key === 'code' ? 120 : 100, padding: '3px 6px', border: '1px solid #E2E8F0', borderRadius: 5, fontSize: 11, fontFamily: c.key === 'code' ? 'monospace' : 'inherit' }} />
+                          }
+                        </td>
+                      ))}
+                      <td style={{ padding: '8px 10px' }}>
+                        <button onClick={() => { if (confirm('Supprimer cette ligne ?')) setValeursRows(prev => prev.filter(r => r.id !== row.id)); }}
+                          style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid #FECACA', color: '#DC2626', background: '#fff', fontSize: 11, cursor: 'pointer' }}>
+                          <Trash2 size={11} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid #E2E8F0', background: '#F8FAFC', fontWeight: 800, color: NAVY }}>
+                    <td colSpan={visibleCols.findIndex(c => c.key === 'valeurAcquisition') + 1} style={{ padding: '9px 10px' }}>TOTAL</td>
+                    {visibleCols.slice(visibleCols.findIndex(c => c.key === 'valeurAcquisition')).map((c, i) => (
+                      <td key={c.key} style={{ padding: '9px 10px', textAlign: 'right', color: c.key === 'vnc' ? GREEN : NAVY }}>
+                        {i === 0 || c.key === 'amortAnnuel' || c.key === 'amortCumul' || c.key === 'vnc'
+                          ? fmt(valeursRows.reduce((s,r) => s + (r[c.key] as number || 0), 0))
+                          : ''}
+                      </td>
+                    ))}
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Onglet Structuration Actifs ────────────────────────────────── */}
+      {activeTab === 'actifs' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Structuration des actifs — Composant → Sous-composant → Article</div>
+          <div style={{ padding: 12, background: '#EFF6FF', borderRadius: 8, border: '1px solid #BFDBFE', fontSize: 12, color: '#1E40AF' }}>
+            💡 Cliquez sur <strong>« Générer (IA) »</strong> dans le header pour décomposer automatiquement le BOQ du projet sélectionné en arbre d&apos;actifs structuré.
+          </div>
+          {/* Redirect to BOQ generation */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setActiveTab('boq')} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: ORANGE, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              <Wand2 size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Aller à BOQ &amp; Générer
+            </button>
+            <button onClick={() => setActiveTab('pv')} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', color: NAVY, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              📄 Voir les PV mis en service
+            </button>
           </div>
         </div>
       )}

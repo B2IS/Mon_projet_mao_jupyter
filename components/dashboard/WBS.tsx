@@ -1,9 +1,27 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useProjectStore, DOMAINE_CFG, type StatutTache } from '@/lib/projectStore';
+import { useProgrammeStore } from '@/lib/programmeStore';
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import { readOnlyGuard } from '@/lib/operationalGuard';
+
+/* ── Vue context ── */
+type ViewMode = 'projet' | 'programme' | 'portefeuille';
+
+/* ── Planning audit trail ── */
+interface PlanningChange {
+  id: string;
+  nodeId: string;
+  nodeCode: string;
+  nodeLabel: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  motif: string;
+  changedAt: string;
+  changedBy: string;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════════
    TYPES
@@ -521,7 +539,9 @@ function EPSBreadcrumb() {
    COMPOSANT PRINCIPAL
 ══════════════════════════════════════════════════════════════════════════════ */
 export default function WBS() {
-  const store = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
+  const store    = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
+  const prgStore = useProgrammeStore();
+  const { user } = useAuth();
 
   /* ── Build WBSNode tree from store projets ── */
   const storeWbsData = useMemo<WBSNode[]>(() => {
@@ -616,14 +636,27 @@ export default function WBS() {
 
   const [useStoreData, setUseStoreData] = useState(true);
   const [wbsData, setWbsData]         = useState<WBSNode[]>(WBS_DATA_INITIAL);
-  /** Filtre par projet — '' = tous */
+  const [viewMode, setViewMode]        = useState<ViewMode>('projet');
+  const [planningLog, setPlanningLog]  = useState<PlanningChange[]>([]);
+  const [showHistory, setShowHistory]  = useState(false);
+  const [editMotif, setEditMotif]      = useState('');
+
+  /** Filtre par projet — défaut = premier projet */
   const [selectedProjetId, setSelectedProjetId] = useState<string>('');
 
   const activeWbsData = useStoreData ? storeWbsData : wbsData;
-  /** Vue filtrée sur un seul projet si sélectionné */
+
+  /* Initialise sur le premier projet dès que les données sont disponibles */
+  useEffect(() => {
+    if (!selectedProjetId && activeWbsData.length > 0) {
+      setSelectedProjetId(activeWbsData[0].id);
+    }
+  }, [activeWbsData, selectedProjetId]);
+
+  /** Vue filtrée sur un seul projet */
   const viewWbsData = useMemo(() => {
-    if (!selectedProjetId) return activeWbsData;
-    return activeWbsData.filter(p => p.id === selectedProjetId || p.label.includes(selectedProjetId));
+    if (!selectedProjetId) return activeWbsData.slice(0, 1);
+    return activeWbsData.filter(p => p.id === selectedProjetId);
   }, [activeWbsData, selectedProjetId]);
 
   const defaultExpandedIds = useMemo(() => {
@@ -668,6 +701,21 @@ export default function WBS() {
   };
   const saveEdit = () => {
     if (!editTarget || !nodeForm.label.trim()) return;
+    /* ── Audit trail : enregistre les changements de dates ── */
+    const changes: PlanningChange[] = [];
+    const now = new Date().toLocaleString('fr-FR');
+    const who = user?.prenom ? `${user.prenom} ${user.nom}` : 'Utilisateur';
+    if (nodeForm.dateDebut !== editTarget.dateDebut) {
+      changes.push({ id: `${Date.now()}-dd`, nodeId: editTarget.id, nodeCode: editTarget.code, nodeLabel: editTarget.label, field: 'Date début', oldValue: editTarget.dateDebut, newValue: nodeForm.dateDebut, motif: editMotif || '—', changedAt: now, changedBy: who });
+    }
+    if (nodeForm.dateFin !== editTarget.dateFin) {
+      changes.push({ id: `${Date.now()}-df`, nodeId: editTarget.id, nodeCode: editTarget.code, nodeLabel: editTarget.label, field: 'Date fin', oldValue: editTarget.dateFin, newValue: nodeForm.dateFin, motif: editMotif || '—', changedAt: now, changedBy: who });
+    }
+    if (nodeForm.avancement !== editTarget.avancement) {
+      changes.push({ id: `${Date.now()}-av`, nodeId: editTarget.id, nodeCode: editTarget.code, nodeLabel: editTarget.label, field: 'Avancement', oldValue: `${editTarget.avancement}%`, newValue: `${nodeForm.avancement}%`, motif: editMotif || '—', changedAt: now, changedBy: who });
+    }
+    if (changes.length > 0) setPlanningLog(prev => [...changes, ...prev]);
+
     const updated = updateNodeInTree(useStoreData ? storeWbsData : wbsData, editTarget.id, {
       label: nodeForm.label, responsable: nodeForm.responsable,
       dateDebut: nodeForm.dateDebut, dateFin: nodeForm.dateFin,
@@ -676,6 +724,7 @@ export default function WBS() {
     setUseStoreData(false);
     setWbsData(updated);
     setSelected(prev => prev?.id === editTarget.id ? { ...prev, ...nodeForm } : prev);
+    setEditMotif('');
     pushToast(`WBS ${editTarget.code} mis à jour`, 'ok');
     setEditTarget(null);
   };
@@ -694,6 +743,7 @@ export default function WBS() {
     pushToast(`Élément "${nodeForm.label}" ajouté sous WBS ${parent.code}`, 'ok');
     setAddParentId(null);
   };
+  const [selectedProgrammeId, setSelectedProgrammeId] = useState<string>('');
   const [searchQ, setSearchQ]         = useState('');
   const [showTable, setShowTable]     = useState(false);
   const [toasts, setToasts]           = useState<Toast[]>([]);
@@ -781,73 +831,214 @@ export default function WBS() {
         ))}
       </div>
 
-      {/* ── TOOLBAR ── */}
-      <div style={{ padding: '8px 14px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-2)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+      {/* ── BARRE CONTEXTE (Projet / Programme / Portefeuille) ── */}
+      <div style={{ padding: '8px 14px', background: 'var(--navy)', borderBottom: '2px solid rgba(255,255,255,0.1)', display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+        {(['projet', 'programme', 'portefeuille'] as ViewMode[]).map(m => (
+          <button key={m} onClick={() => { setViewMode(m); setSelected(null); }}
+            style={{ padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
+              background: viewMode === m ? '#fff' : 'rgba(255,255,255,0.12)',
+              color: viewMode === m ? 'var(--navy)' : 'rgba(255,255,255,0.8)' }}>
+            {m === 'projet' ? '📁 Projet' : m === 'programme' ? '📂 Programme' : '🗂 Portefeuille'}
+          </button>
+        ))}
 
-        {/* Filtre projet — premier élément */}
-        <select
-          value={selectedProjetId}
-          onChange={e => { setSelectedProjetId(e.target.value); setSelected(null); }}
-          style={{ padding: '5px 10px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 600, background: '#fff', minWidth: 220, maxWidth: 340 }}
-          title="Sélectionner un projet pour afficher uniquement son WBS"
-        >
-          <option value="">— Tous les projets —</option>
-          {activeWbsData.map(p => (
-            <option key={p.id} value={p.id}>{p.label.slice(0, 60)}</option>
-          ))}
-        </select>
+        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
 
-        <div style={{ width: 1, height: 20, background: 'var(--border-2)', flexShrink: 0 }} />
-
-        <button className="btn btn-ghost btn-sm" onClick={expandAll}>▼ Tout déplier</button>
-        <button className="btn btn-ghost btn-sm" onClick={collapseAll}>▶ Tout replier</button>
-
-        <div style={{ width: 1, height: 20, background: 'var(--border-2)', flexShrink: 0 }} />
-
-        {/* Data source toggle */}
-        <button
-          className={`btn btn-sm ${useStoreData ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setUseStoreData(true)}
-          title="Afficher les projets du portefeuille réel"
-        >
-          🔗 Données portefeuille
-        </button>
-        <button
-          className={`btn btn-sm ${!useStoreData ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setUseStoreData(false)}
-          title="Afficher les données de démonstration"
-        >
-          📋 Données exemple
-        </button>
-
-        <div style={{ width: 1, height: 20, background: 'var(--border-2)', flexShrink: 0 }} />
-
-        {/* Import/Export */}
-        <button className="btn btn-ghost btn-sm" onClick={handleImportMSP} title="Importer planning XML">
-          Importer planning XML
-        </button>
-        <button className="btn btn-ghost btn-sm" onClick={handleExportExcel} title="Export WBS Excel">
-          📤 Exporter WBS (Excel)
-        </button>
-        <button className="btn btn-ghost btn-sm" onClick={handleCopyTemplate} title="Charger modèle Électrification Rurale">
-          📋 Copier modèle Élec. Rurale
-        </button>
+        {/* Sélecteur contextuel */}
+        {viewMode === 'projet' && (
+          <select value={selectedProjetId} onChange={e => { setSelectedProjetId(e.target.value); setSelected(null); }}
+            style={{ padding: '5px 10px', borderRadius: 6, border: '1.5px solid rgba(255,255,255,0.3)', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.12)', color: '#fff', minWidth: 240, maxWidth: 380 }}>
+            {activeWbsData.map(p => (
+              <option key={p.id} value={p.id} style={{ background: '#1B4F8A', color: '#fff' }}>{p.label.slice(0, 65)}</option>
+            ))}
+          </select>
+        )}
+        {viewMode === 'programme' && (
+          <select value={selectedProgrammeId} onChange={e => setSelectedProgrammeId(e.target.value)}
+            style={{ padding: '5px 10px', borderRadius: 6, border: '1.5px solid rgba(255,255,255,0.3)', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.12)', color: '#fff', minWidth: 240, maxWidth: 380 }}>
+            <option value="" style={{ background: '#1B4F8A' }}>— Choisir un programme —</option>
+            {prgStore.programmes.map(pr => (
+              <option key={pr.id} value={pr.id} style={{ background: '#1B4F8A' }}>{pr.code} — {pr.nom}</option>
+            ))}
+          </select>
+        )}
 
         <div style={{ flex: 1 }} />
 
-        <button className="btn btn-ghost btn-sm" onClick={() => setShowTable(v => !v)}>
-          {showTable ? '🌲 Arbre WBS' : '📋 Vue tableau'}
+        {viewMode === 'projet' && (
+          <>
+            <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none' }} onClick={expandAll}>▼ Déplier</button>
+            <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none' }} onClick={collapseAll}>▶ Replier</button>
+            <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.2)' }} />
+            <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none' }} onClick={() => setShowTable(v => !v)}>
+              {showTable ? '🌲 Arbre' : '📋 Tableau'}
+            </button>
+            <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none' }} onClick={handleExportExcel}>📤 Excel</button>
+          </>
+        )}
+        <button className="btn btn-sm" title="Historique des replanifications"
+          style={{ background: planningLog.length > 0 ? '#F47920' : 'rgba(255,255,255,0.15)', color: '#fff', border: 'none' }}
+          onClick={() => setShowHistory(true)}>
+          🕐 Historique {planningLog.length > 0 && `(${planningLog.length})`}
         </button>
-        <button className="btn btn-primary btn-sm" onClick={() => pushToast('Utilisez le module Tâches pour créer des tâches WBS', 'info')}>
-          + Ajouter tâche
-        </button>
+        {viewMode === 'projet' && (
+          <button className="btn btn-sm" style={{ background: '#F47920', color: '#fff', border: 'none' }} onClick={() => openAddChild(selectedProjetId || activeWbsData[0]?.id || '')}>
+            + Ajouter
+          </button>
+        )}
       </div>
+
+      {/* ── SECONDARY TOOLBAR (data source, template) ── */}
+      {viewMode === 'projet' && (
+        <div style={{ padding: '5px 14px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-2)', display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+          <button className={`btn btn-sm ${useStoreData ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setUseStoreData(true)}>🔗 Données réelles</button>
+          <button className={`btn btn-sm ${!useStoreData ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setUseStoreData(false)}>📋 Démo</button>
+          <div style={{ width: 1, height: 18, background: 'var(--border-2)' }} />
+          <button className="btn btn-ghost btn-sm" onClick={handleImportMSP}>Importer XML</button>
+          <button className="btn btn-ghost btn-sm" onClick={handleCopyTemplate}>📋 Modèle Élec. Rurale</button>
+        </div>
+      )}
 
       {/* ── MAIN ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          {!showTable ? (
+          {/* ══ VUE PROGRAMME ══ */}
+          {viewMode === 'programme' && (() => {
+            const prog = prgStore.programmes.find(p => p.id === selectedProgrammeId);
+            const projetsInProg = prog
+              ? store.projets.filter(p => prog.projetsIds.includes(p.id))
+              : [];
+            return (
+              <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {!prog ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8', fontSize: 14 }}>
+                    Sélectionnez un programme dans la liste en haut.
+                    {prgStore.programmes.length === 0 && <><br /><span style={{ fontSize: 12 }}>Aucun programme créé — utilisez le module Programmes pour en créer.</span></>}
+                  </div>
+                ) : (
+                  <>
+                    {/* En-tête programme */}
+                    <div style={{ background: 'linear-gradient(135deg,var(--navy) 0%,#2563EB 100%)', borderRadius: 12, padding: '16px 20px', color: '#fff' }}>
+                      <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Programme</div>
+                      <div style={{ fontSize: 18, fontWeight: 800 }}>{prog.code} — {prog.nom}</div>
+                      <div style={{ display: 'flex', gap: 24, marginTop: 10, flexWrap: 'wrap' }}>
+                        <div><div style={{ fontSize: 10, opacity: 0.7 }}>Projets</div><div style={{ fontSize: 22, fontWeight: 800 }}>{projetsInProg.length}</div></div>
+                        <div><div style={{ fontSize: 10, opacity: 0.7 }}>Budget total</div><div style={{ fontSize: 22, fontWeight: 800 }}>{(projetsInProg.reduce((s,p) => s + p.budget, 0)/1000).toFixed(1)} Mrd</div></div>
+                        <div><div style={{ fontSize: 10, opacity: 0.7 }}>Avancement moyen</div><div style={{ fontSize: 22, fontWeight: 800 }}>{projetsInProg.length > 0 ? Math.round(projetsInProg.reduce((s,p) => s + p.avancement,0)/projetsInProg.length) : 0}%</div></div>
+                        <div><div style={{ fontSize: 10, opacity: 0.7 }}>Statut</div><div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{prog.statut?.toUpperCase()}</div></div>
+                      </div>
+                    </div>
+
+                    {/* Projets du programme avec WBS inline */}
+                    {projetsInProg.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#94A3B8', padding: 24 }}>Aucun projet dans ce programme.</div>
+                    ) : projetsInProg.map((proj, pi) => {
+                      const wbsNode = storeWbsData.find(n => n.id === proj.id);
+                      const domCfg = DOMAINE_CFG[proj.domaine];
+                      const predecesseurs = pi > 0 ? [projetsInProg[pi-1].code] : [];
+                      return (
+                        <div key={proj.id} style={{ background: 'var(--bg-card)', borderRadius: 10, border: '1px solid var(--border-2)', overflow: 'hidden' }}>
+                          {/* Header projet */}
+                          <div style={{ padding: '10px 14px', background: `${domCfg?.color ?? '#1B4F8A'}10`, borderBottom: '1px solid var(--border-2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: domCfg?.color ?? '#1B4F8A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>{domCfg?.emoji ?? '📁'}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.code} — {proj.nom}</div>
+                              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{proj.chefProjet} · {proj.dateDebut} → {proj.dateFinPrevue} · {proj.statut}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                              {predecesseurs.length > 0 && (
+                                <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 10, background: '#FFF7ED', color: '#C2410C', fontWeight: 700, border: '1px solid #FED7AA' }}>
+                                  ← Dép. {predecesseurs.join(', ')}
+                                </span>
+                              )}
+                              <div className="progress-bar" style={{ width: 80, height: 6 }}>
+                                <div className="progress-fill" style={{ width: `${proj.avancement}%` }} />
+                              </div>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--navy)', minWidth: 32 }}>{proj.avancement}%</span>
+                            </div>
+                          </div>
+                          {/* WBS lots */}
+                          {wbsNode?.children?.slice(0, 5).map(lot => (
+                            <div key={lot.id} style={{ padding: '7px 14px 7px 28px', borderBottom: '1px solid var(--border-2)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'var(--muted)', minWidth: 36 }}>{lot.code}</span>
+                              <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.label}</span>
+                              <div className="progress-bar" style={{ width: 60, height: 4, flexShrink: 0 }}>
+                                <div className="progress-fill" style={{ width: `${lot.avancement}%`, background: lot.statut === 'termine' ? '#16A34A' : lot.statut === 'en_retard' ? '#EF3340' : '#F47920' }} />
+                              </div>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', minWidth: 30 }}>{lot.avancement}%</span>
+                              <span className={pillClass(lot.statut)} style={{ fontSize: 9 }}>{STATUT_LABEL[lot.statut]}</span>
+                            </div>
+                          ))}
+                          {(wbsNode?.children?.length ?? 0) > 5 && (
+                            <div style={{ padding: '6px 28px', fontSize: 11, color: 'var(--muted)', borderTop: '1px dashed var(--border-2)' }}>
+                              + {(wbsNode!.children!.length - 5)} autres lots — <button className="btn btn-ghost btn-xs" onClick={() => { setViewMode('projet'); setSelectedProjetId(proj.id); }}>Voir WBS complet</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ══ VUE PORTEFEUILLE ══ */}
+          {viewMode === 'portefeuille' && (
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* KPIs globaux */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                {[
+                  { label: 'Projets actifs', value: store.projets.filter(p => p.statut === 'en_cours').length, total: store.projets.length, color: '#1B4F8A' },
+                  { label: 'Budget total', value: `${(store.projets.reduce((s,p) => s + p.budget, 0)/1000).toFixed(1)} Mrd`, sub: 'FCFA', color: '#F47920' },
+                  { label: 'Avancement moyen', value: `${store.projets.length > 0 ? Math.round(store.projets.reduce((s,p) => s + p.avancement,0)/store.projets.length) : 0}%`, sub: 'portefeuille', color: '#16A34A' },
+                  { label: 'En retard', value: store.projets.filter(p => p.statut === 'en_retard').length, sub: 'projets', color: '#EF3340' },
+                ].map(k => (
+                  <div key={k.label} style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', borderTop: `3px solid ${k.color}`, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{k.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: k.color, marginTop: 4 }}>{k.value}</div>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>{'sub' in k ? k.sub : `sur ${k.total} total`}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Liste tous les projets */}
+              <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid #F1F5F9', fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>
+                  Tous les projets du portefeuille ({activeWbsData.length})
+                </div>
+                {activeWbsData.map(proj => {
+                  const storeProj = store.projets.find(p => p.id === proj.id);
+                  const domCfg = storeProj ? DOMAINE_CFG[storeProj.domaine] : null;
+                  return (
+                    <div key={proj.id} style={{ padding: '10px 14px', borderBottom: '1px solid #F8FAFC', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                      onClick={() => { setViewMode('projet'); setSelectedProjetId(proj.id); }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: (domCfg?.color ?? '#1B4F8A') + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+                        {domCfg?.emoji ?? '📁'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.label}</div>
+                        <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{proj.responsable} · {proj.dateDebut} → {proj.dateFin}</div>
+                      </div>
+                      <div className="progress-bar" style={{ width: 80, height: 5, flexShrink: 0 }}>
+                        <div className="progress-fill" style={{ width: `${proj.avancement}%` }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--navy)', minWidth: 34 }}>{proj.avancement}%</span>
+                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: proj.budgetMrd ? '#EFF6FF' : '#F8FAFC', color: '#1B4F8A', fontWeight: 700 }}>
+                        {proj.budgetMrd ? `${proj.budgetMrd.toFixed(1)} Mrd` : '—'}
+                      </span>
+                      <span className={pillClass(proj.statut)} style={{ fontSize: 9 }}>{STATUT_LABEL[proj.statut]}</span>
+                      <span style={{ fontSize: 10, color: '#94A3B8' }}>→ WBS</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ══ VUE PROJET ══ */}
+          {viewMode === 'projet' && (!showTable ? (
             /* ── TREE VIEW ── */
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {/* Column headers */}
@@ -956,11 +1147,11 @@ export default function WBS() {
                 </table>
               </div>
             </div>
-          )}
+          ))}
         </div>
 
         {/* Detail panel */}
-        {selected && <DetailPanel node={selected} onClose={() => setSelected(null)} onEdit={openEdit} onAddChild={openAddChild} />}
+        {viewMode === 'projet' && selected && <DetailPanel node={selected} onClose={() => setSelected(null)} onEdit={openEdit} onAddChild={openAddChild} />}
       </div>
 
       {/* ── FOOTER ── */}
@@ -1011,9 +1202,14 @@ export default function WBS() {
                     </select>
                   </div>
                 </div>
+                {/* Motif de replanification */}
+                <div style={{ padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 7 }}>
+                  <label style={{ ...lbl, color: '#92400E' }}>Motif de modification (requis si dates changent)</label>
+                  <input style={{ ...inp, borderColor: '#FDE68A' }} value={editMotif} onChange={e => setEditMotif(e.target.value)} placeholder="Ex: retard fournisseur, avenant signé, intempéries…" />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-                <button onClick={() => setEditTarget(null)} style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Annuler</button>
+                <button onClick={() => { setEditTarget(null); setEditMotif(''); }} style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Annuler</button>
                 <button onClick={saveEdit} disabled={!nodeForm.label.trim()} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: nodeForm.label.trim() ? '#1B4F8A' : '#E5E7EB', color: nodeForm.label.trim() ? '#fff' : '#9CA3AF', fontSize: 12, fontWeight: 700, cursor: nodeForm.label.trim() ? 'pointer' : 'not-allowed', opacity: nodeForm.label.trim() ? 1 : 0.5 }}>💾 Enregistrer</button>
               </div>
             </div>
@@ -1064,6 +1260,57 @@ export default function WBS() {
           </>
         );
       })()}
+
+      {/* ── HISTORIQUE REPLANIFICATION ── */}
+      {showHistory && (
+        <>
+          <div onClick={() => setShowHistory(false)} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 401, background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', width: 680, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 20px', background: 'var(--navy)', borderRadius: '14px 14px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>🕐 Historique des replanifications</div>
+              <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.7)' }}>×</button>
+            </div>
+            <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
+              {planningLog.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 32, color: '#94A3B8', fontSize: 13 }}>
+                  Aucune modification de planning enregistrée.<br />
+                  <span style={{ fontSize: 11 }}>Les changements de dates, avancement et statut sont tracés ici.</span>
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', color: '#94A3B8', fontSize: 10, textTransform: 'uppercase' }}>
+                      {['Date', 'Élément WBS', 'Champ', 'Ancienne valeur', 'Nouvelle valeur', 'Motif', 'Par'].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {planningLog.map(c => (
+                      <tr key={c.id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: '8px 10px', fontSize: 10, color: '#64748B', whiteSpace: 'nowrap' }}>{c.changedAt}</td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <div style={{ fontWeight: 700, color: '#1B4F8A', fontSize: 11 }}>{c.nodeCode}</div>
+                          <div style={{ fontSize: 10, color: '#94A3B8', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.nodeLabel}>{c.nodeLabel}</div>
+                        </td>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{c.field}</td>
+                        <td style={{ padding: '8px 10px', color: '#DC2626' }}>{c.oldValue}</td>
+                        <td style={{ padding: '8px 10px', color: '#16A34A', fontWeight: 700 }}>{c.newValue}</td>
+                        <td style={{ padding: '8px 10px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: c.motif === '—' ? 'italic' : 'normal', color: c.motif === '—' ? '#94A3B8' : 'inherit' }} title={c.motif}>{c.motif}</td>
+                        <td style={{ padding: '8px 10px', fontSize: 10, color: '#64748B' }}>{c.changedBy}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div style={{ padding: '10px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: '#94A3B8' }}>{planningLog.length} modification(s) enregistrée(s)</span>
+              {planningLog.length > 0 && <button onClick={() => { if (confirm('Effacer tout l\'historique ?')) setPlanningLog([]); }} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #FECACA', color: '#DC2626', background: '#fff', fontSize: 11, cursor: 'pointer' }}>Vider l&apos;historique</button>}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── TOASTS ── */}
       <div style={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 9999, pointerEvents: 'none' }}>
