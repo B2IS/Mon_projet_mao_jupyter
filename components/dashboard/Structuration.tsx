@@ -22,9 +22,11 @@ import { useZonesStore, buildBOQ } from '@/lib/zonesQuantitesStore';
 import { useStructurationStore } from '@/lib/structuration/store';
 import { structurerDepuisBOQ, type BOQInputRow } from '@/lib/structuration/builder';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { usePVMESStore } from '@/lib/pvMESStore';
 
-const fmt  = (n: number) => n.toLocaleString('fr-FR');
-const fmtM = (n: number) => n >= 1e9 ? `${(n/1e9).toFixed(2)} Mrd` : n >= 1e6 ? `${(n/1e6).toFixed(1)} M` : fmt(n);
+const fmt    = (n: number) => n.toLocaleString('fr-FR');
+const fmtM   = (n: number) => n >= 1e9 ? `${(n/1e9).toFixed(2)} Mrd` : n >= 1e6 ? `${(n/1e6).toFixed(1)} M` : fmt(n);
+const fmtVal = (n: number) => n >= 1e6 ? `${(n/1e6).toFixed(1)} M` : fmt(n);
 
 const NAVY   = '#1B4F8A';
 const ORANGE = '#F47920';
@@ -177,13 +179,13 @@ export default function Structuration() {
   const importRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab]   = useState<'boq' | 'pv' | 'valeurs' | 'actifs'>('boq');
 
-  /* ── PV Mise en service (données mock liées aux réceptions) ── */
-  const [pvMES, setPvMES] = useState([
-    { id: 'pv1', ref: 'PVD-DER-2026-002', projet: 'Électrification Rurale 19 Localités — Thiès', entreprise: 'ELEC AFRIQUE SARL', dateReception: '2026-04-15', dateMES: '2026-05-01', valeurMES: 485_000_000, categorie: 'Réseau HTA/BT', localite: 'Thiès - 19 localités', statut: 'valide' as const, linked: false },
-    { id: 'pv2', ref: 'PVD-CPBM-2026-001', projet: 'PASE — Accès électricité zones péri-urbaines', entreprise: 'TRACTEBEL ENGIE', dateReception: '2026-03-22', dateMES: '2026-04-10', valeurMES: 620_000_000, categorie: 'Réseau BT péri-urbain', localite: 'Guédiawaye', statut: 'valide' as const, linked: true },
-    { id: 'pv3', ref: 'PVD-DEP-2026-003', projet: 'Réhabilitation Centrale Cap des Biches', entreprise: 'GE POWER AFRICA', dateReception: '2026-02-10', dateMES: '2026-03-01', valeurMES: 715_000_000, categorie: 'Production électrique', localite: 'Dakar — Cap des Biches', statut: 'valide' as const, linked: true },
-    { id: 'pv4', ref: 'PVD-DIT-2026-004', projet: 'Déploiement compteurs AMI', entreprise: 'LANDIS+GYR', dateReception: '2026-05-18', dateMES: '', valeurMES: 245_000_000, categorie: 'Comptage / AMI', localite: 'Dakar — Lot 1', statut: 'en_cours' as const, linked: false },
-  ]);
+  /* ── PV Mise en service — store partagé Réceptions ↔ Structuration ── */
+  const pvStore    = usePVMESStore();
+  const pvMES      = pvStore.records;
+  const setPVDateMES   = pvStore.setDateMES;
+  const setPVValeur    = pvStore.setValeurMES;
+  const setPVCategorie = pvStore.setCategorie;
+  const setPVLinked    = pvStore.setLinked;
 
   /* ── Valeurs actifs (liste pour suivi patrimonial) ── */
   const [valeursRows, setValeursRows] = useState([
@@ -785,11 +787,11 @@ export default function Structuration() {
               <input value={pvSearch} onChange={e => setPvSearch(e.target.value)} placeholder="Rechercher PV…" style={{ padding: '6px 8px 6px 26px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 12, width: 200, outline: 'none' }} />
             </div>
           </div>
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 900 }}>
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1200 }}>
               <thead>
                 <tr style={{ background: '#F8FAFC', color: '#94A3B8', fontSize: 10, textTransform: 'uppercase' }}>
-                  {['Référence PV', 'Projet', 'Entreprise', 'Date réception', 'Date MES', 'Valeur MES (FCFA)', 'Catégorie', 'Statut', 'Lié actif', 'Actions'].map(h => (
+                  {['Référence PV', 'Projet', 'Entreprise', 'Date réception', 'Date MES ✎', 'Valeur MES (FCFA) ✎', 'Catégorie ✎', 'Statut', 'Lié actif', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '9px 10px', textAlign: 'left', fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
@@ -804,16 +806,42 @@ export default function Structuration() {
                     </td>
                     <td style={{ padding: '9px 10px', fontSize: 11, color: '#475569' }}>{pv.entreprise}</td>
                     <td style={{ padding: '9px 10px', fontSize: 11 }}>{pv.dateReception}</td>
-                    <td style={{ padding: '9px 10px', fontSize: 11, fontWeight: pv.dateMES ? 600 : 400, color: pv.dateMES ? '#16A34A' : '#94A3B8' }}>{pv.dateMES || '—'}</td>
-                    <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: NAVY }}>{(pv.valeurMES/1e6).toFixed(1)} M</td>
+                    {/* dateMES — éditable */}
+                    <td style={{ padding: '6px 10px' }}>
+                      <input
+                        type="date"
+                        value={pv.dateMES}
+                        onChange={e => setPVDateMES(pv.id, e.target.value)}
+                        style={{
+                          border: pv.dateMES ? '1px solid #BBF7D0' : '1px solid #E2E8F0',
+                          borderRadius: 6, padding: '3px 7px', fontSize: 11,
+                          fontWeight: pv.dateMES ? 700 : 400,
+                          color: pv.dateMES ? '#15803D' : '#94A3B8',
+                          background: pv.dateMES ? '#F0FDF4' : '#FAFAFA',
+                          outline: 'none', width: 130,
+                        }}
+                      />
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      <input
+                        type="number"
+                        value={pv.valeurMES}
+                        onChange={e => setPVValeur(pv.id, Number(e.target.value))}
+                        style={{ border: '1px solid #E2E8F0', borderRadius: 6, padding: '3px 7px', fontSize: 11, fontWeight: 700, color: NAVY, textAlign: 'right', width: 110, outline: 'none' }}
+                      />
+                    </td>
                     <td style={{ padding: '9px 10px', fontSize: 11 }}>
-                      <span style={{ padding: '2px 7px', borderRadius: 10, background: '#EFF6FF', color: NAVY, fontWeight: 700, fontSize: 10 }}>{pv.categorie}</span>
+                      <input
+                        value={pv.categorie}
+                        onChange={e => setPVCategorie(pv.id, e.target.value)}
+                        style={{ border: '1px solid #DBEAFE', borderRadius: 6, padding: '3px 7px', fontSize: 11, fontWeight: 700, color: NAVY, background: '#EFF6FF', outline: 'none', width: 140 }}
+                      />
                     </td>
                     <td style={{ padding: '9px 10px' }}>
                       <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700,
                         background: pv.statut === 'valide' ? '#DCFCE7' : '#FFF7ED',
                         color: pv.statut === 'valide' ? '#15803D' : '#C2410C' }}>
-                        {pv.statut === 'valide' ? '✓ Validé' : '⏳ En cours'}
+                        {pv.statut === 'valide' ? '✓ Validé' : pv.statut === 'rejete' ? '✗ Rejeté' : '⏳ En cours'}
                       </span>
                     </td>
                     <td style={{ padding: '9px 10px' }}>
@@ -822,11 +850,14 @@ export default function Structuration() {
                         : <span style={{ fontSize: 10, color: '#94A3B8' }}>—</span>}
                     </td>
                     <td style={{ padding: '9px 10px' }}>
-                      {pv.statut === 'valide' && !pv.linked && (
-                        <button onClick={() => { setPvMES(prev => prev.map(p => p.id === pv.id ? { ...p, linked: true } : p)); toast.success(`PV ${pv.ref} lié à un actif`); }}
+                      {pv.statut === 'valide' && !pv.linked && pv.dateMES && (
+                        <button onClick={() => { setPVLinked(pv.id, true); toast.success(`PV ${pv.ref} lié à un actif`); }}
                           style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: ORANGE, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                           + Lier actif
                         </button>
+                      )}
+                      {pv.statut === 'valide' && !pv.linked && !pv.dateMES && (
+                        <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>⚠ Saisir la date MES</span>
                       )}
                       {pv.linked && <button style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #E2E8F0', background: '#fff', fontSize: 11, color: '#475569', cursor: 'pointer' }} onClick={() => setActiveTab('valeurs')}>Voir valeur</button>}
                     </td>
@@ -842,8 +873,7 @@ export default function Structuration() {
       )}
 
       {/* ── Onglet Liste Valeurs & Amortissement ───────────────────────── */}
-      {activeTab === 'valeurs' && (() => {
-        const fmt = (n: number) => n >= 1e6 ? `${(n/1e6).toFixed(1)} M` : n.toLocaleString('fr-FR');
+      {activeTab === 'valeurs' && (() => { // eslint-disable-line -- colDefs depends on valeursRows type, keep inline
         const colDefs: { key: keyof typeof valeursRows[0]; label: string }[] = [
           { key: 'code', label: 'Code' }, { key: 'designation', label: 'Désignation' }, { key: 'categorie', label: 'Catégorie' },
           { key: 'dateMES', label: 'MES' }, { key: 'valeurAcquisition', label: 'Val. acquisition' }, { key: 'duree', label: 'Durée (ans)' },
@@ -915,7 +945,7 @@ export default function Structuration() {
                     {visibleCols.slice(visibleCols.findIndex(c => c.key === 'valeurAcquisition')).map((c, i) => (
                       <td key={c.key} style={{ padding: '9px 10px', textAlign: 'right', color: c.key === 'vnc' ? GREEN : NAVY }}>
                         {i === 0 || c.key === 'amortAnnuel' || c.key === 'amortCumul' || c.key === 'vnc'
-                          ? fmt(valeursRows.reduce((s,r) => s + (r[c.key] as number || 0), 0))
+                          ? fmtVal(valeursRows.reduce((s,r) => s + (r[c.key] as number || 0), 0))
                           : ''}
                       </td>
                     ))}
