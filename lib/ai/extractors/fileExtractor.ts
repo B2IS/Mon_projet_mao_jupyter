@@ -135,7 +135,7 @@ async function extractPDF(file: File): Promise<{ text: string; isScanned: boolea
       const page    = await pdf.getPage(i);
       const content = await page.getTextContent();
       const text    = content.items
-        .map((item: { str?: string }) => item.str ?? '')
+        .map((item: { str?: string } & object) => (item as { str?: string }).str ?? '')
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();

@@ -92,7 +92,7 @@ export async function runQHSEAgent(
     { reference: 'NF EN 50110 — Travaux sous tension', statut: isHaute ? 'Non conforme' : 'Conforme', action: isHaute ? 'Former équipe TST avant démarrage HTA' : undefined },
     { reference: 'ISO 14001:2015 — Système management environnement', statut: 'En cours', action: 'Aligner PGES sur exigences ISO 14001' },
     { reference: 'OHSAS 18001 / ISO 45001 — Sécurité travail', statut: 'En cours', action: 'Audit SMQ HSE à planifier J+30' },
-    { reference: 'Directives Banque Mondiale (IFC PS1-8)', statut: ctx.bailleur?.toLowerCase().includes('banque') ? 'En cours' : 'Non applicable', action: ctx.bailleur?.toLowerCase().includes('banque') ? 'Soumettre PGES au bailleur pour NOC' : undefined },
+    { reference: 'Directives Banque Mondiale (IFC PS1-8)', statut: ctx.bailleur?.toLowerCase().includes('banque') ? 'En cours' : 'Non conforme', action: ctx.bailleur?.toLowerCase().includes('banque') ? 'Soumettre PGES au bailleur pour NOC' : 'Sans objet — bailleur non BM' },
   ];
 
   const formationsRequises = [

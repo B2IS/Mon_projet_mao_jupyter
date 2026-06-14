@@ -192,8 +192,11 @@ function enrichTachesWithRessources(
     const affectations = ressources.affectations
       .filter(a => a.tacheNom.toLowerCase().includes(t.nom.toLowerCase().slice(0, 15)))
       .map(a => ({
+        id:           uid(),
+        tacheId:      t.id,
         ressourceId:  uid(),
         ressourceNom: a.ressourceNom,
+        unite:        a.pourcentage,
         pourcentage:  a.pourcentage,
         dateDebut:    a.dateDebut,
         dateFin:      a.dateFin,

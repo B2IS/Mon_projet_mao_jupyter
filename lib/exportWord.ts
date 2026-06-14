@@ -6,7 +6,7 @@
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
   WidthType, BorderStyle, AlignmentType, ShadingType, PageBreak,
-  Header, Footer, PageNumber, NumberFormat, convertInchesToTwip,
+  Header, Footer, PageNumber, convertInchesToTwip,
 } from 'docx';
 
 export interface SectionDocx {
@@ -26,7 +26,7 @@ export interface MetaRapport {
 }
 
 function mkPar(text: string, opts: {
-  bold?: boolean; color?: string; size?: number; heading?: HeadingLevel; spacing?: number; center?: boolean;
+  bold?: boolean; color?: string; size?: number; heading?: typeof HeadingLevel[keyof typeof HeadingLevel]; spacing?: number; center?: boolean;
 } = {}): Paragraph {
   return new Paragraph({
     heading: opts.heading,
@@ -176,7 +176,7 @@ export async function exportRapportWord(sections: SectionDocx[], meta: MetaRappo
               alignment: AlignmentType.CENTER,
               children: [
                 new TextRun({ text: `${meta.confidentiel !== false ? 'CONFIDENTIEL — ' : ''}SIGEPP-DPE · Page `, size: 16, color: '94A3B8', font: 'Calibri' }),
-                new PageNumber({ format: NumberFormat.DECIMAL }),
+                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8', font: 'Calibri' }),
               ],
             }),
           ],

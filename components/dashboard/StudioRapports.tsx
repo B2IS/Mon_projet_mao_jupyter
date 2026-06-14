@@ -748,7 +748,7 @@ function IndicatorPickerModal({ section, indicators, onClose, onSave }: {
   const [sel, setSel] = useState<Set<string>>(new Set(section.selectedIndicatorIds ?? []));
   const [q, setQ] = useState('');
   const filtered = indicators.filter(i =>
-    !q || i.name.toLowerCase().includes(q.toLowerCase()) || i.category?.toLowerCase().includes(q.toLowerCase())
+    !q || i.name.toLowerCase().includes(q.toLowerCase()) || i.description?.toLowerCase().includes(q.toLowerCase())
   );
   const toggle = (id: string) => setSel(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
@@ -777,7 +777,7 @@ function IndicatorPickerModal({ section, indicators, onClose, onSave }: {
                 <div style={{ width: 24, height: 24, borderRadius: 5, background: isSel ? NAVY : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: isSel ? '#fff' : '#94A3B8', fontSize: 11, fontWeight: 800 }}>{isSel ? '✓' : ''}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12.5, fontWeight: isSel ? 700 : 500, color: isSel ? NAVY : '#1E293B' }}>{ind.name}</div>
-                  <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{ind.category ?? 'Général'} · {ind.formula.slice(0, 40)}{ind.formula.length > 40 ? '…' : ''}</div>
+                  <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{ind.description?.slice(0, 30) ?? 'Indicateur'} · {ind.formula.slice(0, 40)}{ind.formula.length > 40 ? '…' : ''}</div>
                 </div>
                 <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'monospace' }}>{ind.unit}</div>
               </div>
@@ -1133,12 +1133,13 @@ export default function StudioRapports() {
       const indSnaps = (sec.selectedIndicatorIds ?? []).map(iid => {
         const ind = indStore.indicators.find(i => i.id === iid);
         if (!ind || !projet) return null;
-        const fields = {
-          avancement: projet.avancement, budget: projet.budget,
-          budgetEngage: projet.budgetEngage, budgetDecaisse: projet.budgetDecaisse,
-          cpi: projet.cpi, spi: projet.spi, avancementPlanifie: projet.avancementPlanifie,
-        } as Record<string, number>;
-        const res = evaluateFormula(ind.formula, fields);
+        const projRow = {
+          budget: projet.budget, budgetEngage: projet.budgetEngage,
+          budgetDecaisse: projet.budgetDecaisse, avancement: projet.avancement,
+          avancementPlanifie: projet.avancementPlanifie, cpi: projet.cpi, spi: projet.spi,
+          statut: projet.statut,
+        };
+        const res = evaluateFormula(ind.formula, [projRow]);
         const st = ragStatus(res.value, ind.thresholds);
         return { name: ind.name, value: res.value, unit: ind.unit, statut: st === 'green' ? 'vert' : st === 'amber' ? 'orange' : 'rouge' } as { name: string; value: number; unit: string; statut: 'vert' | 'orange' | 'rouge' };
       }).filter(Boolean) as { name: string; value: number; unit: string; statut: 'vert' | 'orange' | 'rouge' }[];

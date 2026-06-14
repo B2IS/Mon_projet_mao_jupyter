@@ -19,6 +19,7 @@ import {
 export * from './authTypes';
 import {
   type RoleCode, type TestUser, type SidebarSectionId,
+  type LoginResult, type ChangePasswordResult,
   ROLE_SECTIONS, DIRECTION_SECTIONS, normalizeDirectionCode, DIRECTION_LABELS,
   canAccess, canAccessNavItem, isAssistantProjet, ASSISTANT_DETAIL_ROUTES, NO_SALLE_ROLES,
   SESSION_COOKIE, SESSION_MAX_AGE, type SessionPayload,

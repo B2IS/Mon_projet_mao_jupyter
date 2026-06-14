@@ -80,6 +80,153 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string |
   );
 }
 
+// ─── ChargeHeatGrid — visualisation charge ~200 agents groupés par direction ──
+
+const DIR_COLORS: Record<string, string> = {
+  'DER': '#1B4F8A', 'DEP': '#7C3AED', 'DIT': '#0369A1', 'DGC': '#B45309',
+  'CC26': '#065F46', 'CPBM - UE': '#9A3412', 'CPAMACEL&EE': '#6B21A8',
+  'CPADERAU': '#1F5C3A', 'CSE': '#B91C1C', 'EM DPE': '#374151',
+};
+
+function chargeTile(v: number): { bg: string; text: string; border: string } {
+  if (v > 100) return { bg: '#FEE2E2', text: '#991B1B', border: '#FECACA' };
+  if (v >= 80)  return { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' };
+  return { bg: '#DCFCE7', text: '#166534', border: '#BBF7D0' };
+}
+
+function ChargeHeatGrid({ allocationMap, travailRessources }: {
+  allocationMap: Record<string, number>;
+  travailRessources: Ressource[];
+}) {
+  const [filterDir, setFilterDir] = useState('Toutes');
+  const [search, setSearch] = useState('');
+
+  // Build per-person charge: from project store resources OR from PERSONNEL_DPE with simulated load
+  const resourcesByMle = useMemo(() => {
+    const m: Record<string, number> = {};
+    travailRessources.forEach(r => {
+      m[`${r.prenom?.toLowerCase()}_${r.nom?.toLowerCase()}`] = allocationMap[r.id] ?? 0;
+    });
+    return m;
+  }, [travailRessources, allocationMap]);
+
+  const allPersons = useMemo(() => PERSONNEL_DPE.map((p, i) => {
+    const key = `${p.prenom?.toLowerCase()}_${p.nom?.toLowerCase()}`;
+    // Use real allocation if this person is in the project store, else deterministic mock
+    const real = resourcesByMle[key];
+    const mock = [55, 70, 82, 95, 108, 65, 78, 45, 90, 115, 60, 88, 72, 50, 102][i % 15];
+    return { ...p, charge: real !== undefined ? real : mock };
+  }), [resourcesByMle]);
+
+  const dirs = useMemo(() => ['Toutes', ...Array.from(new Set(PERSONNEL_DPE.map(p => p.direction))).sort()], []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allPersons.filter(p => {
+      const okDir = filterDir === 'Toutes' || p.direction === filterDir;
+      const okQ = !q || `${p.prenom} ${p.nom} ${p.poste}`.toLowerCase().includes(q);
+      return okDir && okQ;
+    });
+  }, [allPersons, filterDir, search]);
+
+  // Group by direction
+  const grouped = useMemo(() => {
+    const g: Record<string, typeof filtered> = {};
+    filtered.forEach(p => { (g[p.direction] = g[p.direction] ?? []).push(p); });
+    return g;
+  }, [filtered]);
+
+  const stats = useMemo(() => ({
+    dispo: allPersons.filter(p => p.charge < 80).length,
+    charge: allPersons.filter(p => p.charge >= 80 && p.charge <= 100).length,
+    surcharge: allPersons.filter(p => p.charge > 100).length,
+    total: allPersons.length,
+  }), [allPersons]);
+
+  return (
+    <div style={{ background: WHITE, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '16px 20px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: NAVY, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Activity size={16} /> Charge des ressources humaines — {stats.total} agents DPE
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un agent…"
+            style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid #E5E7EB', fontSize: 12, width: 190, color: '#374151', outline: 'none' }} />
+          <select value={filterDir} onChange={e => setFilterDir(e.target.value)}
+            style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid #E5E7EB', fontSize: 12, color: '#374151', background: WHITE }}>
+            {dirs.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Légende + stats */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
+        {[
+          { label: `< 80% disponible`, count: stats.dispo, bg: '#DCFCE7', text: '#166534', border: '#BBF7D0' },
+          { label: `80–100% chargé`, count: stats.charge, bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' },
+          { label: `> 100% surchargé`, count: stats.surcharge, bg: '#FEE2E2', text: '#991B1B', border: '#FECACA' },
+        ].map(s => (
+          <div key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: s.bg, border: `1px solid ${s.border}` }}>
+            <span style={{ fontSize: 15, fontWeight: 800, color: s.text, fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
+            <span style={{ fontSize: 11, color: s.text, fontWeight: 600 }}>{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Grid groupé par direction */}
+      <div style={{ maxHeight: 480, overflowY: 'auto', paddingRight: 4 }}>
+        {Object.keys(grouped).sort().map(dir => {
+          const agents = grouped[dir];
+          const dirColor = DIR_COLORS[dir] ?? '#1B4F8A';
+          const surDir = agents.filter(a => a.charge > 100).length;
+          return (
+            <div key={dir} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 5, height: 16, borderRadius: 3, background: dirColor, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: dirColor }}>{dir}</span>
+                <span style={{ fontSize: 11, color: '#94A3B8' }}>{agents.length} agents</span>
+                {surDir > 0 && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#991B1B', background: '#FEE2E2', padding: '1px 7px', borderRadius: 20, border: '1px solid #FECACA' }}>
+                    ⚠ {surDir} surchargé{surDir > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {agents.map(agent => {
+                  const { bg, text, border } = chargeTile(agent.charge);
+                  return (
+                    <div key={agent.mle} title={`${agent.prenom} ${agent.nom}\n${agent.poste}\nCharge : ${agent.charge}%`}
+                      style={{
+                        background: bg, border: `1px solid ${border}`, borderRadius: 7, padding: '5px 9px',
+                        cursor: 'default', transition: 'transform 0.12s',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 80, maxWidth: 120,
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.04)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 700, color: text, textAlign: 'center', lineHeight: 1.2, wordBreak: 'break-word', maxWidth: 100 }}>
+                        {agent.nom}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: text, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
+                        {agent.charge}%
+                      </div>
+                      {agent.charge > 100 && <div style={{ fontSize: 9, color: '#991B1B', fontWeight: 700 }}>⚠ SURCHARGE</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '30px 0', fontSize: 13 }}>Aucun agent correspondant à la recherche.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal form type ──────────────────────────────────────────────────────────
 
 interface RessourceForm {
@@ -98,6 +245,198 @@ const EMPTY_FORM: RessourceForm = {
   prenom: '', nom: '', type: 'Travail', direction: 'DER',
   tauxHoraire: '', capaciteMax: '100', email: '', telephone: '', unite: '',
 };
+
+// ─── DemandesRessourcesCAB — workflow UAGL → Gestionnaire CAB DPE (ABDOU KANE) ──
+
+type StatutDemande = 'brouillon' | 'soumise' | 'en_verification' | 'accordee' | 'refusee' | 'transmise';
+
+interface DemandeRessource {
+  id: string;
+  dateCreation: string;
+  uaglEmettrice: string;
+  projetCode: string;
+  profil: string;
+  nbAgents: number;
+  duree: string;
+  justification: string;
+  statut: StatutDemande;
+  commentaireCAB?: string;
+  agentPropose?: string;
+  uaglSource?: string;
+}
+
+const STATUT_DEM: Record<StatutDemande, { label: string; color: string; bg: string }> = {
+  brouillon:       { label: 'Brouillon',       color: '#64748B', bg: '#F1F5F9' },
+  soumise:         { label: 'Soumise',          color: '#D97706', bg: '#FEF3C7' },
+  en_verification: { label: 'En vérification',  color: '#2563EB', bg: '#DBEAFE' },
+  accordee:        { label: 'Accordée',         color: '#16A34A', bg: '#DCFCE7' },
+  refusee:         { label: 'Refusée',          color: '#DC2626', bg: '#FEE2E2' },
+  transmise:       { label: 'Transmise UAGL',   color: '#7C3AED', bg: '#EDE9FE' },
+};
+
+const DEMO_DEMANDES: DemandeRessource[] = [
+  { id: 'd1', dateCreation: '2026-06-01', uaglEmettrice: 'DER', projetCode: 'PASER-DER-001', profil: 'Ingénieur HTA', nbAgents: 2, duree: '3 mois', justification: 'Pic de travaux pose lignes HTA — ressources DER saturées', statut: 'transmise', commentaireCAB: 'Disponibilité confirmée dans DEP pour 2 ingénieurs HTA', agentPropose: 'NDIAYE M. / SOW B.', uaglSource: 'DEP' },
+  { id: 'd2', dateCreation: '2026-06-08', uaglEmettrice: 'DGC', projetCode: 'PAMACEL-DGC-003', profil: 'Technicien Génie Civil', nbAgents: 1, duree: '2 mois', justification: 'Expertise béton armé pour fondations poste HTB', statut: 'accordee', commentaireCAB: 'Technicien GC disponible à la DIT à partir du 15/06', agentPropose: 'DIOP I. (DIT)', uaglSource: 'DIT' },
+  { id: 'd3', dateCreation: '2026-06-10', uaglEmettrice: 'DEP', projetCode: 'PADERAU-DEP-007', profil: 'Expert Environnement', nbAgents: 1, duree: '1 mois', justification: 'Rédaction PGES volet biodiversité — expertise spécifique manquante', statut: 'en_verification', commentaireCAB: 'Vérification en cours disponibilité CSE / DER' },
+  { id: 'd4', dateCreation: '2026-06-12', uaglEmettrice: 'CC26', projetCode: 'BEST-CC26-002', profil: 'Chef de Projet senior', nbAgents: 1, duree: '6 mois', justification: 'Remplacement congé maternité cheffe de projet', statut: 'soumise' },
+];
+
+function DemandesRessourcesCAB({ user }: { user: { role: string; direction?: string; nom?: string; prenom?: string } | null }) {
+  const isCAB = user?.role === 'PMO' || user?.role === 'ADMIN' || user?.role === 'DIR_DPE' || user?.role === 'CHEF_DEPT';
+  const [demandes, setDemandes] = useState<DemandeRessource[]>(DEMO_DEMANDES);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cabComment, setCabComment] = useState('');
+  const [newDemande, setNewDemande] = useState({ profil: '', nbAgents: '1', duree: '', justification: '' });
+
+  const selected = demandes.find(d => d.id === selectedId) ?? null;
+
+  function updateStatut(id: string, statut: StatutDemande, comment?: string, agentPropose?: string, uaglSource?: string) {
+    setDemandes(prev => prev.map(d => d.id === id
+      ? { ...d, statut, commentaireCAB: comment ?? d.commentaireCAB, agentPropose: agentPropose ?? d.agentPropose, uaglSource: uaglSource ?? d.uaglSource }
+      : d));
+    setSelectedId(null);
+    setCabComment('');
+  }
+
+  function creerDemande() {
+    if (!newDemande.profil.trim() || !newDemande.justification.trim()) return;
+    const nd: DemandeRessource = {
+      id: `d${Date.now()}`, dateCreation: new Date().toISOString().split('T')[0],
+      uaglEmettrice: user?.direction ?? 'UAGL',
+      projetCode: 'PRJ-' + Math.random().toString(36).slice(2, 7).toUpperCase(),
+      profil: newDemande.profil, nbAgents: parseInt(newDemande.nbAgents) || 1,
+      duree: newDemande.duree, justification: newDemande.justification, statut: 'soumise',
+    };
+    setDemandes(prev => [nd, ...prev]);
+    setNewDemande({ profil: '', nbAgents: '1', duree: '', justification: '' });
+    setShowForm(false);
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Bandeau processus */}
+      <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '12px 18px' }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#1D4ED8', marginBottom: 6 }}>Workflow — Demandes de ressources inter-UAGL</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, color: '#1E40AF' }}>
+          {['UAGL émet la demande', 'CAB DPE (ABDOU KANE) reçoit', 'Vérifie dispo dans autres UAGL', 'Accorde / Refuse', 'Transmet à l\'UAGL émettrice'].map((step, i, arr) => (
+            <span key={step} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ background: '#DBEAFE', padding: '3px 10px', borderRadius: 20, fontWeight: i === 1 ? 800 : 600 }}>
+                {i + 1}. {step}
+              </span>
+              {i < arr.length - 1 && <span style={{ color: '#93C5FD' }}>→</span>}
+            </span>
+          ))}
+        </div>
+        <div style={{ marginTop: 8, fontSize: 11, color: '#1E40AF' }}>
+          Gestionnaire CAB DPE : <strong>ABDOU KANE</strong> — point de contact unique pour l&apos;arbitrage des ressources partagées
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>
+          {demandes.length} demande{demandes.length > 1 ? 's' : ''} en cours
+        </div>
+        <button onClick={() => setShowForm(v => !v)} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
+          background: NAVY, color: WHITE, border: 'none', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+        }}>
+          <Plus size={14} /> Nouvelle demande
+        </button>
+      </div>
+
+      {/* Formulaire nouvelle demande */}
+      {showForm && (
+        <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 10, padding: 16 }}>
+          <div style={{ fontWeight: 700, color: '#B45309', marginBottom: 10, fontSize: 13 }}>Nouvelle demande de ressource</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 4 }}>Profil requis *</div>
+              <input value={newDemande.profil} onChange={e => setNewDemande(p => ({ ...p, profil: e.target.value }))} placeholder="Ex: Ingénieur HTA" style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #CBD5E1', fontSize: 12 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 4 }}>Nombre d&apos;agents</div>
+              <input type="number" min={1} value={newDemande.nbAgents} onChange={e => setNewDemande(p => ({ ...p, nbAgents: e.target.value }))} style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #CBD5E1', fontSize: 12 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 4 }}>Durée estimée</div>
+              <input value={newDemande.duree} onChange={e => setNewDemande(p => ({ ...p, duree: e.target.value }))} placeholder="Ex: 2 mois" style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #CBD5E1', fontSize: 12 }} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 4 }}>Justification *</div>
+              <textarea value={newDemande.justification} onChange={e => setNewDemande(p => ({ ...p, justification: e.target.value }))} rows={2} placeholder="Expliquer le besoin et son urgence…" style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #CBD5E1', fontSize: 12, resize: 'vertical', fontFamily: 'inherit' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button onClick={creerDemande} disabled={!newDemande.profil.trim() || !newDemande.justification.trim()} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: NAVY, color: WHITE, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Soumettre au CAB DPE</button>
+            <button onClick={() => setShowForm(false)} style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid #E5E7EB', background: WHITE, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* Liste des demandes */}
+      <div style={{ background: WHITE, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        {demandes.map((d, i) => {
+          const s = STATUT_DEM[d.statut];
+          const isOpen = selectedId === d.id;
+          return (
+            <div key={d.id} style={{ borderTop: i > 0 ? '1px solid #F3F4F6' : 'none' }}>
+              <div onClick={() => setSelectedId(isOpen ? null : d.id)} style={{ display: 'flex', gap: 12, padding: '14px 18px', cursor: 'pointer', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>{d.profil} <span style={{ fontWeight: 400, color: '#64748B', fontSize: 12 }}>× {d.nbAgents}</span></div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{d.uaglEmettrice} → CAB DPE · {d.projetCode} · {d.dateCreation}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {d.duree && <span style={{ fontSize: 11, color: '#475569', background: '#F1F5F9', padding: '2px 8px', borderRadius: 20 }}>{d.duree}</span>}
+                  <span style={{ fontSize: 11, fontWeight: 700, color: s.color, background: s.bg, padding: '3px 10px', borderRadius: 20 }}>{s.label}</span>
+                  <span style={{ color: '#94A3B8', fontSize: 18 }}>{isOpen ? '▲' : '▼'}</span>
+                </div>
+              </div>
+
+              {isOpen && (
+                <div style={{ padding: '0 18px 16px', borderTop: '1px solid #F8FAFC' }}>
+                  <div style={{ fontSize: 12, color: '#475569', marginBottom: 8, lineHeight: 1.6 }}>
+                    <strong>Justification :</strong> {d.justification}
+                  </div>
+                  {d.commentaireCAB && (
+                    <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 7, padding: '8px 12px', marginBottom: 10, fontSize: 12 }}>
+                      <strong style={{ color: '#166534' }}>Réponse CAB DPE :</strong> {d.commentaireCAB}
+                      {d.agentPropose && <div style={{ marginTop: 4, color: '#166534' }}>Agent(s) proposé(s) : <strong>{d.agentPropose}</strong>{d.uaglSource ? ` (${d.uaglSource})` : ''}</div>}
+                    </div>
+                  )}
+
+                  {/* Actions CAB (PMO/ADMIN/DIR_DPE/CHEF_DEPT) */}
+                  {isCAB && (d.statut === 'soumise' || d.statut === 'en_verification') && (
+                    <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 10 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Action CAB DPE — ABDOU KANE</div>
+                      <textarea value={cabComment} onChange={e => setCabComment(e.target.value)} rows={2} placeholder="Commentaire CAB / agent proposé / UAGL source…"
+                        style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #CBD5E1', fontSize: 12, marginBottom: 8, resize: 'vertical', fontFamily: 'inherit' }} />
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={() => updateStatut(d.id, 'en_verification', cabComment)} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                          Mettre en vérification
+                        </button>
+                        <button onClick={() => updateStatut(d.id, 'accordee', cabComment)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#16A34A', color: WHITE, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                          Accorder
+                        </button>
+                        <button onClick={() => updateStatut(d.id, 'transmise', cabComment)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#7C3AED', color: WHITE, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                          Accorder + Transmettre à l&apos;UAGL
+                        </button>
+                        <button onClick={() => updateStatut(d.id, 'refusee', cabComment)} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid #DC2626', background: '#FEE2E2', color: '#DC2626', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                          Refuser
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -149,7 +488,7 @@ export default function RH() {
     : 0;
 
   // ─── Tab labels ───
-  const TABS = ['Annuaire', 'Charge & Affectation', 'Planification', 'Feuilles de temps', 'Effectif DPE'];
+  const TABS = ['Annuaire', 'Charge & Affectation', 'Planification', 'Feuilles de temps', 'Effectif DPE', 'Demandes UAGL→CAB'];
 
   // ── Effectif réel DPE (201 agents — fichier au 10/03/2026) ──
   const [effSearch, setEffSearch] = useState('');
@@ -551,53 +890,8 @@ export default function RH() {
       {activeTab === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Bar chart */}
-          <div style={{ background: WHITE, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '16px 20px' }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Activity size={16} /> Charge des ressources humaines (%)
-            </div>
-            {barData.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '30px 0' }}>Aucune ressource de type Travail.</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={barData} margin={{ top: 8, right: 20, left: 0, bottom: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: '#6B7280' }}
-                    angle={-35}
-                    textAnchor="end"
-                    interval={0}
-                  />
-                  <YAxis domain={[0, 150]} tick={{ fontSize: 11, fill: '#6B7280' }} unit="%" />
-                  <Tooltip
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    content={({ active, payload }: any) => {
-                      if (!active || !payload?.length) return null;
-                      const d = payload[0];
-                      return (
-                        <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 12px', fontSize: 12 }}>
-                          <div style={{ fontWeight: 700, color: NAVY }}>{d.payload?.fullName}</div>
-                          <div style={{ color: barColor(d.value as number), fontWeight: 700 }}>{d.value}%</div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <ReferenceLine y={100} stroke={RED} strokeDasharray="5 3" label={{ value: '100% max', position: 'right', fontSize: 10, fill: RED }} />
-                  <Bar dataKey="charge" radius={[4, 4, 0, 0]}>
-                    {barData.map((entry, index) => (
-                      <Cell key={index} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-            <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 11, color: '#6B7280', flexWrap: 'wrap' }}>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: GREEN, borderRadius: 2, marginRight: 4 }} />{'< 80%'} disponible</span>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: ORANGE, borderRadius: 2, marginRight: 4 }} />80–100% chargé</span>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: RED, borderRadius: 2, marginRight: 4 }} />{'> 100%'} surchargé</span>
-            </div>
-          </div>
+          {/* Heat grid charge RH — toute la DPE */}
+          <ChargeHeatGrid allocationMap={allocationMap} travailRessources={travailRessources} />
 
           {/* Affectation table */}
           <div style={{ background: WHITE, borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
@@ -1240,6 +1534,13 @@ export default function RH() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          TAB 5 : DEMANDES DE RESSOURCES UAGL → CAB DPE
+      ════════════════════════════════════════════════════════════════ */}
+      {activeTab === 5 && (
+        <DemandesRessourcesCAB user={user} />
       )}
 
       {/* ════════════════════════════════════════════════════════════════

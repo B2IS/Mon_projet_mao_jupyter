@@ -186,7 +186,6 @@ const num: React.CSSProperties = { fontVariantNumeric: 'tabular-nums', whiteSpac
 const TABS: { id: ImmoSection; href: string; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: 'actifs', href: '/immobilisations', label: 'Registre des actifs', icon: Building2 },
   { id: 'referentiel', href: '/immobilisations/referentiel', label: 'Référentiel de structuration', icon: Boxes },
-  { id: 'receptions', href: '/immobilisations/receptions', label: 'PV de réception (MES)', icon: ClipboardCheck },
   { id: 'amortissements', href: '/immobilisations/amortissements', label: "Plans d'amortissement", icon: Calculator },
 ];
 
@@ -204,8 +203,32 @@ export default function ImmobilisationsWorkspace({ section }: { section: ImmoSec
         <div>
           <h1 style={{ fontSize: 21, fontWeight: 800, color: INK, margin: 0 }}>Immobilisations & Patrimoine</h1>
           <p style={{ fontSize: 13, color: MUT, margin: '2px 0 0' }}>
-            Du référentiel de structuration (Liste de valeurs · Décomposition) au plan d'amortissement.
+            Du référentiel de structuration (Liste de valeurs · Décomposition) au plan d&apos;amortissement.
           </p>
+        </div>
+      </div>
+
+      {/* Bandeau inputs process */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '10px 16px', marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#1D4ED8', flexShrink: 0, marginTop: 1 }}>INPUTS DU PROCESSUS</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {[
+            { label: 'Bordereau du marché', icon: '📄' },
+            { label: 'Liste des valeurs', icon: '📋' },
+            { label: 'Décomposition en sous-composantes', icon: '🔗' },
+            { label: 'PV de mise en service (MES)', icon: '✅' },
+          ].map((inp, i, arr) => (
+            <span key={inp.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 12, color: '#1E40AF', background: '#DBEAFE', padding: '2px 9px', borderRadius: 20, fontWeight: 600 }}>
+                {inp.label}
+              </span>
+              {i < arr.length - 1 && <span style={{ color: '#93C5FD', fontSize: 14 }}>→</span>}
+            </span>
+          ))}
+          <span style={{ color: '#1D4ED8', fontSize: 14 }}>→</span>
+          <span style={{ fontSize: 12, color: '#166534', background: '#DCFCE7', padding: '2px 9px', borderRadius: 20, fontWeight: 700, border: '1px solid #BBF7D0' }}>
+            Registre des actifs
+          </span>
         </div>
       </div>
 

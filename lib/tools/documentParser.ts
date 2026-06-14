@@ -47,7 +47,6 @@ export interface ParsedDocument {
   elements?: { nom: string; description: string; nb_coords: number }[];
   // Shapefile
   type_geometrie?: string;
-  nb_entites?: number;
   champs?: string[];
   echantillon?: Record<string, unknown>[];
   // SCD/IEC 61850

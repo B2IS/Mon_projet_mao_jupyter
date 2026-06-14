@@ -121,7 +121,7 @@ export async function runProgrammesAgent(
     .filter(f => ['pdf', 'docx', 'xlsx'].includes(f.ext.toLowerCase()))
     .map(f => f.name);
 
-  const codePortefeuille = `PORT-${match.code}-${new Date().getFullYear()}`;
+  const codePortefeuille = `PORT-${match!.code}-${new Date().getFullYear()}`;
 
   return {
     agentId: 'programmes',
@@ -129,16 +129,16 @@ export async function runProgrammesAgent(
     durationMs: Date.now() - start,
     filesUsed,
     warnings,
-    summary: `Programme identifié : ${match.code} — ${match.nom} · Bailleur : ${match.bailleur}`,
+    summary: `Programme identifié : ${match!.code} — ${match!.nom} · Bailleur : ${match!.bailleur}`,
     data: {
-      codeProgramme: match.code,
-      nomProgramme: match.nom,
-      composante: match.composantes[0],
-      bailleur: match.bailleur,
-      montantProgramme: match.montantMFCFA,
-      dateDebut: match.dateDebut,
-      dateFin: match.dateFin,
-      objetifsProgramme: match.objectifs,
+      codeProgramme: match!.code,
+      nomProgramme: match!.nom,
+      composante: match!.composantes[0],
+      bailleur: match!.bailleur,
+      montantProgramme: match!.montantMFCFA,
+      dateDebut: match!.dateDebut,
+      dateFin: match!.dateFin,
+      objetifsProgramme: match!.objectifs,
       projetDansPortefeuille: true,
       codePortefeuille,
     },
