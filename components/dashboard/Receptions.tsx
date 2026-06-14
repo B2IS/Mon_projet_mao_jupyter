@@ -12,6 +12,23 @@ import {
 
 type StatutPV     = 'EN_COURS' | 'VALIDE' | 'REJETE';
 type StatutReserve = 'levee' | 'en_cours' | 'expiree' | 'ouverte';
+type StatutPaiement = 'en_attente' | 'partiel' | 'regle' | 'litige';
+
+interface Paiement {
+  id: string;
+  ref: string;
+  pvdRef: string;
+  projet: string;
+  entreprise: string;
+  montantMarche: number;
+  montantFacture: number;
+  montantRegle: number;
+  dateFacture: string;
+  dateEcheance: string;
+  dateReglement?: string;
+  statut: StatutPaiement;
+  observations?: string;
+}
 
 interface Reserve {
   id: string;
@@ -431,10 +448,26 @@ function ReservesPanel({ reserves, titre, onClose }: {
   );
 }
 
+const PAIEMENTS_INIT: Paiement[] = [
+  { id: 'pay1', ref: 'FAC-2026-0142', pvdRef: 'PVD-DER-2026-002', projet: 'Électrification Rurale 19 Localités — Thiès', entreprise: 'ELEC AFRIQUE SARL', montantMarche: 485_000_000, montantFacture: 485_000_000, montantRegle: 0, dateFacture: '2026-05-12', dateEcheance: '2026-06-12', statut: 'en_attente' },
+  { id: 'pay2', ref: 'FAC-2026-0137', pvdRef: 'PVD-CPBM-2026-001', projet: 'PASE — Accès électricité zones péri-urbaines', entreprise: 'TRACTEBEL ENGIE', montantMarche: 1_240_000_000, montantFacture: 620_000_000, montantRegle: 310_000_000, dateFacture: '2026-04-28', dateEcheance: '2026-05-28', statut: 'partiel', observations: 'Acompte 50% réglé le 20/05/2026' },
+  { id: 'pay3', ref: 'FAC-2026-0119', pvdRef: 'PVD-DEP-2026-003', projet: 'Réhabilitation Centrale Cap des Biches', entreprise: 'GE POWER AFRICA', montantMarche: 2_860_000_000, montantFacture: 715_000_000, montantRegle: 715_000_000, dateFacture: '2026-03-10', dateEcheance: '2026-04-10', dateReglement: '2026-04-08', statut: 'regle' },
+  { id: 'pay4', ref: 'FAC-2026-0158', pvdRef: 'PVD-DIT-2026-004', projet: 'Déploiement compteurs AMI', entreprise: 'LANDIS+GYR', montantMarche: 980_000_000, montantFacture: 245_000_000, montantRegle: 0, dateFacture: '2026-05-30', dateEcheance: '2026-06-30', statut: 'en_attente' },
+  { id: 'pay5', ref: 'FAC-2026-0103', pvdRef: 'PVD-CPADERAU-2026-005', projet: 'PADERAU — Réseau HTA/BT zones rurales', entreprise: 'EFACEC ENERGY', montantMarche: 1_520_000_000, montantFacture: 380_000_000, montantRegle: 0, dateFacture: '2026-04-15', dateEcheance: '2026-05-15', statut: 'litige', observations: 'Réserves non levées sur PVD — paiement bloqué' },
+  { id: 'pay6', ref: 'FAC-2026-0091', pvdRef: 'PVD-DEP-2026-003', projet: 'Réhabilitation Centrale Cap des Biches', entreprise: 'GE POWER AFRICA', montantMarche: 2_860_000_000, montantFacture: 715_000_000, montantRegle: 715_000_000, dateFacture: '2026-02-18', dateEcheance: '2026-03-18', dateReglement: '2026-03-15', statut: 'regle' },
+];
+
+const STATUT_PAY_CFG: Record<StatutPaiement, { label: string; bg: string; color: string }> = {
+  en_attente: { label: 'En attente',  bg: '#FEF9C3', color: '#92400E' },
+  partiel:    { label: 'Partiel',     bg: '#FFF7ED', color: '#C2410C' },
+  regle:      { label: 'Réglé',       bg: '#F0FDF4', color: '#15803D' },
+  litige:     { label: 'Litige',      bg: '#FEF2F2', color: '#B91C1C' },
+};
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Receptions() {
-  const [activeTab, setActiveTab] = useState<'pvp' | 'pvd' | 'planning' | 'stats' | 'immo'>('pvp');
+  const [activeTab, setActiveTab] = useState<'pvp' | 'pvd' | 'planning' | 'stats' | 'immo' | 'paiements'>('pvp');
   const [immos, setImmos] = useState<Immobilisation[]>(IMMOS_DEMO);
   const [pvps, setPvps] = useState<PVP[]>(PVPS);
   const [pvds, setPvds] = useState<PVD[]>(PVDS);
@@ -443,6 +476,28 @@ export default function Receptions() {
   const [pvpSearch, setPvpSearch] = useState('');
   const [pvdSearch, setPvdSearch] = useState('');
   const [immoSearch, setImmoSearch] = useState('');
+  const [paiements, setPaiements] = useState<Paiement[]>(PAIEMENTS_INIT);
+  const [paySearch, setPaySearch] = useState('');
+
+  const filteredPaiements = useMemo(() => {
+    if (!paySearch.trim()) return paiements;
+    const q = paySearch.toLowerCase();
+    return paiements.filter(p => p.ref.toLowerCase().includes(q) || p.entreprise.toLowerCase().includes(q) || p.projet.toLowerCase().includes(q));
+  }, [paiements, paySearch]);
+
+  const payKpis = useMemo(() => {
+    const aRegler = paiements.filter(p => p.statut === 'en_attente' || p.statut === 'partiel');
+    const litiges = paiements.filter(p => p.statut === 'litige');
+    const regle   = paiements.filter(p => p.statut === 'regle');
+    return {
+      totalFacture:  paiements.reduce((s, p) => s + p.montantFacture, 0),
+      totalRegle:    paiements.reduce((s, p) => s + p.montantRegle, 0),
+      totalRestant:  paiements.reduce((s, p) => s + (p.montantFacture - p.montantRegle), 0),
+      nbEnAttente:   aRegler.length,
+      nbLitiges:     litiges.length,
+      nbRegle:       regle.length,
+    };
+  }, [paiements]);
 
   // ── IA d'aide à l'immobilisation (human-in-the-loop) ──
   const [propositions, setPropositions] = useState<ImmoProposition[]>([]);
@@ -537,9 +592,9 @@ export default function Receptions() {
 
       {/* ── Onglets ───────────────────────────────────────────────────────── */}
       <div className="tabs">
-        {(['pvp', 'pvd', 'immo', 'planning', 'stats'] as const).map(t => (
+        {(['pvp', 'pvd', 'immo', 'paiements', 'planning', 'stats'] as const).map(t => (
           <button key={t} className={`tab${activeTab === t ? ' active' : ''}`} onClick={() => setActiveTab(t)}>
-            {t === 'pvp' ? 'PV Provisoires' : t === 'pvd' ? 'PV Définitifs' : t === 'immo' ? 'Immobilisations' : t === 'planning' ? 'Planning J+30' : 'Statistiques'}
+            {t === 'pvp' ? 'PV Provisoires' : t === 'pvd' ? 'PV Définitifs' : t === 'immo' ? 'Immobilisations' : t === 'paiements' ? 'Paiements' : t === 'planning' ? 'Planning J+30' : 'Statistiques'}
           </button>
         ))}
       </div>
@@ -676,6 +731,109 @@ export default function Receptions() {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* PAIEMENTS ────────────────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'paiements' && (() => {
+        const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} M` : n.toLocaleString('fr-FR');
+        const setPay = (id: string, statut: StatutPaiement) =>
+          setPaiements(prev => prev.map(p => p.id === id ? { ...p, statut, ...(statut === 'regle' ? { montantRegle: p.montantFacture, dateReglement: new Date().toISOString().slice(0, 10) } : {}) } : p));
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* KPIs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+              {[
+                { label: 'Total facturé', value: fmt(payKpis.totalFacture) + ' FCFA', sub: `${paiements.length} facture(s)`, color: '#1B4F8A' },
+                { label: 'Montant réglé', value: fmt(payKpis.totalRegle) + ' FCFA', sub: `${payKpis.nbRegle} facture(s) soldée(s)`, color: '#16A34A' },
+                { label: 'Reste à payer', value: fmt(payKpis.totalRestant) + ' FCFA', sub: `${payKpis.nbEnAttente} en attente`, color: '#F47920' },
+                { label: 'Litiges', value: String(payKpis.nbLitiges), sub: 'paiements bloqués', color: '#DC2626' },
+              ].map(k => (
+                <div key={k.label} style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', borderTop: `3px solid ${k.color}`, padding: '13px 15px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{k.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: k.color, marginTop: 4 }}>{k.value}</div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{k.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Table paiements */}
+            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>Suivi des paiements entreprises</div>
+                  <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>Factures issues des PV définitifs validés</div>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <Search size={12} style={{ position: 'absolute', left: 7, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
+                  <input value={paySearch} onChange={e => setPaySearch(e.target.value)} placeholder="Rechercher…" style={{ padding: '5px 8px 5px 24px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 11, width: 190, outline: 'none' }} />
+                </div>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 900 }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', textAlign: 'left', color: '#94A3B8', fontSize: 10, textTransform: 'uppercase' }}>
+                      <th style={{ padding: '9px 12px' }}>Référence</th>
+                      <th style={{ padding: '9px 12px' }}>Entreprise / Projet</th>
+                      <th style={{ padding: '9px 12px', textAlign: 'right' }}>Montant facturé</th>
+                      <th style={{ padding: '9px 12px', textAlign: 'right' }}>Réglé</th>
+                      <th style={{ padding: '9px 12px', textAlign: 'right' }}>Solde</th>
+                      <th style={{ padding: '9px 12px' }}>Échéance</th>
+                      <th style={{ padding: '9px 12px' }}>Statut</th>
+                      <th style={{ padding: '9px 12px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPaiements.map(p => {
+                      const cfg = STATUT_PAY_CFG[p.statut];
+                      const solde = p.montantFacture - p.montantRegle;
+                      const enRetard = p.statut !== 'regle' && new Date(p.dateEcheance) < new Date();
+                      return (
+                        <tr key={p.id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '9px 12px' }}>
+                            <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#1B4F8A' }}>{p.ref}</div>
+                            <div style={{ fontSize: 10, color: '#94A3B8' }}>PVD : {p.pvdRef}</div>
+                          </td>
+                          <td style={{ padding: '9px 12px' }}>
+                            <div style={{ fontWeight: 600, color: '#1E293B' }}>{p.entreprise}</div>
+                            <div style={{ fontSize: 10.5, color: '#94A3B8', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.projet}</div>
+                          </td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>{fmt(p.montantFacture)}</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', color: '#16A34A', fontWeight: 700 }}>{fmt(p.montantRegle)}</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: solde > 0 ? (enRetard ? '#DC2626' : '#F47920') : '#94A3B8' }}>{fmt(solde)}</td>
+                          <td style={{ padding: '9px 12px', fontSize: 11, color: enRetard ? '#DC2626' : '#475569', fontWeight: enRetard ? 700 : 400 }}>
+                            {p.dateEcheance}{enRetard && <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 700, color: '#DC2626' }}>EN RETARD</span>}
+                          </td>
+                          <td style={{ padding: '9px 12px' }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                            {p.observations && <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 2, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.observations}>{p.observations}</div>}
+                          </td>
+                          <td style={{ padding: '9px 12px' }}>
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              {p.statut === 'en_attente' && <button className="btn btn-ghost btn-xs" style={{ color: '#16A34A' }} onClick={() => setPay(p.id, 'regle')}>Régler</button>}
+                              {p.statut === 'partiel'    && <button className="btn btn-ghost btn-xs" style={{ color: '#16A34A' }} onClick={() => setPay(p.id, 'regle')}>Solder</button>}
+                              {p.statut !== 'regle' && p.statut !== 'litige' && <button className="btn btn-ghost btn-xs" style={{ color: '#DC2626' }} onClick={() => setPay(p.id, 'litige')}>Litige</button>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid #E2E8F0', background: '#F8FAFC', fontWeight: 800, color: '#1B4F8A' }}>
+                      <td style={{ padding: '10px 12px' }} colSpan={2}>TOTAL</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmt(payKpis.totalFacture)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#16A34A' }}>{fmt(payKpis.totalRegle)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#F47920' }}>{fmt(payKpis.totalRestant)}</td>
+                      <td colSpan={3} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* PLANNING J+30 ────────────────────────────────────────────────── */}

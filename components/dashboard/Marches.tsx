@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, ChevronUp, ChevronDown, Star, CheckCircle, Circle, Clock, AlertCircle, FileText, Send, Plus, Pencil, Trash2, SlidersHorizontal, Settings, ArrowUp, ArrowDown, RotateCcw, Search } from 'lucide-react';
+import { X, ChevronUp, ChevronDown, Star, Plus, Pencil, Trash2, SlidersHorizontal, Search } from 'lucide-react';
 import { useCriteriaStore } from '@/lib/criteriaStore';
-import { useDecompteCircuit } from '@/lib/decompteCircuitStore';
 import { useAuth } from '@/lib/authStore';
 import { computeVisibilityScope, type UserOrgProfile } from '@/lib/accessEngine';
 import { canonDirectionKey } from '@/lib/dpeOrgStructure';
@@ -75,112 +74,7 @@ interface Fournisseur {
   contentieux: number;
 }
 
-/* ── Circuit décomptes / factures (CDC §18 — 5 étapes) ──────────────────── */
 
-type EtapeDecompte = 'depot' | 'controle_technique' | 'validation_admin' | 'validation_finance' | 'transmission_erp';
-type StatutEtape   = 'pending' | 'en_cours' | 'valide' | 'rejete';
-
-interface EtapeCircuit {
-  etape:     EtapeDecompte;
-  label:     string;
-  responsable: string;
-  dateDebut?: string;
-  dateFin?:  string;
-  statut:    StatutEtape;
-  commentaire?: string;
-}
-
-interface Decompte {
-  id:         string;
-  numero:     string;
-  marcheRef:  string;
-  entreprise: string;
-  montant:    number;
-  dateDepot:  string;
-  periodicite: string;
-  etapes:     EtapeCircuit[];
-  statut:     'en_circuit' | 'valide' | 'rejete' | 'transmis_erp';
-}
-
-const ETAPES_LABELS: Record<EtapeDecompte, string> = {
-  depot:                'Dépôt',
-  controle_technique:   'Contrôle technique',
-  validation_admin:     'Validation admin.',
-  validation_finance:   'Validation finance',
-  transmission_erp:     'Transmission ERP',
-};
-
-function makeCircuit(d: Omit<Decompte, 'etapes'>): Decompte {
-  return d as Decompte; // etapes set below
-}
-
-const DECOMPTES_INIT: Decompte[] = [
-  {
-    id: 'd1', numero: 'DEC-DER-2024-001-004',
-    marcheRef: 'MRK-DER-2024-001', entreprise: 'ELEC AFRIQUE SARL',
-    montant: 38_400_000, dateDepot: '05/05/2026', periodicite: 'Mensuel',
-    statut: 'en_circuit',
-    etapes: [
-      { etape: 'depot',               label: 'Dépôt',                  responsable: 'Secrétariat DER',    dateDebut: '05/05/2026', dateFin: '05/05/2026', statut: 'valide' },
-      { etape: 'controle_technique',  label: 'Contrôle technique',     responsable: 'Ingénieur DER',      dateDebut: '06/05/2026', dateFin: '12/05/2026', statut: 'valide' },
-      { etape: 'validation_admin',    label: 'Validation admin.',       responsable: 'Chef DER',           dateDebut: '13/05/2026', dateFin: '15/05/2026', statut: 'valide' },
-      { etape: 'validation_finance',  label: 'Validation finance',      responsable: 'DCAF',               dateDebut: '16/05/2026', statut: 'en_cours' },
-      { etape: 'transmission_erp',    label: 'Transmission ERP',        responsable: 'DSI / SAP',          statut: 'pending' },
-    ],
-  },
-  {
-    id: 'd2', numero: 'DEC-CC26-2024-003-002',
-    marcheRef: 'MRK-CC26-2024-003', entreprise: 'TRACTEBEL ENGINEERING SA',
-    montant: 315_000_000, dateDepot: '01/04/2026', periodicite: 'Trimestriel',
-    statut: 'valide',
-    etapes: [
-      { etape: 'depot',               label: 'Dépôt',                  responsable: 'Secrétariat CC26',   dateDebut: '01/04/2026', dateFin: '01/04/2026', statut: 'valide' },
-      { etape: 'controle_technique',  label: 'Contrôle technique',     responsable: 'Ingénieur CC26',     dateDebut: '02/04/2026', dateFin: '08/04/2026', statut: 'valide' },
-      { etape: 'validation_admin',    label: 'Validation admin.',       responsable: 'Chef CC26',          dateDebut: '09/04/2026', dateFin: '11/04/2026', statut: 'valide' },
-      { etape: 'validation_finance',  label: 'Validation finance',      responsable: 'DCAF',               dateDebut: '12/04/2026', dateFin: '18/04/2026', statut: 'valide' },
-      { etape: 'transmission_erp',    label: 'Transmission ERP',        responsable: 'DSI / SAP',          dateDebut: '19/04/2026', dateFin: '19/04/2026', statut: 'valide', commentaire: 'OD comptable générée — réf. OD-2026-0412' },
-    ],
-  },
-  {
-    id: 'd3', numero: 'DEC-CPADERAU-2024-001-002',
-    marcheRef: 'MRK-CPADERAU-2024-001', entreprise: 'EFACEC ENERGY SPA',
-    montant: 637_500_000, dateDepot: '15/05/2026', periodicite: 'Mensuel',
-    statut: 'en_circuit',
-    etapes: [
-      { etape: 'depot',               label: 'Dépôt',                  responsable: 'Secrétariat CPADERAU', dateDebut: '15/05/2026', dateFin: '15/05/2026', statut: 'valide' },
-      { etape: 'controle_technique',  label: 'Contrôle technique',     responsable: 'Ingénieur CPADERAU',   dateDebut: '16/05/2026', statut: 'en_cours', commentaire: 'Vérification métrés en cours' },
-      { etape: 'validation_admin',    label: 'Validation admin.',       responsable: 'Chef CPADERAU',        statut: 'pending' },
-      { etape: 'validation_finance',  label: 'Validation finance',      responsable: 'DCAF',                 statut: 'pending' },
-      { etape: 'transmission_erp',    label: 'Transmission ERP',        responsable: 'DSI / SAP',            statut: 'pending' },
-    ],
-  },
-  {
-    id: 'd4', numero: 'DEC-DEP-2023-001-008',
-    marcheRef: 'MRK-DEP-2023-001', entreprise: 'GE POWER AFRICA',
-    montant: 510_000_000, dateDepot: '10/05/2026', periodicite: 'Mensuel',
-    statut: 'rejete',
-    etapes: [
-      { etape: 'depot',               label: 'Dépôt',                  responsable: 'Secrétariat DEP',    dateDebut: '10/05/2026', dateFin: '10/05/2026', statut: 'valide' },
-      { etape: 'controle_technique',  label: 'Contrôle technique',     responsable: 'Ingénieur DEP',      dateDebut: '11/05/2026', dateFin: '17/05/2026', statut: 'rejete', commentaire: 'Situation des travaux incomplète — taux avancement non justifié' },
-      { etape: 'validation_admin',    label: 'Validation admin.',       responsable: 'Chef DEP',           statut: 'pending' },
-      { etape: 'validation_finance',  label: 'Validation finance',      responsable: 'DCAF',               statut: 'pending' },
-      { etape: 'transmission_erp',    label: 'Transmission ERP',        responsable: 'DSI / SAP',          statut: 'pending' },
-    ],
-  },
-  {
-    id: 'd5', numero: 'DEC-DIT-2023-002-005',
-    marcheRef: 'MRK-DIT-2023-002', entreprise: 'LANDIS+GYR AFRICA',
-    montant: 157_500_000, dateDepot: '20/04/2026', periodicite: 'Mensuel',
-    statut: 'transmis_erp',
-    etapes: [
-      { etape: 'depot',               label: 'Dépôt',                  responsable: 'Secrétariat DIT',    dateDebut: '20/04/2026', dateFin: '20/04/2026', statut: 'valide' },
-      { etape: 'controle_technique',  label: 'Contrôle technique',     responsable: 'Ingénieur DIT',      dateDebut: '21/04/2026', dateFin: '25/04/2026', statut: 'valide' },
-      { etape: 'validation_admin',    label: 'Validation admin.',       responsable: 'Chef DIT',           dateDebut: '26/04/2026', dateFin: '27/04/2026', statut: 'valide' },
-      { etape: 'validation_finance',  label: 'Validation finance',      responsable: 'DCAF',               dateDebut: '28/04/2026', dateFin: '02/05/2026', statut: 'valide' },
-      { etape: 'transmission_erp',    label: 'Transmission ERP',        responsable: 'DSI / SAP',          dateDebut: '03/05/2026', dateFin: '03/05/2026', statut: 'valide', commentaire: 'OD-2026-0389 — mandaté SENELEC' },
-    ],
-  },
-];
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -493,7 +387,6 @@ function MarchePanel({ marche, onClose }: { marche: Marche; onClose: () => void 
 export default function Marches() {
   const supplierCriteres = useCriteriaStore(s => s.supplier);
   const { isRole, user } = useAuth();
-  const canEditCircuit = isRole('DIR_DPE', 'PMO', 'CTRL_FIN', 'ADMIN');
   // Périmètre MMH : un profil ne voit que les marchés de SA direction (pas DEP/DIT/DGC… pour un DER).
   const marcheScope = useMemo(() => {
     if (!user) return { all: false, dirs: new Set<string>() };
@@ -502,10 +395,7 @@ export default function Marches() {
     if (s.all || s.directions.includes('*')) return { all: true, dirs: new Set<string>() };
     return { all: false, dirs: new Set(s.directions.map(d => canonDirectionKey(d))) };
   }, [user]);
-  const circuit = useDecompteCircuit(s => s.circuit);
-  const [showCircuitConfig, setShowCircuitConfig] = useState(false);
   const [marches,      setMarches]      = useState<Marche[]>(MARCHES_INIT);
-  const [decomptes,    setDecomptes]    = useState<Decompte[]>(DECOMPTES_INIT);
   const [filterStatut, setFilterStatut] = useState<StatutMarche | 'Tous'>('Tous');
   const [filterDir,    setFilterDir]    = useState('Tous');
   const [filterType,   setFilterType]   = useState<TypeMarche | 'Tous'>('Tous');
@@ -514,8 +404,7 @@ export default function Marches() {
   const [sortCol,      setSortCol]      = useState<keyof Marche>('dateSignature');
   const [sortAsc,      setSortAsc]      = useState(false);
   const [selected,     setSelected]     = useState<Marche | null>(null);
-  const [activeTab,    setActiveTab]    = useState<'marches' | 'decomptes' | 'anos' | 'fournisseurs'>('marches');
-  const [selectedDec,  setSelectedDec]  = useState<Decompte | null>(null);
+  const [activeTab,    setActiveTab]    = useState<'marches' | 'anos' | 'fournisseurs'>('marches');
   const [editing,      setEditing]      = useState<Marche | null>(null); // marché en édition
   const [showForm,     setShowForm]     = useState(false);
 
@@ -532,40 +421,6 @@ export default function Marches() {
   }
   function openCreate() { setEditing(null); setShowForm(true); }
   function openEdit(m: Marche) { setEditing(m); setShowForm(true); }
-
-  // ── Mutations circuit décompte (remplacent les alerts) ──
-  function advanceDecompte(decId: string) {
-    setDecomptes(prev => prev.map(d => {
-      if (d.id !== decId) return d;
-      const idx = d.etapes.findIndex(e => e.statut === 'en_cours');
-      if (idx === -1) return d;
-      const today = new Date().toLocaleDateString('fr-FR');
-      const etapes = d.etapes.map((e, i) =>
-        i === idx ? { ...e, statut: 'valide' as StatutEtape, dateFin: today }
-        : i === idx + 1 ? { ...e, statut: 'en_cours' as StatutEtape, dateDebut: today }
-        : e);
-      const allOk = etapes.every(e => e.statut === 'valide');
-      return { ...d, etapes, statut: allOk ? 'valide' : d.statut };
-    }));
-  }
-  function rejectDecompte(decId: string) {
-    setDecomptes(prev => prev.map(d => {
-      if (d.id !== decId) return d;
-      const idx = d.etapes.findIndex(e => e.statut === 'en_cours');
-      const etapes = idx === -1 ? d.etapes : d.etapes.map((e, i) => i === idx ? { ...e, statut: 'rejete' as StatutEtape } : e);
-      return { ...d, etapes, statut: 'rejete' };
-    }));
-  }
-  function transmitDecompte(decId: string) {
-    setDecomptes(prev => prev.map(d => {
-      if (d.id !== decId) return d;
-      const today = new Date().toLocaleDateString('fr-FR');
-      const etapes = d.etapes.map(e => e.etape === 'transmission_erp'
-        ? { ...e, statut: 'valide' as StatutEtape, dateDebut: today, dateFin: today, commentaire: 'OD comptable générée — transmise ERP' }
-        : e);
-      return { ...d, etapes, statut: 'transmis_erp' };
-    }));
-  }
 
   const filtered = useMemo(() => {
     let rows = [...marches];
@@ -649,9 +504,9 @@ export default function Marches() {
       {/* ── Onglets ───────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="tabs">
-          {(['marches', 'decomptes', 'anos', 'fournisseurs'] as const).map(t => (
+          {(['marches', 'anos', 'fournisseurs'] as const).map(t => (
             <button key={t} className={`tab${activeTab === t ? ' active' : ''}`} onClick={() => setActiveTab(t)}>
-              {t === 'marches' ? '📋 Liste marchés' : t === 'decomptes' ? '🧾 Circuit décomptes' : t === 'anos' ? '📝 ANOs' : '⭐ Scoring fournisseurs'}
+              {t === 'marches' ? 'Liste marchés' : t === 'anos' ? 'ANOs' : 'Scoring fournisseurs'}
             </button>
           ))}
         </div>
@@ -876,322 +731,11 @@ export default function Marches() {
         </div>
       )}
 
-      {/* ── CIRCUIT DÉCOMPTES / FACTURES (CDC §18) ───────────────────────── */}
-      {activeTab === 'decomptes' && (
-        <>
-          {/* KPI strip */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-            {[
-              { label: 'Décomptes en circuit', value: decomptes.filter(d => d.statut === 'en_circuit').length, color: '#F37021' },
-              { label: 'Validés (en attente ERP)', value: decomptes.filter(d => d.statut === 'valide').length, color: '#1B4F8A' },
-              { label: 'Transmis ERP', value: decomptes.filter(d => d.statut === 'transmis_erp').length, color: '#16A34A' },
-              { label: 'Rejetés', value: decomptes.filter(d => d.statut === 'rejete').length, color: '#EF3340' },
-            ].map(k => (
-              <div key={k.label} style={{ background: 'var(--bg-card)', borderRadius: 10, padding: '12px 16px', borderLeft: `4px solid ${k.color}`, boxShadow: 'var(--shadow)' }}>
-                <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{k.label}</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Référentiel du circuit — paramétrable */}
-          <CircuitReference
-            circuit={circuit}
-            canEdit={canEditCircuit}
-            open={showCircuitConfig}
-            onToggle={() => setShowCircuitConfig(v => !v)}
-          />
-
-          {/* Circuit diagram header */}
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">Circuit de traitement — {circuit.length} étape{circuit.length > 1 ? 's' : ''} (CDC §18)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 10, color: 'var(--muted)' }}>
-                {[
-                  { label: 'Validé', color: '#16A34A' },
-                  { label: 'En cours', color: '#F37021' },
-                  { label: 'En attente', color: '#94A3B8' },
-                  { label: 'Rejeté', color: '#EF3340' },
-                ].map(s => (
-                  <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, display: 'inline-block' }} />
-                    {s.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Décomptes list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {decomptes.map((dec, idx) => {
-                const statutDec: Record<Decompte['statut'], { label: string; pill: string }> = {
-                  en_circuit:    { label: 'En circuit',    pill: 'pill-warn' },
-                  valide:        { label: 'Validé',        pill: 'pill-ok'   },
-                  rejete:        { label: 'Rejeté',        pill: 'pill-ko'   },
-                  transmis_erp:  { label: 'Transmis ERP',  pill: 'pill-info' },
-                };
-                const etapeColors: Record<StatutEtape, string> = {
-                  valide: '#16A34A',
-                  en_cours: '#F37021',
-                  pending: '#94A3B8',
-                  rejete: '#EF3340',
-                };
-                const currentIdx = dec.etapes.findIndex(e => e.statut === 'en_cours' || e.statut === 'rejete');
-                const etapesOk = dec.etapes.filter(e => e.statut === 'valide').length;
-                return (
-                  <div key={dec.id} style={{
-                    padding: '14px 16px',
-                    borderBottom: idx < decomptes.length - 1 ? '1px solid var(--border-2)' : 'none',
-                    background: selectedDec?.id === dec.id ? 'rgba(27,79,138,0.04)' : 'transparent',
-                  }}>
-                    {/* Row header */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--navy)', whiteSpace: 'nowrap' }}>{dec.numero}</span>
-                          <span className={`pill ${statutDec[dec.statut].pill}`}>{statutDec[dec.statut].label}</span>
-                          <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' }}>Déposé le {dec.dateDepot}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dec.entreprise} — {dec.marcheRef}</div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', marginTop: 2 }}>{fmtM(dec.montant)} FCFA</div>
-                      </div>
-                      <button
-                        className="btn btn-ghost btn-xs"
-                        onClick={() => setSelectedDec(selectedDec?.id === dec.id ? null : dec)}
-                        style={{ flexShrink: 0 }}>
-                        {selectedDec?.id === dec.id ? 'Masquer' : 'Détail'}
-                      </button>
-                    </div>
-
-                    {/* 5-step pipeline */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                      {dec.etapes.map((et, ei) => {
-                        const c = etapeColors[et.statut];
-                        const isLast = ei === dec.etapes.length - 1;
-                        return (
-                          <div key={et.etape} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                              {/* Icon */}
-                              <div style={{
-                                width: 28, height: 28, borderRadius: '50%',
-                                background: et.statut === 'pending' ? 'var(--bg)' : `${c}20`,
-                                border: `2px solid ${c}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                position: 'relative',
-                              }}>
-                                {et.statut === 'valide'   && <CheckCircle size={14} color={c} />}
-                                {et.statut === 'en_cours' && <Clock size={14} color={c} />}
-                                {et.statut === 'pending'  && <Circle size={14} color={c} />}
-                                {et.statut === 'rejete'   && <AlertCircle size={14} color={c} />}
-                              </div>
-                              {/* Label */}
-                              <div style={{ fontSize: 8, color: et.statut === 'pending' ? 'var(--muted)' : 'var(--text-2)', textAlign: 'center', fontWeight: et.statut !== 'pending' ? 600 : 400, maxWidth: 60, lineHeight: 1.2 }}>
-                                {ETAPES_LABELS[et.etape]}
-                              </div>
-                              {et.dateFin && (
-                                <div style={{ fontSize: 7, color: 'var(--muted)', textAlign: 'center' }}>{et.dateFin}</div>
-                              )}
-                            </div>
-                            {!isLast && (
-                              <div style={{
-                                width: 24, height: 2, flexShrink: 0,
-                                background: et.statut === 'valide' ? c : 'var(--border-2)',
-                              }} />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Progress summary */}
-                    <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div className="progress-bar" style={{ flex: 1, height: 4 }}>
-                        <div className="progress-fill" style={{
-                          width: `${(etapesOk / dec.etapes.length) * 100}%`,
-                          background: dec.statut === 'rejete' ? '#EF3340' : dec.statut === 'transmis_erp' ? '#16A34A' : '#F37021',
-                        }} />
-                      </div>
-                      <span style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{etapesOk}/{dec.etapes.length} étapes</span>
-                    </div>
-
-                    {/* Expanded detail */}
-                    {selectedDec?.id === dec.id && (
-                      <div style={{ marginTop: 12, padding: '12px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border-2)' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--navy)', marginBottom: 8 }}>Détail du circuit — {dec.numero}</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {dec.etapes.map(et => (
-                            <div key={et.etape} style={{
-                              display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 10px',
-                              borderRadius: 6,
-                              background: et.statut === 'valide' ? '#F0FDF4' : et.statut === 'en_cours' ? '#FFF7ED' : et.statut === 'rejete' ? '#FEF2F2' : 'transparent',
-                              border: `1px solid ${et.statut === 'valide' ? '#BBF7D0' : et.statut === 'en_cours' ? '#FED7AA' : et.statut === 'rejete' ? '#FECACA' : 'var(--border-2)'}`,
-                            }}>
-                              <div style={{ marginTop: 1 }}>
-                                {et.statut === 'valide'   && <CheckCircle size={14} color="#16A34A" />}
-                                {et.statut === 'en_cours' && <Clock size={14} color="#F37021" />}
-                                {et.statut === 'pending'  && <Circle size={14} color="#94A3B8" />}
-                                {et.statut === 'rejete'   && <AlertCircle size={14} color="#EF3340" />}
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--navy)' }}>{ETAPES_LABELS[et.etape]}</span>
-                                  <span style={{ fontSize: 10, color: 'var(--muted)' }}>{et.responsable}</span>
-                                </div>
-                                {(et.dateDebut || et.dateFin) && (
-                                  <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 2 }}>
-                                    {et.dateDebut && `Début : ${et.dateDebut}`}{et.dateFin && ` · Fin : ${et.dateFin}`}
-                                  </div>
-                                )}
-                                {et.commentaire && (
-                                  <div style={{ fontSize: 10, color: et.statut === 'rejete' ? '#991B1B' : 'var(--text-2)', marginTop: 3, fontStyle: 'italic' }}>
-                                    {et.commentaire}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        {/* Action buttons */}
-                        {dec.statut === 'en_circuit' && (
-                          <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                            <button className="btn btn-primary btn-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => advanceDecompte(dec.id)}>
-                              <CheckCircle size={11} />Valider étape
-                            </button>
-                            <button className="btn btn-ghost btn-xs" style={{ color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => rejectDecompte(dec.id)}>
-                              <AlertCircle size={11} />Rejeter
-                            </button>
-                          </div>
-                        )}
-                        {dec.statut === 'valide' && (
-                          <div style={{ marginTop: 10 }}>
-                            <button className="btn btn-primary btn-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => transmitDecompte(dec.id)}>
-                              <Send size={11} />Transmettre à l&apos;ERP
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
-
       {selected && <MarchePanel marche={selected} onClose={() => setSelected(null)} />}
       {showForm && <MarcheForm initial={editing} onSave={saveMarche} onClose={() => { setShowForm(false); setEditing(null); }} />}
     </div>
   );
 }
-
-/* ── Référentiel du circuit de décompte (paramétrable) ───────────────────── */
-
-import type { CircuitEtapeDef } from '@/lib/decompteCircuitStore';
-
-function CircuitReference({ circuit, canEdit, open, onToggle }: {
-  circuit: CircuitEtapeDef[];
-  canEdit: boolean;
-  open: boolean;
-  onToggle: () => void;
-}) {
-  const { addEtape, updateEtape, removeEtape, moveEtape, resetCircuit } = useDecompteCircuit();
-  const [newLabel, setNewLabel] = useState('');
-  const [newResp, setNewResp] = useState('');
-  const [newSla, setNewSla] = useState(1);
-
-  const slaTotal = circuit.reduce((s, e) => s + (e.slaJours || 0), 0);
-
-  return (
-    <div className="card" style={{ borderLeft: '4px solid #1B4F8A' }}>
-      <div className="card-header" style={{ cursor: 'pointer' }} onClick={onToggle}>
-        <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Settings size={14} color="#1B4F8A" />
-          Référentiel du circuit — {circuit.length} étape{circuit.length > 1 ? 's' : ''} · SLA cumulé {slaTotal} j
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {canEdit ? (open ? 'Masquer la configuration' : 'Configurer le circuit') : 'Lecture seule'}
-          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </span>
-      </div>
-
-      {open && (
-        <div style={{ padding: '4px 16px 16px' }}>
-          {!canEdit && (
-            <div style={{ fontSize: 11, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
-              🔒 Seuls les profils DPE, PMO, Contrôle financier et Administrateur peuvent modifier le circuit de référence.
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {/* Header row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 90px 110px', gap: 8, fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 4px' }}>
-              <span>#</span><span>Étape</span><span>Responsable</span><span>SLA (j)</span><span></span>
-            </div>
-
-            {circuit.map((e, i) => (
-              <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 90px 110px', gap: 8, alignItems: 'center', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border-2)', padding: '6px 4px' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#1B4F8A', textAlign: 'center' }}>{i + 1}</span>
-                {canEdit ? (
-                  <>
-                    <input value={e.label} onChange={ev => updateEtape(e.id, { label: ev.target.value })} style={inpCir} />
-                    <input value={e.responsable} onChange={ev => updateEtape(e.id, { responsable: ev.target.value })} style={inpCir} />
-                    <input type="number" min={0} value={e.slaJours} onChange={ev => updateEtape(e.id, { slaJours: Math.max(0, Number(ev.target.value)) })} style={{ ...inpCir, textAlign: 'center' }} />
-                    <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', paddingRight: 4 }}>
-                      <button className="btn btn-ghost btn-xs" disabled={i === 0} onClick={() => moveEtape(e.id, -1)} title="Monter" aria-label={`Monter l'étape ${e.label}`} style={{ padding: 4, opacity: i === 0 ? 0.5 : 1, cursor: i === 0 ? 'not-allowed' : 'pointer' }}><ArrowUp size={12} /></button>
-                      <button className="btn btn-ghost btn-xs" disabled={i === circuit.length - 1} onClick={() => moveEtape(e.id, 1)} title="Descendre" aria-label={`Descendre l'étape ${e.label}`} style={{ padding: 4, opacity: i === circuit.length - 1 ? 0.5 : 1, cursor: i === circuit.length - 1 ? 'not-allowed' : 'pointer' }}><ArrowDown size={12} /></button>
-                      <button className="btn btn-ghost btn-xs" onClick={() => { if (confirm(`Supprimer l'étape « ${e.label} » ?`)) removeEtape(e.id); }} title="Supprimer" aria-label={`Supprimer l'étape ${e.label}`} style={{ padding: 4, color: 'var(--red)' }}><Trash2 size={12} /></button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)' }}>{e.label}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{e.responsable}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-2)', textAlign: 'center' }}>{e.slaJours} j</span>
-                    <span />
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {canEdit && (
-            <>
-              {/* Add row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 90px 110px', gap: 8, alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--border-2)' }}>
-                <Plus size={14} color="#16A34A" style={{ margin: '0 auto' }} />
-                <input placeholder="Nouvelle étape…" value={newLabel} onChange={e => setNewLabel(e.target.value)} style={inpCir} />
-                <input placeholder="Responsable…" value={newResp} onChange={e => setNewResp(e.target.value)} style={inpCir} />
-                <input type="number" min={0} value={newSla} onChange={e => setNewSla(Math.max(0, Number(e.target.value)))} style={{ ...inpCir, textAlign: 'center' }} />
-                <button
-                  className="btn btn-primary btn-xs"
-                  disabled={!newLabel.trim()}
-                  onClick={() => { addEtape(newLabel, newResp, newSla); setNewLabel(''); setNewResp(''); setNewSla(1); }}
-                  style={{ justifySelf: 'end', marginRight: 4, opacity: !newLabel.trim() ? 0.5 : 1, cursor: !newLabel.trim() ? 'not-allowed' : 'pointer' }}>
-                  Ajouter
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>
-                  Ce circuit sert de modèle de référence pour les nouveaux décomptes. Modifications enregistrées automatiquement.
-                </span>
-                <button className="btn btn-ghost btn-xs" onClick={() => { if (confirm('Réinitialiser le circuit par défaut (CDC §18) ?')) resetCircuit(); }} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <RotateCcw size={12} /> Réinitialiser
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const inpCir: React.CSSProperties = {
-  width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 5,
-  border: '1px solid var(--border-2)', background: 'var(--bg-card)', color: 'var(--text)',
-};
 
 // ── Formulaire création / édition d'un marché ──────────────────────────────────
 

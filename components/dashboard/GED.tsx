@@ -393,6 +393,7 @@ function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  const [delaiTraitement, setDelaiTraitement] = useState('');
 
   const doCopy = () => {
     navigator.clipboard?.writeText(link).catch(() => undefined);
@@ -405,7 +406,7 @@ function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
     // Simuler envoi — en production : appel API
     setEmailSent(true);
     setTimeout(() => { setEmailSent(false); setEmailTo(''); }, 3000);
-    gedAudit('Partage document par email', doc.nom, `destinataire : ${emailTo}`);
+    gedAudit('Partage document par email', doc.nom, `destinataire : ${emailTo}${delaiTraitement ? ` · délai : ${delaiTraitement}` : ''}`);
   };
 
   return (
@@ -461,6 +462,19 @@ function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
                 {emailSent ? 'Envoyé !' : 'Envoyer'}
               </button>
             </div>
+          </div>
+
+          {/* Délai de traitement */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', display: 'block', marginBottom: 6 }}>Délai de traitement demandé</label>
+            <input
+              className="form-input"
+              type="text"
+              placeholder="ex: 48h, 5 jours ouvrables…"
+              value={delaiTraitement}
+              onChange={e => setDelaiTraitement(e.target.value)}
+              style={{ width: '100%', boxSizing: 'border-box' }}
+            />
           </div>
 
           {/* Info accès */}

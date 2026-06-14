@@ -1370,6 +1370,8 @@ export default function ODM() {
   const [fKm, setFKm] = useState('');
   const [fParticipants, setFParticipants] = useState<string[]>([]);
   const [fBudget, setFBudget] = useState('');
+  const [fEmail, setFEmail] = useState('');
+  const [fDelai, setFDelai] = useState('');
 
   // Clôture
   const odmCloturables = odms.filter(o => o.statut === 'Validé' || o.statut === 'En mission');
@@ -1435,7 +1437,7 @@ export default function ODM() {
     setOdms(prev => [newODM, ...prev]);
     toast.success(`ODM ${newODM.ref} soumis pour validation ✓`);
     setFObjet(''); setFItineraire(''); setFDepart(''); setFRetour(''); setFKm(''); setFBudget('');
-    setFParticipants([]);
+    setFParticipants([]); setFEmail(''); setFDelai('');
     setOnglet('mes-odm');
   }, [fObjet, fItineraire, fProjet, fDepart, fRetour, fTransport, fVehicule, fKm, fBudget, fParticipants, dotationCalc, odms.length]);
 
@@ -2285,6 +2287,19 @@ export default function ODM() {
                   </select>
                 </div>
               )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>E-mail destinataire</label>
+                  <input type="email" value={fEmail} onChange={e => setFEmail(e.target.value)} placeholder="ex: valideur@senelec.sn"
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', background: '#F8FAFC' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Délai de traitement souhaité</label>
+                  <input type="text" value={fDelai} onChange={e => setFDelai(e.target.value)} placeholder="ex: 48h, 3 jours…"
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', background: '#F8FAFC' }} />
+                </div>
+              </div>
 
               <button type="submit"
                 style={{ width: '100%', padding: '11px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
