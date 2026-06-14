@@ -1100,7 +1100,7 @@ export default function CockpitProjet() {
                 {canProposeFiche ? '✍ Propositions soumises au Chef de Projet' : '👁 Lecture seule'}
               </span>
             )}
-            {canEditFiche && (
+            {canEditFiche && activeOnglet === 'fiche-executive' && (
               <>
                 <input ref={ficheFileRef} type="file" multiple style={{ display: 'none' }} onChange={handleImportFiche}
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md" />
