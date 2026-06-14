@@ -622,7 +622,7 @@ export default function TableauDeBord() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 14 }}>
 
               {/* Projets prioritaires */}
-              <div style={{ background: C.surface, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <div style={{ background: C.surface, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <div style={{ padding: '11px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FAFBFD' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Flag size={13} style={{ color: C.navy }} />
@@ -651,15 +651,15 @@ export default function TableauDeBord() {
                       onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFC')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: rag, boxShadow: `0 0 0 2px ${rag}30` }} />
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: dcfg.color }}>{p.code.split('-').slice(0, 2).join('-')}</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>{p.nom.length > 38 ? p.nom.slice(0, 38) + '…' : p.nom}</span>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: rag, boxShadow: `0 0 0 2px ${rag}30`, flexShrink: 0 }} />
+                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12, fontWeight: 600, color: '#1E293B', marginBottom: 2 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: dcfg.color, marginRight: 4 }}>{p.code.split('-').slice(0, 2).join('-')}</span>
+                          {p.nom}
                         </div>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <span style={{ fontSize: 10, color: C.slate }}>{dcfg.emoji} {dcfg.label}</span>
-                          {p.statut === 'en_retard' && <span style={{ fontSize: 9.5, color: C.red, fontWeight: 700, background: '#FEE2E2', padding: '1px 4px', borderRadius: 4 }}>RETARD</span>}
+                          <span style={{ fontSize: 10, color: C.slate, whiteSpace: 'nowrap' }}>{dcfg.emoji} {dcfg.label}</span>
+                          {p.statut === 'en_retard' && <span style={{ fontSize: 9.5, color: C.red, fontWeight: 700, background: '#FEE2E2', padding: '1px 4px', borderRadius: 4, whiteSpace: 'nowrap' }}>RETARD</span>}
                         </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
