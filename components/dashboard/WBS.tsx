@@ -737,7 +737,7 @@ export default function WBS() {
   /* ── Import/Export actions ── */
   const handleImportMSP = () => {
     setTimeout(() => {
-      pushToast('Importation simulée — 47 tâches chargées depuis MS Project XML', 'ok');
+      pushToast('Importation simulée — 47 tâches chargées depuis fichier XML planning', 'ok');
     }, 600);
   };
 
@@ -823,8 +823,8 @@ export default function WBS() {
         <div style={{ width: 1, height: 20, background: 'var(--border-2)', flexShrink: 0 }} />
 
         {/* Import/Export */}
-        <button className="btn btn-ghost btn-sm" onClick={handleImportMSP} title="Importation simulée MS Project XML">
-          📥 Importer MS Project XML
+        <button className="btn btn-ghost btn-sm" onClick={handleImportMSP} title="Importer planning XML">
+          Importer planning XML
         </button>
         <button className="btn btn-ghost btn-sm" onClick={handleExportExcel} title="Export WBS Excel">
           📤 Exporter WBS (Excel)

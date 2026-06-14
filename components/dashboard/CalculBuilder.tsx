@@ -97,21 +97,63 @@ export default function CalculBuilder() {
               <input value={formula} onChange={e => setFormula(e.target.value)} className="form-input" style={{ width: '100%', fontFamily: 'monospace' }} placeholder="[Budget] * [Avancement] / 100" />
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Opérateurs : + − × (*) ÷ (/) ( ). Ex : <code>([A] + [B]) / 2</code></div>
             </div>
-            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#15803D', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Calculator size={14} /> {computed.filter(c => c !== '—').length}/{rows.length} ligne(s) calculée(s)
+            <div style={{
+              background: computed.filter(c => c !== '—').length === rows.length && rows.length > 0 ? '#052E16' : '#1C1917',
+              border: 'none',
+              borderRadius: 8,
+              padding: '10px 14px',
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: computed.filter(c => c !== '—').length === rows.length && rows.length > 0 ? '#4ADE80' : '#FCD34D',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              letterSpacing: '0.01em',
+            }}>
+              <Calculator size={15} />
+              {computed.filter(c => c !== '—').length}/{rows.length} ligne(s) calculée(s)
+              {computed.filter(c => c !== '—').length === rows.length && rows.length > 0 && (
+                <span style={{ marginLeft: 'auto', fontSize: 11, opacity: 0.8 }}>✓ Toutes les valeurs sont calculées</span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Aperçu */}
-        <div style={{ overflowX: 'auto' }}>
-          <table className="tbl">
-            <thead><tr>{headers.map(h => <th key={h}>{h}</th>)}<th style={{ background: '#15803D' }}>{resultCol}</th></tr></thead>
+        <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+          <table className="tbl" style={{ marginBottom: 0 }}>
+            <thead>
+              <tr>
+                {headers.map(h => <th key={h} style={{ background: '#F8FAFC', color: '#374151', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>)}
+                <th style={{
+                  background: '#EFF6FF',
+                  color: '#1D4ED8',
+                  fontWeight: 800,
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  borderLeft: '3px solid #3B82F6',
+                }}>
+                  ⟹ {resultCol}
+                </th>
+              </tr>
+            </thead>
             <tbody>
               {rows.slice(0, 30).map((r, i) => (
                 <tr key={i}>
-                  {headers.map((_, ci) => <td key={ci}>{r[ci] ?? ''}</td>)}
-                  <td style={{ fontWeight: 700, color: computed[i] === '—' ? '#EF4444' : '#15803D' }}>{computed[i]}</td>
+                  {headers.map((_, ci) => (
+                    <td key={ci} style={{ color: '#374151', fontSize: 12.5 }}>{r[ci] ?? ''}</td>
+                  ))}
+                  <td style={{
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderLeft: '3px solid #3B82F6',
+                    background: computed[i] === '—' ? '#FEF2F2' : '#EFF6FF',
+                    color: computed[i] === '—' ? '#B91C1C' : '#1D4ED8',
+                    fontFamily: 'monospace',
+                  }}>
+                    {computed[i]}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,8 +1,8 @@
 'use client';
 /**
  * authStore.tsx — Système RBAC SIGEPP-DPE SENELEC
- * Chaque rôle accède uniquement aux vues pertinentes à sa mission,
- * comme dans Primavera P6 ou MS Project Server.
+ * Types/constantes RBAC purs → lib/authTypes.ts (importable middleware).
+ * Ce fichier = React context + fonctions avec dépendances runtime.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -15,142 +15,16 @@ import {
   type UserOrgProfile,
 } from './accessEngine';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RÔLES
-// ─────────────────────────────────────────────────────────────────────────────
+// Re-export complet pour backward compat (40+ fichiers importent depuis ici)
+export * from './authTypes';
+import {
+  type RoleCode, type TestUser, type SidebarSectionId,
+  ROLE_SECTIONS, DIRECTION_SECTIONS, normalizeDirectionCode, DIRECTION_LABELS,
+  canAccess, canAccessNavItem, isAssistantProjet, ASSISTANT_DETAIL_ROUTES, NO_SALLE_ROLES,
+  SESSION_COOKIE, SESSION_MAX_AGE, type SessionPayload,
+} from './authTypes';
 
-export type RoleCode =
-  | 'DIR_DPE'    // Directeur Principal Équipement — vision stratégique portefeuille
-  | 'PMO'        // PMO / Bureau Pilotage — multi-projets, EVM, reporting
-  | 'CHEF_PROJ'  // Chef de Projet — pilotage opérationnel de son projet
-  | 'CHEF_DEPT'  // Chef de Département / Service / Unité — projets de son unité
-  | 'INGENIEUR'  // Ingénieur, Dessinateur, Cartographe — études et conception
-  | 'EXPERT'     // Expert technique / gestion de projet — expertise sectorielle
-  | 'CONTROLEUR' // Contrôleur de projet — contrôle qualité / performance
-  | 'CHARGE'     // Chargé de mission / suivi — missions transversales
-  | 'ASSISTANT'  // Assistant / Assistante — support administratif et projet
-  | 'SECRETAIRE' // Secrétaire / Archiviste — secrétariat et documentation
-  | 'CHAUFFEUR'  // Chauffeur / UAGL — logistique et transport
-  | 'CTRL_FIN'   // Contrôleur Financier / Comptable — budget, marchés, paiements
-  | 'RESP_LOG'   // Responsable UAGL — ODM, flotte, missions terrain
-  // ── Fonctions dédiées (MMH) ──
-  | 'MARCHES'            // Passation des marchés — DAO/DRPO/AO/contrats/avenants/décomptes
-  | 'SIG'               // SIG / Géomatique — cartographie, réseaux, actifs géolocalisés (sans finances)
-  | 'IMMO'              // Immobilisations — actifs, capitalisation, MES, amortissements (sans tâches projet)
-  | 'AUDIT'             // Audit — lecture seule globale + historique complet
-  | 'CONTROLEUR_TRAVAUX' // Contrôleur de travaux — terrain/contrôles/réceptions/NC (sans finances/marchés)
-  | 'ADMIN';     // Administrateur Système DPE — accès complet
-
-export interface UserRole {
-  code: RoleCode;
-  label: string;
-  description: string;
-  color: string;
-  icon: string;
-}
-
-export const ROLES: Record<RoleCode, UserRole> = {
-  DIR_DPE:   { code: 'DIR_DPE',   label: 'Directeur DPE',             description: 'Vision exécutive — portefeuille stratégique, KPIs, arbitrages & bailleurs',        color: '#3D1A6B', icon: '👔' },
-  PMO:       { code: 'PMO',       label: 'PMO / Chef Programmes',     description: 'Pilotage portefeuille multi-projets, EVM, planning consolidé, reporting',           color: '#7C3AED', icon: '📊' },
-  CHEF_PROJ: { code: 'CHEF_PROJ', label: 'Chef de Projet',            description: 'Gestion opérationnelle de ses projets — planning, coûts, équipe, jalons',          color: '#1D4ED8', icon: '🧑‍💼' },
-  CHEF_DEPT: { code: 'CHEF_DEPT', label: 'Chef de Département',       description: 'Chef de Département / Service / Unité — projets et indicateurs de son unité',       color: '#0F766E', icon: '🏢' },
-  INGENIEUR: { code: 'INGENIEUR', label: 'Ingénieur / Études',        description: 'Conception technique, études, dessin, cartographie et ingénierie de projets',       color: '#2563EB', icon: '⚙️' },
-  EXPERT:    { code: 'EXPERT',    label: 'Expert Technique',          description: 'Expertise sectorielle, conseil technique et gestion avancée de projet',              color: '#7C3AED', icon: '🔬' },
-  CONTROLEUR:{ code: 'CONTROLEUR',label: 'Contrôleur',                description: 'Contrôle qualité, performance et conformité des projets et marchés',                 color: '#D97706', icon: '🔍' },
-  CHARGE:    { code: 'CHARGE',    label: 'Chargé de Mission',        description: 'Suivi social, environnemental et missions transversales des programmes',          color: '#059669', icon: '📋' },
-  ASSISTANT: { code: 'ASSISTANT', label: 'Assistant de Direction',    description: 'Assistant de direction — support administratif, gestion documentaire, accueil',       color: '#4B5563', icon: '📝' },
-  SECRETAIRE:{ code: 'SECRETAIRE',label: 'Secrétaire',                description: 'Secrétariat, archivage et gestion des flux documentaires',                           color: '#8B5CF6', icon: '📁' },
-  CHAUFFEUR: { code: 'CHAUFFEUR', label: 'Chauffeur / UAGL',          description: 'Conduite, logistique transport et gestion de la flotte de véhicules',                color: '#0891B2', icon: '🚗' },
-  CTRL_FIN:  { code: 'CTRL_FIN',  label: 'Contrôleur Financier',      description: 'Budget, marchés, bordereaux de prix, réceptions, situation financière',             color: '#B45309', icon: '💰' },
-  RESP_LOG:  { code: 'RESP_LOG',  label: 'Resp. UAGL / Logistique',   description: 'Ordres de mission, validation déplacements, flotte, ressources humaines',          color: '#0891B2', icon: '🚐' },
-  MARCHES:   { code: 'MARCHES',   label: 'Passation des Marchés',     description: 'DAO · DRPO · AO · Contrats · Avenants · Décomptes — sur son périmètre',             color: '#9333EA', icon: '📑' },
-  SIG:       { code: 'SIG',       label: 'SIG / Géomatique',          description: 'Cartographie · Réseaux · Actifs · Géolocalisation (sans données financières)',       color: '#0D9488', icon: '🗺️' },
-  IMMO:      { code: 'IMMO',      label: 'Immobilisations',           description: 'Actifs · Capitalisation · Mise en service · Amortissements (sans tâches projet)',    color: '#92400E', icon: '🏛️' },
-  AUDIT:     { code: 'AUDIT',     label: 'Audit',                     description: 'Lecture seule globale · audit · historique complet de la DPE',                       color: '#475569', icon: '🛡️' },
-  CONTROLEUR_TRAVAUX: { code: 'CONTROLEUR_TRAVAUX', label: 'Contrôleur de Travaux', description: 'Terrain · Contrôles · Réceptions · Photos · Non-conformités (sans finances/marchés)', color: '#EA580C', icon: '👷' },
-  ADMIN:     { code: 'ADMIN',     label: 'Administrateur Système',    description: 'Accès complet — paramétrage, gestion utilisateurs, rôles, journaux d\'audit',        color: '#374151', icon: '🔧' },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPTES DE TEST
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface TestUser {
-  id: string;
-  nom: string;
-  prenom: string;
-  email: string;
-  password: string;
-  role: RoleCode;
-  direction: string;
-  departement?: string;      // Département/service au sein de la direction (ex: DPT, DPD, DEP_PEC…)
-  cellule?: string;           // Cellule de coordination (ex: CSE, CC26…)
-  initials: string;
-  avatarColor: string;
-  projetsAssignes?: string[];
-  poste?: string;           // Poste occupé affiché dans le login (si fourni, remplace le label de rôle)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// UNITÉS DPE — Selon Note de Direction 005/2023 (Organisation officielle DPE)
-// ─────────────────────────────────────────────────────────────────────────────
-// Organisation officielle DPE — effectif réel 201 agents (Fichier personnel au 10/03/2026)
-export const DPE_UNITES = [
-  { code: 'EM_DPE',       label: 'État-Major — Direction Principale Équipement',          shortLabel: 'EM DPE',       effectif: 11 },
-  { code: 'DER',          label: 'Direction Équipement Réseaux',                          shortLabel: 'DER',          effectif: 64 },
-  { code: 'DPT',          label: 'Direction Projets Transport',                           shortLabel: 'DPT',          effectif: 28 },
-  { code: 'DGC',          label: 'Direction Génie Civil',                                 shortLabel: 'DGC',          effectif: 38 },
-  { code: 'CPBM_UE',      label: 'Coordination Programmes BM-UE (BEST/PADAES)',           shortLabel: 'CPBM-UE',      effectif: 22 },
-  { code: 'DEP',          label: 'Direction Équipement Production',                       shortLabel: 'DEP',          effectif: 17 },
-  { code: 'DIT',          label: 'Direction Innovation Technologique',                    shortLabel: 'DIT',          effectif: 16 },
-  { code: 'CC26',         label: 'Coordination Compact 2026 (MCA)',                       shortLabel: 'CC26',         effectif: 15 },
-  { code: 'CPAMACEL_EE',  label: 'Coordination PAMACEL & Efficacité Énergétique',         shortLabel: 'CPAMACEL&EE',  effectif: 11 },
-  { code: 'CPADERAU',     label: 'Coordination Programme PADERAU (AFD/BEI)',              shortLabel: 'CPADERAU',     effectif: 5  },
-  { code: 'CSE',          label: 'Cellule Suivi & Évaluation — DPE',                      shortLabel: 'CSE',          effectif: 2  },
-] as const;
-
-// Effectif consolidé DPE (source : Fichier du personnel DPE au 10/03/2026)
-export const DPE_EFFECTIF = {
-  total: 201,
-  parCollege: { Cadre: 93, Maitrise: 78, Executif: 30 },
-  parSexe:    { Hommes: 140, Femmes: 61 },
-} as const;
-
-/** Labels statiques fallback — codes canoniques uniquement (les variantes RH sont normalisées par normalizeDirectionCode) */
-export const DIRECTION_LABELS: Record<string, string> = {
-  'EM_DPE':      'État-Major — Direction Principale Équipement',
-  'DER':         'Direction Équipement Réseaux',
-  'DGC':         'Direction Génie Civil',
-  'DEP':         'Direction Équipement Production',
-  'DIT':         'Direction Innovation Technologique',
-  'CC26':        'Coordination Compact 2026',
-  'CPBM_UE':     'Coordination Programmes BM-UE',
-  'CPAMACEL_EE': 'Coordination PAMACEL & Efficacité Énergétique',
-  'CPADERAU':    'Coordination Programme PADERAU',
-  'CSE':         'Cellule Suivi & Évaluation — DPE',
-};
-
-/** Normalise un code direction — strip tous les caractères non-alphanumériques puis map vers canonique */
-export function normalizeDirectionCode(code: string): string {
-  const c = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); // strip espace, -, _, &, etc.
-  const aliases: Record<string, string> = {
-    'EMDPE':       'EM_DPE',
-    'DER':         'DER',
-    'DPT':         'DPT',
-    'DPD':         'DPD',
-    'DGC':         'DGC',
-    'DEP':         'DEP',
-    'DIT':         'DIT',
-    'CC26':        'CC26',
-    'CPBMUE':      'CPBM_UE',
-    'CPADERAU':    'CPADERAU',
-    'CPAMACELEE':  'CPAMACEL_EE',
-    'CPAMACEL':    'CPAMACEL_EE',
-    'CSE':         'CSE',
-  };
-  return aliases[c] ?? code.trim().toUpperCase(); // fallback: retourne tel quel
-}
-
+/** getDirectionLabel utilise un require() dynamique (orgConfigStore client-only) — reste ici */
 export function getDirectionLabel(code: string): string {
   const canonical = normalizeDirectionCode(code);
   // Lecture dynamique via le store organisationnel
@@ -246,204 +120,6 @@ const GENERATED_USERS: TestUser[] = PERSONNEL_DPE.map((agent, i) => {
 // de l'organigramme officiel DPE (ND 005/2023), puis le personnel réel généré.
 export const TEST_USERS: TestUser[] = [...DEMO_ACCOUNTS, ...PROFILS_DPE_OFFICIELS, ...GENERATED_USERS];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PERMISSIONS GRANULAIRES PAR RÔLE
-// Principe Primavera P6 : chaque rôle ne voit que ce qui concerne sa mission
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type SidebarSectionId =
-  | 'accueil'
-  | 'portefeuille'
-  | 'mes_projets'
-  | 'execution' // This was already in the type, no change needed here.
-  | 'finances'
-  | 'immobilisations' // Gestion des actifs/patrimoine — SÉPARÉE de la gestion de projet
-  | 'logistique'
-  | 'transverses'
-  | 'parametrage';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODULES PERTINENTS PAR PROFIL (cf. MASTER PROMPT — Module 1 cockpits & 18 modules)
-// Chaque profil ne voit QUE les modules de sa mission ; la visibilité des DONNÉES
-// (unité + sous-unités, jamais les unités parallèles) est appliquée en plus par
-// computeVisibilityScope / canAccessSection (organigramme DPE).
-//
-//  Profil (prompt)      Rôle app    Modules pertinents
-//  ───────────────────  ──────────  ─────────────────────────────────────────────
-//  DG / Directeur DPE   DIR_DPE     Gouvernance · Portefeuille · Programmes · Projets(vue)
-//                                   · Finances(synthèse) · S&E/KPI · Reporting · BI · IA · Workflows
-//  Directeur/Chef Dépt  CHEF_DEPT   Portefeuille unité · Projets · Planning/WBS · Exécution
-//                                   · Finances · Marchés · S&E · GED · Reporting · IA
-//  Chef de Projet       CHEF_PROJ   Mes Projets · Planning/WBS/Gantt · Terrain · Risques
-//                                   · Budget/EVM · Marchés · BOQ/Décomptes · Réceptions · GED · Migration IA
-//  Finance / Marchés    CTRL_FIN    Budget · Décaissements · EVM · Cashflow · Marchés · BOQ
-//                                   · Réceptions · Immobilisations · Fournisseurs · Reporting fin.
-//  UAGL                 RESP_LOG    ODM · Flotte · Chauffeurs · RH log. · Réceptions · Marchés
-//  S&E (CSE)            PMO/EXPERT  KPI · Cadre logique · Santé portefeuille · Reporting · Audit · BI
-//  Ingénieur/Études     INGENIEUR   Projets · WBS · Études · Terrain · SIG · GED · Migration IA
-//  Contrôleur projet    CONTROLEUR  = ÉQUIPE du Chef de Projet : MÊME périmètre projet (planning,
-//                                   terrain, risques, budget/EVM, marchés, BOQ, réceptions, GED) — contrôle ; édition validée par le chef
-//  Assistant chef proj. ASSISTANT   = ÉQUIPE du Chef de Projet : MÊME périmètre projet + courriers ;
-//                                   édition soumise à la validation du Chef de Projet
-//  Chargé de mission    CHARGE      Projets · S&E · Risques(social/env) · Reporting
-//  Secrétaire           SECRETAIRE  GED · Courriers · Reporting · Parapheur
-//  Chauffeur            CHAUFFEUR   ODM(ses missions) · Flotte
-//  Administrateur       ADMIN       Tous les modules + Paramétrage
-//  + universels (tous) : Réservation salle · Suivi temps · Pointage · IA (Agents IA + Copilot)
-//  + Migration IA RÉSERVÉE : Chef de Projet · Chef de Département · Ingénieurs · Chefs de Cellule (PMO)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Sections visibles par rôle — hiérarchie ascendante :
-// RESP_LOG → CTRL_FIN → CHEF_PROJ → CHEF_DEPT → PMO → DIR_DPE
-// Règle : le Chef de Projet NE voit PAS le Portefeuille stratégique (réservé Directeur/PMO)
-export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
-  DIR_DPE:   ['accueil', 'portefeuille', 'finances', 'immobilisations', 'transverses'],
-  PMO:       ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
-  CHEF_DEPT: ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
-  CHEF_PROJ: ['accueil', 'mes_projets', 'execution', 'finances', 'immobilisations', 'transverses'], // RACI : Chef de projet = Réalisateur (R) de la Structuration Projet (WBS)
-  INGENIEUR: ['accueil', 'mes_projets', 'execution', 'transverses'],
-  EXPERT:    ['accueil', 'portefeuille', 'mes_projets', 'execution', 'transverses'],
-  CONTROLEUR:['accueil', 'mes_projets', 'execution', 'finances', 'transverses'],  // équipe chef de projet
-  CHARGE:    ['accueil', 'mes_projets', 'execution', 'transverses'],
-  ASSISTANT: ['accueil', 'mes_projets', 'execution', 'logistique', 'transverses'],  // Projets/Exécution réservés à l'assistant CHEF DE PROJET (ABAC poste) ; l'assistante de direction = support admin (courriers, agenda/réunions, GED, workflow)
-  SECRETAIRE:['accueil', 'logistique', 'transverses'],    // admin département : courriers, réunions, GED — PAS de gestion de projet
-  CHAUFFEUR: ['accueil', 'logistique'],                                     // portail ULTRA-SIMPLE : mes missions · mon véhicule · réservation · pointage (aucun module métier/IA)
-  CTRL_FIN:  ['accueil', 'finances', 'immobilisations', 'transverses'],
-  RESP_LOG:  ['accueil', 'logistique', 'finances', 'immobilisations', 'transverses'],  // UAGL : logistique + patrimoine/réceptions + courriers/GED
-  MARCHES:   ['accueil', 'finances', 'transverses'],                       // DAO/AO/contrats/décomptes
-  SIG:       ['accueil', 'execution', 'transverses'],                      // cartographie/réseaux/actifs
-  IMMO:      ['accueil', 'finances', 'immobilisations', 'transverses'],                       // immobilisations/amortissements
-  AUDIT:     ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses'], // tout en lecture
-  CONTROLEUR_TRAVAUX: ['accueil', 'mes_projets', 'execution', 'transverses'], // terrain/contrôles/réceptions
-  ADMIN:     ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses', 'parametrage'],
-};
-
-/** Sections visibles par direction (filtre métier hiérarchique — intersection avec ROLE_SECTIONS) */
-// NB : 'logistique' est incluse pour TOUTES les directions afin que les profils SUPPORT
-// (UAGL, assistante de direction, secrétaire, chauffeur) — quelle que soit leur direction —
-// atteignent Réservation de salle / Réunions / Pointage. Le rôle reste autoritaire
-// (ROLE_SECTIONS) : un Directeur/PMO/Chef de projet n'a PAS 'logistique'.
-const S_DIR_BASE: SidebarSectionId[] = ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses'];
-
-export const DIRECTION_SECTIONS: Record<string, SidebarSectionId[]> = {
-  'EM_DPE':      [...S_DIR_BASE, 'logistique', 'parametrage'],
-  'DEP':         S_DIR_BASE,
-  'DER':         S_DIR_BASE,
-  'DPT':         S_DIR_BASE,
-  'DPD':         S_DIR_BASE,
-  'DGC':         S_DIR_BASE,
-  'DIT':         S_DIR_BASE,
-  'CC26':        S_DIR_BASE,
-  'CPBM_UE':     S_DIR_BASE,
-  'CPADERAU':    S_DIR_BASE,
-  'CPAMACEL_EE': S_DIR_BASE,
-  'CSE':         S_DIR_BASE,
-};
-
-// ── Routes autorisées par rôle ──
-// Factorisées par groupes récurrents pour éviter la duplication
-const R_TBL    = '/tableau-de-bord';
-const R_PORT   = ['/portefeuille', '/programmes'];
-const R_PROJ   = ['/projets', '/cockpit-projet', '/gantt', '/gestion-projet'];
-const R_WBS    = ['/wbs', '/structuration', '/taches'];
-const R_EXEC   = ['/suivi-evaluation', '/terrain', '/risques'];
-const R_CARTO  = ['/cartographie'];
-const R_FIN    = ['/budget', '/evm', '/marches', '/fournisseurs', '/immobilisations'];
-const R_RPT    = ['/reporting', '/workflows'];
-const R_STUDIO = ['/analytique', '/studio-rapports', '/agents-ia', '/constructeur-indicateurs'];
-const R_GED    = ['/ged'];
-const R_LOG    = ['/odm', '/flotte', '/rh'];
-
-// ── Équipe PROJET du Chef de Projet ──
-// Le Contrôleur de projet et l'Assistant assistent le Chef de Projet sur SES projets :
-// ils partagent le MÊME périmètre de modules projet (planning, WBS, terrain, risques,
-// budget/EVM, marchés, BOQ/décomptes, réceptions, GED, reporting). L'ÉDITION reste
-// soumise à la validation du Chef de Projet (cf. règle d'habilitation d'édition).
-const R_CHEF_TEAM = [
-  R_TBL, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO,
-  ...R_FIN, '/bordereaux', '/receptions', ...R_GED, ...R_RPT,
-];
-
-export const ROLE_ROUTES: Record<RoleCode, string[]> = {
-  DIR_DPE:   [R_TBL, ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_FIN.slice(0,2), ...R_STUDIO, '/workflows', '/dashboard-builder'],
-  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), ...R_STUDIO, ...R_GED, '/workflows'],
-  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, '/workflows'],
-  CHEF_PROJ: [...R_CHEF_TEAM, '/migration', '/agents-ia'],
-  INGENIEUR: [R_TBL, ...R_PROJ, ...R_WBS, '/migration', '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/workflows'],
-  EXPERT:    [R_TBL, ...R_PORT.slice(0,1), ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, '/agents-ia', ...R_GED, '/workflows', '/reporting'],
-  CONTROLEUR:[...R_CHEF_TEAM, '/agents-ia'],   // équipe du chef de projet : même périmètre, contrôle
-  CHARGE:    [R_TBL, ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1,3), ...R_RPT],
-  // ASSISTANT : périmètre partagé ; la distinction Assistant CHEF DE PROJET (détail projet)
-  // vs Assistante de DIRECTION (admin) est faite par POSTE (ABAC) — cf. isAssistantProjet().
-  ASSISTANT: [R_TBL, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
-  SECRETAIRE:[R_TBL, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
-  CHAUFFEUR: [R_TBL, '/odm', '/flotte'],
-  CTRL_FIN:  [R_TBL, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0,2), ...R_RPT],
-  RESP_LOG:  [R_TBL, ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/courriers', ...R_GED, '/reporting'],
-  MARCHES:   [R_TBL, '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT],
-  SIG:       [R_TBL, ...R_CARTO, '/projets', ...R_GED],
-  IMMO:      [R_TBL, '/immobilisations', ...R_GED, ...R_RPT],
-  AUDIT:     ['*'],   // lecture seule globale (écriture bloquée par niveau + canPerformAction)
-  CONTROLEUR_TRAVAUX: [R_TBL, '/projets', '/cockpit-projet', '/terrain', '/risques', '/receptions', ...R_CARTO, ...R_GED, ...R_RPT],
-  ADMIN:     ['*'],
-};
-
-// Items individuels autorisés par rôle dans chaque section (factorisés)
-export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
-  // Directeur DPE : vue PHASES/JALONS (Gantt + cockpit), PAS le module de gestion détaillé (tâches/ressources).
-  DIR_DPE:   [R_TBL, ...R_PORT, '/cockpit-projet', '/gantt', '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows'],
-  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  CHEF_PROJ: [...R_CHEF_TEAM, '/migration', '/agents-ia', '/courriers', '/workflows'],
-  INGENIEUR: [R_TBL, ...R_PROJ, ...R_WBS, '/migration', '/terrain', ...R_CARTO, ...R_GED, '/workflows', '/courriers'],
-  EXPERT:    [R_TBL, ...R_PORT.slice(0,1), ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, '/agents-ia', ...R_GED, '/workflows', '/courriers', '/reporting'],
-  CONTROLEUR:[...R_CHEF_TEAM, '/agents-ia', '/courriers', '/workflows'],   // équipe du chef de projet : même périmètre, contrôle
-  CHARGE:    [R_TBL, ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1,3), ...R_RPT, '/courriers', '/workflows'],
-  ASSISTANT: [R_TBL, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'], // détail projet/KPI/carto filtrés par poste (ABAC) — base = support admin
-  SECRETAIRE:[R_TBL, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'], // /projets EN LECTURE (liste/statuts)
-  MARCHES:   [R_TBL, '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  SIG:       [R_TBL, ...R_CARTO, '/projets', ...R_GED, '/courriers', '/workflows'],
-  IMMO:      [R_TBL, '/immobilisations', '/structuration', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  AUDIT:     ['*'],
-  CONTROLEUR_TRAVAUX: [R_TBL, '/projets', '/cockpit-projet', '/terrain', '/risques', '/receptions', ...R_CARTO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  CHAUFFEUR: [R_TBL, '/odm', '/flotte', '/courriers', '/workflows'],
-  CTRL_FIN:  [R_TBL, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0,2), ...R_RPT, '/courriers', '/workflows'],
-  RESP_LOG:  [R_TBL, ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/gestion-temps', '/courriers', ...R_GED, '/reporting', '/workflows'],
-  ADMIN:     ['*'],
-};
-
-/** Routes/services transverses accessibles à TOUS les profils (vie de bureau). */
-export const UNIVERSAL_ROUTES = ['/reservation-salle', '/suivi-temps', '/pointage'];
-
-// ── Accès par module spécifique (prompt — Module 16 IA & Migration ; secrétariat : Courriers) ──
-// RÈGLE : l'IA (Agents IA + Copilot) est accessible à TOUS les profils — la sécurité des
-// DONNÉES reste héritée de l'organisation (chaque agent/réponse est borné au périmètre).
-// La MIGRATION IA (construction de projets) est RÉSERVÉE : Chef de Projet, Chef de Département,
-// Ingénieurs et Chefs de Cellule (PMO/CSE & coordinations de programme = rôle CHEF_DEPT).
-const MIGRATION_ROLES: RoleCode[] = ['CHEF_PROJ', 'CHEF_DEPT', 'INGENIEUR', 'PMO', 'ADMIN'];
-// Les Courriers (registre / parapheur courrier) sont accessibles à TOUS les profils.
-// Courriers / parapheur courrier = fonction MANAGEMENT + SECRÉTARIAT/ASSISTANAT + UAGL + MARCHÉS.
-// (Pas les rôles purement techniques/terrain : ingénieur, contrôleur, chauffeur, SIG, immo…)
-const COURRIERS_ROLES: RoleCode[] = ['DIR_DPE', 'PMO', 'CHEF_DEPT', 'CHEF_PROJ', 'ASSISTANT', 'SECRETAIRE', 'RESP_LOG', 'MARCHES', 'ADMIN'];
-
-/** Accès spécifique par module (au-delà des routes de rôle) — renvoie null si non concerné. */
-function moduleAccess(role: RoleCode, route: string): boolean | null {
-  // POUR TOUS (la sécurité des DONNÉES reste scopée par périmètre) : IA, GED, Workflow, KPI métier.
-  if (route === '/agents-ia' || route.startsWith('/agents-ia/')) return true;
-  if (route === '/copilot'   || route.startsWith('/copilot/'))   return true;
-  if (route === '/ged'       || route.startsWith('/ged/'))       return true; // GED pour tous
-  if (route === '/workflows' || route.startsWith('/workflows/')) return true; // Workflow pour tous
-  // KPI / Suivi-Évaluation = indicateurs PROJET (S&E). RÉSERVÉ aux métiers projet & pilotage.
-  // Les profils SUPPORT (UAGL, assistante de direction, secrétaire, chauffeur) ne voient PAS
-  // les KPI projet : leur tableau de bord porte sur LEUR travail (missions, courriers, flotte…).
-  // → on défère aux listes de rôle (ROLE_NAV_ITEMS / ROLE_ROUTES) ; pour l'ASSISTANT la
-  //   distinction projet/direction est faite par POSTE (ASSISTANT_DETAIL_ROUTES + ABAC).
-  // Migration IA réservée aux profils habilités à créer/structurer des projets.
-  if (route === '/migration' || route.startsWith('/migration/')) return role === 'ADMIN' || MIGRATION_ROLES.includes(role);
-  if (route === '/courriers'  || route.startsWith('/courriers/')) return role === 'ADMIN' || COURRIERS_ROLES.includes(role);
-  return null;
-}
-
 // ── LECTURE SEULE OPÉRATIONNELLE ──
 // Les niveaux 0 (Directeur DPE, PMO Central/CSE) et 1 (directeurs d'unité) VOIENT le
 // planning et la gestion de projet, mais en LECTURE SEULE. L'ÉDITION opérationnelle est
@@ -454,60 +130,10 @@ export function isOperationalReadOnly(user: TestUser | null): boolean {
   return getUserScope(user).niveau <= 1;
 }
 
-// ── ABAC par POSTE : « Assistant chef de projet / Assistant projet / Assistant Gestion de
-// Projet » (équipe projet) vs « Assistante de Direction » (support administratif). Même rôle
-// ASSISTANT, distingués par le poste. Seul l'assistant PROJET accède au détail projet. ──
-const ASSISTANT_DETAIL_ROUTES = [
-  '/gestion-projet', '/wbs', '/taches', '/terrain', '/gantt',
-  // L'assistante de DIRECTION ne voit NI les projets, NI les KPI projet, NI la carto :
-  // ces modules ne sont visibles que pour l'assistant CHEF DE PROJET (équipe projet).
-  '/projets', '/cockpit-projet', '/suivi-evaluation', '/cartographie', '/risques',
-];
-export function isAssistantProjet(user: TestUser | null): boolean {
-  if (!user || user.role !== 'ASSISTANT') return false;
-  const p = `${user.poste ?? ''}`.toLowerCase();
-  // Une ASSISTANTE DE DIRECTION ou une SECRÉTAIRE n'est JAMAIS assistante projet,
-  // même si « Projet(s) » figure dans l'intitulé de son rattachement.
-  if (/direction|directeur|secr[ée]tar|administrati/.test(p)) return false;
-  // Seul l'assistant rattaché à l'ÉQUIPE PROJET (chef de projet / gestion de projet) l'est.
-  return /\bprojet/.test(p);
-}
-
-export function canAccess(role: RoleCode, route: string): boolean {
-  if (UNIVERSAL_ROUTES.some(u => route === u || route.startsWith(u + '/'))) return true;
-  const mod = moduleAccess(role, route);
-  if (mod !== null) return mod;
-  const allowed = ROLE_ROUTES[role];
-  if (allowed.includes('*')) return true;
-  return allowed.includes(route);
-}
-
-export function canAccessNavItem(role: RoleCode, href: string): boolean {
-  if (UNIVERSAL_ROUTES.includes(href)) return true;
-  const mod = moduleAccess(role, href);
-  if (mod !== null) return mod;
-  const allowed = ROLE_NAV_ITEMS[role];
-  if (allowed.includes('*')) return true;
-  return allowed.includes(href);
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTEXT
 // ─────────────────────────────────────────────────────────────────────────────
-
-export interface LoginResult {
-  success: boolean;
-  error?: string;
-  /** Compte verrouillé (trop de tentatives). */
-  locked?: boolean;
-  /** Mot de passe expiré (≥ expiryMonths) — l'utilisateur doit le réinitialiser. */
-  mustChangePassword?: boolean;
-}
-
-export interface ChangePasswordResult {
-  success: boolean;
-  error?: string;
-}
+// LoginResult, ChangePasswordResult → re-exportés depuis authTypes via export *
 
 interface AuthContextValue {
   user: TestUser | null;
@@ -565,7 +191,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           initials: 'MS', avatarColor: '#3D1A6B',
         };
         setUser(adminUser);
-        // localStorage.setItem(LS_KEY, JSON.stringify(adminUser)); // No need to store bypass user
+        const p: SessionPayload = { role: 'ADMIN', id: 'u4', email };
+        document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(JSON.stringify(p))}; path=/; SameSite=Strict; max-age=${SESSION_MAX_AGE}`;
         return { success: true };
       }
       if (emailLower.endsWith('@senelec.sn') || emailLower.endsWith('@enerticai.com') || emailLower.endsWith('@dpe.sn')) {
@@ -579,6 +206,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         policy.ensureRecord(emailLower, pwdTrim);
         setUser(defaultUser);
         localStorage.setItem(LS_KEY, JSON.stringify(defaultUser));
+        const dp: SessionPayload = { role: 'DIR_DPE', id: 'legacy', email };
+        document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(JSON.stringify(dp))}; path=/; SameSite=Strict; max-age=${SESSION_MAX_AGE}`;
         return { success: true };
       }
       // Échec d'authentification → incrémente le compteur, verrouille au seuil
@@ -599,6 +228,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(found);
     localStorage.setItem(LS_KEY, JSON.stringify(found));
+    // Cookie session lisible côté middleware (RBAC serveur B-02)
+    const payload: SessionPayload = { role: found.role, id: found.id, email: found.email };
+    document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(JSON.stringify(payload))}; path=/; SameSite=Strict; max-age=${SESSION_MAX_AGE}`;
     // Journal d'audit (CCF ADM-03) — traçabilité des connexions.
     try {
       const { logAudit } = require('./auditStore') as typeof import('./auditStore');
@@ -649,6 +281,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem(LS_KEY);
+    document.cookie = `${SESSION_COOKIE}=; path=/; SameSite=Strict; max-age=0`;
   }, []);
 
   const canAccessRoute = useCallback((route: string) => {

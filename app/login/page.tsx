@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogIn, Lock, AlertTriangle } from 'lucide-react';
 import { TEST_USERS, DEMO_ACCOUNTS, ROLES, useAuth, getDirectionLabel } from '@/lib/authStore';
 import { getDepartementLabel } from '@/lib/dpeOrgStructure';
 import SenelecLogo from '@/components/ui/SenelecLogo';
@@ -165,10 +166,10 @@ function LoginInner() {
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {acc.prenom} {acc.nom}
                     </div>
-                    <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.50)', marginTop: 1 }}>
-                      {role.icon} {acc.poste || role.label}
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.60)', marginTop: 1 }}>
+                      {acc.poste || role.label}
                     </div>
-                    <div style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.28)', marginTop: 1,
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 1,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {getDirectionLabel(acc.direction)}
                       {acc.departement ? ` — ${getDepartementLabel(acc.departement)}` : ''}
@@ -221,12 +222,13 @@ function LoginInner() {
             </div>
 
             {error && (
-              <div style={{
+              <div role="alert" style={{
                 background: '#FEF2F2', border: '1px solid rgba(226,35,26,0.3)',
                 borderRadius: 8, padding: '9px 13px', marginBottom: 14,
-                fontSize: 11.5, color: '#991B1B', display: 'flex', gap: 7, alignItems: 'center',
+                fontSize: 12, color: '#991B1B', display: 'flex', gap: 7, alignItems: 'center',
               }}>
-                ⚠️ {error}
+                <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                {error}
               </div>
             )}
 
@@ -301,8 +303,8 @@ function LoginInner() {
                       <div style={{ fontSize: 11.5, fontWeight: 700, color: '#3D1A6B' }}>
                         {selectedUser.prenom} {selectedUser.nom}
                       </div>
-                      <div style={{ fontSize: 9.5, color: '#7C3AED', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {ROLES[selectedUser.role].icon} {selectedUser.poste || ROLES[selectedUser.role].label}
+                      <div style={{ fontSize: 11, color: '#7C3AED', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selectedUser.poste || ROLES[selectedUser.role].label}
                       </div>
                       <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1 }}>
                         {getDirectionLabel(selectedUser.direction)}
@@ -358,16 +360,17 @@ function LoginInner() {
                       border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff',
                       display: 'inline-block', animation: 'spin 0.8s linear infinite',
                     }}/>
-                    Authentification...
+                    Authentification…
                   </>
-                ) : '🔐  Se connecter'}
+                ) : <><LogIn size={15} /> Se connecter</>}
               </button>
 
               <div style={{
                 padding: '7px 12px', background: '#F8FAFC', borderRadius: 7,
-                fontSize: 9.5, color: '#94A3B8', textAlign: 'center',
+                fontSize: 11, color: '#94A3B8', textAlign: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               }}>
-                🔒 Connexion chiffrée — SIGEPP-DPE V1.0 · SENELEC
+                <Lock size={11} /> Connexion chiffrée — SIGEPP-DPE V1.0 · SENELEC
               </div>
             </form>
           </div>

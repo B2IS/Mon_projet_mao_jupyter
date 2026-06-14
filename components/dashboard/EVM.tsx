@@ -139,7 +139,7 @@ const CPI_SPI_DATA: CPISPIPoint[] = TREND_MONTHS.map((mois, i) => ({
 /* ─── Critical path tasks ───────────────────────────────────────────────────── */
 const CRITICAL_TASKS: CriticalTask[] = [
   { id: 'T01', tache: 'Études génie civil fondations',  duree: 45, margeTotale:  0, float:  0, statut: 'critique' },
-  { id: 'T02', tache: 'Approvisionnement transformateurs', duree: 90, margeTotale: 0, float:  0, statut: 'critique' },
+  { id: 'T02', tache: 'Fourniture transformateurs', duree: 90, margeTotale: 0, float:  0, statut: 'critique' },
   { id: 'T03', tache: 'Installation HTA 90kV',          duree: 60, margeTotale:  0, float:  0, statut: 'critique' },
   { id: 'T04', tache: 'Test & mise en service',          duree: 30, margeTotale:  0, float:  0, statut: 'critique' },
   { id: 'T05', tache: 'Réhabilitation accès site',       duree: 20, margeTotale:  5, float:  3, statut: 'risque'   },

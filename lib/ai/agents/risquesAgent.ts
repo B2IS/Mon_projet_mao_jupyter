@@ -13,7 +13,7 @@ import type {
 const RISQUES_TYPES_DPE: Omit<RisqueType, 'id' | 'statut' | 'responsable'>[] = [
   {
     titre: 'Retard de livraison des matériaux (poteaux béton)',
-    categorie: 'Approvisionnement',
+    categorie: 'Fourniture',
     probabilite: 4, impact: 3,
     criticite: 12,
     mitigation: 'Diversifier les fournisseurs, constituer un stock tampon de 3 semaines, activer la clause de pénalité de retard.',

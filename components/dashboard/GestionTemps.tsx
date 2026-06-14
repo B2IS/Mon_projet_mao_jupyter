@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock, Activity, MapPin, Banknote, Building2, Gauge, Navigation, Radio, CheckCircle2, Crosshair, AlertTriangle, FileText, Printer, Plus, Check, X, ChevronDown, ChevronUp, CalendarDays, Users, UserCheck, Search, RefreshCw, Phone, Camera, Image, Sparkles, Eye } from 'lucide-react';
+import { Clock, Activity, MapPin, Banknote, Building2, Gauge, Navigation, Radio, CheckCircle2, Crosshair, AlertTriangle, FileText, Printer, Plus, Check, X, ChevronDown, ChevronUp, CalendarDays, Users, UserCheck, Search, RefreshCw, Camera, Image, Sparkles, Eye } from 'lucide-react';
 import FeuilleDeTemps from '@/components/dashboard/FeuilleDeTemps';
 import {
   useTempsStore, kpis, parCategorie, parHeure, parCollaborateur, fmtDuree, repartitionTriee,
@@ -15,6 +15,7 @@ import {
   type StatutPresence,
 } from '@/lib/tempsStore';
 import { capturerPositionTerrain, pointerDepuisSite, demarrerSuiviTerrainAuto, CONTEXTE_TRANSVERSE } from '@/lib/tempsTracker';
+import { useAuth } from '@/lib/authStore';
 
 const PURPLE = '#3D1A6B', ORANGE = '#F47920', INK = '#0F172A', MUT = '#64748B';
 const BORDER = '#E2E8F0';
@@ -33,11 +34,33 @@ const STATUT_CFG: Record<StatutPresence, { label: string; c: string; bg: string;
 };
 
 export default function GestionTemps() {
+  const { user, isRole } = useAuth();
   const {
     entrees, seed, projetActif, setProjetActif, repartition, pingsGeo, sites,
     justificatifsHS, ajouterJustificatif, approuverJustificatif, supprimerJustificatif,
     ressourcesUAGL, validerTemps, mettreAJourStatut, rapportsPhoto, ajouterRapportPhoto, validerRapportPhoto,
   } = useTempsStore();
+
+  // Visibilité des temps selon le rôle
+  // - RESP_LOG (UAGL) → chauffeurs, contrôleurs, assistants de projet
+  // - CHEF_PROJ → ressources dont le nPlus1 correspond à son nom
+  // - Autres managers → tout
+  const isUAGL = isRole('RESP_LOG');
+  const isChefProj = isRole('CHEF_PROJ');
+  const isToutVoir = isRole('DIR_DPE', 'CHEF_DEPT', 'PMO', 'ADMIN');
+  const monNom = user ? `${user.prenom} ${user.nom}` : '';
+
+  const fonctionUAGL = (f: string) => {
+    const fl = f.toLowerCase();
+    return fl.includes('chauffeur') || fl.includes('controleur') || fl.includes('assistant');
+  };
+
+  const ressourcesVisibles = useMemo(() => {
+    if (isToutVoir) return ressourcesUAGL;
+    if (isUAGL) return ressourcesUAGL.filter(r => fonctionUAGL(r.fonction));
+    if (isChefProj) return ressourcesUAGL.filter(r => r.nPlus1 === monNom);
+    return ressourcesUAGL;
+  }, [ressourcesUAGL, isToutVoir, isUAGL, isChefProj, monNom]);
 
   // ── Photo terrain (chauffeurs & agents) ──────────────────────────────────
   const [photoModal, setPhotoModal] = useState<string | null>(null); // ressource.id
@@ -143,7 +166,7 @@ export default function GestionTemps() {
   const maxHeure = Math.max(1, ...heures);
   const hsDetectes = useMemo(() => detecterHeuresSup(entrees), [entrees]);
   const filteredRessources = useMemo(() => {
-    let list = ressourcesUAGL;
+    let list = ressourcesVisibles;
     if (filtreSearch.trim()) {
       const q = filtreSearch.trim().toLowerCase();
       list = list.filter(r => `${r.nom} ${r.prenom} ${r.matricule}`.toLowerCase().includes(q));
@@ -152,7 +175,7 @@ export default function GestionTemps() {
     if (filtreRegion) list = list.filter(r => r.region === filtreRegion);
     if (filtreStatut) list = list.filter(r => r.statut === filtreStatut);
     return list;
-  }, [ressourcesUAGL, filtreSearch, filtreProjet, filtreRegion, filtreStatut]);
+  }, [ressourcesVisibles, filtreSearch, filtreProjet, filtreRegion, filtreStatut]);
 
   return (
     <div style={{ padding: 20, maxWidth: 1320, margin: '0 auto', width: '100%' }}>
@@ -234,7 +257,7 @@ export default function GestionTemps() {
               { key: 'conge' as const,                icon: <CalendarDays size={14} /> },
             ]).map(s => {
               const cfg = STATUT_CFG[s.key];
-              const count = ressourcesUAGL.filter(r => r.statut === s.key).length;
+              const count = ressourcesVisibles.filter(r => r.statut === s.key).length;
               const isActive = filtreStatut === s.key;
               return (
                 <button key={s.key}
@@ -249,9 +272,9 @@ export default function GestionTemps() {
               );
             })}
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: MUT }}>{ressourcesUAGL.length} ressources</span>
+              <span style={{ fontSize: 11, color: MUT }}>{ressourcesVisibles.length} ressources</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', background: '#DCFCE7', padding: '4px 10px', borderRadius: 20 }}>
-                {ressourcesUAGL.filter(r => r.valideParN1).length} validees N+1
+                {ressourcesVisibles.filter(r => r.valideParN1).length} validees N+1
               </span>
             </div>
           </div>
@@ -266,12 +289,12 @@ export default function GestionTemps() {
             <select value={filtreProjet} onChange={e => setFiltreProjet(e.target.value)}
               style={{ padding: '8px 10px', borderRadius: 9, border: '1.5px solid #E2E8F0', fontSize: 12, color: filtreProjet ? INK : '#94A3B8', background: '#fff', cursor: 'pointer', minWidth: 165 }}>
               <option value="">Tous projets</option>
-              {[...new Set(ressourcesUAGL.map(r => r.projet))].map(p => <option key={p} value={p}>{p}</option>)}
+              {[...new Set(ressourcesVisibles.map(r => r.projet))].map(p => <option key={p} value={p}>{p}</option>)}
             </select>
             <select value={filtreRegion} onChange={e => setFiltreRegion(e.target.value)}
               style={{ padding: '8px 10px', borderRadius: 9, border: '1.5px solid #E2E8F0', fontSize: 12, color: filtreRegion ? INK : '#94A3B8', background: '#fff', cursor: 'pointer', minWidth: 130 }}>
               <option value="">Toutes regions</option>
-              {[...new Set(ressourcesUAGL.map(r => r.region))].map(rg => <option key={rg} value={rg}>{rg}</option>)}
+              {[...new Set(ressourcesVisibles.map(r => r.region))].map(rg => <option key={rg} value={rg}>{rg}</option>)}
             </select>
             {(filtreSearch || filtreProjet || filtreRegion || filtreStatut) && (
               <button onClick={() => { setFiltreSearch(''); setFiltreProjet(''); setFiltreRegion(''); setFiltreStatut(''); }}
@@ -279,7 +302,7 @@ export default function GestionTemps() {
                 <X size={12} /> Effacer
               </button>
             )}
-            <span style={{ fontSize: 11.5, color: MUT, marginLeft: 4 }}>{filteredRessources.length} / {ressourcesUAGL.length}</span>
+            <span style={{ fontSize: 11.5, color: MUT, marginLeft: 4 }}>{filteredRessources.length} / {ressourcesVisibles.length}</span>
           </div>
 
           {/* Liste des ressources */}
@@ -371,12 +394,6 @@ export default function GestionTemps() {
                           <RefreshCw size={11} /> Relancer
                         </button>
                       )}
-                      {r.telephone && (
-                        <a href={`tel:${r.telephone}`}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 7, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
-                          <Phone size={11} /> Appeler
-                        </a>
-                      )}
                       {/* Rapport photo — disponible pour tous les agents terrain */}
                       {(r.statut === 'terrain' || r.statut === 'mission' || r.fonction.toLowerCase().includes('chauffeur')) && (
                         <button onClick={() => { resetPhotoForm(); setPhotoModal(r.id); }}
@@ -394,7 +411,13 @@ export default function GestionTemps() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: '#F8FAFC', borderRadius: 8, fontSize: 11, color: '#94A3B8', flexWrap: 'wrap' }}>
             <AlertTriangle size={12} />
-            <span style={{ flex: 1 }}>Vue N+1 — Supervisez les temps et la presence des ressources UAGL affectees. Cliquez sur un statut pour filtrer.</span>
+            <span style={{ flex: 1 }}>
+              {isUAGL
+                ? 'Vue UAGL — Chauffeurs, Controleurs et Assistants de projet. Cliquez sur un statut pour filtrer.'
+                : isChefProj
+                  ? `Vue N+1 — Ressources dont vous etes le superviseur direct. Cliquez sur un statut pour filtrer.`
+                  : 'Vue N+1 — Supervisez les temps et la presence des ressources affectees. Cliquez sur un statut pour filtrer.'}
+            </span>
             {rapportsPhoto.length > 0 && (
               <button onClick={() => setShowRapports(v => !v)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, background: '#FFF7ED', color: '#F47920', border: '1px solid #FED7AA', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>

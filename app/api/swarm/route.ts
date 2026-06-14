@@ -53,15 +53,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       }, 15_000);
 
       try {
-        const ctx = await runSwarm(files, projectOverrides, sendEvent);
-
-        // Final event with complete context
-        sendEvent({
-          type: 'swarm_done',
-          message: `Pipeline terminé — runId: ${ctx.runId}`,
-          data: ctx,
-          timestamp: new Date().toISOString(),
-        });
+        // runSwarm already emits swarm_done via the onEvent callback — no duplicate needed
+        await runSwarm(files, projectOverrides, sendEvent);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         sendEvent({

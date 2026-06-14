@@ -26,7 +26,9 @@ import { useProjectStore, DOMAINE_CFG, STATUT_CFG, type Domaine, type StatutProj
 import { useAuth, getDirectionLabel, isAssistantProjet } from '@/lib/authStore';
 import { computeIndicateursSenelec, cockpitCardsForRole } from '@/lib/indicateursSenelec';
 import { useMeetingRoom } from '@/lib/meetingRoomStore';
+import IndicatorWidget from '@/components/dashboard/IndicatorWidget';
 import { useOdmConfig } from '@/lib/odmConfigStore';
+import { useParapheurStore } from '@/lib/parapheurStore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -232,6 +234,12 @@ export default function TableauDeBord() {
     }
     if (isRole('CTRL_FIN', 'RESP_LOG'))
       return { titre: 'Tableau de bord — Périmètre', sousTitre: `Vue périmètre — ${getDirectionLabel(user.direction || '')}`, badge: 'Périmètre' };
+    if (isRole('CHAUFFEUR'))
+      return { titre: 'Mon portail chauffeur', sousTitre: 'Missions affectées et véhicule', badge: 'Chauffeur' };
+    if (isRole('SECRETAIRE'))
+      return { titre: 'Espace Secrétariat', sousTitre: 'Courriers, réunions et GED', badge: 'Secrétariat' };
+    if (isRole('ASSISTANT'))
+      return { titre: 'Espace Assistante de Direction', sousTitre: 'Agenda, courriers et validations', badge: 'Direction' };
     return { titre: 'Mes projets', sousTitre: 'Vue détaillée — Projets dont je suis responsable ou membre', badge: 'Détaillé' };
   }, [user, isRole]);
   const [drawer, setDrawer] = useState<Projet | null>(null);
@@ -267,7 +275,9 @@ export default function TableauDeBord() {
     const critiques = p.filter(x => x.cpi < 0.90 || x.spi < 0.85 || x.statut === 'en_retard');
     const alertes   = critiques.length;
     const avgAv  = p.length > 0 ? p.reduce((s, x) => s + x.avancement, 0) / p.length : 0;
-    const jalonsSoon = p.flatMap(pr => pr.jalons.filter(j => !j.atteint)).slice(0, 5);
+    const now = Date.now();
+    const ms30 = 30 * 24 * 60 * 60 * 1000;
+    const jalonsSoon = p.flatMap(pr => pr.jalons.filter(j => !j.atteint && new Date(j.date).getTime() - now <= ms30)).slice(0, 5);
 
     /* Domaine breakdown for bar chart */
     const domaineMap: Record<string, { budget: number; decaisse: number; count: number; color: string; label: string }> = {};
@@ -499,7 +509,7 @@ export default function TableauDeBord() {
 
         {/* ── KPI Row (6 cartes PROJET) — masquée pour les profils SUPPORT (UAGL/assistante/secrétaire/chauffeur) ── */}
         {!isSupportProfile && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, padding: '12px 24px 0', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', padding: '12px 24px 0' }}>
           {[
             { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels`, href: '/portefeuille', pfFilter: null },
             { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA`, href: '/budget', pfFilter: null },
@@ -511,7 +521,8 @@ export default function TableauDeBord() {
             <div key={k.label} title={k.title}
               onClick={() => { if (k.pfFilter) { try { sessionStorage.setItem('pf_nav_filter', JSON.stringify(k.pfFilter)); } catch { /* ignore */ } } router.push(k.href); }}
               style={{
-                flex: '1 1 140px', padding: '10px 14px', borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
+                flex: '1 1 0', minWidth: 0,
+                padding: '10px 14px', borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
                 background: k.alert ? '#FFF8F8' : 'transparent',
                 borderBottom: `3px solid ${k.alert ? k.color : 'transparent'}`,
                 transition: 'background 0.12s',
@@ -583,6 +594,9 @@ export default function TableauDeBord() {
           </div>
         </details>
         )}
+
+        {/* ── Indicateurs personnalisés (Constructeur d'Indicateurs) ── */}
+        <IndicatorWidget maxItems={6} compact title="Mes indicateurs" />
 
         {/* ═══════════ COCKPIT SUPPORT (UAGL/assistante/secrétaire/chauffeur) ═══════════ */}
         {activeTab === 'cockpit' && isSupportProfile && (
@@ -987,24 +1001,31 @@ interface SupportTile { label: string; desc: string; href: string; icon: React.R
 function SupportCockpit({ role, router }: { role: string; router: ReturnType<typeof useRouter> }) {
   const mr = useMeetingRoom();
   const odmCfg = useOdmConfig();
+  const parapheur = useParapheurStore();
   const demandesReunion = mr.reservations.filter(r => r.statut === 'demande').length;
   const reunionsConfirmees = mr.reservations.filter(r => r.statut === 'confirmee').length;
 
-  const vehiculesTotal = odmCfg.vehicules.length;
-  const vehiculesPanne = 1; // Mock
-  const vehiculesDispos = vehiculesTotal - vehiculesPanne;
+  const vehiculesActifs = odmCfg.vehicules.filter(v => v.actif);
+  const vehiculesTotal = vehiculesActifs.length;
+  const vehiculesPanne = odmCfg.vehicules.filter(v => !v.actif).length;
+  const vehiculesDispos = vehiculesTotal;
+  // Premier véhicule actif — utilisé comme véhicule "affiché" pour CHAUFFEUR
+  const premierVehicule = vehiculesActifs[0]?.label?.split('—')[0]?.trim() ?? '—';
+  // Courriers = dossiers parapheur de type courrier en attente
+  const courriersPending = parapheur.dossiers.filter(d => d.type === 'courrier').length;
+  const parapheurPending = parapheur.dossiers.length;
 
   const CFG: Record<string, { titre: string; sous: string; cards: { label: string; value: string; sub?: string; accent: string }[]; tiles: { label: string; desc: string; href: string; icon: any; accent: string }[] }> = {
     RESP_LOG: {
       titre: 'Espace UAGL — Administration & Logistique',
       sous: 'Missions, flotte, ressources et patrimoine de votre périmètre',
       cards: [
-        { label: 'Missions en cours', value: '4', sub: 'sur le terrain', accent: C.navy },
-        { label: 'Véhicules dispo.', value: String(vehiculesDispos), sub: `sur ${vehiculesTotal} total`, accent: C.green },
-        { label: 'Véhicules en panne', value: String(vehiculesPanne), sub: 'en réparation', accent: C.red },
+        { label: 'Véhicules actifs', value: String(vehiculesDispos), sub: `sur ${vehiculesActifs.length + vehiculesPanne} total`, accent: C.green },
+        { label: 'Véhicules inactifs', value: String(vehiculesPanne), sub: 'hors service', accent: C.red },
         { label: 'Demandes salle', value: String(demandesReunion), sub: 'en attente', accent: C.orange },
-        { label: 'Conso. Carburant', value: '450 L', sub: 'cette semaine', accent: C.purple },
-        { label: 'Taux utilisation', value: '80%', sub: 'flotte automobile', accent: C.amber },
+        { label: 'Réunions confirmées', value: String(reunionsConfirmees), sub: 'planifiées', accent: C.navy },
+        { label: 'Parapheur', value: String(parapheurPending), sub: 'dossiers en attente', accent: C.purple },
+        { label: 'Chauffeurs', value: String(odmCfg.chauffeurs.filter(c => c.actif).length), sub: 'actifs', accent: C.amber },
       ],
       tiles: [
         { label: 'Ordres de mission', desc: 'ODM · validation · véhicules', href: '/odm', icon: <Activity size={18} />, accent: C.navy },
@@ -1021,25 +1042,23 @@ function SupportCockpit({ role, router }: { role: string; router: ReturnType<typ
       titre: 'Mon espace chauffeur',
       sous: 'Mes missions et mon véhicule',
       cards: [
-        { label: 'Missions semaine', value: '2', sub: 'affectées', accent: C.navy },
-        { label: 'Véhicule', value: 'SN-0234-DA', sub: 'affecté', accent: C.green },
-        { label: 'Carburant', value: 'En attente', sub: 'validation', accent: C.orange },
-        { label: 'Alerte maintenance', value: '500 km', sub: 'avant vidange', accent: C.red },
+        { label: 'Véhicule affecté', value: premierVehicule, sub: 'plaque d\'immatriculation', accent: C.green },
+        { label: 'Parc actif', value: String(vehiculesDispos), sub: `sur ${vehiculesActifs.length + vehiculesPanne} véhicules`, accent: C.navy },
+        { label: 'Demandes réunion', value: String(demandesReunion), sub: 'en attente', accent: C.orange },
       ],
       tiles: [
         { label: 'Mes missions', desc: 'missions affectées · calendrier', href: '/odm', icon: <Activity size={18} />, accent: C.navy },
         { label: 'Mon véhicule', desc: 'véhicule affecté · documents', href: '/flotte', icon: <Fuel size={18} />, accent: C.purple },
-        { label: 'Réservation de salle', desc: 'demandes de salle', href: '/reservation-salle', icon: <Calendar size={18} />, accent: C.orange },
       ],
     },
     SECRETAIRE: {
       titre: 'Espace Secrétariat — Administration Département',
       sous: 'Courriers, réunions, GED et liste des projets (lecture)',
       cards: [
-        { label: 'Courriers', value: '12', sub: 'à traiter', accent: '#0891B2' },
+        { label: 'Courriers', value: String(courriersPending || 0), sub: 'dans le parapheur', accent: '#0891B2' },
         { label: 'Demandes de réservation', value: String(demandesReunion), sub: 'à traiter', accent: C.orange },
         { label: 'Réunions prévues', value: String(reunionsConfirmees), accent: C.green },
-        { label: 'Parapheur', value: '5', sub: 'en attente de signature', accent: C.navy },
+        { label: 'Parapheur', value: String(parapheurPending), sub: 'en attente de signature', accent: C.navy },
       ],
       tiles: [
         { label: 'Courriers du département', desc: 'entrants · sortants · notes', href: '/courriers', icon: <Bell size={18} />, accent: '#0891B2' },
@@ -1053,8 +1072,8 @@ function SupportCockpit({ role, router }: { role: string; router: ReturnType<typ
       titre: 'Espace Assistante de Direction',
       sous: 'Agenda, courriers, réunions et validations documentaires',
       cards: [
-        { label: 'Courriers direction', value: '8', sub: 'à traiter', accent: '#0891B2' },
-        { label: 'Parapheur', value: '14', sub: 'en attente de signature', accent: C.navy },
+        { label: 'Courriers direction', value: String(courriersPending || 0), sub: 'dans le parapheur', accent: '#0891B2' },
+        { label: 'Parapheur', value: String(parapheurPending), sub: 'en attente de signature', accent: C.navy },
         { label: 'Demandes de réservation', value: String(demandesReunion), sub: 'à traiter', accent: C.orange },
         { label: 'Réunions confirmées', value: String(reunionsConfirmees), accent: C.green },
       ],

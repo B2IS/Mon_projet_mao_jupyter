@@ -98,7 +98,7 @@ export type DeviseCode = 'FCFA' | 'USD' | 'EUR' | 'GBP' | 'CNY' | 'DKK' | 'JPY' 
 
 // ─────────────────────────── PHASES PROJET ─────────────────────────────────
 // Phases de projet génériques avec pondération configurable par projet.
-// Le modèle à 7 phases (Préparation, Études, Approvisionnement, Travaux, Réception, Clôture)
+// Le modèle à 7 phases (Préparation, Études, Fourniture, Travaux, Réception, Clôture)
 // est utilisé par défaut pour tous les projets. Chaque projet peut avoir ses propres poids.
 export type PhaseId =
   // Cycle standard DPE (6 phases pondérées — identique pour TOUS les projets)
@@ -131,7 +131,7 @@ export interface PhaseProjet {
 export const PHASES_DEFAUT: PhaseProjet[] = [
   { id: 'passations',      label: 'Préparation',      poids: 10, avancement: 0 },
   { id: 'etudes',          label: 'Études',           poids: 10, avancement: 0 },
-  { id: 'fournitures',     label: 'Approvisionnement', poids: 20, avancement: 0 },
+  { id: 'fournitures',     label: 'Fourniture', poids: 20, avancement: 0 },
   { id: 'travaux',         label: 'Travaux',          poids: 52, avancement: 0 },
   { id: 'mise_en_service', label: 'Mise en service',  poids:  5, avancement: 0 },
   { id: 'cloture',         label: 'Clôture',          poids:  3, avancement: 0 },
@@ -584,7 +584,7 @@ function makeTaches(projetId: string, domaine: Domaine, dateDebut: string): Tach
       { nom: 'Audit réseau existant', duree: 15, niveau: 2 },
       { nom: 'Dimensionnement HTA/BT', duree: 20, niveau: 2 },
       { nom: 'Plans d\'exécution', duree: 10, niveau: 2 },
-      { nom: 'Approvisionnement', duree: 60, niveau: 1 },
+      { nom: 'Fourniture', duree: 60, niveau: 1 },
       { nom: 'Matériels réseaux HTA/BT', duree: 30, niveau: 2 },
       { nom: 'Transformateurs & cabines', duree: 30, niveau: 2 },
       { nom: 'Travaux terrain', duree: 120, niveau: 1 },

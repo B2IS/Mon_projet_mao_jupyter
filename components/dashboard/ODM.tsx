@@ -647,6 +647,71 @@ function pecPrintStyle(pec: PriseEnCharge): { bg: string; color: string; label: 
   return map[pec] ?? map.NON_PRECISEE;
 }
 
+// ─── Circuit de validation dynamique (UAGL — rapport Mme GUEYE) ──────────────
+// Standard 1–5j Sénégal : Chef Projet → Chef Dép. → Directeur
+// Étendue  >5j ou week-end  : + DRH
+// Internationale            : + DRH + DG obligatoire
+
+type CircuitType = 'standard' | 'etendue' | 'internationale';
+interface CircuitStep { role: string; color: string; }
+
+function parseFRDate(s: string): Date | null {
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
+}
+
+function odmHasWeekend(dep: string, ret: string): boolean {
+  const s = parseFRDate(dep), e = parseFRDate(ret);
+  if (!s || !e) return false;
+  let d = new Date(s);
+  while (d <= e) {
+    if (d.getDay() === 0 || d.getDay() === 6) return true;
+    d.setDate(d.getDate() + 1);
+  }
+  return false;
+}
+
+function circuitODM(odm: ODMItem): { type: CircuitType; label: string; steps: CircuitStep[] } {
+  const S = (role: string, color: string): CircuitStep => ({ role, color });
+  const CP  = S('Chef Projet', '#1B4F8A');
+  const CD  = S('Chef Dép.',   '#3D1A6B');
+  const DRH = S('DRH',         '#F47920');
+  const DIR = S('Directeur',   '#0E3460');
+  const DG  = S('DG',          '#DC2626');
+
+  if (odm.international || (odm.pays && odm.pays !== 'Sénégal')) {
+    return { type: 'internationale', label: 'International — approbation DG', steps: [CP, CD, DRH, DIR, DG] };
+  }
+  if (odm.dureeJours > 5 || odmHasWeekend(odm.dateDepart, odm.dateRetour)) {
+    const why = odm.dureeJours > 5 ? `${odm.dureeJours}j > 5` : 'inclut week-end';
+    return { type: 'etendue', label: `Étendue (${why}) — DRH inclus`, steps: [CP, CD, DRH, DIR] };
+  }
+  return { type: 'standard', label: 'Standard · 1–5 jours ouvrables', steps: [CP, CD, DIR] };
+}
+
+function CircuitBadge({ odm }: { odm: ODMItem }) {
+  const c = circuitODM(odm);
+  const st = c.type === 'internationale'
+    ? { bg: '#FEF2F2', border: '#FCA5A5', txt: '#991B1B', tagBg: '#FEE2E2' }
+    : c.type === 'etendue'
+    ? { bg: '#FFF7ED', border: '#FDE68A', txt: '#92400E', tagBg: '#FEF3C7' }
+    : { bg: '#F0FFF4', border: '#86EFAC', txt: '#166534', tagBg: '#DCFCE7' };
+  return (
+    <div style={{ padding: '8px 12px', background: st.bg, border: `1px solid ${st.border}`, borderRadius: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+        <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: st.txt, background: st.tagBg, padding: '1px 7px', borderRadius: 99 }}>Circuit UAGL</span>
+        <span style={{ fontSize: 10, color: st.txt }}>{c.label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 3 }}>
+        {c.steps.flatMap((step, i) => [
+          <span key={step.role} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: step.color, color: '#fff' }}>{step.role}</span>,
+          ...(i < c.steps.length - 1 ? [<span key={`a${i}`} style={{ fontSize: 11, color: '#94A3B8' }}>→</span>] : []),
+        ])}
+      </div>
+    </div>
+  );
+}
+
 // ─── Generate ODM Document (HTML → Print) ─────────────────────────────────────
 
 function generateODMDocument(odm: ODMItem): void {
@@ -1655,6 +1720,11 @@ export default function ODM() {
                   </div>
                 )}
 
+                {/* Circuit de validation */}
+                <div style={{ marginTop: 8 }}>
+                  <CircuitBadge odm={selectedODM} />
+                </div>
+
                 {/* Participants — tableau enrichi avec Matricule/Unité/CR */}
                 <div style={{ marginTop: 10, background: '#fff', borderRadius: 8, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
                   <div style={{ padding: '8px 14px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2277,6 +2347,11 @@ export default function ODM() {
                     </div>
                   ))}
                 </div>
+                {/* Circuit de validation dynamique */}
+                <div style={{ marginBottom: 12 }}>
+                  <CircuitBadge odm={odm} />
+                </div>
+
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button onClick={() => handleValider(odm.id)}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>

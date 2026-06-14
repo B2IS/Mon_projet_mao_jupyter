@@ -62,7 +62,8 @@ export default function FeuilleDeTemps() {
   const tauxHoraire = moiRessource?.tauxHoraire && moiRessource.tauxHoraire > 0
     ? moiRessource.tauxHoraire : DEFAULT_TAUX;
 
-  const isManager = isRole('CHEF_DEPT', 'DIR_DPE', 'PMO', 'ADMIN');
+  // N+1 (CHEF_PROJ) et UAGL (RESP_LOG pour chauffeurs/contrôleurs/assistants) peuvent valider les temps
+  const isManager = isRole('CHEF_DEPT', 'DIR_DPE', 'PMO', 'ADMIN', 'CHEF_PROJ', 'RESP_LOG');
 
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);

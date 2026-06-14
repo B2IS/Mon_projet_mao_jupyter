@@ -26,7 +26,7 @@ export interface PhaseDef {
 export const DEFAULT_PHASE_WEIGHTS: PhaseDef[] = [
   { key: 'passation',       label: 'Préparation',      poids: 10 },
   { key: 'etudes',          label: 'Études',           poids: 10 },
-  { key: 'fournitures',     label: 'Approvisionnement', poids: 20 },
+  { key: 'fournitures',     label: 'Fourniture', poids: 20 },
   { key: 'travaux',         label: 'Travaux',          poids: 52 },
   { key: 'mise_en_service', label: 'Mise en service',  poids: 5 },
   { key: 'cloture',         label: 'Clôture',          poids: 3 },

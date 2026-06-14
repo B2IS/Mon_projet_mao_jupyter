@@ -76,7 +76,7 @@ const WBS_TEMPLATES: Record<Domaine, string[]> = {
   production:   ['Phase études', 'Génie Civil fondations', 'Génie Électromécanique', 'Lignes évacuation', 'Tests/Mise en service', 'Formation', 'Clôture'],
   transport:    ['Études tracé', 'Acquisitions foncières', 'Fondations pylônes', 'Montage pylônes', 'Tirage câbles', 'Postes extrémités', 'Essais', 'Clôture'],
   // Distribution : inclut réseaux HTA/BT classiques + électrification rurale / accès universel
-  distribution: ['Études réseau & bénéficiaires', 'Approvisionnement matériels HTA/BT', 'Travaux génie civil', 'Pose réseaux HTA/BT', 'Pose postes de transformation', 'Branchements sociaux & comptage', 'Mise en service', 'Réception & clôture'],
+  distribution: ['Études réseau & bénéficiaires', 'Fourniture matériels HTA/BT', 'Travaux génie civil', 'Pose réseaux HTA/BT', 'Pose postes de transformation', 'Branchements sociaux & comptage', 'Mise en service', 'Réception & clôture'],
   commercial:   ['Cadrage', 'Spécifications fonctionnelles', 'Développement', 'Tests UAT', 'Déploiement', 'Formation utilisateurs', 'Clôture'],
   // Génie Civil (DGC) : bâtiments, routes, ouvrages d'art, VRD
   genie_civil:  ['Études & Conception GC', 'Autorisations & permis', 'Gros œuvre', 'Second œuvre & VRD', 'Corps d\'état techniques', 'Réception & livraison', 'Clôture'],
@@ -523,15 +523,13 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
               <div style={{ background: '#F9FAFB', borderRadius: 10, padding: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 10 }}>Avancement global</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <ResponsiveContainer width={100} height={100}>
-                    <PieChart>
-                      <Pie data={[{ value: projet.avancement }, { value: 100 - projet.avancement }]}
-                        dataKey="value" startAngle={90} endAngle={-270} innerRadius={32} outerRadius={46}>
-                        <Cell fill={cfg.color} />
-                        <Cell fill="#E5E7EB" />
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <PieChart width={100} height={100}>
+                    <Pie data={[{ value: projet.avancement }, { value: 100 - projet.avancement }]}
+                      dataKey="value" startAngle={90} endAngle={-270} innerRadius={32} outerRadius={46}>
+                      <Cell fill={cfg.color} />
+                      <Cell fill="#E5E7EB" />
+                    </Pie>
+                  </PieChart>
                   <div>
                     <div style={{ fontSize: 28, fontWeight: 800, color: cfg.color }}>{projet.avancement}%</div>
                     <div style={{ fontSize: 11, color: '#9CA3AF' }}>Réalisé</div>
@@ -543,13 +541,11 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
               <div style={{ background: '#F9FAFB', borderRadius: 10, padding: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 10 }}>Répartition budget</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <ResponsiveContainer width={100} height={100}>
-                    <PieChart>
-                      <Pie data={pieData} dataKey="value" innerRadius={28} outerRadius={46}>
-                        {pieData.map((_, i) => <Cell key={i} fill={pieColors[i]} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <PieChart width={100} height={100}>
+                    <Pie data={pieData} dataKey="value" innerRadius={28} outerRadius={46}>
+                      {pieData.map((_, i) => <Cell key={i} fill={pieColors[i]} />)}
+                    </Pie>
+                  </PieChart>
                   <div style={{ flex: 1 }}>
                     {pieData.map((d, i) => (
                       <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -1652,7 +1648,7 @@ export default function ProjetsDPE() {
           { label: 'En cours',         value: kpis.en_cours,                 color: '#F47920', bg: '#FFF7ED', icon: Activity      },
           { label: 'Terminés',         value: kpis.termines,                 color: '#16A34A', bg: '#F0FDF4', icon: CheckCircle   },
           { label: 'En retard',        value: kpis.en_retard,                color: '#EF3340', bg: '#FEF2F2', icon: AlertTriangle },
-          { label: 'Budget total',     value: `${kpis.budget.toFixed(0)}M`,  color: '#8B5CF6', bg: '#F5F3FF', icon: TrendingUp    },
+          { label: 'Budget total',     value: kpis.budget >= 1000 ? `${(kpis.budget / 1000).toFixed(1)} Mrd` : `${Math.round(kpis.budget).toLocaleString('fr-FR')} M`,  color: '#8B5CF6', bg: '#F5F3FF', icon: TrendingUp    },
         ].map(({ label, value, color, bg, icon: Icon }) => (
           <div key={label} style={{
             background: '#FFF', borderRadius: 10, padding: '12px 14px',

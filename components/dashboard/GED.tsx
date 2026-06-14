@@ -1070,7 +1070,7 @@ export default function GED() {
             <div style={{ width: '100%', maxWidth: 520, background: 'var(--bg-card)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-lg)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
               <div style={{ padding: '14px 18px', background: 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <div>
-                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>📋 Historique des versions</div>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>Historique des versions</div>
                   <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 2 }}>{doc.nom}</div>
                 </div>
                 <button onClick={() => setShowVersions(null)} className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}><X size={12} /></button>

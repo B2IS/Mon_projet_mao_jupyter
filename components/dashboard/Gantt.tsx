@@ -178,7 +178,7 @@ function cascadeRetroplan(tasks: GanttTask[], movedId: string, deltaDays: number
 }
 
 /**
- * CPM (Critical Path Method) — niveau Primavera P6 / MS Project.
+ * CPM (Critical Path Method) — planification critique multi-niveaux.
  * Passe AVANT (ES/EF) + passe ARRIÈRE (LS/LF) sur les tâches feuilles, gère les
  * 4 types de liens (FS, SS, FF, SF) + décalages (lag), calcule la marge totale et
  * retourne le chemin critique = tâches de marge ≤ 0. Unité : jours.
@@ -760,10 +760,10 @@ export default function Gantt() {
     const lastCritDate = endDates.length ? new Date(Math.max(...endDates)) : null;
     const overloads    = overloadedResources.length;
 
-    let verdict = '✅ Planning conforme';
+    let verdict = 'Planning conforme';
     let color   = '#15803D';
-    if (lateCount > 0 || critAvg < 50) { verdict = '⚠️ Risques de retard'; color = '#D97706'; }
-    if (overloads > 0 && lateCount > 2) { verdict = '🔴 Surcharges critiques détectées'; color = '#DC2626'; }
+    if (lateCount > 0 || critAvg < 50) { verdict = 'Risques de retard'; color = '#D97706'; }
+    if (overloads > 0 && lateCount > 2) { verdict = 'Surcharges critiques'; color = '#DC2626'; }
 
     return { critCount, totalTasks, doneCount, lateCount, avgPct, critAvg, lastCritDate, overloads, verdict, color };
   }, [activeProjet, localTasks, criticalIds, overloadedResources]);
@@ -966,7 +966,7 @@ export default function Gantt() {
     window.print();
   }, [activeProjet]);
 
-  /** PLANIFICATION AUTOMATIQUE (type MS Project « auto-scheduled ») :
+  /** PLANIFICATION AUTOMATIQUE (calendrier projet, jalons calculés) :
    *  recalcule les dates de TOUTES les tâches à partir des durées + dépendances
    *  (CPM, jours ouvrés) depuis la date de début du projet. Déplacer/allonger une
    *  tâche décale automatiquement ses successeurs. */
@@ -1118,26 +1118,25 @@ export default function Gantt() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F0F2F5', fontFamily: 'inherit' }}>
 
       {/* ── PAGE HEADER ── */}
-      <div style={{ padding: '10px 16px', background: `linear-gradient(135deg, ${NAVY} 0%, #2D1167 100%)`, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ padding: '12px 20px', background: `linear-gradient(135deg, ${NAVY} 0%, #2D1167 100%)`, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <GanttChart size={20} color="#C4B5FD" />
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Planning Gantt</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing:'-.01em' }}>Planning Gantt</span>
 
         {/* Project selector */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Flag size={12} color="#C4B5FD" />
           <select value={selectedProjetId}
             onChange={e => { setSelectedProjetId(e.target.value); setCollapsedIds(new Set()); setSelectedId(null); }}
-            style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 4, color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
+            style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 220, maxWidth: 340 }}>
             <option value="" style={{ color: '#1e293b', background: '#fff' }}>— Sélectionner un projet —</option>
             {store.projets.map(p => (
               <option key={p.id} value={p.id} style={{ color: '#1e293b', background: '#fff' }}>
-                {DOMAINE_CFG[p.domaine].emoji} {p.code} — {p.nom.slice(0, 38)}
+                {p.code} — {p.nom.slice(0, 40)}
               </option>
             ))}
           </select>
           {activeProjet && (
-            <div style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.1)', borderRadius: 4, fontSize: 11, color: '#C4B5FD', fontWeight: 600 }}>
-              Av. réel : {(activeProjet.avancementReel ?? activeProjet.avancement).toFixed(2)}% · CPI {activeProjet.cpi}
+            <div style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11.5, color: '#E0D7FF', fontWeight: 600, whiteSpace:'nowrap' }}>
+              {(activeProjet.avancementReel ?? activeProjet.avancement).toFixed(1)}% · CPI {activeProjet.cpi}
             </div>
           )}
         </div>
@@ -1149,11 +1148,14 @@ export default function Gantt() {
           {(['tache', 'vue', 'projet', 'ia'] as RibbonTab[]).map(tab => {
             const isIA = tab === 'ia';
             const hasAlert = isIA && (overloadedResources.length > 0);
+            const TabIcon = tab === 'tache' ? Edit3 : tab === 'vue' ? GanttChart : tab === 'projet' ? Wrench : Bot;
+            const tabLabel = tab === 'tache' ? 'Tâche' : tab === 'vue' ? 'Vue' : tab === 'projet' ? 'Projet' : 'Analyse';
             return (
               <button key={tab} onClick={() => setActiveRibbonTab(tab)}
-                style={{ padding: '6px 16px', border: 'none', background: activeRibbonTab === tab ? (isIA ? '#7C3AED' : '#fff') : 'transparent', color: activeRibbonTab === tab ? (isIA ? '#fff' : NAVY) : (isIA ? '#C4B5FD' : 'rgba(255,255,255,0.75)'), fontWeight: 700, fontSize: 11, cursor: 'pointer', borderTopLeftRadius: 4, borderTopRightRadius: 4, transition: 'all 0.1s', position: 'relative' }}>
-                {tab === 'tache' ? '📝 Tâche' : tab === 'vue' ? '👁 Vue' : tab === 'projet' ? '🗂 Projet' : '🔬 Analyse'}
-                {hasAlert && <span style={{ position: 'absolute', top: 3, right: 5, width: 7, height: 7, background: '#F59E0B', borderRadius: '50%', border: '1.5px solid #fff' }} />}
+                style={{ display:'flex', alignItems:'center', gap:5, padding: '8px 16px', border: 'none', background: activeRibbonTab === tab ? (isIA ? '#7C3AED' : '#fff') : 'transparent', color: activeRibbonTab === tab ? (isIA ? '#fff' : NAVY) : (isIA ? '#C4B5FD' : 'rgba(255,255,255,0.8)'), fontWeight: 700, fontSize: 11.5, cursor: 'pointer', borderTopLeftRadius: 6, borderTopRightRadius: 6, transition: 'all 0.15s', position: 'relative' }}>
+                <TabIcon size={12} />
+                {tabLabel}
+                {hasAlert && <span style={{ position: 'absolute', top: 4, right: 6, width: 7, height: 7, background: '#F59E0B', borderRadius: '50%', border: '1.5px solid ' + (isIA ? '#7C3AED' : NAVY) }} />}
               </button>
             );
           })}
@@ -1161,48 +1163,48 @@ export default function Gantt() {
       </div>
 
       {/* ── TOOLBAR RIBBON ── */}
-      <div style={{ background: '#fff', borderBottom: `2px solid ${NAVY}`, padding: '5px 10px', display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div style={{ background: '#fff', borderBottom: `2px solid ${NAVY}`, padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', minHeight: 44 }}>
 
         {activeRibbonTab === 'tache' && (
           <>
             <button onClick={() => { if (!activeProjet) return; setAddTaskModal(true); }}
               disabled={!activeProjet}
               title={!activeProjet ? 'Sélectionnez un projet d\'abord' : 'Ajouter une nouvelle tâche'}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: activeProjet ? NAVY : '#CBD5E1', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: activeProjet ? 'pointer' : 'not-allowed', opacity: activeProjet ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: activeProjet ? NAVY : '#CBD5E1', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: activeProjet ? 'pointer' : 'not-allowed', opacity: activeProjet ? 1 : 0.5 }}>
               <Plus size={13} /> Nouvelle tâche
             </button>
             <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
             <button onClick={() => { if (selectedId) setEditTaskId(selectedId); }} disabled={!selectedId}
               title={selectedId ? 'Modifier la tâche sélectionnée' : 'Sélectionnez une tâche'}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: selectedId ? '#F1F5F9' : '#FAFAFA', border: `1px solid ${selectedId ? '#D1D5DB' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#1E293B' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: selectedId ? '#F1F5F9' : '#FAFAFA', border: `1px solid ${selectedId ? '#D1D5DB' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#1E293B' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
               <Edit3 size={12} /> Modifier
             </button>
             <button onClick={() => { if (selectedId) setResourceTaskId(selectedId); }} disabled={!selectedId}
               title={selectedId ? 'Affecter des ressources' : 'Sélectionnez une tâche'}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: selectedId ? '#F0FDF4' : '#FAFAFA', border: `1px solid ${selectedId ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#0F766E' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: selectedId ? '#F0FDF4' : '#FAFAFA', border: `1px solid ${selectedId ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#0F766E' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
               <Users size={12} /> Ressources
             </button>
             <button onClick={markComplete} disabled={!selectedId}
               title={selectedId ? 'Marquer la tâche comme terminée (100%)' : 'Sélectionnez une tâche'}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: selectedId ? '#F0FDF4' : '#FAFAFA', border: `1px solid ${selectedId ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#16A34A' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: selectedId ? '#F0FDF4' : '#FAFAFA', border: `1px solid ${selectedId ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#16A34A' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
               <CheckCircle2 size={12} /> Marquer terminée
             </button>
             <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
             <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
             <button onClick={indentTask} disabled={!selectedId}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: selectedId ? '#F8F9FF' : '#FAFAFA', border: `1px solid ${selectedId ? '#C7D2FE' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#4338CA' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: selectedId ? '#F8F9FF' : '#FAFAFA', border: `1px solid ${selectedId ? '#C7D2FE' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#4338CA' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}
               title="Indenter (augmenter le niveau WBS)">
               <ChevronRight size={12} /> Indenter
             </button>
             <button onClick={outdentTask} disabled={!selectedId}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: selectedId ? '#F8F9FF' : '#FAFAFA', border: `1px solid ${selectedId ? '#C7D2FE' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#4338CA' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: selectedId ? '#F8F9FF' : '#FAFAFA', border: `1px solid ${selectedId ? '#C7D2FE' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#4338CA' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}
               title="Dé-indenter (diminuer le niveau WBS)">
               <ChevronUp size={12} /> Dé-indenter
             </button>
             <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
             <button onClick={() => { if (selectedId) { if (confirm('Supprimer cette tâche ?')) deleteTask(selectedId); } }} disabled={!selectedId}
               title={selectedId ? 'Supprimer la tâche sélectionnée' : 'Sélectionnez une tâche'}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: selectedId ? '#FEF2F2' : '#FAFAFA', border: `1px solid ${selectedId ? '#FCA5A5' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#EF4444' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: selectedId ? '#FEF2F2' : '#FAFAFA', border: `1px solid ${selectedId ? '#FCA5A5' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#EF4444' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
               <Trash2 size={12} /> Supprimer
             </button>
           </>
@@ -1213,22 +1215,22 @@ export default function Gantt() {
             <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B' }}>Zoom :</span>
             {(['semaine', 'mois', 'trimestre', 'annee'] as ZoomLevel[]).map(z => (
               <button key={z} onClick={() => setZoom(z)}
-                style={{ padding: '5px 10px', background: zoom === z ? NAVY : '#F1F5F9', color: zoom === z ? '#fff' : '#1E293B', border: `1px solid ${zoom === z ? NAVY : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ padding: '7px 10px', background: zoom === z ? NAVY : '#F1F5F9', color: zoom === z ? '#fff' : '#1E293B', border: `1px solid ${zoom === z ? NAVY : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                 {z === 'semaine' ? 'Semaine' : z === 'mois' ? 'Mois' : z === 'trimestre' ? 'Trimestre' : 'Année'}
               </button>
             ))}
             <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
             <button onClick={() => setShowCritical(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: showCritical ? '#FEE2E2' : '#F1F5F9', color: showCritical ? '#EF4444' : '#64748B', border: `1px solid ${showCritical ? '#FCA5A5' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-              <AlertTriangle size={12} /> Chemin critique {showCritical ? '☑' : '☐'}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', background: showCritical ? '#FEE2E2' : '#F1F5F9', color: showCritical ? '#EF4444' : '#64748B', border: `1px solid ${showCritical ? '#FCA5A5' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              <AlertTriangle size={12} /> Chemin critique
             </button>
             <button onClick={() => setShowBaseline(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: showBaseline ? '#E0F2FE' : '#F1F5F9', color: showBaseline ? '#0369A1' : '#64748B', border: `1px solid ${showBaseline ? '#7DD3FC' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-              <Calendar size={12} /> Baseline {showBaseline ? '☑' : '☐'}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', background: showBaseline ? '#E0F2FE' : '#F1F5F9', color: showBaseline ? '#0369A1' : '#64748B', border: `1px solid ${showBaseline ? '#7DD3FC' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              <Calendar size={12} /> Baseline
             </button>
             {activeProjet && (
               <button onClick={autoPlanifier} title="Recalcule les dates de toutes les tâches à partir des durées + dépendances (CPM, jours ouvrés)"
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: '#F47920', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#F47920', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                 <Zap size={12} /> Planifier auto (CPM)
               </button>
             )}
@@ -1239,11 +1241,11 @@ export default function Gantt() {
           <>
             {activeProjet && (<>
               <button onClick={() => { setNewBaselineName(''); setNewBaselineDesc(''); setShowBaselineModal(true); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: NAVY, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: NAVY, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                 <Calendar size={13} /> Définir une référence
               </button>
               <button onClick={() => setShowManageBaselines(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: '#EDE9FE', color: '#7C3AED', border: '1px solid #DDD6FE', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#EDE9FE', color: '#7C3AED', border: '1px solid #DDD6FE', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                 <Calendar size={13} /> Gérer les références
                 {(activeProjet.baselines?.length ?? 0) > 0 && (
                   <span style={{ background: '#7C3AED', color: '#fff', borderRadius: 10, padding: '0 5px', fontSize: 9, fontWeight: 800 }}>
@@ -1254,12 +1256,12 @@ export default function Gantt() {
               <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
             </>)}
             <button onClick={exportPDF}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: '#F1F5F9', border: '1px solid #E5E7EB', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', color: '#1E293B' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#F1F5F9', border: '1px solid #E5E7EB', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', color: '#1E293B' }}>
               <FileText size={13} /> Imprimer / PDF
             </button>
             <button onClick={exportCSV}
               title="Exporter le planning en CSV compatible Excel"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: activeProjet ? '#F0FDF4' : '#FAFAFA', border: `1px solid ${activeProjet ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: activeProjet ? 'pointer' : 'not-allowed', color: activeProjet ? '#15803D' : '#9CA3AF', opacity: activeProjet ? 1 : 0.5 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: activeProjet ? '#F0FDF4' : '#FAFAFA', border: `1px solid ${activeProjet ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: activeProjet ? 'pointer' : 'not-allowed', color: activeProjet ? '#15803D' : '#9CA3AF', opacity: activeProjet ? 1 : 0.5 }}>
               <BarChart3 size={13} /> Exporter CSV (Excel)
             </button>
             <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
@@ -1274,8 +1276,8 @@ export default function Gantt() {
 
         {activeRibbonTab === 'ia' && (
           <>
-            <button onClick={() => { if (selectedId) initPertForTask(selectedId); else toast('Sélectionnez une tâche d\'abord', { icon: 'ℹ️' }); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => { if (selectedId) initPertForTask(selectedId); else toast('Sélectionnez une tâche d\'abord', { icon: undefined }); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <TriangleAlert size={12} /> PERT — 3 points
             </button>
             <div style={{ width: 1, height: 22, background: '#E5E7EB' }} />
@@ -1543,13 +1545,13 @@ export default function Gantt() {
                 <span>Avancement critique:</span><span style={{ fontWeight: 700, color: '#7C3AED' }}>{aiAnalysis.critAvg}%</span>
               </div>
               {aiAnalysis.lastCritDate && (
-                <div style={{ marginTop: 8, fontSize: 11, color: '#64748B', background: '#F1F5F9', borderRadius: 6, padding: '5px 8px' }}>
-                  📅 Fin chemin critique estimée : <strong>{fmtDate(aiAnalysis.lastCritDate)}</strong>
+                <div style={{ marginTop: 8, fontSize: 11, color: '#64748B', background: '#F1F5F9', borderRadius: 6, padding: '7px 8px' }}>
+                  Fin chemin critique : <strong>{fmtDate(aiAnalysis.lastCritDate)}</strong>
                 </div>
               )}
               {aiAnalysis.lateCount > 0 && (
-                <div style={{ marginTop: 6, fontSize: 11, color: '#92400E', background: '#FEF3C7', borderRadius: 6, padding: '5px 8px' }}>
-                  ⚠️ {aiAnalysis.lateCount} tâche(s) dépassée(s) — revoyez les jalons & dépendances.
+                <div style={{ marginTop: 6, fontSize: 11, color: '#92400E', background: '#FEF3C7', borderRadius: 6, padding: '7px 8px' }}>
+                  {aiAnalysis.lateCount} tâche(s) dépassée(s) — revoyez les jalons & dépendances.
                 </div>
               )}
             </div>
@@ -1591,45 +1593,6 @@ export default function Gantt() {
                           {rl.tasks.length} tâches simultanées — déplacer les non-critiques
                         </div>
                       )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* PERT — 3-point for critical tasks */}
-          <div style={{ minWidth: 280, flex: '1 1 280px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <TriangleAlert size={16} style={{ color: '#7C3AED' }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>Estimation PERT — chemin critique</span>
-            </div>
-            {criticalIds.size === 0 ? (
-              <div style={{ fontSize: 12, color: '#94A3B8', textAlign: 'center', paddingTop: 12 }}>
-                Sélectionnez un projet avec des dépendances pour activer PERT.
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
-                {localTasks.filter(t => criticalIds.has(t.id) && t.type === 'normal').slice(0, 5).map(task => {
-                  const e = getPertEstimate(task.id) ?? { taskId: task.id, O: Math.max(1, task.duration - 2), M: task.duration, P: task.duration + 5 };
-                  const pert = pertDuration(e);
-                  const sigma = pertSigma(e);
-                  return (
-                    <div key={task.id} style={{ background: '#FDF4FF', border: '1px solid #E9D5FF', borderRadius: 8, padding: '7px 10px', fontSize: 11 }}>
-                      <div style={{ fontWeight: 700, color: '#7C3AED', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {(['O', 'M', 'P'] as const).map(f => (
-                          <label key={f} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: f === 'O' ? '#15803D' : f === 'M' ? '#1D4ED8' : '#DC2626' }}>
-                            {f === 'O' ? 'Opt.' : f === 'M' ? 'Prob.' : 'Pess.'}
-                            <input type="number" min={1} max={999}
-                              value={e[f]}
-                              onChange={ev => setPert(task.id, f, Math.max(1, parseInt(ev.target.value) || 1))}
-                              style={{ width: 42, padding: '2px 4px', border: '1px solid #D1D5DB', borderRadius: 4, fontSize: 10, fontWeight: 700 }} />j
-                          </label>
-                        ))}
-                        <span style={{ marginLeft: 'auto', fontWeight: 800, color: '#7C3AED', fontSize: 12 }}>= {pert}j</span>
-                        <span style={{ fontSize: 10, color: '#64748B' }}>σ={sigma}j</span>
-                      </div>
                     </div>
                   );
                 })}

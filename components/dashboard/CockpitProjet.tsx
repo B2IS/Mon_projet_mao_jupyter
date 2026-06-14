@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import IndicatorWidget from '@/components/dashboard/IndicatorWidget';
 import { analyzeDocument } from '@/lib/docText';
 import { extractStructuredFields, isCopilotLinked } from '@/lib/ai/aiEngine';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -31,6 +32,7 @@ import dynamic from 'next/dynamic';
 import EditableDataTable from '@/components/ui/EditableDataTable';
 import ZonesQuantites from '@/components/dashboard/ZonesQuantites';
 import { useTempsStore } from '@/lib/tempsStore';
+import ImputationsTableur from '@/components/dashboard/ImputationsTableur';
 
 // Carte SIG réelle (Leaflet) — client uniquement.
 const ProjetsCarteLeaflet = dynamic(() => import('@/components/ui/ProjetsCarteLeaflet'), {
@@ -342,6 +344,7 @@ export default function CockpitProjet() {
     if (target && target !== selectedProjetId) setSelectedProjetId(target);
   }, [searchParams, store.projets]); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeOnglet, setActiveOnglet]            = useState('fiche-executive');
+  const [coutsSubTab, setCoutsSubTab]              = useState<'vue' | 'plan' | 'decomptes' | 'couts' | 'imputations'>('vue');
   const [showSelector, setShowSelector]            = useState(false);
   const [selectorQuery, setSelectorQuery]          = useState('');
   const selectorRef = useRef<HTMLDivElement | null>(null);
@@ -1196,6 +1199,9 @@ export default function CockpitProjet() {
       {/* ══ Body ════════════════════════════════════════ */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+        {/* ─── Indicateurs personnalisés ─────────────── */}
+        <IndicatorWidget maxItems={4} compact showLink={false} title="Indicateurs projet" />
+
         {/* ─── SYNTHÈSE ──────────────────────────────── */}
         {activeOnglet === 'synthese' && (
           <>
@@ -1367,20 +1373,18 @@ export default function CockpitProjet() {
               <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px 20px' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 4 }}>Répartition des tâches</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <ResponsiveContainer width={130} height={130}>
-                    <PieChart>
-                      <Pie data={[
-                        { name: 'Terminé', value: taches.filter(t => t.statutTache === 'termine').length, fill: C.green },
-                        { name: 'En cours', value: taches.filter(t => t.statutTache === 'en_cours').length, fill: C.navy },
-                        { name: 'À faire', value: taches.filter(t => t.statutTache === 'a_faire').length, fill: '#D1D5DB' },
-                        { name: 'Bloqué', value: taches.filter(t => t.statutTache === 'bloque').length, fill: C.red },
-                      ].filter(d => d.value > 0)}
-                        cx="50%" cy="50%" innerRadius={35} outerRadius={58} dataKey="value"
-                      >
-                        {[C.green, C.navy, '#D1D5DB', C.red].map((c, i) => <Cell key={i} fill={c} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <PieChart width={130} height={130}>
+                    <Pie data={[
+                      { name: 'Terminé', value: taches.filter(t => t.statutTache === 'termine').length, fill: C.green },
+                      { name: 'En cours', value: taches.filter(t => t.statutTache === 'en_cours').length, fill: C.navy },
+                      { name: 'À faire', value: taches.filter(t => t.statutTache === 'a_faire').length, fill: '#D1D5DB' },
+                      { name: 'Bloqué', value: taches.filter(t => t.statutTache === 'bloque').length, fill: C.red },
+                    ].filter(d => d.value > 0)}
+                      cx="50%" cy="50%" innerRadius={35} outerRadius={58} dataKey="value"
+                    >
+                      {[C.green, C.navy, '#D1D5DB', C.red].map((c, i) => <Cell key={i} fill={c} />)}
+                    </Pie>
+                  </PieChart>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {([['termine','Terminées',C.green],['en_cours','En cours',C.navy],['a_faire','À faire','#94A3B8'],['bloque','Bloquées',C.red]] as [StatutTache,string,string][]).map(([s,l,c]) => (
                       <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
@@ -1430,26 +1434,19 @@ export default function CockpitProjet() {
                 <GanttChart size={13} style={{ color: C.navy }} /> Roadmap du projet
               </div>
               <div style={{ position: 'relative', background: '#F8FAFC', borderRadius: 8, padding: '14px 10px' }}>
-                 {/* Barres roadmap = les 6 phases pondérées du cycle DPE (largeur ∝ pondération) */}
+                 {/* Barres roadmap = une barre par phase 0→100%, poids affiché en label */}
                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                     {(() => {
                       const phs = (projet.phases ?? PHASES_DEFAUT);
-                      const total = phs.reduce((s, p) => s + p.poids, 0) || 100;
                       const palette = ['#64748B', C.purple, C.orange, C.navy, C.green, C.amber];
-                      let acc = 0;
-                      return phs.map((ph, i) => {
-                        const start = (acc / total) * 100; acc += ph.poids;
-                        const width = (ph.poids / total) * 100;
-                        return { id: ph.id, label: ph.label, poids: ph.poids, start, width, color: palette[i % palette.length], av: ph.avancement };
-                      });
+                      return phs.map((ph, i) => ({ id: ph.id, label: ph.label, poids: ph.poids, color: palette[i % palette.length], av: ph.avancement }));
                     })().map(r => (
                       <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', width: 96, flexShrink: 0, overflowWrap: 'anywhere', lineHeight: 1.1 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', width: 120, flexShrink: 0, lineHeight: 1.2 }}>
                           {r.label} <span style={{ color: '#94A3B8', fontWeight: 600 }}>· {r.poids}%</span>
                         </div>
-                        <div style={{ flex: 1, height: 13, background: '#E2E8F0', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
-                           <div style={{ position: 'absolute', left: `${r.start}%`, width: `${r.width}%`, height: '100%', background: r.color, borderRadius: 6, opacity: 0.35 }} />
-                           <div style={{ position: 'absolute', left: `${r.start}%`, width: `${r.width * (r.av / 100)}%`, height: '100%', background: r.color, borderRadius: 6 }} />
+                        <div style={{ flex: 1, height: 13, background: '#E2E8F0', borderRadius: 6, overflow: 'hidden' }}>
+                          <div style={{ width: `${r.av}%`, height: '100%', background: r.color, borderRadius: 6, transition: 'width 0.3s ease' }} />
                         </div>
                         <div style={{ fontSize: 9, fontWeight: 700, color: '#64748B', width: 30, textAlign: 'right', flexShrink: 0 }}>{r.av}%</div>
                       </div>
@@ -1833,6 +1830,27 @@ export default function CockpitProjet() {
         {/* ─── COÛTS ─────────────────────────────────── */}
         {activeOnglet === 'couts' && finances && (
           <>
+            {/* ── Sous-onglets financiers projet ── */}
+            <div style={{ display: 'flex', gap: 0, borderBottom: `2px solid #E2E8F0`, marginBottom: 20, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              {([
+                { id: 'vue',         label: 'Vue financière' },
+                { id: 'plan',        label: 'Plan Financier' },
+                { id: 'decomptes',   label: 'Décomptes & Factures' },
+                { id: 'couts',       label: 'Coûts Collectés' },
+                { id: 'imputations', label: 'Tableur Imputations' },
+              ] as Array<{ id: typeof coutsSubTab; label: string }>).map(t => (
+                <button key={t.id} onClick={() => setCoutsSubTab(t.id)}
+                  style={{ padding: '9px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    border: 'none', borderBottom: coutsSubTab === t.id ? `3px solid ${C.navy}` : '3px solid transparent',
+                    background: 'transparent', color: coutsSubTab === t.id ? C.navy : '#64748B',
+                    transition: 'all .15s', marginBottom: -2, whiteSpace: 'nowrap' }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Vue financière (synthèse EVM + courbes) ── */}
+            {coutsSubTab === 'vue' && <>
             {/* KPI finances */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
@@ -1965,6 +1983,286 @@ export default function CockpitProjet() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+            </>}
+
+            {/* ── Plan Financier projet ── */}
+            {coutsSubTab === 'plan' && (() => {
+              const totalBudget   = projet.budget;
+              const totalDecaisse = projet.budgetDecaisse ?? 0;
+              const totalMarches  = projet.budgetEngage   ?? 0;
+              const LOTS = [
+                { item: 1, designation: 'Fourniture matériels HTA/BT',         pctFourn: 0.554, pctTrans: 0.022, pctPose: 0.101, pctBudget: 0.608 },
+                { item: 2, designation: 'Extension & branchements',             pctFourn: 0.245, pctTrans: 0.007, pctPose: 0.022, pctBudget: 0.249 },
+                { item: 3, designation: 'Réhabilitation réseau',                pctFourn: 0.043, pctTrans: 0.002, pctPose: 0.006, pctBudget: 0.139 },
+                { item: 4, designation: 'Outillages & Équipements',             pctFourn: 0.003, pctTrans: 0.000, pctPose: 0.000, pctBudget: 0.003 },
+              ];
+              const TVA_R = 0.18;
+              const lots = LOTS.map(l => {
+                const fourn = totalBudget * l.pctFourn;
+                const trans = totalBudget * l.pctTrans;
+                const pose  = totalBudget * l.pctPose;
+                const rev   = fourn * 0.056;
+                const htva  = fourn + rev + trans + pose;
+                const budget= totalBudget * l.pctBudget;
+                const dec   = totalDecaisse * l.pctBudget;
+                const taux  = budget > 0 ? dec / budget : 0;
+                return { ...l, fourn, rev, trans, pose, htva, budget, dec, taux };
+              });
+              const totHTVA = lots.reduce((s, l) => s + l.htva, 0);
+              const fmtM = (v: number) => v.toFixed(1);
+              const NAVY_ = '#1B4F8A', GREEN_ = '#16A34A', AMBER_ = '#D97706', RED_ = '#EF3340', ORANGE_ = '#F47920';
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                    {[
+                      { label: 'Budget total', val: `${totalBudget.toFixed(1)} MFCFA`, color: NAVY_ },
+                      { label: 'Engagé', val: `${totalMarches.toFixed(1)} MFCFA`, color: ORANGE_ },
+                      { label: 'Décaissé', val: `${totalDecaisse.toFixed(1)} MFCFA`, color: GREEN_ },
+                    ].map(k => (
+                      <div key={k.label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: `1px solid ${k.color}20` }}>
+                        <div style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 4 }}>{k.label}</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: k.color }}>{k.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 13, color: C.navy }}>
+                      Structure Budgétaire — Lots & Composantes (MFCFA)
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: '#F8FAFC' }}>
+                            {['#', 'Désignation', 'Fourniture', 'Révision', 'Transport', 'Pose', 'Total HTVA', 'Budget', 'Décaissé', 'Taux'].map((h, i) => (
+                              <th key={i} style={{ padding: '8px 10px', textAlign: i < 2 ? 'left' : 'right', fontSize: 9, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', borderBottom: '2px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lots.map((l, idx) => {
+                            const tc = l.taux >= 0.8 ? GREEN_ : l.taux >= 0.5 ? AMBER_ : RED_;
+                            return (
+                              <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: idx % 2 === 1 ? '#FAFBFC' : '#fff' }}>
+                                <td style={{ padding: '7px 10px', fontWeight: 800, color: NAVY_, fontSize: 11 }}>{l.item}</td>
+                                <td style={{ padding: '7px 10px', fontWeight: 600, color: '#1E293B' }}>{l.designation}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right', color: '#475569' }}>{fmtM(l.fourn)}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right', color: '#94A3B8' }}>{fmtM(l.rev)}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right', color: '#475569' }}>{fmtM(l.trans)}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right', color: ORANGE_, fontWeight: 600 }}>{fmtM(l.pose)}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: NAVY_ }}>{fmtM(l.htva)}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748B' }}>{fmtM(l.budget)}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: tc }}>{fmtM(l.dec)}</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right' }}>
+                                  <span style={{ fontWeight: 800, color: tc, fontSize: 11 }}>{Math.round(l.taux * 100)}%</span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ background: NAVY_ + '0A', borderTop: `2px solid ${NAVY_}30` }}>
+                            <td colSpan={2} style={{ padding: '9px 10px', fontWeight: 800, color: NAVY_, fontSize: 12 }}>TOTAL HT</td>
+                            <td colSpan={4} />
+                            <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: NAVY_ }}>{fmtM(totHTVA)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: '#64748B', fontWeight: 700 }}>{fmtM(totalMarches)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: GREEN_ }}>{fmtM(totalDecaisse)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: GREEN_ }}>
+                              {totalMarches > 0 ? Math.round((totalDecaisse / totalMarches) * 100) : 0}%
+                            </td>
+                          </tr>
+                          <tr style={{ background: '#FFF8F2' }}>
+                            <td colSpan={2} style={{ padding: '7px 10px', fontWeight: 700, color: ORANGE_ }}>TVA 18%</td>
+                            <td colSpan={4} />
+                            <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: ORANGE_ }}>{fmtM(totHTVA * TVA_R)}</td>
+                            <td colSpan={3} />
+                          </tr>
+                          <tr style={{ background: '#EFF6FF' }}>
+                            <td colSpan={2} style={{ padding: '9px 10px', fontWeight: 800, color: NAVY_, fontSize: 12 }}>TOTAL TTC</td>
+                            <td colSpan={4} />
+                            <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: NAVY_ }}>{fmtM(totHTVA * (1 + TVA_R))}</td>
+                            <td colSpan={3} />
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Décomptes & Factures projet ── */}
+            {coutsSubTab === 'decomptes' && (() => {
+              const BASE_REF = 39_222.379915;
+              const ratio = projet.budget / BASE_REF;
+              const NAVY_ = '#1B4F8A', GREEN_ = '#16A34A', AMBER_ = '#D97706', RED_ = '#EF3340', ORANGE_ = '#F47920';
+              const DECOMPTES = [
+                { num: 'Avance démarrage',    refFA: 'FA0273/20', pct: 20.000, ht: 7200.0 * ratio, note: '20% marché de base' },
+                { num: 'Avance appro.',        refFA: 'FA0274/20', pct: 10.000, ht: 3600.0 * ratio, note: '10% appro. matériels' },
+                { num: 'Décompte N°2',         refFA: 'FA0318/20', pct:  5.005, ht: 1963.2 * ratio, note: '' },
+                { num: 'Décompte N°3',         refFA: 'FA0320/20', pct:  5.374, ht: 2107.8 * ratio, note: '' },
+                { num: 'Décompte N°4',         refFA: 'FA0321/20', pct:  5.458, ht: 2140.9 * ratio, note: '' },
+                { num: 'Décompte N°5',         refFA: 'FA0324/20', pct:  5.377, ht: 2109.1 * ratio, note: '' },
+                { num: 'Décompte N°6',         refFA: 'FA0326/20', pct:  3.461, ht: 1357.6 * ratio, note: '' },
+                { num: 'Décompte N°7',         refFA: 'FA0322/21', pct:  4.172, ht: 1636.3 * ratio, note: '' },
+                { num: 'Décompte N°8',         refFA: 'FA0334/21', pct:  3.100, ht: 1216.0 * ratio, note: '' },
+                { num: 'Décompte N°9',         refFA: 'FA0335/21', pct:  3.929, ht: 1541.2 * ratio, note: '' },
+                { num: 'Décompte N°10',        refFA: 'FA0371/21', pct:  4.199, ht: 1646.9 * ratio, note: '' },
+                { num: 'Décompte N°11',        refFA: 'FA0493/21', pct:  8.870, ht: 3479.0 * ratio, note: '' },
+                { num: 'Décompte N°12',        refFA: 'FA0498/21', pct:  3.622, ht: 1420.5 * ratio, note: '' },
+              ];
+              const isAvance = (num: string) => num.includes('Avance');
+              const TVA_R = 0.18;
+              const rows = DECOMPTES.map((d, i) => {
+                const tva    = d.ht * TVA_R;
+                const ded_dem = isAvance(d.num) ? 0 : d.ht * 0.28;
+                const ded_app = isAvance(d.num) ? 0 : d.ht * 0.14;
+                const ret     = isAvance(d.num) ? 0 : d.ht * 0.05;
+                const net     = d.ht + tva - ded_dem - ded_app - ret;
+                const statut  = i < 9 ? 'Payé' : i < 11 ? 'Certifié' : 'Facturé';
+                const sColor  = statut === 'Payé' ? GREEN_ : statut === 'Certifié' ? AMBER_ : ORANGE_;
+                return { ...d, tva, ded_dem, ded_app, ret, net, statut, sColor };
+              });
+              const cumPct = rows.reduce((s, r) => s + r.pct, 0);
+              const totHT  = rows.reduce((s, r) => s + r.ht, 0);
+              const totTVA = rows.reduce((s, r) => s + r.tva, 0);
+              const reste  = Math.max(0, projet.budget - totHT);
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+                    {[
+                      { label: 'Marché de base', val: `${(projet.budget * 0.917).toFixed(0)} M`, color: NAVY_ },
+                      { label: 'Avenant révision', val: `${(projet.budget * 0.083).toFixed(0)} M`, color: ORANGE_ },
+                      { label: 'Total facturé', val: `${cumPct.toFixed(1)}%`, color: GREEN_ },
+                      { label: 'Reste à facturer', val: `${reste.toFixed(0)} M`, color: AMBER_ },
+                    ].map(k => (
+                      <div key={k.label} style={{ background: '#fff', borderRadius: 10, padding: '12px 16px', border: `1px solid ${k.color}20` }}>
+                        <div style={{ fontSize: 9, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 3 }}>{k.label}</div>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: k.color }}>{k.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 13, color: C.navy }}>
+                      Récapitulatif Facturation — {DECOMPTES.length} termes · TVA 18% · MFCFA
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
+                        <thead>
+                          <tr style={{ background: '#F8FAFC' }}>
+                            {['Terme', 'N° FA', '%', 'Montant HT', 'TVA', 'Déd. Av. Dém.', 'Déd. Av. App.', 'Ret. 5%', 'Net à payer', 'Statut'].map((h, i) => (
+                              <th key={i} style={{ padding: '8px 10px', textAlign: i < 2 ? 'left' : 'right', fontSize: 9, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', borderBottom: '2px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: isAvance(r.num) ? NAVY_ + '06' : idx % 2 === 0 ? '#fff' : '#FAFBFC' }}>
+                              <td style={{ padding: '7px 10px', fontWeight: isAvance(r.num) ? 700 : 500, color: isAvance(r.num) ? NAVY_ : '#1E293B', whiteSpace: 'nowrap' }}>
+                                {r.num}{r.note && <span style={{ fontSize: 9, color: '#94A3B8', marginLeft: 4 }}>({r.note})</span>}
+                              </td>
+                              <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 9.5, color: NAVY_, fontWeight: 600 }}>{r.refFA}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748B' }}>{r.pct.toFixed(2)}%</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: NAVY_ }}>{r.ht.toFixed(1)}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', color: '#94A3B8' }}>{r.tva.toFixed(1)}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ded_dem > 0 ? RED_ : '#CBD5E1' }}>{r.ded_dem > 0 ? `-${r.ded_dem.toFixed(1)}` : '—'}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ded_app > 0 ? RED_ : '#CBD5E1' }}>{r.ded_app > 0 ? `-${r.ded_app.toFixed(1)}` : '—'}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', color: r.ret > 0 ? AMBER_ : '#CBD5E1' }}>{r.ret > 0 ? `-${r.ret.toFixed(1)}` : '—'}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, color: r.net >= 0 ? GREEN_ : RED_ }}>{r.net.toFixed(1)}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right' }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: `${r.sColor}15`, color: r.sColor }}>{r.statut}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ background: NAVY_ + '08', borderTop: `2px solid ${NAVY_}30` }}>
+                            <td colSpan={2} style={{ padding: '9px 10px', fontWeight: 800, color: NAVY_, fontSize: 11 }}>TOTAL FACTURÉ</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: NAVY_ }}>{cumPct.toFixed(2)}%</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: NAVY_ }}>{totHT.toFixed(1)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: '#94A3B8' }}>{totTVA.toFixed(1)}</td>
+                            <td colSpan={5} />
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Coûts Collectés projet ── */}
+            {coutsSubTab === 'couts' && (() => {
+              const TVA = 0.18;
+              const GREEN_ = '#16A34A', AMBER_ = '#D97706', NAVY_ = '#1B4F8A', ORANGE_ = '#F47920';
+              const fournisseurs = ['EIFFAGE Sénégal', 'Bouygues ES', 'SETRAC', 'Africa Energy', 'SOBETA'];
+              const taches = ['Fournitures', 'Génie Civil', 'Supervision', 'Études', 'Imprévus'];
+              const statuts = ['Certifiée', 'Payée', 'En attente'] as const;
+              const lignesCouts = Array.from({ length: 8 }, (_, i) => {
+                const ht = Math.round(projet.budgetDecaisse * 125 * (0.1 + 0.1 * i) / 8 * 10) / 10;
+                const tvaAmt = Math.round(ht * TVA * 10) / 10;
+                const month = String((i + 1) % 12 + 1).padStart(2, '0');
+                return {
+                  date: `2025-${month}-${String((i * 5 + 3) % 28 + 1).padStart(2, '0')}`,
+                  fournisseur: fournisseurs[i % fournisseurs.length],
+                  numFacture: `FA-2025-${String(i + 1).padStart(4, '0')}`,
+                  tache: `${projet.code} / ${taches[i % taches.length]}`,
+                  ht, tva: tvaAmt, ttc: Math.round((ht + tvaAmt) * 10) / 10,
+                  statut: statuts[i % 3],
+                };
+              });
+              const totHT  = lignesCouts.reduce((s, l) => s + l.ht, 0);
+              const totTVA = lignesCouts.reduce((s, l) => s + l.tva, 0);
+              const totTTC = lignesCouts.reduce((s, l) => s + l.ttc, 0);
+              const sColor = (s: typeof statuts[number]) => s === 'Payée' ? GREEN_ : s === 'Certifiée' ? AMBER_ : '#94A3B8';
+              return (
+                <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                  <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 13, color: C.navy }}>
+                    Coûts Collectés — {lignesCouts.length} transactions · {projet.code} · TVA 18%
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ background: '#F8FAFC' }}>
+                          {['Date', 'Fournisseur', 'N° Facture', 'Tâche / WBS', 'HT (M)', 'TVA (M)', 'TTC (M)', 'Statut'].map((h, i) => (
+                            <th key={i} style={{ padding: '9px 12px', textAlign: i >= 4 ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', borderBottom: '2px solid #E2E8F0', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lignesCouts.map((l, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: idx % 2 === 1 ? '#FAFBFC' : '#fff' }}>
+                            <td style={{ padding: '8px 12px', color: '#64748B', fontSize: 10, fontFamily: 'monospace' }}>{l.date}</td>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1E293B' }}>{l.fournisseur}</td>
+                            <td style={{ padding: '8px 12px', color: NAVY_, fontFamily: 'monospace', fontWeight: 700 }}>{l.numFacture}</td>
+                            <td style={{ padding: '8px 12px', color: '#64748B', fontSize: 10 }}>{l.tache}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: NAVY_ }}>{l.ht.toFixed(1)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: '#94A3B8' }}>{l.tva.toFixed(1)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: ORANGE_ }}>{l.ttc.toFixed(1)}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${sColor(l.statut)}18`, color: sColor(l.statut) }}>
+                                {l.statut}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ background: NAVY_ + '08', borderTop: `2px solid ${NAVY_}30` }}>
+                          <td colSpan={4} style={{ padding: '9px 12px', fontWeight: 800, color: NAVY_, fontSize: 12 }}>TOTAL</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 800, color: NAVY_ }}>{totHT.toFixed(1)}</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', color: '#64748B' }}>{totTVA.toFixed(1)}</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 800, color: ORANGE_ }}>{totTTC.toFixed(1)}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Tableur Imputations ── */}
+            {coutsSubTab === 'imputations' && <ImputationsTableur />}
           </>
         )}
 

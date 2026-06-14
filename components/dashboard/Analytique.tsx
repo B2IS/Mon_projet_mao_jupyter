@@ -9,6 +9,7 @@ import {
   AreaChart, Area,
 } from 'recharts';
 import { Download, RefreshCw, TrendingUp, Zap, Activity, BarChart2 } from 'lucide-react';
+import IndicatorWidget from '@/components/dashboard/IndicatorWidget';
 import { useProjectStore, DOMAINE_CFG, STATUT_CFG } from '@/lib/projectStore';
 import { downloadExcel } from '@/lib/exportUtils';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
@@ -600,6 +601,9 @@ export default function Analytique() {
         </div>
       </div>
 
+      {/* ── Indicateurs personnalisés ────────────────────────────────────────── */}
+      <IndicatorWidget showLink compact={false} />
+
       {/* ── ROW 0 — M&E Utility KPIs ────────────────────────────────────────── */}
       <div style={{ background: NAVY + '08', borderRadius: 10, border: `1px solid ${NAVY}20`, padding: '12px 16px' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -783,25 +787,23 @@ export default function Analytique() {
         <Card>
           <SectionHeader title="Répartition des dépenses par catégorie" />
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <ResponsiveContainer width={180} height={200}>
-              <PieChart>
-                <Pie
-                  data={PIE_DEPENSES}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%" cy="50%"
-                  outerRadius={82}
-                  innerRadius={42}
-                  paddingAngle={2}
-                  strokeWidth={1}
-                >
-                  {PIE_DEPENSES.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<PieTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
+            <PieChart width={180} height={200}>
+              <Pie
+                data={PIE_DEPENSES}
+                dataKey="value"
+                nameKey="name"
+                cx="50%" cy="50%"
+                outerRadius={82}
+                innerRadius={42}
+                paddingAngle={2}
+                strokeWidth={1}
+              >
+                {PIE_DEPENSES.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip content={<PieTooltip />} />
+            </PieChart>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
               {PIE_DEPENSES.map((d) => (
                 <div key={d.name}>

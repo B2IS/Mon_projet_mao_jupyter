@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * GestionProjet.tsx — Espace Gestion de Projet (type MS Project)
+ * GestionProjet.tsx — Espace Gestion de Projet (planning projet)
  * -----------------------------------------------------------------------------
  * Couvre le cycle complet, du marché à la clôture :
  *   1. Cycle de vie : phases pondérées (Passations → Clôture) + avancement pondéré.

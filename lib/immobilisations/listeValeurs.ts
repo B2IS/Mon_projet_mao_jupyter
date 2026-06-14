@@ -64,8 +64,8 @@ export const LISTES_VALEURS: Referentiel[] = [
   {
     cle: 'processus',
     libelle: 'Processus Opérationnel',
-    description: 'Processus métier rattaché à la dépense (Étude, Travaux, Exploitation, Approvisionnement…).',
-    valeurs: ['Étude', 'Travaux', 'Approvisionnement', 'Exploitation', 'Extension', 'Contrôle', 'Audit', 'Finance'],
+    description: 'Processus métier rattaché à la dépense (Étude, Travaux, Exploitation, Fourniture…).',
+    valeurs: ['Étude', 'Travaux', 'Fourniture', 'Exploitation', 'Extension', 'Contrôle', 'Audit', 'Finance'],
     exhaustif: 24,
   },
   {

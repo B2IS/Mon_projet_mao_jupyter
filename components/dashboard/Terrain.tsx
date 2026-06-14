@@ -343,14 +343,14 @@ export default function Terrain() {
   };
 
   const tabs = [
-    { label: '📋 Kanban Missions', badge: MISSIONS.filter(m => m.statut === 'attente_val').length || undefined },
-    { label: '🏗️ Chantiers DPE' },
-    { label: '📝 Formulaire Terrain' },
-    { label: '📊 Rapports' },
-    { label: '🛡️ QHSE & Non-conformités', badge: NON_CONFORMITES.filter(nc => nc.statut !== 'cloturee').length || undefined },
-    { label: '✅ Validation CP', badge: MISSIONS.filter(m => m.statut === 'attente_val').length || undefined },
-    { label: '📲 Saisie Terrain' },
-    { label: '🔄 Sync Mobile', badge: SYNC_QUEUE.length || undefined },
+    { label: 'Kanban Missions', badge: MISSIONS.filter(m => m.statut === 'attente_val').length || undefined },
+    { label: 'Chantiers DPE' },
+    { label: 'Formulaire Terrain' },
+    { label: 'Rapports' },
+    { label: 'QHSE & Non-conformités', badge: NON_CONFORMITES.filter(nc => nc.statut !== 'cloturee').length || undefined },
+    { label: 'Validation CP', badge: MISSIONS.filter(m => m.statut === 'attente_val').length || undefined },
+    { label: 'Saisie Terrain' },
+    { label: 'Sync Mobile', badge: SYNC_QUEUE.length || undefined },
   ];
 
   /* ─── TAB 0: KANBAN MISSIONS ─────────────────────────────────── */
@@ -576,10 +576,10 @@ export default function Terrain() {
             <label style={{ fontSize: 11, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>TYPE DE FORMULAIRE</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
               {([
-                { k: 'avancement', label: '📈 Avancement physique' },
-                { k: 'reception',  label: '✅ Réception partielle' },
-                { k: 'constat',    label: '🔍 Constat terrain' },
-                { k: 'mesure_dpe', label: '⚡ Mesures DPE/Énergie' },
+                { k: 'avancement', label: 'Avancement physique' },
+                { k: 'reception',  label: 'Réception partielle' },
+                { k: 'constat',    label: 'Constat terrain' },
+                { k: 'mesure_dpe', label: 'Mesures DPE/Énergie' },
               ] as { k: TypeFormulaire; label: string }[]).map(({ k, label }) => (
                 <button key={k} onClick={() => setTypeFormulaire(k)} style={{ padding: '8px 10px', borderRadius: 7, border: `2px solid ${typeFormulaire === k ? '#F47920' : '#E2E8F0'}`, background: typeFormulaire === k ? '#FFF7ED' : '#fff', fontSize: 11, fontWeight: typeFormulaire === k ? 700 : 400, color: typeFormulaire === k ? '#F47920' : '#475569', cursor: 'pointer', textAlign: 'left' }}>
                   {label}
@@ -976,7 +976,7 @@ export default function Terrain() {
       <div className="card" style={{ borderLeft: '4px solid #F47920' }}>
         <div className="card-header">
           <div>
-            <div className="card-title">🏗️ Terrain & Missions DPE — Canevas C</div>
+            <div className="card-title">Terrain & Missions DPE — Canevas C</div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
               Saisies terrain · Kanban missions · QHSE · Validation CP · Sync différée
             </div>

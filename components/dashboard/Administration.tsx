@@ -355,7 +355,7 @@ function InviterModal({ onClose, onSend }: { onClose: () => void; onSend?: (inv:
               </div>
               {role && ROLES_LIST.find(r=>r.id===role) && ( // Check if role is valid before displaying
                 <div style={{ padding: '10px 14px', background: '#F3EBF9', borderRadius: 8, border: '1px solid #E9D5FF', fontSize: 11.5, color: '#3D1A6B' }}>
-                  🎯 <strong>Accès préconfiguré pour le rôle {ROLES_LIST.find(r=>r.id===role)?.label} :</strong>{' '}
+                  <strong>Accès préconfiguré pour le rôle {ROLES_LIST.find(r=>r.id===role)?.label} :</strong>{' '}
                   les modules et permissions par défaut seront proposés à l'étape suivante.
                 </div>
               )}
@@ -390,7 +390,7 @@ function InviterModal({ onClose, onSend }: { onClose: () => void; onSend?: (inv:
               </div>
               {role === 'CHEF_PROJ' && ( // Use RoleCode directly
                 <div style={{ marginTop: 14, padding: '10px 14px', background: '#EFF6FF', borderRadius: 8, border: '1px solid #BFDBFE', fontSize: 11.5, color: '#1D4ED8' }}>
-                  💡 En tant que <strong>Chef de Projet</strong>, l'utilisateur verra uniquement les projets qui lui seront assignés par le PMO ou l'administrateur.
+                  En tant que <strong>Chef de Projet</strong>, l'utilisateur verra uniquement les projets qui lui seront assignés par le PMO ou l'administrateur.
                 </div>
               )}
             </div>
@@ -413,7 +413,7 @@ function InviterModal({ onClose, onSend }: { onClose: () => void; onSend?: (inv:
               </div>
               {/* Résumé */}
               <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 11.5 }}>
-                <div style={{ fontWeight: 700, color: '#374151', marginBottom: 6 }}>📋 Résumé de l'invitation :</div>
+                <div style={{ fontWeight: 700, color: '#374151', marginBottom: 6 }}>Résumé de l'invitation :</div>
                 <div style={{ color: '#475569', lineHeight: 1.7 }}>
                   <div>👤 {prenom} {nom} — {email}</div>
                   <div>🏢 {TENANTS.find(t => t.code === tenant)?.nom ?? tenant}{direction ? ` — ${direction}` : ''}</div>
@@ -601,18 +601,18 @@ export default function Administration() {
         <div className="card-body" style={{ padding: '10px 14px' }}>
           <div className="tabs">
             {([
-              { key: 'utilisateurs', label: '👥 Utilisateurs', badge: UTILISATEURS.filter(u => !u.actif).length },
-              { key: 'tenants',      label: '🏢 Tenants',       badge: 0 },
-              { key: 'roles',        label: '🔑 Rôles & Permissions', badge: 0 },
-              { key: 'modules',      label: '📦 Modules',       badge: 0 },
-              { key: 'calculs',      label: '📐 Fonctions & Calculs', badge: 0 },
-              { key: 'criteres',     label: '⚖️ Critères & Scoring', badge: 0 },
-              { key: 'terrain',      label: '🏗️ Phases & Canevas terrain', badge: 0 },
-              { key: 'dashboard_builder', label: '📈 Dashboard Builder', badge: customDashboards.length },
-              { key: 'securite',     label: '🔒 Sécurité',      badge: 0 },
-              { key: 'audit',        label: '📋 Journal d\'audit', badge: 0 },
-              { key: 'integrations', label: '🌐 Intégrations',  badge: 0 },
-              { key: 'alertes',      label: '🚨 Alertes & canaux', badge: 0 },
+              { key: 'utilisateurs', label: 'Utilisateurs', badge: UTILISATEURS.filter(u => !u.actif).length },
+              { key: 'tenants',      label: 'Tenants',       badge: 0 },
+              { key: 'roles',        label: 'Rôles & Permissions', badge: 0 },
+              { key: 'modules',      label: 'Modules',       badge: 0 },
+              { key: 'calculs',      label: 'Fonctions & Calculs', badge: 0 },
+              { key: 'criteres',     label: 'Critères & Scoring', badge: 0 },
+              { key: 'terrain',      label: 'Phases & Canevas terrain', badge: 0 },
+              { key: 'dashboard_builder', label: 'Dashboard Builder', badge: customDashboards.length },
+              { key: 'securite',     label: 'Sécurité',      badge: 0 },
+              { key: 'audit',        label: 'Journal d\'audit', badge: 0 },
+              { key: 'integrations', label: 'Intégrations',  badge: 0 },
+              { key: 'alertes',      label: 'Alertes & canaux', badge: 0 },
             ] as { key: TabAdminType; label: string; badge: number }[]).map(t => (
               <button key={t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>
                 {t.label}
@@ -1001,7 +1001,7 @@ export default function Administration() {
               </div>
             </div>
             <a href="/administration/org-config" className="btn btn-primary btn-sm" style={{ textDecoration: 'none' }}>
-              ⚙️ Configurer l'organigramme
+              Configurer l'organigramme
             </a>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -1042,7 +1042,7 @@ export default function Administration() {
             </table>
           </div>
           <div className="card-body" style={{ borderTop: '1px solid var(--border-2)', background: '#F8FAFC', fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
-            💡 Pour modifier la règle Fonction→Rôle ou créer de nouvelles fonctions pour une réorganisation future, utilisez le module{' '}
+            Pour modifier la règle Fonction→Rôle ou créer de nouvelles fonctions pour une réorganisation future, utilisez le module{' '}
             <a href="/administration/org-config" style={{ color: 'var(--primary)', fontWeight: 700 }}>Configuration organisationnelle</a> (onglet Postes).
             Chaque agent peut aussi recevoir un rôle individuel différent de sa fonction via l'onglet Agents.
           </div>
@@ -1522,33 +1522,87 @@ export default function Administration() {
               <table className="tbl">
                 <thead>
                   <tr>
-                    <th>Indicateur</th>
-                    <th>Code / Variable</th>
-                    <th>Formule de calcul</th>
-                    <th>Unité</th>
-                    <th>Statut</th>
-                    <th>Actions</th>
+                    <th style={{ minWidth: 180 }}>Indicateur</th>
+                    <th style={{ minWidth: 130 }}>Code / Variable</th>
+                    <th style={{ minWidth: 220 }}>Formule de calcul</th>
+                    <th style={{ minWidth: 60, textAlign: 'center' }}>Unité</th>
+                    <th style={{ minWidth: 90, textAlign: 'center' }}>Statut</th>
+                    <th style={{ minWidth: 80, textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {calculatedFields.map(f => (
                     <tr key={f.id}>
                       <td>
-                        <div style={{ fontWeight: 700, color: 'var(--navy)' }}>{f.nom}</div>
-                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>{f.description}</div>
-                      </td>
-                      <td><code style={{ fontSize: 10, background: '#F1F5F9', padding: '2px 6px', borderRadius: 4 }}>{f.code}</code></td>
-                      <td><code style={{ fontSize: 11, color: '#0369A1' }}>{f.formule}</code></td>
-                      <td><span className="pill pill-navy">{f.unite}</span></td>
-                      <td>
-                        <span className={`pill ${f.statut === 'actif' ? 'pill-ok' : 'pill-warn'}`}>
-                          {f.statut === 'actif' ? 'Production' : 'En test'}
-                        </span>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A', lineHeight: 1.3 }}>{f.nom}</div>
+                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 2, lineHeight: 1.4 }}>{f.description}</div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button aria-label={`Modifier la formule ${f.nom}`} className="btn btn-ghost btn-xs" onClick={() => { setEditingCFId(f.id); setCFForm({ nom: f.nom, code: f.code, formule: f.formule, unite: f.unite, description: f.description, statut: f.statut }); setShowCFForm(true); setCfValidationMessage(null); }}><Edit2 size={10} /></button>
-                          <button aria-label={`Supprimer la formule ${f.nom}`} className="btn btn-ghost btn-xs" onClick={() => setCalculatedFields(prev => prev.filter(x => x.id !== f.id))}><Trash2 size={10} /></button>
+                        <code style={{
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                          fontFamily: 'monospace',
+                          background: '#1E293B',
+                          color: '#E2E8F0',
+                          padding: '3px 8px',
+                          borderRadius: 5,
+                          letterSpacing: '0.03em',
+                          display: 'inline-block',
+                        }}>{f.code}</code>
+                      </td>
+                      <td>
+                        <code style={{
+                          fontSize: 11.5,
+                          fontFamily: 'monospace',
+                          background: '#F0F9FF',
+                          color: '#0C4A6E',
+                          border: '1px solid #BAE6FD',
+                          padding: '4px 10px',
+                          borderRadius: 6,
+                          display: 'inline-block',
+                          lineHeight: 1.5,
+                          wordBreak: 'break-all',
+                        }}>{f.formule}</code>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          background: '#F3EBF9',
+                          color: '#3D1A6B',
+                          border: '1px solid #C4B5FD',
+                          padding: '3px 10px',
+                          borderRadius: 99,
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}>{f.unite}</span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {f.statut === 'actif' ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            background: '#052E16', color: '#4ADE80',
+                            padding: '3px 10px', borderRadius: 99,
+                            fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ADE80', flexShrink: 0 }} />
+                            Production
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            background: '#1C1917', color: '#FCD34D',
+                            padding: '3px 10px', borderRadius: 99,
+                            fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FCD34D', flexShrink: 0 }} />
+                            En test
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                          <button aria-label={`Modifier la formule ${f.nom}`} className="btn btn-ghost btn-xs" onClick={() => { setEditingCFId(f.id); setCFForm({ nom: f.nom, code: f.code, formule: f.formule, unite: f.unite, description: f.description, statut: f.statut }); setShowCFForm(true); setCfValidationMessage(null); }}><Edit2 size={11} /></button>
+                          <button aria-label={`Supprimer la formule ${f.nom}`} className="btn btn-ghost btn-xs" onClick={() => setCalculatedFields(prev => prev.filter(x => x.id !== f.id))}><Trash2 size={11} /></button>
                         </div>
                       </td>
                     </tr>
@@ -1790,7 +1844,7 @@ function JournalAuditPanel() {
   return (
     <div className="card">
       <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <span className="card-title">📋 Journal d&apos;audit — {filtered.length} événement(s)</span>
+        <span className="card-title">Journal d&apos;audit — {filtered.length} événement(s)</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <input className="form-input" style={{ width: 200 }} placeholder="Rechercher (utilisateur, action, objet…)" value={q} onChange={e => setQ(e.target.value)} />
           <select className="form-input" style={{ width: 'auto' }} value={type} onChange={e => setType(e.target.value)}>

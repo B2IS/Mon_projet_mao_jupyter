@@ -12,6 +12,7 @@ import {
 } from '@/lib/projectStore';
 import { useCanPerform } from '@/lib/hooks/useUserScope';
 import MatriceExport from './MatriceExport';
+import IndicatorWidget from '@/components/dashboard/IndicatorWidget';
 import dynamic from 'next/dynamic';
 
 const ProjetsCarteLeaflet = dynamic(() => import('@/components/ui/ProjetsCarteLeaflet'), {
@@ -1115,10 +1116,10 @@ export default function Portefeuille() {
           {/* Toggle */}
           <div style={{ display: 'flex', background: '#E8EDF4', borderRadius: 10, padding: 3, gap: 3 }}>
             {([
-              { k: 'programme',     label: '🏛️ Programmes' },
-              { k: 'strategique',   label: '📊 Stratégique' },
-              { k: 'operationnelle',label: '⚙️ Opérationnel' },
-              { k: 'icp',           label: '📈 Performance ICP' },
+              { k: 'programme',     label: 'Programmes' },
+              { k: 'strategique',   label: 'Stratégique' },
+              { k: 'operationnelle',label: 'Opérationnel' },
+              { k: 'icp',           label: 'Performance ICP' },
             ] as { k: typeof vue; label: string }[]).map(({ k, label }) => (
               <button key={k} onClick={() => setVue(k)} style={{
                 padding: '8px 14px', borderRadius: 8, border: 'none', fontFamily: 'inherit',
@@ -1155,7 +1156,7 @@ export default function Portefeuille() {
               onClick={() => setShowFilters(v => !v)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: `1px solid ${showFilters ? '#1B4F8A' : '#E2E8F0'}`, background: showFilters ? '#EFF6FF' : '#fff', color: showFilters ? '#1B4F8A' : '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              ⚡ Filtres directeur {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+              Filtres directeur {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
             </button>
           </div>
         </div>
@@ -1165,7 +1166,7 @@ export default function Portefeuille() {
       {showFilters && (
         <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 20px', marginBottom: 16, boxShadow: '0 4px 16px rgba(27,79,138,0.1)', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#1B4F8A' }}>⚡ Filtrage multi-dimensionnel — Vue Directeur</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1B4F8A' }}>Filtrage multi-dimensionnel — Vue Directeur</div>
             <div style={{ flex: 1, height: 1, background: '#E2E8F0', marginLeft: 8 }} />
             <span style={{ fontSize: 11, color: '#94A3B8' }}>{projets.length} / {allProjets.length} projets sélectionnés</span>
           </div>
@@ -1277,6 +1278,9 @@ export default function Portefeuille() {
           )}
         </div>
       )}
+
+      {/* ── Indicateurs personnalisés ── */}
+      <IndicatorWidget compact maxItems={6} showLink title="Indicateurs portefeuille" />
 
       {/* ── Vue Programme (new) ── */}
       {vue === 'programme' && (

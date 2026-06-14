@@ -825,7 +825,7 @@ function generatePlanningResponse(): string {
 |-------|-------|-----|------------|--------|
 | Études APS/APD | Q1 2024 | Q2 2024 | 100% | Terminé |
 | DAO / Passation | Q2 2024 | Q4 2024 | 85% | En cours |
-| Approvisionnement | Q4 2024 | Q2 2025 | 45% | En cours |
+| Fourniture | Q4 2024 | Q2 2025 | 45% | En cours |
 | Travaux GC | Q1 2025 | Q4 2025 | 20% | En cours |
 | Travaux Électriques | Q2 2025 | Q1 2026 | 5% | Non démarré |
 | Mise en service | Q4 2025 | Q2 2026 | 0% | Non démarré |

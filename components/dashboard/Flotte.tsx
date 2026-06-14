@@ -274,7 +274,7 @@ function assuranceUrgent(joursRestants: number): boolean {
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-type OngletFlotte = 'parc' | 'carnet' | 'chauffeurs' | 'alertes' | 'stats' | 'emprunts';
+type OngletFlotte = 'parc' | 'carnet' | 'chauffeurs' | 'alertes' | 'stats' | 'emprunts' | 'affectation';
 
 export default function Flotte() {
   const [onglet, setOnglet] = useState<OngletFlotte>('parc');
@@ -333,6 +333,7 @@ export default function Flotte() {
     { key: 'alertes', label: 'Alertes & Maintenance' },
     { key: 'stats', label: 'Statistiques' },
     { key: 'emprunts', label: 'Emprunts inter-UAGL' },
+    { key: 'affectation', label: 'Affectation intelligente' },
   ];
 
   return (
@@ -830,6 +831,9 @@ export default function Flotte() {
         </div>
       )}
 
+      {/* ── Affectation intelligente ── */}
+      {onglet === 'affectation' && <AffectationTab />}
+
       {/* Modal demande d'emprunt */}
       {empruntModal && (
         <EmpruntModal
@@ -872,6 +876,194 @@ export default function Flotte() {
         .btn-primary:hover { opacity: 0.88; }
         @media (max-width: 768px) { .hide-mobile { display: none !important; } }
       `}</style>
+    </div>
+  );
+}
+
+/* ─── Affectation intelligente (algorithme UAGL — rapport Mme GUEYE) ─────────
+   Critères : disponibilité + équité de charge + validité administrative
+   Inspiré du "smart logistics resource planning system" du rapport
+   ─────────────────────────────────────────────────────────────────────────── */
+function AffectationTab() {
+  const { chauffeurs } = useOdmConfig();
+  const [destination, setDestination] = useState('');
+  const [kmEst, setKmEst] = useState('');
+  const [nbPersonnes, setNbPersonnes] = useState('2');
+  const [suggestions, setSuggestions] = useState<{
+    vehicule: Vehicule;
+    chauffeurNom: string | null;
+    score: number;
+    raisons: string[];
+  }[] | null>(null);
+
+  const calculer = () => {
+    const disponibles = VEHICULES.filter(v =>
+      v.statut === 'Disponible' &&
+      v.assuranceJoursRestants > 0 &&
+      v.visiteJoursRestants > 0,
+    );
+
+    if (disponibles.length === 0) { setSuggestions([]); return; }
+
+    const maxKm = Math.max(...disponibles.map(v => v.kmCeMois), 1);
+    const km = parseInt(kmEst) || 0;
+
+    const scored = disponibles.map(v => {
+      const raisons: string[] = [];
+
+      // Équité de charge (0–40 pts) : favorise le moins utilisé ce mois
+      const scoreEquite = Math.round((1 - v.kmCeMois / maxKm) * 40);
+      if (v.kmCeMois < 1000) raisons.push(`Peu sollicité ce mois (${v.kmCeMois.toLocaleString('fr-FR')} km) — équité`);
+
+      // Validité assurance (0–30 pts)
+      const scoreAssurance = v.assuranceJoursRestants > 90 ? 30 : v.assuranceJoursRestants > 30 ? 20 : 10;
+      raisons.push(`Assurance valide ${v.assuranceJoursRestants}j`);
+
+      // Marge avant entretien (0–30 pts)
+      const margeKm = v.prochainEntretienKm - v.kmTotal;
+      const scoreEntretien = margeKm > km * 2 + 5000 ? 30 : margeKm > km + 2000 ? 20 : 10;
+      if (margeKm > 5000) raisons.push(`Entretien dans ${margeKm.toLocaleString('fr-FR')} km`);
+
+      const score = scoreEquite + scoreAssurance + scoreEntretien;
+
+      // Chauffeur assigné actif ou premier chauffeur actif disponible
+      const actifs = chauffeurs.filter(c => c.actif);
+      const assigné = actifs.find(c => c.nom === v.chauffeurAssigne);
+      const chauffeurNom = assigné?.nom ?? actifs[0]?.nom ?? null;
+
+      return { vehicule: v, chauffeurNom, score, raisons };
+    });
+
+    setSuggestions(scored.sort((a, b) => b.score - a.score).slice(0, 3));
+  };
+
+  const rankColors = ['#16A34A', '#F47920', '#1B4F8A'];
+  const rankLabels = ['Recommandé', '2ᵉ choix', '3ᵉ choix'];
+
+  const field: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#F8FAFC', boxSizing: 'border-box' };
+  const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 };
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 360px) 1fr', gap: 20, alignItems: 'start' }}>
+
+      {/* ── Formulaire de demande ── */}
+      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(14,52,96,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <ArrowRightLeft size={18} color="var(--navy)" />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy)' }}>Paramètres de mission</div>
+            <div style={{ fontSize: 11, color: '#64748B' }}>Disponibilité · Équité · Conformité administrative</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={lbl}>Destination</label>
+            <input value={destination} onChange={e => setDestination(e.target.value)} placeholder="ex: Saint-Louis, Ziguinchor…" style={field} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={lbl}>Distance estimée (km)</label>
+              <input type="number" value={kmEst} onChange={e => setKmEst(e.target.value)} placeholder="ex: 450" min="0" style={field} />
+            </div>
+            <div>
+              <label style={lbl}>Nb passagers</label>
+              <input type="number" value={nbPersonnes} onChange={e => setNbPersonnes(e.target.value)} placeholder="2" min="1" max="9" style={field} />
+            </div>
+          </div>
+
+          {/* Récap véhicules disponibles */}
+          <div style={{ padding: '10px 12px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#0369A1', marginBottom: 6 }}>Parc disponible</div>
+            {VEHICULES.filter(v => v.statut === 'Disponible').map(v => (
+              <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#374151', marginBottom: 3 }}>
+                <span>{v.immatriculation} — {v.marque} {v.modele}</span>
+                <span style={{ color: v.assuranceJoursRestants <= 30 ? '#EF4444' : '#16A34A', fontWeight: 700 }}>
+                  {v.kmCeMois.toLocaleString('fr-FR')} km/mois
+                </span>
+              </div>
+            ))}
+            {VEHICULES.filter(v => v.statut === 'Disponible').length === 0 && (
+              <div style={{ fontSize: 11, color: '#64748B' }}>Aucun véhicule disponible actuellement.</div>
+            )}
+          </div>
+
+          <button onClick={calculer} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+            <Activity size={14} /> Calculer l&apos;affectation optimale
+          </button>
+        </div>
+      </div>
+
+      {/* ── Résultats ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {suggestions === null && (
+          <div style={{ background: '#fff', borderRadius: 12, padding: '40px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', textAlign: 'center' }}>
+            <ArrowRightLeft size={40} style={{ color: '#CBD5E1', margin: '0 auto 12px', display: 'block' }} />
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#94A3B8' }}>Saisissez les paramètres</div>
+            <div style={{ fontSize: 12, color: '#CBD5E1', marginTop: 4 }}>L&apos;algorithme d&apos;affectation analysera disponibilité, équité de charge et validité administrative</div>
+          </div>
+        )}
+        {suggestions !== null && suggestions.length === 0 && (
+          <div style={{ background: '#FEF2F2', borderRadius: 12, padding: 24, border: '1px solid #FCA5A5', textAlign: 'center' }}>
+            <AlertTriangle size={28} style={{ color: '#EF4444', margin: '0 auto 10px', display: 'block' }} />
+            <div style={{ fontWeight: 700, color: '#991B1B' }}>Aucun véhicule disponible</div>
+            <div style={{ fontSize: 12, color: '#7F1D1D', marginTop: 4 }}>Tous les véhicules sont en mission, en maintenance, ou leur assurance/visite est expirée.</div>
+          </div>
+        )}
+        {suggestions !== null && suggestions.map((s, i) => (
+          <div key={s.vehicule.id} style={{
+            background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+            border: `2px solid ${i === 0 ? '#86EFAC' : '#E2E8F0'}`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${rankColors[i]}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Truck size={18} color={rankColors[i]} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--navy)' }}>{s.vehicule.immatriculation} — {s.vehicule.marque} {s.vehicule.modele}</div>
+                  <div style={{ fontSize: 11, color: '#64748B' }}>{s.vehicule.annee} · {s.vehicule.couleur} · {s.vehicule.direction}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 99, background: `${rankColors[i]}20`, color: rankColors[i] }}>{rankLabels[i]}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: rankColors[i] }}>Score {s.score}/100</span>
+              </div>
+            </div>
+
+            {/* Barre de score */}
+            <div style={{ height: 6, background: '#F1F5F9', borderRadius: 3, marginBottom: 12, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${s.score}%`, background: rankColors[i], borderRadius: 3, transition: 'width 0.5s ease' }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+              <div style={{ background: '#F8FAFC', borderRadius: 7, padding: '8px 10px' }}>
+                <div style={{ fontSize: 10, color: '#64748B', marginBottom: 2 }}>Km ce mois</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>{s.vehicule.kmCeMois.toLocaleString('fr-FR')} km</div>
+              </div>
+              <div style={{ background: '#F8FAFC', borderRadius: 7, padding: '8px 10px' }}>
+                <div style={{ fontSize: 10, color: '#64748B', marginBottom: 2 }}>Chauffeur suggéré</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>{s.chauffeurNom ?? '— à désigner'}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {s.raisons.map(r => (
+                <span key={r} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0' }}>✓ {r}</span>
+              ))}
+            </div>
+
+            {i === 0 && (
+              <button onClick={() => toast.success(`Affectation confirmée : ${s.vehicule.immatriculation}${s.chauffeurNom ? ` · ${s.chauffeurNom}` : ''}`)}
+                style={{ marginTop: 12, width: '100%', padding: '8px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <CheckCircle size={13} /> Confirmer cette affectation
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
