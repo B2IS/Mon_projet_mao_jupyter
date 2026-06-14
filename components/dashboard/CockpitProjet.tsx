@@ -32,6 +32,7 @@ import dynamic from 'next/dynamic';
 import EditableDataTable from '@/components/ui/EditableDataTable';
 import ZonesQuantites from '@/components/dashboard/ZonesQuantites';
 import { useTempsStore } from '@/lib/tempsStore';
+import { useZonesStore } from '@/lib/zonesQuantitesStore';
 import ImputationsTableur from '@/components/dashboard/ImputationsTableur';
 
 // Carte SIG réelle (Leaflet) — client uniquement.
@@ -516,6 +517,22 @@ export default function CockpitProjet() {
       alertSpiRouge: projet.spi < 1,
     };
   }, [projet]);
+
+  /* ── Zones géolocalisées → pins carte SIG ────────────────────────── */
+  const zonesData = useZonesStore(s => projet ? s.byProjet[projet.code] : undefined);
+  const zonePins = useMemo(() => {
+    if (!zonesData || !projet) return [];
+    return zonesData.zones
+      .filter(z => typeof z.lat === 'number' && typeof z.lng === 'number')
+      .map(z => ({
+        id: z.id, nom: `${z.code} · ${z.localite}`, code: z.code,
+        region: z.departement || projet.region, domaine: projet.domaine,
+        statut: z.statut === 'termine' ? 'termine' : z.statut === 'en_cours' ? 'en_cours' : 'planifie',
+        avancement: 0, budget: 0,
+        localisation: z.commune || z.localite,
+        lat: z.lat, lng: z.lng,
+      }));
+  }, [zonesData, projet]);
 
   /* ── Contrat / HSE / Qualité / Passation inline-edit — sauvegardes ─ */
   const saveContratField = useCallback((field: string, rawVal: string) => {
@@ -2736,20 +2753,27 @@ export default function CockpitProjet() {
         {/* ─── CARTE SIG ─────────────────────────────── */}
         {activeOnglet === 'carte-sig' && (
           <>
+            {zonePins.length > 0 && (
+              <div style={{ fontSize: 11.5, color: C.slate, padding: '8px 12px', background: '#ECFDF5', borderRadius: 8, border: `1px solid ${C.green}30` }}>
+                🛰️ <strong style={{ color: C.green }}>{zonePins.length} localité(s) géolocalisée(s)</strong> affichées sur la carte en temps réel depuis les Zones &amp; Quantités.
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16, height: 480 }}>
-              {/* Carte SIG réelle (Leaflet) */}
+              {/* Carte SIG réelle (Leaflet) — projet + localités dynamiques */}
               <div style={{ borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
                 <ProjetsCarteLeaflet
                   height={480}
-                  projets={[{
-                    id: projet.id, nom: projet.nom, code: projet.code, region: projet.region,
-                    domaine: projet.domaine, statut: projet.statut,
-                    avancement: projet.avancement, budget: projet.budget,
-                    localisation: projet.localisation,
-                    refSIG: `SIG-${projet.code}`,
-                  }]}
+                  projets={[
+                    {
+                      id: projet.id, nom: projet.nom, code: projet.code, region: projet.region,
+                      domaine: projet.domaine, statut: projet.statut,
+                      avancement: projet.avancement, budget: projet.budget,
+                      localisation: projet.localisation,
+                      refSIG: `SIG-${projet.code}`,
+                    },
+                    ...zonePins,
+                  ] as never[]}
                 />
-                {/* Corner badge couches */}
                 <div style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', gap: 6, zIndex: 500 }}>
                   {['Réseau HTA', 'Réseau BT', 'Postes HTA/BT', 'Compteurs'].map(l => (
                     <span key={l} style={{ fontSize: 9.5, background: 'rgba(14,52,96,0.85)', color: '#fff', padding: '3px 8px', borderRadius: 6, fontWeight: 600 }}>{l}</span>
@@ -2763,38 +2787,39 @@ export default function CockpitProjet() {
                 </button>
               </div>
 
-              {/* Panel infos géo */}
+              {/* Panel infos géo — dynamique si zones disponibles */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px' }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B', marginBottom: 12 }}>Géolocalisation projet</div>
                   {[
-                    ['Région', projet.region],
-                    ['Coordonnées', '14.6937° N, 17.4441° O'],
-                    ['Zone couverte', '~120 km²'],
-                    ['Villages cibles', '47 localités'],
-                    ['Ménages raccordés', '3 240'],
+                    ['Région', projet.region || '—'],
+                    ['Localisation', projet.localisation || '—'],
+                    ['Localités géolocalisées', zonePins.length > 0 ? `${zonePins.length} localité(s)` : 'Aucune (ajouter lat/lng dans Zones)'],
+                    ['Zones total', String(zonesData?.zones?.length ?? 0)],
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${C.border}`, fontSize: 11.5 }}>
                       <span style={{ color: '#94A3B8' }}>{k}</span>
                       <span style={{ fontWeight: 600, color: '#1E293B' }}>{v}</span>
                     </div>
                   ))}
-                </div>
-                <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px' }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B', marginBottom: 12 }}>Couches SIG actives</div>
-                  {[
-                    ['Lignes HTA', `${C.navy}`, '42 km tracés'],
-                    ['Lignes BT', `${C.green}`, '186 km tracés'],
-                    ['Postes de transformation', `${C.orange}`, '24 postes'],
-                    ['Points terrain saisis', `${C.purple}`, '138 relevés GPS'],
-                  ].map(([label, color, info]) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: `1px solid ${C.border}`, fontSize: 11.5 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 3, background: color, flexShrink: 0 }} />
-                      <span style={{ flex: 1, color: '#475569' }}>{label}</span>
-                      <span style={{ color: '#94A3B8', fontSize: 10.5 }}>{info}</span>
+                  {zonePins.length === 0 && (
+                    <div style={{ marginTop: 10, fontSize: 10.5, color: C.amber, background: '#FFFBEB', borderRadius: 6, padding: '6px 10px', border: `1px solid #FDE68A` }}>
+                      Ajoutez des coordonnées (Latitude/Longitude) dans l&apos;onglet <strong>Zones &amp; Quantités</strong> pour voir les localités sur la carte.
                     </div>
-                  ))}
+                  )}
                 </div>
+                {zonePins.length > 0 && (
+                  <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px', maxHeight: 260, overflowY: 'auto' }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B', marginBottom: 8 }}>Localités sur la carte</div>
+                    {zonePins.map(z => (
+                      <div key={z.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: `1px solid ${C.border}`, fontSize: 11 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: z.statut === 'termine' ? C.green : z.statut === 'en_cours' ? C.orange : C.slate, flexShrink: 0 }} />
+                        <span style={{ flex: 1, color: '#1E293B', fontWeight: 500 }}>{z.nom}</span>
+                        <span style={{ color: '#94A3B8', fontSize: 10, fontFamily: 'monospace' }}>{(z.lat as number).toFixed(4)}, {(z.lng as number).toFixed(4)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </>

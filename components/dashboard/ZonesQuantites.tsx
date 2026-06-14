@@ -346,29 +346,6 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
         <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
           <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, flex: 1 }}>📍 Zones d&apos;intervention — {zonesFiltered.length} affichée(s)</span>
-            {canEdit && (
-              <button
-                onClick={async () => {
-                  // Lazy-load du référentiel (220 Ko) : chargé uniquement au clic, hors bundle principal.
-                  // Robustesse : si le chunk échoue à se charger (cache/HMR), on n'écroule pas l'app.
-                  try {
-                    const { zonesBESTToRows } = await import('@/lib/zonesBEST');
-                    const cible = filterLot === 'Tous' ? undefined : filterLot;
-                    const rows = zonesBESTToRows(cible);
-                    if (d.zones.length && !window.confirm(
-                      `Charger les ${rows.length} localités${cible ? ` (${cible})` : ''} ? Cela remplace les zones actuelles de ${projetCode}.`
-                    )) return;
-                    store.setZones(projetCode, rows as ZoneRow[]);
-                    toast.success(`${rows.length} localités chargées — visibles dans la Cartographie.`);
-                  } catch {
-                    toast.error('Échec du chargement des localités. Rechargez la page (Cmd+Shift+R) puis réessayez.');
-                  }
-                }}
-                title="Importer les localités du projet (référentiel des localités à électrifier)"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 7, border: `1px solid ${C.navy}`, background: '#fff', color: C.navy, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                <MapPin size={12} /> Charger les localités du projet
-              </button>
-            )}
             {canEdit && <button onClick={() => setZoneEdit(blankZone())} style={primaryBtn}><Plus size={12} /> Ajouter zone</button>}
           </div>
           {/* Scroll horizontal ET vertical — en-tête figé (sticky) */}
