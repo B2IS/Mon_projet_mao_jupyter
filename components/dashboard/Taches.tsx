@@ -640,7 +640,9 @@ function GanttView({ taches, collapsed }: GanttViewProps) {
 type View = 'liste' | 'kanban' | 'planning';
 
 export default function Taches() {
-  const store = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
+  const { user } = useAuth();
+  const readOnly = isOperationalReadOnly(user);
+  const store = readOnlyGuard(useProjectStore(), readOnly);
   const [selectedProjetId, setSelectedProjetId] = useState<string>(
     store.projets.length > 0 ? store.projets[0].id : ''
   );
@@ -825,22 +827,26 @@ export default function Taches() {
           />
         </div>
 
-        <button
-          style={{ ...btn('#F47920', '#fff'), cursor: selectedProjet ? 'pointer' : 'not-allowed', opacity: selectedProjet ? 1 : 0.5 }}
-          onClick={() => selectedProjet && setShowModal(true)}
-          disabled={!selectedProjet}
-          title={selectedProjet ? 'Créer une nouvelle tâche' : 'Sélectionnez un projet d\'abord'}
-        >
-          <Plus size={14} /> Nouvelle tâche
-        </button>
-        <button
-          style={{ ...btn('#1B4F8A', '#fff'), cursor: selectedProjet ? 'pointer' : 'not-allowed', opacity: selectedProjet ? 1 : 0.5 }}
-          onClick={() => selectedProjet && store.saveBaseline(selectedProjetId)}
-          disabled={!selectedProjet}
-          title={selectedProjet ? 'Enregistrer le planning de référence' : 'Sélectionnez un projet d\'abord'}
-        >
-          <Save size={14} /> Enregistrer baseline
-        </button>
+        {!readOnly && (
+          <>
+            <button
+              style={{ ...btn('#F47920', '#fff'), cursor: selectedProjet ? 'pointer' : 'not-allowed', opacity: selectedProjet ? 1 : 0.5 }}
+              onClick={() => selectedProjet && setShowModal(true)}
+              disabled={!selectedProjet}
+              title={selectedProjet ? 'Créer une nouvelle tâche' : 'Sélectionnez un projet d\'abord'}
+            >
+              <Plus size={14} /> Nouvelle tâche
+            </button>
+            <button
+              style={{ ...btn('#1B4F8A', '#fff'), cursor: selectedProjet ? 'pointer' : 'not-allowed', opacity: selectedProjet ? 1 : 0.5 }}
+              onClick={() => selectedProjet && store.saveBaseline(selectedProjetId)}
+              disabled={!selectedProjet}
+              title={selectedProjet ? 'Enregistrer le planning de référence' : 'Sélectionnez un projet d\'abord'}
+            >
+              <Save size={14} /> Enregistrer baseline
+            </button>
+          </>
+        )}
       </div>
 
       {/* ── KPI strip ── */}

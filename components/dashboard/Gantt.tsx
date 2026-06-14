@@ -663,7 +663,9 @@ function ProgressPopup({ task, top, onSave, onClose }: {
    MAIN GANTT COMPONENT
 ══════════════════════════════════════════════════════════════════════════════ */
 export default function Gantt() {
-  const store = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
+  const { user: ganttUser } = useAuth();
+  const ganttReadOnly = isOperationalReadOnly(ganttUser);
+  const store = readOnlyGuard(useProjectStore(), ganttReadOnly);
 
   const [selectedProjetId, setSelectedProjetId] = useState<string>(store.projets[0]?.id ?? '');
   const [taskSearch, setTaskSearch] = useState('');
@@ -1167,6 +1169,12 @@ export default function Gantt() {
 
         {activeRibbonTab === 'tache' && (
           <>
+            {ganttReadOnly && (
+              <span style={{ fontSize: 11, color: '#94A3B8', padding: '6px 10px', background: '#F8FAFC', borderRadius: 4, border: '1px solid #E5E7EB' }}>
+                👁 Lecture seule — modification réservée au Chef de Projet
+              </span>
+            )}
+            {!ganttReadOnly && <>
             <button onClick={() => { if (!activeProjet) return; setAddTaskModal(true); }}
               disabled={!activeProjet}
               title={!activeProjet ? 'Sélectionnez un projet d\'abord' : 'Ajouter une nouvelle tâche'}
@@ -1207,6 +1215,7 @@ export default function Gantt() {
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', background: selectedId ? '#FEF2F2' : '#FAFAFA', border: `1px solid ${selectedId ? '#FCA5A5' : '#E5E7EB'}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', color: selectedId ? '#EF4444' : '#9CA3AF', opacity: selectedId ? 1 : 0.5 }}>
               <Trash2 size={12} /> Supprimer
             </button>
+            </>}
           </>
         )}
 

@@ -112,6 +112,7 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
 
   const d = data ?? seedProjetData();
   const lots = useMemo(() => lotsFromZones(d.zones), [d.zones]);
+  // Filtrage par lot (base pour BOQ et quantités)
   const zonesFiltered = useMemo(
     () => d.zones.filter(z => filterLot === 'Tous' || z.lot === filterLot),
     [d.zones, filterLot],
@@ -121,6 +122,40 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
     [filterLot],
   );
   const boq = useMemo(() => buildBOQ(d, zoneFilterFn), [d, zoneFilterFn]);
+
+  /* ─── Filtres toponymiques (ANSD) — uniquement pour la table zones ─────── */
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterRegion, setFilterRegion] = useState('');
+  const [filterDept, setFilterDept] = useState('');
+
+  // Reset département si la région change
+  useEffect(() => { setFilterDept(''); }, [filterRegion]);
+  // Reset filtres si on change de projet
+  useEffect(() => { setSearchQuery(''); setFilterRegion(''); setFilterDept(''); }, [projetCode]);
+
+  const regions = useMemo(
+    () => [...new Set(zonesFiltered.map(z => z.region).filter(Boolean) as string[])].sort(),
+    [zonesFiltered],
+  );
+  const departements = useMemo(
+    () => [...new Set(zonesFiltered.filter(z => !filterRegion || z.region === filterRegion).map(z => z.departement).filter(Boolean))].sort(),
+    [zonesFiltered, filterRegion],
+  );
+  const zonesVisible = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return zonesFiltered.filter(z => {
+      if (filterRegion && z.region !== filterRegion) return false;
+      if (filterDept && z.departement !== filterDept) return false;
+      if (q) {
+        const haystack = [z.code, z.localite, z.commune, z.cav, z.cacrv, z.departement, z.region].join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [zonesFiltered, filterRegion, filterDept, searchQuery]);
+
+  const hasBigDataset = zonesFiltered.length > 20;
+  const isBEST = isProjetBEST(programme, projetNom, projetCode);
 
   /* ─── Carte SIG : pins dérivés des zones avec coordonnées (#27) ───────────── */
   const carteProjets = useMemo(() => {
@@ -254,8 +289,8 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
       sheetName: 'Zones',
       title: `Zones d'intervention — ${projetCode}`,
       subtitle: `${d.zones.length} zones · ${projetNom}`,
-      headers: ['Code', 'Localité', 'Commune', 'Département', 'Lot', 'Latitude', 'Longitude', 'Statut', 'Observation'],
-      rows: d.zones.map(z => [z.code, z.localite, z.commune, z.departement, z.lot, z.lat ?? '', z.lng ?? '', STATUT_CFG[z.statut].label, z.observation]),
+      headers: [isBEST ? 'Code ANSD' : 'Code', 'Localité', 'Région', 'Département', 'Arrond. (CAV)', 'Commune (CACRV)', 'Lot', 'Latitude', 'Longitude', 'Statut', 'Observation'],
+      rows: d.zones.map(z => [z.code, z.localite, z.region ?? '', z.departement, z.cav ?? '', z.cacrv || z.commune, z.lot, z.lat ?? '', z.lng ?? '', STATUT_CFG[z.statut].label, z.observation]),
     };
     const qtyHeaders = ['Code', 'Localité', 'Lot', ...d.items.flatMap(i => [`${i.label} prévu (${i.unite})`, `${i.label} réalisé`, `${i.label} validé`])];
     const qtySheet = {
@@ -372,28 +407,71 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
       {sub === 'zones' && (
         <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
           <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, flex: 1 }}>📍 Zones d&apos;intervention — {zonesFiltered.length} affichée(s)</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, flex: 1 }}>
+              📍 Zones d&apos;intervention —{' '}
+              <span style={{ color: C.orange }}>{zonesVisible.length}</span>
+              {zonesVisible.length !== zonesFiltered.length && <span style={{ color: C.slate, fontWeight: 400 }}> / {zonesFiltered.length} total</span>}
+              {' '}affichée(s)
+            </span>
             {canEdit && <button onClick={() => setZoneEdit(blankZone())} style={primaryBtn}><Plus size={12} /> Ajouter zone</button>}
           </div>
+
+          {/* Barre de recherche + filtres toponymiques (pour datasets > 20 zones) */}
+          {hasBigDataset && (
+            <div style={{ padding: '8px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', background: '#F8FAFC' }}>
+              <input
+                placeholder="🔍 Rechercher localité, code ANSD, commune…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 11.5, width: 240, fontFamily: 'inherit', outline: 'none' }}
+              />
+              {regions.length > 1 && (
+                <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)}
+                  style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 11.5, fontFamily: 'inherit', background: '#fff', color: filterRegion ? C.navy : C.slate }}>
+                  <option value="">Toutes les régions ({regions.length})</option>
+                  {regions.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              )}
+              {departements.length > 1 && (
+                <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
+                  style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 11.5, fontFamily: 'inherit', background: '#fff', color: filterDept ? C.navy : C.slate }}>
+                  <option value="">Tous les dép. ({departements.length})</option>
+                  {departements.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              )}
+              {(searchQuery || filterRegion || filterDept) && (
+                <button onClick={() => { setSearchQuery(''); setFilterRegion(''); setFilterDept(''); }}
+                  style={{ padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 11, background: '#fff', color: C.slate, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  ✕ Effacer
+                </button>
+              )}
+              {isBEST && (
+                <span style={{ fontSize: 10.5, color: C.slate, marginLeft: 'auto' }}>
+                  Code ANSD = code officiel à 13 chiffres (Sénégal ANSD)
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Scroll horizontal ET vertical — en-tête figé (sticky) */}
-          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '62vh' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5, whiteSpace: 'nowrap' }}>
               <thead>
                 <tr>
-                  {['Code', 'Région', 'Département', 'Arrond. (CAV)', 'Commune (CACRV)', 'Localité', 'Latitude', 'Longitude', 'Lot', 'Statut', 'Observation', ...(canEdit ? ['Actions'] : [])].map((h, i) => (
+                  {[isBEST ? 'Code ANSD' : 'Code', 'Localité', 'Région', 'Département', 'Arrond. (CAV)', 'Commune (CACRV)', 'Latitude', 'Longitude', 'Lot', 'Statut', 'Observation', ...(canEdit ? ['Actions'] : [])].map((h, i) => (
                     <th key={i} style={{ ...thStyle, position: 'sticky', top: 0, zIndex: 2, background: '#EAEFF6' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {zonesFiltered.map((z, i) => (
+                {zonesVisible.map((z, i) => (
                   <tr key={z.id} style={{ borderBottom: '1px solid #F1F5F9', background: i % 2 ? '#FAFAFA' : '#fff' }}>
-                    <td style={{ ...tdStyle, fontWeight: 800, color: C.navy }}>{z.code}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, fontFamily: isBEST ? 'monospace' : 'inherit', fontSize: isBEST ? 11 : 11.5, color: C.navy }} title={isBEST ? `Code ANSD officiel : ${z.code}` : undefined}>{z.code}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, minWidth: 120 }}>{z.localite}</td>
                     <td style={tdStyle}>{z.region || '—'}</td>
                     <td style={tdStyle}>{z.departement || '—'}</td>
                     <td style={tdStyle}>{z.cav || '—'}</td>
                     <td style={tdStyle}>{z.cacrv || z.commune || '—'}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{z.localite}</td>
                     <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 10.5 }}>{typeof z.lat === 'number' ? <span style={{ color: C.green }}>{z.lat.toFixed(6)}</span> : <span style={{ color: '#CBD5E1' }}>—</span>}</td>
                     <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 10.5 }}>{typeof z.lng === 'number' ? <span style={{ color: C.green }}>{z.lng.toFixed(6)}</span> : <span style={{ color: '#CBD5E1' }}>—</span>}</td>
                     <td style={tdStyle}><span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: '#EFF6FF', color: C.navy }}>{z.lot}</span></td>
@@ -411,7 +489,13 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
                 ))}
               </tbody>
             </table>
-            {zonesFiltered.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8', fontSize: 12 }}>Aucune zone. Importez un fichier Excel ou ajoutez une zone.</div>}
+            {zonesVisible.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8', fontSize: 12 }}>
+                {zonesFiltered.length === 0
+                  ? 'Aucune zone. Importez un fichier Excel ou ajoutez une zone.'
+                  : 'Aucune zone ne correspond aux filtres sélectionnés.'}
+              </div>
+            )}
           </div>
         </div>
       )}

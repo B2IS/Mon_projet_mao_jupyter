@@ -1139,7 +1139,7 @@ export default function CockpitProjet() {
                 </button>
               </>
             )}
-            {canEditFiche && (
+            {canEditFiche && activeOnglet === 'fiche-executive' && (
               <button
                 onClick={openEditModal}
                 style={{
@@ -1151,7 +1151,7 @@ export default function CockpitProjet() {
                 ✏️ Modifier
               </button>
             )}
-            {canEditFiche && (
+            {canEditFiche && activeOnglet === 'planning' && (
               <button
                 onClick={openNouvellesTache}
                 style={{
@@ -1726,7 +1726,7 @@ export default function CockpitProjet() {
             projetNom={projet.nom}
             projetDomaine={projet.domaine}
             programme={(projet as { programme?: string }).programme}
-            canEdit={!isRole('CTRL_FIN')}
+            canEdit={canEditFiche}
           />
         )}
 
@@ -1748,7 +1748,7 @@ export default function CockpitProjet() {
             <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
               <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, flex: 1 }}>Phases du projet — pondération et avancement</span>
-                {!editPoidsMode ? (
+                {!editPoidsMode && canEditFiche ? (
                   <button onClick={() => {
                     const init: Record<string, number> = {};
                     (projet.phases ?? []).forEach(ph => { init[ph.id] = ph.poids; });
@@ -1757,7 +1757,7 @@ export default function CockpitProjet() {
                   }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 6, border: `1px solid ${C.navy}`, background: `${C.navy}10`, color: C.navy, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                     <Sliders size={11} /> Modifier les poids
                   </button>
-                ) : (
+                ) : !editPoidsMode ? null : (
                   <>
                     {(() => {
                       const sum = Object.values(editPoids).reduce((s, v) => s + v, 0);

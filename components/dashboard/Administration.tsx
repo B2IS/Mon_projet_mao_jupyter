@@ -454,6 +454,8 @@ function InviterModal({ onClose, onSend }: { onClose: () => void; onSend?: (inv:
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════════════════════ */
 export default function Administration() {
+  const { isRole: adminIsRole } = useAuth();
+  const isAdminOnly = adminIsRole('ADMIN');
   const { addNotification } = useNotificationStore();
   // ── Habilitations configurables (sections + direction + niveau de vue par rôle) ──
   const sectionOverrides = usePermissionStore(s => s.sectionOverrides);
@@ -601,19 +603,21 @@ export default function Administration() {
         <div className="card-body" style={{ padding: '10px 14px' }}>
           <div className="tabs">
             {([
-              { key: 'utilisateurs', label: 'Utilisateurs', badge: UTILISATEURS.filter(u => !u.actif).length },
-              { key: 'tenants',      label: 'Tenants',       badge: 0 },
-              { key: 'roles',        label: 'Rôles & Permissions', badge: 0 },
-              { key: 'modules',      label: 'Modules',       badge: 0 },
-              { key: 'calculs',      label: 'Fonctions & Calculs', badge: 0 },
-              { key: 'criteres',     label: 'Critères & Scoring', badge: 0 },
-              { key: 'terrain',      label: 'Phases & Canevas terrain', badge: 0 },
-              { key: 'dashboard_builder', label: 'Dashboard Builder', badge: customDashboards.length },
-              { key: 'securite',     label: 'Sécurité',      badge: 0 },
-              { key: 'audit',        label: 'Journal d\'audit', badge: 0 },
-              { key: 'integrations', label: 'Intégrations',  badge: 0 },
-              { key: 'alertes',      label: 'Alertes & canaux', badge: 0 },
-            ] as { key: TabAdminType; label: string; badge: number }[]).map(t => (
+              { key: 'utilisateurs', label: 'Utilisateurs', badge: UTILISATEURS.filter(u => !u.actif).length, adminOnly: false },
+              { key: 'tenants',      label: 'Tenants',       badge: 0, adminOnly: true },
+              { key: 'roles',        label: 'Rôles & Permissions', badge: 0, adminOnly: true },
+              { key: 'modules',      label: 'Modules',       badge: 0, adminOnly: true },
+              { key: 'calculs',      label: 'Fonctions & Calculs', badge: 0, adminOnly: true },
+              { key: 'criteres',     label: 'Critères & Scoring', badge: 0, adminOnly: false },
+              { key: 'terrain',      label: 'Phases & Canevas terrain', badge: 0, adminOnly: false },
+              { key: 'dashboard_builder', label: 'Dashboard Builder', badge: customDashboards.length, adminOnly: false },
+              { key: 'securite',     label: 'Sécurité',      badge: 0, adminOnly: true },
+              { key: 'audit',        label: 'Journal d\'audit', badge: 0, adminOnly: false },
+              { key: 'integrations', label: 'Intégrations',  badge: 0, adminOnly: true },
+              { key: 'alertes',      label: 'Alertes & canaux', badge: 0, adminOnly: false },
+            ] as { key: TabAdminType; label: string; badge: number; adminOnly: boolean }[])
+            .filter(t => !t.adminOnly || isAdminOnly)
+            .map(t => (
               <button key={t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>
                 {t.label}
                 {t.badge > 0 && <span style={{ fontSize: 9, background: 'var(--red)', color: '#fff', borderRadius: 99, padding: '1px 5px', marginLeft: 3 }}>{t.badge}</span>}
@@ -643,7 +647,7 @@ export default function Administration() {
                 <option value="tous">Tous rôles</option>
                 {ROLES_LIST.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
               </select>
-              <button className="btn btn-primary btn-sm" onClick={() => setShowInvite(true)}><UserPlus size={12} /> Inviter</button>
+              {isAdminOnly && <button className="btn btn-primary btn-sm" onClick={() => setShowInvite(true)}><UserPlus size={12} /> Inviter</button>}
             </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
