@@ -123,9 +123,15 @@ function PlanCell({ val }: { val: 0 | 1 | 2 }) {
 }
 
 /* ─── KPI Chip ─────────────────────────────────────────── */
-function KpiChip({ label, value, color, sub, text }: { label: string; value: string; color: string; sub?: string; text?: boolean }) {
+function KpiChip({ label, value, color, sub, text, onClick }: { label: string; value: string; color: string; sub?: string; text?: boolean; onClick?: () => void }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: text ? 90 : 70, maxWidth: text ? 150 : undefined }}>
+    <div
+      onClick={onClick}
+      title={onClick ? `Voir ${label}` : undefined}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: text ? 90 : 70, maxWidth: text ? 150 : undefined, cursor: onClick ? 'pointer' : 'default', transition: 'opacity 0.12s' }}
+      onMouseEnter={e => { if (onClick) (e.currentTarget as HTMLDivElement).style.opacity = '0.7'; }}
+      onMouseLeave={e => { if (onClick) (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
+    >
       <div style={{
         fontSize: text ? 12.5 : 17, fontWeight: text ? 700 : 800, color, lineHeight: 1.15,
         whiteSpace: text ? 'normal' : 'nowrap',
@@ -406,6 +412,8 @@ export default function CockpitProjet() {
   const [ficheContexte, setFicheContexte]         = useState<string>('');
   const [ficheLivrables, setFicheLivrables]       = useState<string[]>([]);
   const [equipeSearch, setEquipeSearch]           = useState<string>('');
+  const [riskKpiFilter, setRiskKpiFilter]         = useState<'all' | 'critique' | 'en_cours' | 'attenué'>('all');
+  const [docKpiFilter, setDocKpiFilter]           = useState<'all' | 'valide' | 'en_attente'>('all');
 
   const projet: Projet | undefined = useMemo(
     () => store.projets.find(p => p.id === selectedProjetId) ?? store.projets[0],
@@ -1145,7 +1153,7 @@ export default function CockpitProjet() {
           borderBottom: `1px solid ${C.border}`,
           overflowX: 'auto', scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch',
         }}>
-          {[
+          {([
             {
               label: 'Avancement',
               value: `${projet.avancement}%`,
@@ -1153,22 +1161,23 @@ export default function CockpitProjet() {
               sub: projet.avancement >= projet.avancementPlanifie
                 ? `+${projet.avancement - projet.avancementPlanifie}%`
                 : `-${projet.avancementPlanifie - projet.avancement}%`,
+              goto: 'synthese',
             },
-            { label: 'Jalons prochains', value: String(jalonsProches),       color: jalonsProches > 0 ? C.purple : C.slate },
-            { label: 'Tâches critiques', value: String(critiques),           color: critiques > 0 ? C.red : C.green },
-            { label: 'Blocages',          value: String(blocking),           color: blocking > 0 ? C.red : C.slate },
-            { label: 'CPI',               value: projet.cpi.toFixed(2),     color: projet.cpi >= 0.90 ? C.green : C.red },
-            { label: 'SPI',               value: projet.spi.toFixed(2),     color: projet.spi >= 0.85 ? C.green : C.amber },
-            { label: 'Budget décaissé',   value: `${Math.round(projet.budgetDecaisse / (projet.budget||1) * 100)}%`, color: C.navy },
-            ...(kpiContrat ? [{ label: 'Statut global', value: kpiContrat.sg === 'vert' ? '● Vert' : kpiContrat.sg === 'orange' ? '● Orange' : '● Rouge', color: kpiContrat.sg === 'vert' ? C.green : kpiContrat.sg === 'orange' ? C.amber : C.red }] : []),
-            { label: 'Chef de projet',    value: projet.chefProjet, color: '#475569', text: true },
-          ].map((k, i, arr) => (
+            { label: 'Jalons prochains', value: String(jalonsProches), color: jalonsProches > 0 ? C.purple : C.slate, goto: 'planning' },
+            { label: 'Tâches critiques', value: String(critiques),     color: critiques > 0 ? C.red : C.green,         goto: 'planning' },
+            { label: 'Blocages',         value: String(blocking),      color: blocking > 0 ? C.red : C.slate,           goto: 'planning' },
+            { label: 'CPI',              value: projet.cpi.toFixed(2), color: projet.cpi >= 0.90 ? C.green : C.red,    goto: 'couts' },
+            { label: 'SPI',              value: projet.spi.toFixed(2), color: projet.spi >= 0.85 ? C.green : C.amber,  goto: 'couts' },
+            { label: 'Budget décaissé',  value: `${Math.round(projet.budgetDecaisse / (projet.budget||1) * 100)}%`, color: C.navy, goto: 'couts' },
+            ...(kpiContrat ? [{ label: 'Statut global', value: kpiContrat.sg === 'vert' ? '● Vert' : kpiContrat.sg === 'orange' ? '● Orange' : '● Rouge', color: kpiContrat.sg === 'vert' ? C.green : kpiContrat.sg === 'orange' ? C.amber : C.red, goto: 'synthese' }] : []),
+            { label: 'Chef de projet', value: projet.chefProjet, color: '#475569', text: true, goto: 'ressources' },
+          ] as Array<{ label: string; value: string; color: string; sub?: string; text?: boolean; goto: string }>).map((k, i, arr) => (
             <div key={k.label} style={{
               flex: '1 0 auto', minWidth: 78, textAlign: 'center',
               borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
               padding: '0 10px',
             }}>
-              <KpiChip {...k} />
+              <KpiChip {...k} onClick={() => setActiveOnglet(k.goto as typeof activeOnglet)} />
             </div>
           ))}
         </div>
@@ -2646,17 +2655,29 @@ export default function CockpitProjet() {
 
             {/* Stats GED */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-              {[
-                { label: 'Documents total', value: String(GED_DOCS.length), color: C.navy },
-                { label: 'Validés/Signés',  value: String(GED_DOCS.filter(d => ['validé','signé','approuvé'].includes(d.statut)).length), color: C.green },
-                { label: 'En attente',      value: '2', color: C.amber },
-                { label: 'Cette semaine',   value: '3', color: C.purple },
-              ].map(k => (
-                <div key={k.label} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: k.color }}>{k.value}</div>
-                  <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{k.label}</div>
-                </div>
-              ))}
+              {([
+                { label: 'Documents total', value: String(GED_DOCS.length), color: C.navy,   filter: 'all' as const },
+                { label: 'Validés/Signés',  value: String(GED_DOCS.filter(d => ['validé','signé','approuvé'].includes(d.statut)).length), color: C.green,  filter: 'valide' as const },
+                { label: 'En attente',      value: '2', color: C.amber,  filter: 'en_attente' as const },
+                { label: 'Cette semaine',   value: '3', color: C.purple, filter: 'all' as const },
+              ] as Array<{ label: string; value: string; color: string; filter: 'all' | 'valide' | 'en_attente' }>).map(k => {
+                const active = docKpiFilter === k.filter && k.filter !== 'all';
+                return (
+                  <div
+                    key={k.label}
+                    onClick={() => setDocKpiFilter(prev => prev === k.filter || k.filter === 'all' ? 'all' : k.filter)}
+                    style={{
+                      background: active ? `${k.color}10` : '#fff',
+                      border: `${active ? 2 : 1}px solid ${active ? k.color : C.border}`,
+                      borderRadius: 8, padding: '10px 14px', textAlign: 'center',
+                      cursor: k.filter !== 'all' ? 'pointer' : 'default', transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ fontSize: 22, fontWeight: 800, color: k.color }}>{k.value}</div>
+                    <div style={{ fontSize: 10.5, color: active ? k.color : '#94A3B8', fontWeight: active ? 700 : 400 }}>{k.label}</div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Documents table */}
@@ -2668,7 +2689,11 @@ export default function CockpitProjet() {
               }}>
                 <span>Document</span><span>Type</span><span>Auteur</span><span>Date</span><span>Taille</span><span>Statut</span>
               </div>
-              {gedDocs.map((d, i) => {
+              {gedDocs.filter(d => {
+                if (docKpiFilter === 'valide') return ['validé','signé','approuvé'].includes(d.statut);
+                if (docKpiFilter === 'en_attente') return !['validé','signé','approuvé','publié'].includes(d.statut);
+                return true;
+              }).map((d, i, arr) => {
                 const sc = DOC_STATUT[d.statut] ?? { color: C.slate, bg: '#F1F5F9' };
                 const extColors: Record<string, string> = { pdf: '#EF4444', docx: C.navy, dwg: C.green, zip: C.amber };
                 return (
@@ -2677,7 +2702,7 @@ export default function CockpitProjet() {
                     style={{
                       display: 'grid', gridTemplateColumns: '1fr 100px 120px 100px 90px 100px',
                       padding: '10px 16px', gap: 8, alignItems: 'center',
-                      borderBottom: i < gedDocs.length - 1 ? `1px solid ${C.border}` : 'none',
+                      borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
                       cursor: 'pointer',
                     }}
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = '#F8FAFC'}
@@ -2859,17 +2884,29 @@ export default function CockpitProjet() {
           <>
             {/* Stats risques */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-              {[
-                { label: 'Risques identifiés',  value: String(RISQUES.length),                                                color: C.navy },
-                { label: 'Risques critiques',   value: String(RISQUES.filter(r => criticite(r.probabilite, r.impact) >= 12).length), color: C.red },
-                { label: 'En cours traitement', value: String(RISQUES.filter(r => r.statut === 'en_cours').length),             color: C.amber },
-                { label: 'Atténués',            value: String(RISQUES.filter(r => r.statut === 'atténué').length),              color: C.green },
-              ].map(k => (
-                <div key={k.label} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: k.color }}>{k.value}</div>
-                  <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{k.label}</div>
-                </div>
-              ))}
+              {([
+                { label: 'Risques identifiés',  value: String(RISQUES.length),                                                color: C.navy,  filter: 'all' as const },
+                { label: 'Risques critiques',   value: String(RISQUES.filter(r => criticite(r.probabilite, r.impact) >= 12).length), color: C.red,   filter: 'critique' as const },
+                { label: 'En cours traitement', value: String(RISQUES.filter(r => r.statut === 'en_cours').length),             color: C.amber, filter: 'en_cours' as const },
+                { label: 'Atténués',            value: String(RISQUES.filter(r => r.statut === 'atténué').length),              color: C.green, filter: 'attenué' as const },
+              ] as Array<{ label: string; value: string; color: string; filter: 'all' | 'critique' | 'en_cours' | 'attenué' }>).map(k => {
+                const active = riskKpiFilter === k.filter;
+                return (
+                  <div
+                    key={k.label}
+                    onClick={() => setRiskKpiFilter(prev => prev === k.filter ? 'all' : k.filter)}
+                    style={{
+                      background: active ? `${k.color}10` : '#fff',
+                      border: `${active ? 2 : 1}px solid ${active ? k.color : C.border}`,
+                      borderRadius: 8, padding: '10px 14px', textAlign: 'center',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ fontSize: 22, fontWeight: 800, color: k.color }}>{k.value}</div>
+                    <div style={{ fontSize: 10.5, color: active ? k.color : '#94A3B8', fontWeight: active ? 700 : 400 }}>{k.label}</div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Matrice des risques + table */}
@@ -2916,7 +2953,13 @@ export default function CockpitProjet() {
                 <div style={{ padding: '12px 16px', background: '#F8FAFC', borderBottom: `1px solid ${C.border}`, fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>
                   Registre des risques
                 </div>
-                {RISQUES.map((r, i) => {
+                {RISQUES.filter(r => {
+                  if (riskKpiFilter === 'all') return true;
+                  if (riskKpiFilter === 'critique') return criticite(r.probabilite, r.impact) >= 12;
+                  if (riskKpiFilter === 'en_cours') return r.statut === 'en_cours';
+                  if (riskKpiFilter === 'attenué') return r.statut === 'atténué';
+                  return true;
+                }).map((r, i, arr) => {
                   const crit = criticite(r.probabilite, r.impact);
                   const cc = criticiteColor(crit);
                   const sc = RISQUE_STATUT[r.statut] ?? { color: C.slate, bg: '#F1F5F9', label: r.statut };
@@ -2925,7 +2968,7 @@ export default function CockpitProjet() {
                       key={r.id}
                       style={{
                         padding: '11px 16px',
-                        borderBottom: i < RISQUES.length - 1 ? `1px solid ${C.border}` : 'none',
+                        borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
