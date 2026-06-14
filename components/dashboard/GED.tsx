@@ -209,6 +209,7 @@ function formatTaille(bytes: number): string {
 }
 
 function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Document) => void }) {
+  const projetsStore = useProjectStore();
   const [titre, setTitre] = useState('');
   const [type, setType] = useState('');
   const [projet, setProjet] = useState('');
@@ -562,7 +563,6 @@ function saveGedDocs(docs: Document[]) {
 
 export default function GED() {
   const { user } = useAuth();
-  const projetsStore = useProjectStore();
   const [docs, setDocs] = useState<Document[]>(() => loadGedDocs());
   const [versions, setVersions] = useState<Record<string, Version[]>>(VERSIONS_MAP);
   const [search, setSearch] = useState('');

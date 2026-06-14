@@ -964,34 +964,35 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
 }
 
 @media (max-width: 768px) {
+  /* ── Layout shell ──────────────────────────────────────────────────────── */
   :root { --sidebar-w: 0px; }
-  .sidebar { display: none !important; }
-  /* MobileTopbar remplace le hamburger flottant sur mobile */
+  .sidebar-desktop { display: none !important; }
   .mobile-topbar { display: flex !important; }
-  /* Le spacer n'est plus nécessaire (MobileTopbar tient 52px dans le flux) */
   .header-mobile-spacer { display: none !important; width: 0 !important; }
-  /* Anti-wrap mobile : textes dans colonnes étroites ne se cassent pas lettre par lettre */
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  .app-main, .page-body, .page-content { overflow-x: hidden; min-width: 0; max-width: 100vw; }
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  h1 { font-size: 18px !important; }
+  h2 { font-size: 15px !important; }
   p, li { overflow-wrap: break-word; word-break: break-word; }
-  span { overflow-wrap: break-word; }
+
+  /* ── Spacing ───────────────────────────────────────────────────────────── */
   .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .kpi-value { font-size: 20px; }
   .hide-mobile { display: none !important; }
   .page-body { padding: 10px; }
-  .page-content { padding: 12px; }
-  .form-row { grid-template-columns: 1fr; }
-  .form-row.cols-3 { grid-template-columns: 1fr; }
+  .page-content { padding: 10px 12px; }
+  .form-row, .form-row.cols-3 { grid-template-columns: 1fr; }
   .gauge-grid { grid-template-columns: repeat(2, 1fr); }
   .drawer { width: 100%; }
   .topbar-search { display: none; }
-  /* Tables & grids */
-  .table-responsive { display: block; overflow-x: auto; white-space: nowrap; }
+  .table-responsive { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .flex-wrap-mobile { flex-wrap: wrap !important; }
   .grid-cols-4-mobile-2 { grid-template-columns: repeat(2, 1fr) !important; }
   .grid-cols-3-mobile-1 { grid-template-columns: 1fr !important; }
 
-  /* ── Grilles de cartes/KPI à colonnes FIXES (style inline repeat(3..12)) ──
-     Sur mobile elles débordent et sont rognées : on les ramène à 2 colonnes.
-     Couvre les 200+ grilles inline des tableaux de bord, toutes pages/profils. */
+  /* ── Grid → 2 cols mobile (inline repeat grids) ──────────────────────── */
   [style*="grid-template-columns: repeat(3"],
   [style*="grid-template-columns: repeat(4"],
   [style*="grid-template-columns: repeat(5"],
@@ -1001,23 +1002,16 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
   [style*="grid-template-columns: repeat(9"] {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
-  /* Sections « 2 colonnes » (1fr 1fr, 2fr 1fr…) : empilées en 1 colonne sur mobile
-     (sinon chaque colonne garde sa largeur mini et déborde). */
+  /* 2-col grids → stacked */
   [style*="grid-template-columns: 1fr 1fr"],
   [style*="grid-template-columns: 2fr 1fr"],
   [style*="grid-template-columns: 1fr 2fr"],
   [style*="grid-template-columns: 1.5fr 1fr"],
-  [style*="grid-template-columns: 1.6fr 1fr"] {
-    grid-template-columns: 1fr !important;
-  }
-  /* Layouts « contenu + panneau(x) fixe(s) » : tout grille contenant une colonne
-     fixe LARGE (≥200px) déborde sur mobile → on l'empile en 1 colonne. Les vraies
-     grilles « tableau » n'utilisent que de petites colonnes (≤150px) → non touchées. */
+  [style*="grid-template-columns: 1.6fr 1fr"] { grid-template-columns: 1fr !important; }
+  /* Fixed-width side panels → stacked */
   [style*="grid-template-columns:"][style*="200px"],
-  [style*="grid-template-columns:"][style*="210px"],
   [style*="grid-template-columns:"][style*="220px"],
   [style*="grid-template-columns:"][style*="240px"],
-  [style*="grid-template-columns:"][style*="250px"],
   [style*="grid-template-columns:"][style*="260px"],
   [style*="grid-template-columns:"][style*="280px"],
   [style*="grid-template-columns:"][style*="300px"],
@@ -1025,31 +1019,49 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
   [style*="grid-template-columns:"][style*="340px"],
   [style*="grid-template-columns:"][style*="360px"],
   [style*="grid-template-columns:"][style*="380px"],
-  [style*="grid-template-columns:"][style*="400px"] {
-    grid-template-columns: 1fr !important;
-  }
-  /* Les enfants de grille peuvent rétrécir (sinon ils forcent le débordement). */
+  [style*="grid-template-columns:"][style*="400px"] { grid-template-columns: 1fr !important; }
   [style*="display: grid"] > * { min-width: 0; }
 
-  /* Bannières / barres « contenu (flex:1) + actions » : sur mobile, les blocs
-     passent à la ligne (les actions descendent sous le titre qui prend toute la
-     largeur), au lieu de comprimer le titre en colonne étroite et haute.
-     Ciblé sur les conteneurs flex HORIZONTAUX (on exclut flex-direction:column). */
-  div[style*="display: flex"]:not([style*="flex-direction: column"]) { flex-wrap: wrap; }
+  /* ── Flex wrapping — CIBLÉ (pas d'impact sur toolbars, tabs, KPI rows) ─ */
+  /* Sections header : titre + actions descendent en 2 lignes */
+  .page-header,
+  .section-header { flex-wrap: wrap; row-gap: 8px; }
+  /* Cards contenant titre + badge(s) + KPIs verticalement */
+  .card-header { flex-wrap: wrap; }
+  /* Filtres de page (barre complète) wrappent en 2 lignes max */
+  .filter-bar { flex-wrap: wrap; gap: 8px; row-gap: 8px; }
+  /* Boutons action wrappent si pas assez de place */
+  .action-group { flex-wrap: wrap; }
 
-  /* ── Anti-débordement & barres d'outils mobiles (TOUTES les pages) ──
-     1) jamais de scroll horizontal de page ;
-     2) les libellés d'UI ne se coupent PAS lettre par lettre (le filet
-        `overflow-wrap:anywhere` est neutralisé pour les contrôles) ;
-     3) les en-têtes/toolbars (flex « space-between ») passent à la ligne
-        au lieu de comprimer les boutons jusqu'au texte vertical. */
-  html, body { overflow-x: hidden; max-width: 100vw; }
-  .app-main, .page-body, .page-content { overflow-x: hidden; min-width: 0; max-width: 100vw; }
-  button, h1, h2, h3, h4, .tab, .card-title, select { overflow-wrap: normal; word-break: keep-all; white-space: normal; }
-  [style*="justify-content: space-between"] { flex-wrap: wrap; row-gap: 8px; }
-  [style*="justify-content: space-between"] > div[style*="display: flex"] { flex-wrap: wrap; }
-  /* groupes de boutons d'action : restent lisibles, défilent si besoin */
-  [style*="display: flex"][style*="gap"] { max-width: 100%; }
+  /* ── Touch scrollable containers ──────────────────────────────────────── */
+  [style*="overflow-x: auto"],
+  [style*="overflowX: auto"] { -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  [style*="overflow-x: auto"]::-webkit-scrollbar,
+  [style*="overflowX: auto"]::-webkit-scrollbar { display: none; }
+
+  /* ── Heights fixes → auto (prevent content clipping) ─────────────────── */
+  [style*="height: 480px"],
+  [style*="height: 420px"],
+  [style*="height: 400px"],
+  [style*="height: 380px"],
+  [style*="height: 360px"] { height: auto !important; min-height: 240px; }
+
+  /* ── Modals full-screen ────────────────────────────────────────────────── */
+  [style*="position: fixed"][style*="align-items: center"] > div,
+  [style*="position: fixed"][style*="alignItems: center"] > div {
+    width: 100% !important; max-width: 100vw !important;
+    max-height: 100dvh !important; border-radius: 0 !important; margin: 0 !important;
+  }
+
+  /* ── Wide fixed widths → 100% ─────────────────────────────────────────── */
+  [style*="width: 680px"], [style*="width: 700px"], [style*="width: 720px"],
+  [style*="maxWidth: 680px"], [style*="max-width: 680px"] {
+    width: 100% !important; max-width: 100vw !important;
+  }
+
+  /* ── Toolbar labels: hide text, keep icons ──────────────────────────────  */
+  .hide-label-mobile { font-size: 0 !important; }
+  .hide-label-mobile svg { display: inline-block !important; }
 }
 @media (max-width: 480px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }

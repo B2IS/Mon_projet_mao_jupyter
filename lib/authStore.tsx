@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 export { DEMO_ACCOUNTS, TEST_USERS } from './usersDb';
+import { TEST_USERS } from './usersDb';
 import { usePasswordPolicyStore } from './passwordPolicyStore';
 import {
   computeVisibilityScope,

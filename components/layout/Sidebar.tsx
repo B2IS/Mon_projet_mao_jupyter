@@ -665,23 +665,43 @@ export default function Sidebar() {
     </div>
   );
 
+  /* ── Tablet detection — sub-panel overlays instead of pushing content ── */
+  const [isTablet, setIsTablet] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1024px) and (min-width: 769px)');
+    const update = () => setIsTablet(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  /* On tablet the rail stays 52px; sub-panel floats as an overlay */
+  const desktopWidth = isTablet ? 52 : 52 + (subPanelOpen ? 220 : 0);
+
   /* ── Full sidebar assembly ──────────────────────────────────────── */
   const sidebarShell = (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden', position: 'relative' }}>
       {railContent}
-      {subPanel}
+      {/* On tablet: sub-panel is absolute overlay; on desktop: inline */}
+      {isTablet && subPanelOpen ? (
+        <>
+          <div onClick={() => setSubPanelOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 39, background: 'transparent' }} />
+          <div style={{ position: 'fixed', top: 0, left: 52, height: '100vh', zIndex: 40, boxShadow: '4px 0 20px rgba(15,23,42,0.22)' }}>
+            {subPanel}
+          </div>
+        </>
+      ) : !isTablet ? subPanel : null}
     </div>
   );
 
-  const sidebarWidth = 52 + (subPanelOpen ? 220 : 0);
-
   return (
     <>
-      {/* Desktop */}
+      {/* Desktop / Tablet */}
       <aside
         className="sidebar-desktop"
         style={{
-          width: sidebarWidth, flexShrink: 0, height: '100vh',
+          width: desktopWidth, flexShrink: 0, height: '100vh',
           background: '#2D1167',
           borderRight: '1px solid rgba(0,0,0,0.2)',
           boxShadow: '0 0 24px rgba(27,10,64,0.45)',
