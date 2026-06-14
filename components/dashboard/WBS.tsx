@@ -5,6 +5,7 @@ import { useProjectStore, DOMAINE_CFG, type StatutTache } from '@/lib/projectSto
 import { useProgrammeStore } from '@/lib/programmeStore';
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import { readOnlyGuard } from '@/lib/operationalGuard';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 /* ── Vue context ── */
 type ViewMode = 'projet' | 'programme' | 'portefeuille';
@@ -844,23 +845,34 @@ export default function WBS() {
 
         <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
 
-        {/* Sélecteur contextuel */}
+        {/* Sélecteur contextuel — searchable */}
         {viewMode === 'projet' && (
-          <select value={selectedProjetId} onChange={e => { setSelectedProjetId(e.target.value); setSelected(null); }}
-            style={{ padding: '5px 10px', borderRadius: 6, border: '1.5px solid rgba(255,255,255,0.3)', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.12)', color: '#fff', minWidth: 240, maxWidth: 380 }}>
-            {activeWbsData.map(p => (
-              <option key={p.id} value={p.id} style={{ background: '#1B4F8A', color: '#fff' }}>{p.label.slice(0, 65)}</option>
-            ))}
-          </select>
+          <div style={{ minWidth: 280, maxWidth: 420 }}>
+            <SearchableSelect
+              value={selectedProjetId}
+              onChange={v => { setSelectedProjetId(v); setSelected(null); }}
+              options={activeWbsData.map(p => ({
+                value: p.id,
+                label: p.label.slice(0, 72),
+              }))}
+              placeholder="Choisir un projet…"
+              searchPlaceholder="Rechercher un projet…"
+            />
+          </div>
         )}
         {viewMode === 'programme' && (
-          <select value={selectedProgrammeId} onChange={e => setSelectedProgrammeId(e.target.value)}
-            style={{ padding: '5px 10px', borderRadius: 6, border: '1.5px solid rgba(255,255,255,0.3)', fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.12)', color: '#fff', minWidth: 240, maxWidth: 380 }}>
-            <option value="" style={{ background: '#1B4F8A' }}>— Choisir un programme —</option>
-            {prgStore.programmes.map(pr => (
-              <option key={pr.id} value={pr.id} style={{ background: '#1B4F8A' }}>{pr.code} — {pr.nom}</option>
-            ))}
-          </select>
+          <div style={{ minWidth: 280, maxWidth: 420 }}>
+            <SearchableSelect
+              value={selectedProgrammeId}
+              onChange={v => setSelectedProgrammeId(v)}
+              options={[
+                { value: '', label: '— Choisir un programme —' },
+                ...prgStore.programmes.map(pr => ({ value: pr.id, label: `${pr.code} — ${pr.nom}` })),
+              ]}
+              placeholder="— Choisir un programme —"
+              searchPlaceholder="Rechercher un programme…"
+            />
+          </div>
         )}
 
         <div style={{ flex: 1 }} />
