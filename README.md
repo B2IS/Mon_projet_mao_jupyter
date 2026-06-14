@@ -1,6 +1,6 @@
 # SIGEPP-DPE
 
-Plateforme intégrée de gouvernance, d'exécution et de pilotage des projets d'équipement pour la Direction du Patrimoine et des Équipements (DPE) — SENELEC. Couvre l'ensemble du cycle de vie des projets d'investissement : planification, EVM, marchés publics, contrôle terrain, gestion des actifs, analyse IA de dossiers, et reporting exécutif.
+Plateforme intégrée de gouvernance, d'exécution et de pilotage des projets d'équipement pour la Direction Principale Équipement (DPE) — SENELEC. Couvre l'ensemble du cycle de vie des projets d'investissement : planification, EVM, marchés publics, contrôle terrain, gestion des actifs, analyse IA de dossiers, et reporting exécutif.
 
 **Production :** https://sigeppdpe.vercel.app  
 **Repo :** https://github.com/B2IS/Mon_projet_mao_jupyter (`master` = prod · `sigepp-deploy` = dev)
