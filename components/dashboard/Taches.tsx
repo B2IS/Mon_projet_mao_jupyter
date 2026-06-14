@@ -19,6 +19,7 @@ import {
 } from '@/lib/projectStore';
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import { readOnlyGuard } from '@/lib/operationalGuard';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import {
   ChevronRight,
   ChevronDown,
@@ -799,15 +800,16 @@ export default function Taches() {
 
       {/* ── Top bar ── */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-        <select
-          value={selectedProjetId}
-          onChange={e => setSelectedProjetId(e.target.value)}
-          style={{ ...inp, fontSize: 13, fontWeight: 600, minWidth: 240, flex: 1 }}
-        >
-          {store.projets.map(p => (
-            <option key={p.id} value={p.id}>{p.code} — {p.nom}</option>
-          ))}
-        </select>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <SearchableSelect
+            value={selectedProjetId}
+            onChange={setSelectedProjetId}
+            options={store.projets.map(p => ({ value: p.id, label: `${p.code} — ${p.nom}` }))}
+            placeholder="— Sélectionner un projet —"
+            searchPlaceholder="Rechercher un projet…"
+            style={{ fontSize: 13, fontWeight: 600 }}
+          />
+        </div>
 
         <div style={{ display: 'flex', gap: 4 }}>
           <button style={viewBtnStyle(view === 'liste')} onClick={() => setView('liste')}>

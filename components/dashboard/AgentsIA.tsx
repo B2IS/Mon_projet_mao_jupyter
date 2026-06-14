@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/authStore';
 import { chatOnce, getKey, GROQ_MODELS, type ChatMessage } from '@/lib/groqChat';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import toast from 'react-hot-toast';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 /* ─── Tokens ──────────────────────────────────────────── */
 const NAVY   = '#1B4F8A';
@@ -377,17 +378,18 @@ ${rows}`;
           {/* Sélecteur de périmètre */}
           <div style={{ marginBottom: 10 }}>
             <label style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Périmètre d'analyse</label>
-            <select
+            <SearchableSelect
               value={selectedCode}
-              onChange={e => setSelectedCode(e.target.value)}
+              onChange={setSelectedCode}
               disabled={running}
-              style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: `1px solid ${BORDER}`, fontSize: 11.5, fontFamily: 'inherit', background: '#fff', color: '#1E293B', cursor: running ? 'not-allowed' : 'pointer', outline: 'none' }}
-            >
-              <option value="all">Portefeuille complet ({store.projets.length} projets)</option>
-              {projOptions.map(p => (
-                <option key={p.code} value={p.code}>{p.code} — {p.nom.slice(0, 30)}{p.nom.length > 30 ? '…' : ''}</option>
-              ))}
-            </select>
+              options={[
+                { value: 'all', label: `Portefeuille complet (${store.projets.length} projets)` },
+                ...projOptions.map(p => ({ value: p.code, label: `${p.code} — ${p.nom}` })),
+              ]}
+              placeholder="— Sélectionner un projet —"
+              searchPlaceholder="Rechercher un projet…"
+              style={{ fontSize: 11.5 }}
+            />
           </div>
 
           {/* Bouton lancer */}

@@ -115,7 +115,6 @@ const DOMAINS: Domain[] = [
           { href: '/gestion-projet', icon: Target, label: 'Gestion de projet', labelByRole: { CHEF_PROJ: 'Mon projet' } },
           { href: '/gantt', icon: GanttChart, label: 'Chronogramme / Gantt', labelByRole: { DIR_DPE: 'Planning Jalons', PMO: 'Planning / Gantt', CHEF_PROJ: 'Mon Planning' } },
           { href: '/wbs', icon: Network, label: 'Structure WBS', onlyRoles: ['CHEF_PROJ', 'ASSISTANT', 'INGENIEUR', 'CONTROLEUR', 'ADMIN'] },
-          { href: '/structuration', icon: Boxes, label: 'Structuration des actifs', onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'PMO', 'IMMO', 'ADMIN'] },
           {
             href: '/taches', icon: CheckSquare2, label: 'Tâches & Activités',
             onlyRoles: ['CHEF_PROJ', 'ASSISTANT', 'INGENIEUR', 'CONTROLEUR', 'ADMIN'],
@@ -175,6 +174,7 @@ const DOMAINS: Domain[] = [
         label: 'Immobilisations & Patrimoine',
         items: [
           { href: '/immobilisations', icon: Building2, label: 'Immobilisations & Patrimoine', labelByRole: { RESP_LOG: 'Patrimoine & Inventaire', IMMO: 'Registre des actifs' } },
+          { href: '/structuration', icon: Boxes, label: 'Structuration des actifs', onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'PMO', 'IMMO', 'ADMIN'] },
         ],
       },
       {

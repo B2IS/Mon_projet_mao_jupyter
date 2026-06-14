@@ -851,11 +851,15 @@ export default function Courriers() {
                           <button className="btn btn-ghost btn-xs" onClick={() => setProjetLie(p => { const n = { ...p }; delete n[c.id]; return n; })} style={{ color: '#94A3B8' }}><X size={10} /></button>
                         </div>
                       ) : (
-                        <select onChange={e => { if (e.target.value) setProjetLie(p => ({ ...p, [c.id]: e.target.value })); e.currentTarget.value = ''; }}
-                          style={{ width: '100%', padding: '7px 9px', borderRadius: 8, border: '1.5px solid #E2E8F0', fontSize: 12, color: '#64748B', background: '#fff', cursor: 'pointer' }}>
-                          <option value="">Selectionner un projet...</option>
-                          {projets.map(p => <option key={p.id} value={p.nom}>{p.nom}</option>)}
-                        </select>
+                        <SearchableSelect
+                          value=""
+                          onChange={v => { if (v) setProjetLie(p => ({ ...p, [c.id]: v })); }}
+                          options={projets.map(p => ({ value: p.nom, label: p.nom }))}
+                          placeholder="Sélectionner un projet…"
+                          searchPlaceholder="Rechercher un projet…"
+                          allowEmpty
+                          style={{ width: '100%', fontSize: 12 }}
+                        />
                       )}
                     </div>
 

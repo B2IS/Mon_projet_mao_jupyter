@@ -15,6 +15,7 @@ import {
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import { useTempsStore } from '@/lib/tempsStore';
 import { readOnlyGuard } from '@/lib/operationalGuard';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 /* ══════════════════════════════════════════════════════════════════════════════
    TYPES GANTT
@@ -1126,16 +1127,17 @@ export default function Gantt() {
 
         {/* Project selector */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <select value={selectedProjetId}
-            onChange={e => { setSelectedProjetId(e.target.value); setCollapsedIds(new Set()); setSelectedId(null); }}
-            style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 220, maxWidth: 340 }}>
-            <option value="" style={{ color: '#1e293b', background: '#fff' }}>— Sélectionner un projet —</option>
-            {store.projets.map(p => (
-              <option key={p.id} value={p.id} style={{ color: '#1e293b', background: '#fff' }}>
-                {p.code} — {p.nom.slice(0, 40)}
-              </option>
-            ))}
-          </select>
+          <div style={{ minWidth: 260, maxWidth: 360 }}>
+            <SearchableSelect
+              value={selectedProjetId}
+              onChange={v => { setSelectedProjetId(v); setCollapsedIds(new Set()); setSelectedId(null); }}
+              options={store.projets.map(p => ({ value: p.id, label: `${p.code} — ${p.nom}` }))}
+              placeholder="— Sélectionner un projet —"
+              searchPlaceholder="Rechercher un projet…"
+              allowEmpty
+              style={{ background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.30)', color: '#fff', fontSize: 12, fontWeight: 600 }}
+            />
+          </div>
           {activeProjet && (
             <div style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11.5, color: '#E0D7FF', fontWeight: 600, whiteSpace:'nowrap' }}>
               {(activeProjet.avancementReel ?? activeProjet.avancement).toFixed(1)}% · CPI {activeProjet.cpi}

@@ -17,6 +17,7 @@ import {
 } from '@/lib/tempsStore';
 import { capturerPositionTerrain, pointerDepuisSite, demarrerSuiviTerrainAuto, CONTEXTE_TRANSVERSE } from '@/lib/tempsTracker';
 import { useAuth } from '@/lib/authStore';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const PURPLE = '#3D1A6B', ORANGE = '#F47920', INK = '#0F172A', MUT = '#64748B';
 const BORDER = '#E2E8F0';
@@ -288,11 +289,15 @@ export default function GestionTemps() {
               <input type="text" placeholder="Nom, matricule..." value={filtreSearch} onChange={e => setFiltreSearch(e.target.value)}
                 style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 32, paddingRight: 10, paddingTop: 8, paddingBottom: 8, borderRadius: 9, border: '1.5px solid #E2E8F0', fontSize: 12.5, color: INK, background: '#fff', outline: 'none' }} />
             </div>
-            <select value={filtreProjet} onChange={e => setFiltreProjet(e.target.value)}
-              style={{ padding: '8px 10px', borderRadius: 9, border: '1.5px solid #E2E8F0', fontSize: 12, color: filtreProjet ? INK : '#94A3B8', background: '#fff', cursor: 'pointer', minWidth: 165 }}>
-              <option value="">Tous projets</option>
-              {[...new Set(ressourcesVisibles.map(r => r.projet))].map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <SearchableSelect
+              value={filtreProjet}
+              onChange={setFiltreProjet}
+              options={[...new Set(ressourcesVisibles.map(r => r.projet))].map(p => ({ value: p, label: p }))}
+              placeholder="Tous projets"
+              searchPlaceholder="Rechercher un projet…"
+              allowEmpty
+              style={{ minWidth: 165, fontSize: 12 }}
+            />
             <select value={filtreRegion} onChange={e => setFiltreRegion(e.target.value)}
               style={{ padding: '8px 10px', borderRadius: 9, border: '1.5px solid #E2E8F0', fontSize: 12, color: filtreRegion ? INK : '#94A3B8', background: '#fff', cursor: 'pointer', minWidth: 130 }}>
               <option value="">Toutes regions</option>

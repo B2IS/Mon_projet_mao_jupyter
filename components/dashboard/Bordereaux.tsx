@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/authStore';
 import toast from 'react-hot-toast';
 import EditableTable, { type EditableColumn, type EditableRow } from '@/components/ui/EditableTable';
 import DocumentAnnotator, { type AnnotatedDoc } from '@/components/ui/DocumentAnnotator';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 /* ─── Versioning, décomptes & contrôle factures (PMI Cost Control / Earned Value) ── */
 type DecompteStatut = 'brouillon' | 'soumis' | 'certifie' | 'paye';
@@ -1052,9 +1053,14 @@ function AttachementsPanel() {
     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', padding: '0 4px' }}>
       <div style={{ width: 300, flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <select value={projetCode} onChange={e => { setProjetCode(e.target.value); setSelId(''); }} style={{ flex: 1, padding: '7px 9px', borderRadius: 8, border: '1.5px solid #CBD5E1', fontSize: 12 }}>
-            {store.projets.map(p => <option key={p.id} value={p.code}>{p.code} — {p.nom.slice(0, 26)}</option>)}
-          </select>
+          <SearchableSelect
+            value={projetCode}
+            onChange={v => { setProjetCode(v); setSelId(''); }}
+            options={store.projets.map(p => ({ value: p.code, label: `${p.code} — ${p.nom}` }))}
+            placeholder="— Projet —"
+            searchPlaceholder="Rechercher un projet…"
+            style={{ flex: 1, fontSize: 12 }}
+          />
           <button onClick={nouveau} style={{ padding: '7px 12px', background: '#0E3460', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Att.</button>
         </div>
         {liste.length === 0 ? <div style={{ color: '#94A3B8', fontSize: 12.5, padding: 8 }}>Aucun attachement. L'entreprise crée un attachement et saisit les quantités réalisées.</div> :

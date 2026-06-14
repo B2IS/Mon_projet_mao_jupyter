@@ -12,6 +12,8 @@ import { logAudit, type AuditType } from '@/lib/auditStore';
 import DocumentAnnotator, { type AnnotatedDoc } from '@/components/ui/DocumentAnnotator';
 import CreateWorkflowModal, { type WorkflowSource } from '@/components/ui/CreateWorkflowModal';
 import { useAuth } from '@/lib/authStore';
+import { useProjectStore } from '@/lib/projectStore';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 
 /** Journalise une action GED dans le journal d'audit (CCF ADM-03 · GED-03). */
@@ -291,11 +293,14 @@ function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Doc
             </div>
             <div className="form-group">
               <label className="form-label">Projet associé</label>
-              <select className="form-input" value={projet} onChange={e => setProjet(e.target.value)}>
-                <option value="">— Aucun —</option>
-                <option>PUDC Phase III</option><option>PERAL Saint-Louis</option>
-                <option>PERACOD II</option><option>Electrif. Casamance</option>
-              </select>
+              <SearchableSelect
+                value={projet}
+                onChange={setProjet}
+                options={projetsStore.projets.map(p => ({ value: p.nom, label: `${p.code} — ${p.nom}` }))}
+                placeholder="— Aucun —"
+                searchPlaceholder="Rechercher un projet…"
+                allowEmpty
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Tags (virgule séparés)</label>
@@ -557,6 +562,7 @@ function saveGedDocs(docs: Document[]) {
 
 export default function GED() {
   const { user } = useAuth();
+  const projetsStore = useProjectStore();
   const [docs, setDocs] = useState<Document[]>(() => loadGedDocs());
   const [versions, setVersions] = useState<Record<string, Version[]>>(VERSIONS_MAP);
   const [search, setSearch] = useState('');

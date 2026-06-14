@@ -9,6 +9,7 @@ import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import { MapContainer, TileLayer, Polygon, CircleMarker, Popup, useMapEvent } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { LatLngExpression } from 'leaflet';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES & MOCK DATA
@@ -429,10 +430,15 @@ export default function Cartographie() {
             </div>
             <div className="form-group">
               <label className="form-label">Projet</label>
-              <select className="form-input" style={{ fontSize: 11 }} value={filterProjet} onChange={e => setFilterProjet(e.target.value)}>
-                <option value="tous">Tous les projets</option>
-                {storePins.map(p => <option key={p.id} value={p.code}>{(p.code || p.nom).replace('PRJ-','').slice(0, 32)}</option>)}
-              </select>
+              <SearchableSelect
+                value={filterProjet === 'tous' ? '' : filterProjet}
+                onChange={v => setFilterProjet(v || 'tous')}
+                options={storePins.map(p => ({ value: p.code, label: (p.code || p.nom).replace('PRJ-', '') }))}
+                placeholder="Tous les projets"
+                searchPlaceholder="Rechercher un projet…"
+                allowEmpty
+                style={{ fontSize: 11 }}
+              />
             </div>
           </div>
         </div>
