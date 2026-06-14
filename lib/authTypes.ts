@@ -174,9 +174,9 @@ const R_CHEF_TEAM = [
 ];
 
 export const ROLE_ROUTES: Record<RoleCode, string[]> = {
-  DIR_DPE:   [R_TBL, ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps'],
-  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT],
-  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT],
+  DIR_DPE:   [R_TBL, ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps', '/gouvernance'],
+  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT, '/gouvernance'],
+  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/gouvernance'],
   CHEF_PROJ: [...R_CHEF_TEAM, '/migration', '/agents-ia'],
   INGENIEUR: [R_TBL, ...R_PROJ, ...R_WBS, '/migration', '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/workflows'],
   EXPERT:    [R_TBL, ...R_PORT.slice(0,1), ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, '/agents-ia', ...R_GED, '/workflows', '/reporting'],
@@ -196,9 +196,9 @@ export const ROLE_ROUTES: Record<RoleCode, string[]> = {
 };
 
 export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
-  DIR_DPE:   [R_TBL, ...R_PORT, '/cockpit-projet', '/gantt', '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows'],
-  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+  DIR_DPE:   [R_TBL, ...R_PORT, '/cockpit-projet', '/gantt', '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows', '/gouvernance'],
+  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows', '/gouvernance'],
+  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows', '/gouvernance'],
   CHEF_PROJ: [...R_CHEF_TEAM, '/migration', '/agents-ia', '/courriers', '/workflows'],
   INGENIEUR: [R_TBL, ...R_PROJ, ...R_WBS, '/migration', '/terrain', ...R_CARTO, ...R_GED, '/workflows', '/courriers'],
   EXPERT:    [R_TBL, ...R_PORT.slice(0,1), ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, '/agents-ia', ...R_GED, '/workflows', '/courriers', '/reporting'],
