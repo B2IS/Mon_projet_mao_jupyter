@@ -44,10 +44,8 @@ interface DomainPerf {
 
 interface MonthlyTrend {
   mois: string;
-  Production: number;
   Transport: number;
   Distribution: number;
-  Commercial: number;
   Total: number;
 }
 
@@ -82,51 +80,42 @@ interface RiskPoint {
 
 /* ─── Static data ───────────────────────────────────────────────────────────── */
 const PROJECTS_BUDGET: ProjectBudget[] = [
-  { name: 'Centrale CC',      prevu: 38.5, realise: 22.4, domain: 'Production'   },
-  { name: 'Solar Tobène',     prevu: 24.2, realise: 18.1, domain: 'Production'   },
   { name: 'Ligne 225kV',      prevu: 42.0, realise: 28.6, domain: 'Transport'    },
   { name: 'PADERAU HTB',      prevu: 18.7, realise: 12.9, domain: 'Transport'    },
+  { name: 'HTB Thiès',        prevu: 22.0, realise: 16.3, domain: 'Transport'    },
   { name: 'Réseau BT Dakar',  prevu: 15.3, realise: 13.1, domain: 'Distribution' },
   { name: 'AMI Compteurs',    prevu: 12.8, realise: 7.4,  domain: 'Distribution' },
-  { name: 'CRM Commercial',   prevu: 8.6,  realise: 6.8,  domain: 'Commercial'   },
-  { name: 'Télégestion',      prevu: 10.1, realise: 9.7,  domain: 'Commercial'   },
+  { name: 'BT Ziguinchor',    prevu: 9.4,  realise: 8.1,  domain: 'Distribution' },
 ];
 
 const DOMAIN_PERF: DomainPerf[] = [
-  { domain: 'Production',   Budget: 88, Délai: 82, Qualité: 91, Sécurité: 95 },
   { domain: 'Transport',    Budget: 84, Délai: 79, Qualité: 88, Sécurité: 92 },
   { domain: 'Distribution', Budget: 91, Délai: 86, Qualité: 90, Sécurité: 89 },
-  { domain: 'Commercial',   Budget: 94, Délai: 91, Qualité: 87, Sécurité: 96 },
 ];
 
 const MONTHLY_TREND: MonthlyTrend[] = [
-  { mois: 'Jan', Production: 1.2, Transport: 2.1, Distribution: 1.8, Commercial: 0.6, Total: 5.7  },
-  { mois: 'Fév', Production: 1.8, Transport: 2.4, Distribution: 2.1, Commercial: 0.8, Total: 7.1  },
-  { mois: 'Mar', Production: 2.4, Transport: 3.2, Distribution: 2.6, Commercial: 1.0, Total: 9.2  },
-  { mois: 'Avr', Production: 3.8, Transport: 4.1, Distribution: 3.0, Commercial: 1.2, Total: 12.1 },
-  { mois: 'Mai', Production: 5.2, Transport: 4.8, Distribution: 3.4, Commercial: 1.3, Total: 14.7 },
-  { mois: 'Jun', Production: 6.8, Transport: 5.3, Distribution: 3.9, Commercial: 1.5, Total: 17.5 },
-  { mois: 'Jul', Production: 7.6, Transport: 5.8, Distribution: 4.2, Commercial: 1.6, Total: 19.2 },
-  { mois: 'Aoû', Production: 8.1, Transport: 6.2, Distribution: 4.6, Commercial: 1.7, Total: 20.6 },
-  { mois: 'Sep', Production: 8.4, Transport: 6.5, Distribution: 4.8, Commercial: 1.8, Total: 21.5 },
-  { mois: 'Oct', Production: 8.6, Transport: 6.8, Distribution: 5.1, Commercial: 1.9, Total: 22.4 },
-  { mois: 'Nov', Production: 8.7, Transport: 7.0, Distribution: 5.3, Commercial: 2.0, Total: 23.0 },
-  { mois: 'Déc', Production: 8.9, Transport: 7.2, Distribution: 5.5, Commercial: 2.1, Total: 23.7 },
+  { mois: 'Jan', Transport: 2.1, Distribution: 1.8, Total: 3.9  },
+  { mois: 'Fév', Transport: 2.4, Distribution: 2.1, Total: 4.5  },
+  { mois: 'Mar', Transport: 3.2, Distribution: 2.6, Total: 5.8  },
+  { mois: 'Avr', Transport: 4.1, Distribution: 3.0, Total: 7.1  },
+  { mois: 'Mai', Transport: 4.8, Distribution: 3.4, Total: 8.2  },
+  { mois: 'Jun', Transport: 5.3, Distribution: 3.9, Total: 9.2  },
+  { mois: 'Jul', Transport: 5.8, Distribution: 4.2, Total: 10.0 },
+  { mois: 'Aoû', Transport: 6.2, Distribution: 4.6, Total: 10.8 },
+  { mois: 'Sep', Transport: 6.5, Distribution: 4.8, Total: 11.3 },
+  { mois: 'Oct', Transport: 6.8, Distribution: 5.1, Total: 11.9 },
+  { mois: 'Nov', Transport: 7.0, Distribution: 5.3, Total: 12.3 },
+  { mois: 'Déc', Transport: 7.2, Distribution: 5.5, Total: 12.7 },
 ];
 
 const DELAY_SCATTER: ScatterPoint[] = [
-  { projet: 'Centrale CC',      prevu: 24, reel: 28, status: 'delayed', domain: 'Production'   },
-  { projet: 'Solar Tobène',     prevu: 18, reel: 17, status: 'ontime',  domain: 'Production'   },
   { projet: 'Ligne 225kV',      prevu: 36, reel: 42, status: 'delayed', domain: 'Transport'    },
   { projet: 'PADERAU HTB',      prevu: 20, reel: 22, status: 'delayed', domain: 'Transport'    },
+  { projet: 'HTB Thiès',        prevu: 22, reel: 25, status: 'delayed', domain: 'Transport'    },
   { projet: 'Réseau BT Dakar',  prevu: 14, reel: 13, status: 'ontime',  domain: 'Distribution' },
   { projet: 'AMI Compteurs',    prevu: 16, reel: 19, status: 'delayed', domain: 'Distribution' },
-  { projet: 'CRM Commercial',   prevu: 10, reel: 10, status: 'ontime',  domain: 'Commercial'   },
-  { projet: 'Télégestion',      prevu: 12, reel: 11, status: 'ontime',  domain: 'Commercial'   },
-  { projet: 'HTB Thiès',        prevu: 22, reel: 25, status: 'delayed', domain: 'Transport'    },
   { projet: 'BT Ziguinchor',    prevu: 15, reel: 15, status: 'ontime',  domain: 'Distribution' },
   { projet: 'Sous-station HTA', prevu: 28, reel: 26, status: 'ontime',  domain: 'Distribution' },
-  { projet: 'Éclairage public', prevu: 8,  reel: 9,  status: 'delayed', domain: 'Commercial'   },
 ];
 
 const PIE_DEPENSES: PieDatum[] = [
@@ -503,14 +492,11 @@ export default function Analytique() {
     if (domain === 'Tous') return sliced;
     return sliced.map(row => ({
       mois:         row.mois,
-      Production:   domain === 'Production'   ? row.Production   : 0,
       Transport:    domain === 'Transport'    ? row.Transport    : 0,
       Distribution: domain === 'Distribution' ? row.Distribution : 0,
-      Commercial:   domain === 'Commercial'   ? row.Commercial   : 0,
-      Total:        domain === 'Production'   ? row.Production
-                  : domain === 'Transport'    ? row.Transport
+      Total:        domain === 'Transport'    ? row.Transport
                   : domain === 'Distribution' ? row.Distribution
-                  : row.Commercial,
+                  : row.Total,
     }));
   }, [period, domain, domainHasRealData]);
 

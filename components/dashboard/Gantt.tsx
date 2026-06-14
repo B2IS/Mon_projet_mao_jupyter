@@ -1238,9 +1238,9 @@ export default function Gantt() {
               <Calendar size={12} /> Baseline
             </button>
             {activeProjet && (
-              <button onClick={autoPlanifier} title="Recalcule les dates de toutes les tâches à partir des durées + dépendances (CPM, jours ouvrés)"
+              <button onClick={autoPlanifier} title="Recalcule automatiquement toutes les dates de début/fin à partir des durées et des liens de dépendance (méthode du chemin critique, jours ouvrés)"
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#F47920', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                <Zap size={12} /> Planifier auto (CPM)
+                <Zap size={12} /> Recalculer dates
               </button>
             )}
           </>

@@ -464,6 +464,14 @@ const STATUT_PAY_CFG: Record<StatutPaiement, { label: string; bg: string; color:
   litige:     { label: 'Litige',      bg: '#FEF2F2', color: '#B91C1C' },
 };
 
+// ── Helpers immo (module-level pour éviter les re-créations dans les IIFEs) ────
+const ANNEE_COURANTE = new Date().getFullYear();
+const amortAnnuelFn   = (i: Immobilisation) => i.dureeAmortissement > 0 ? i.valeurAcquisition / i.dureeAmortissement : 0;
+const anneesEcouleesFn = (i: Immobilisation) => Math.max(0, ANNEE_COURANTE - new Date(i.dateMiseEnService).getFullYear());
+const cumulAmortFn    = (i: Immobilisation) => Math.min(i.valeurAcquisition, amortAnnuelFn(i) * anneesEcouleesFn(i));
+const vncFn           = (i: Immobilisation) => i.valeurAcquisition - cumulAmortFn(i);
+const fmtMontant      = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} M` : n.toLocaleString('fr-FR');
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Receptions() {
@@ -562,6 +570,26 @@ export default function Receptions() {
 
   // Taux 1er passage (PVP sans réserves)
   const tauxPremierPassage = pvps.length > 0 ? Math.round((pvps.filter(p => p.nbReserves === 0).length / pvps.length) * 100) : 0;
+
+  // ── Immo dérivés (extraits de l'IIFE pour que React les gère proprement) ──
+  const immoValeurBrute = useMemo(() => immos.reduce((s, i) => s + i.valeurAcquisition, 0), [immos]);
+  const immoAmortTotal  = useMemo(() => immos.reduce((s, i) => s + cumulAmortFn(i), 0), [immos]);
+  const immoVncTotal    = immoValeurBrute - immoAmortTotal;
+  const immoAImmobiliser = immos.filter(i => i.statut === 'a_immobiliser').length;
+  const setImmoStatut   = (id: string, statut: StatutImmo) => setImmos(prev => prev.map(i => i.id === id ? { ...i, statut } : i));
+  const exportImmo      = () => {
+    downloadExcel('registre_immobilisations_dpe', {
+      sheetName: 'Immobilisations',
+      title: 'Registre des immobilisations — DPE',
+      subtitle: 'SENELEC · Direction Principale Équipement',
+      headers: ['Code', 'Désignation', 'Projet origine', 'Catégorie', 'Mise en service', 'Valeur acquisition', 'Durée (ans)', 'Amort. annuel', 'Amort. cumulé', 'VNC', 'Affectataire', 'Statut'],
+      rows: immos.map(i => [i.code, i.designation, i.projetOrigine, i.categorie, i.dateMiseEnService, i.valeurAcquisition, i.dureeAmortissement, Math.round(amortAnnuelFn(i)), Math.round(cumulAmortFn(i)), Math.round(vncFn(i)), i.uniteAffectataire, IMMO_CFG[i.statut].label]),
+    });
+  };
+
+  // ── Paiements helpers ──
+  const setPay = (id: string, statut: StatutPaiement) =>
+    setPaiements(prev => prev.map(p => p.id === id ? { ...p, statut, ...(statut === 'regle' ? { montantRegle: p.montantFacture, dateReglement: new Date().toISOString().slice(0, 10) } : {}) } : p));
 
   return (
     <div className="page-content">
@@ -735,18 +763,14 @@ export default function Receptions() {
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* PAIEMENTS ────────────────────────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════════ */}
-      {activeTab === 'paiements' && (() => {
-        const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} M` : n.toLocaleString('fr-FR');
-        const setPay = (id: string, statut: StatutPaiement) =>
-          setPaiements(prev => prev.map(p => p.id === id ? { ...p, statut, ...(statut === 'regle' ? { montantRegle: p.montantFacture, dateReglement: new Date().toISOString().slice(0, 10) } : {}) } : p));
-        return (
+      {activeTab === 'paiements' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
               {[
-                { label: 'Total facturé', value: fmt(payKpis.totalFacture) + ' FCFA', sub: `${paiements.length} facture(s)`, color: '#1B4F8A' },
-                { label: 'Montant réglé', value: fmt(payKpis.totalRegle) + ' FCFA', sub: `${payKpis.nbRegle} facture(s) soldée(s)`, color: '#16A34A' },
-                { label: 'Reste à payer', value: fmt(payKpis.totalRestant) + ' FCFA', sub: `${payKpis.nbEnAttente} en attente`, color: '#F47920' },
+                { label: 'Total facturé', value: fmtMontant(payKpis.totalFacture) + ' FCFA', sub: `${paiements.length} facture(s)`, color: '#1B4F8A' },
+                { label: 'Montant réglé', value: fmtMontant(payKpis.totalRegle) + ' FCFA', sub: `${payKpis.nbRegle} facture(s) soldée(s)`, color: '#16A34A' },
+                { label: 'Reste à payer', value: fmtMontant(payKpis.totalRestant) + ' FCFA', sub: `${payKpis.nbEnAttente} en attente`, color: '#F47920' },
                 { label: 'Litiges', value: String(payKpis.nbLitiges), sub: 'paiements bloqués', color: '#DC2626' },
               ].map(k => (
                 <div key={k.label} style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', borderTop: `3px solid ${k.color}`, padding: '13px 15px' }}>
@@ -798,9 +822,9 @@ export default function Receptions() {
                             <div style={{ fontWeight: 600, color: '#1E293B' }}>{p.entreprise}</div>
                             <div style={{ fontSize: 10.5, color: '#94A3B8', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.projet}</div>
                           </td>
-                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>{fmt(p.montantFacture)}</td>
-                          <td style={{ padding: '9px 12px', textAlign: 'right', color: '#16A34A', fontWeight: 700 }}>{fmt(p.montantRegle)}</td>
-                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: solde > 0 ? (enRetard ? '#DC2626' : '#F47920') : '#94A3B8' }}>{fmt(solde)}</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>{fmtMontant(p.montantFacture)}</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', color: '#16A34A', fontWeight: 700 }}>{fmtMontant(p.montantRegle)}</td>
+                          <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: solde > 0 ? (enRetard ? '#DC2626' : '#F47920') : '#94A3B8' }}>{fmtMontant(solde)}</td>
                           <td style={{ padding: '9px 12px', fontSize: 11, color: enRetard ? '#DC2626' : '#475569', fontWeight: enRetard ? 700 : 400 }}>
                             {p.dateEcheance}{enRetard && <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 700, color: '#DC2626' }}>EN RETARD</span>}
                           </td>
@@ -822,9 +846,9 @@ export default function Receptions() {
                   <tfoot>
                     <tr style={{ borderTop: '2px solid #E2E8F0', background: '#F8FAFC', fontWeight: 800, color: '#1B4F8A' }}>
                       <td style={{ padding: '10px 12px' }} colSpan={2}>TOTAL</td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmt(payKpis.totalFacture)}</td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#16A34A' }}>{fmt(payKpis.totalRegle)}</td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#F47920' }}>{fmt(payKpis.totalRestant)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtMontant(payKpis.totalFacture)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#16A34A' }}>{fmtMontant(payKpis.totalRegle)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#F47920' }}>{fmtMontant(payKpis.totalRestant)}</td>
                       <td colSpan={3} />
                     </tr>
                   </tfoot>
@@ -832,8 +856,7 @@ export default function Receptions() {
               </div>
             </div>
           </div>
-        );
-      })()}
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* PLANNING J+30 ────────────────────────────────────────────────── */}
@@ -975,36 +998,15 @@ export default function Receptions() {
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* IMMOBILISATIONS — gestion des actifs après mise en service ─────── */}
       {/* ══════════════════════════════════════════════════════════════════ */}
-      {activeTab === 'immo' && (() => {
-        const annee = new Date().getFullYear();
-        const amortAnnuel = (i: Immobilisation) => i.dureeAmortissement > 0 ? i.valeurAcquisition / i.dureeAmortissement : 0;
-        const anneesEcoulees = (i: Immobilisation) => Math.max(0, annee - new Date(i.dateMiseEnService).getFullYear());
-        const cumulAmort = (i: Immobilisation) => Math.min(i.valeurAcquisition, amortAnnuel(i) * anneesEcoulees(i));
-        const vnc = (i: Immobilisation) => i.valeurAcquisition - cumulAmort(i);
-        const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} M` : n.toLocaleString('fr-FR');
-        const valeurBrute = immos.reduce((s, i) => s + i.valeurAcquisition, 0);
-        const amortTotal = immos.reduce((s, i) => s + cumulAmort(i), 0);
-        const vncTotal = valeurBrute - amortTotal;
-        const aImmobiliser = immos.filter(i => i.statut === 'a_immobiliser').length;
-        const setStatut = (id: string, statut: StatutImmo) => setImmos(prev => prev.map(i => i.id === id ? { ...i, statut } : i));
-        const exportImmo = () => {
-          downloadExcel('registre_immobilisations_dpe', {
-            sheetName: 'Immobilisations',
-            title: 'Registre des immobilisations — DPE',
-            subtitle: 'SENELEC · Direction Principale Équipement',
-            headers: ['Code', 'Désignation', 'Projet origine', 'Catégorie', 'Mise en service', 'Valeur acquisition', 'Durée (ans)', 'Amort. annuel', 'Amort. cumulé', 'VNC', 'Affectataire', 'Statut'],
-            rows: immos.map(i => [i.code, i.designation, i.projetOrigine, i.categorie, i.dateMiseEnService, i.valeurAcquisition, i.dureeAmortissement, Math.round(amortAnnuel(i)), Math.round(cumulAmort(i)), Math.round(vnc(i)), i.uniteAffectataire, IMMO_CFG[i.statut].label]),
-          });
-        };
-        return (
+      {activeTab === 'immo' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* KPI immobilisations */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
-                { label: 'Immobilisations', value: immos.length, sub: `${aImmobiliser} à immobiliser`, color: '#1B4F8A' },
-                { label: 'Valeur brute (FCFA)', value: fmt(valeurBrute), sub: 'coût d\'acquisition', color: '#F47920' },
-                { label: 'Amort. cumulés', value: fmt(amortTotal), sub: `au ${annee}`, color: '#D97706' },
-                { label: 'Valeur nette comptable', value: fmt(vncTotal), sub: 'VNC actuelle', color: '#16A34A' },
+                { label: 'Immobilisations', value: immos.length, sub: `${immoAImmobiliser} à immobiliser`, color: '#1B4F8A' },
+                { label: 'Valeur brute (FCFA)', value: fmtMontant(immoValeurBrute), sub: 'coût d\'acquisition', color: '#F47920' },
+                { label: 'Amort. cumulés', value: fmtMontant(immoAmortTotal), sub: `au ${ANNEE_COURANTE}`, color: '#D97706' },
+                { label: 'Valeur nette comptable', value: fmtMontant(immoVncTotal), sub: 'VNC actuelle', color: '#16A34A' },
               ].map(k => (
                 <div key={k.label} style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', borderTop: `3px solid ${k.color}`, padding: '13px 15px' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{k.label}</div>
@@ -1156,13 +1158,13 @@ export default function Receptions() {
                           <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{i.categorie} · {i.projetOrigine}</div>
                         </td>
                         <td style={{ padding: '9px 12px', color: '#475569' }}>{i.dateMiseEnService}</td>
-                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#475569' }}>{fmt(i.valeurAcquisition)}</td>
-                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#64748B' }}>{fmt(amortAnnuel(i))}</td>
-                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#D97706' }}>{fmt(cumulAmort(i))}</td>
-                        <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#16A34A' }}>{fmt(vnc(i))}</td>
+                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#475569' }}>{fmtMontant(i.valeurAcquisition)}</td>
+                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#64748B' }}>{fmtMontant(amortAnnuelFn(i))}</td>
+                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#D97706' }}>{fmtMontant(cumulAmortFn(i))}</td>
+                        <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#16A34A' }}>{fmtMontant(vncFn(i))}</td>
                         <td style={{ padding: '9px 12px', fontSize: 11, color: '#475569' }}>{i.uniteAffectataire}</td>
                         <td style={{ padding: '9px 12px' }}>
-                          <select value={i.statut} onChange={e => setStatut(i.id, e.target.value as StatutImmo)}
+                          <select value={i.statut} onChange={e => setImmoStatut(i.id, e.target.value as StatutImmo)}
                             style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 6px', borderRadius: 6, border: '1px solid #E2E8F0', background: IMMO_CFG[i.statut].bg, color: IMMO_CFG[i.statut].color, cursor: 'pointer' }}>
                             {(Object.keys(IMMO_CFG) as StatutImmo[]).map(s => <option key={s} value={s} style={{ background: '#fff', color: '#111' }}>{IMMO_CFG[s].label}</option>)}
                           </select>
@@ -1173,10 +1175,10 @@ export default function Receptions() {
                   <tfoot>
                     <tr style={{ borderTop: '2px solid #E2E8F0', background: '#F8FAFC', fontWeight: 800, color: '#1B4F8A' }}>
                       <td style={{ padding: '10px 12px' }} colSpan={3}>TOTAL</td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmt(valeurBrute)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtMontant(immoValeurBrute)}</td>
                       <td />
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmt(amortTotal)}</td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmt(vncTotal)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtMontant(immoAmortTotal)}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtMontant(immoVncTotal)}</td>
                       <td colSpan={2} />
                     </tr>
                   </tfoot>
@@ -1187,8 +1189,7 @@ export default function Receptions() {
               </div>
             </div>
           </div>
-        );
-      })()}
+      )}
 
       {/* ── Panels latéraux ──────────────────────────────────────────────── */}
       {pvpSelected && (

@@ -1450,7 +1450,10 @@ export default function CockpitProjet() {
                         background: `${col}10`, border: `1px solid ${col}30`, borderRadius: 20,
                       }}>
                         <div style={{ width: 24, height: 24, borderRadius: '50%', background: col, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff' }}>{initials}</div>
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#374151' }}>{r.prenom}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1E293B' }}>{r.prenom} {r.nom}</span>
+                          <span style={{ fontSize: 9.5, color: '#64748B' }}>{r.type}</span>
+                        </div>
                       </div>
                     );
                   })}
@@ -2609,8 +2612,8 @@ export default function CockpitProjet() {
                   <div
                     key={r.id}
                     style={{
-                      display: 'grid', gridTemplateColumns: '40px 1fr 100px 120px 80px 100px',
-                      padding: '10px 16px', gap: 12, alignItems: 'center',
+                      display: 'grid', gridTemplateColumns: '40px 1fr 110px minmax(0,160px) 70px 90px',
+                      padding: '10px 16px', gap: 10, alignItems: 'center',
                       borderBottom: i < equipe.length - 1 ? `1px solid ${C.border}` : 'none',
                     }}
                   >
@@ -2622,7 +2625,7 @@ export default function CockpitProjet() {
                       <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{r.direction ?? r.type}</div>
                     </div>
                     <div style={{ fontSize: 11.5, color: '#475569' }}>{r.type}</div>
-                    <div style={{ fontSize: 11, color: '#94A3B8' }}>{r.email ?? '—'}</div>
+                    <div style={{ fontSize: 11, color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.email ?? ''}>{r.email ?? '—'}</div>
                     <div style={{ fontSize: 11.5, fontWeight: 600, color: r.capaciteMax >= 80 ? C.green : C.amber }}>
                       {r.capaciteMax} %
                     </div>
