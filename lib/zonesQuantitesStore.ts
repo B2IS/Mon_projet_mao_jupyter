@@ -238,31 +238,36 @@ export const useZonesStore = create<ZonesState>()(
         byProjet: { ...s.byProjet, [code]: touch({ ...data, updatedAt: new Date().toISOString() }) },
       })),
 
-      resetProjet: (code, seed = true) => set(s => ({
-        byProjet: { ...s.byProjet, [code]: seed ? seedProjetData() : emptyProjetData() },
-      })),
+      resetProjet: (code, seed = true) => set(s => {
+        if (seed && BEST_PROJ_CODES.has(code)) {
+          const lot = code === 'BEST-LOT1' ? 'LOT 1' : code === 'BEST-LOT2' ? 'LOT 2' : 'LOT 3';
+          return { byProjet: { ...s.byProjet, [code]: seedBestProjet(lot as 'LOT 1' | 'LOT 2' | 'LOT 3') } };
+        }
+        return { byProjet: { ...s.byProjet, [code]: seed ? seedProjetData() : emptyProjetData() } };
+      }),
     }),
     {
       name: 'sigepp-zones-quantites',
-      version: 2,
+      version: 5,
       migrate: (state: unknown, fromVersion: number) => {
-        const s = state as { byProjet: Record<string, ProjetZonesData> };
-        if (fromVersion < 2 && s?.byProjet) {
-          // Supprimer les zones BEST (code 13 chiffres) des projets non-BEST
+        let s = state as { byProjet: Record<string, ProjetZonesData> };
+
+        if (fromVersion < 5 && s?.byProjet) {
+          // v4 : nettoyage complet BEST — couvre toutes les migrations antérieures.
+          // • Projets BEST (BEST-LOT1/2/3) : supprimés pour re-seeding propre avec IDs uniques par lot.
+          // • Projets non-BEST : toutes zones à code 13 chiffres (format BEST) retirées.
           const cleaned: Record<string, ProjetZonesData> = {};
           for (const [projCode, data] of Object.entries(s.byProjet)) {
-            if (BEST_PROJ_CODES.has(projCode)) {
-              cleaned[projCode] = data;
-            } else {
-              const zones = data.zones.filter(z => !isBestZoneCode(z.code));
-              const quantites: Record<string, Record<string, QtyCell>> = {};
-              zones.forEach(z => { if (data.quantites[z.id]) quantites[z.id] = data.quantites[z.id]; });
-              cleaned[projCode] = { ...data, zones, quantites };
-            }
+            if (BEST_PROJ_CODES.has(projCode)) continue; // supprimé → re-seeding à l'ouverture
+            const zones = data.zones.filter(z => !isBestZoneCode(z.code) && !z.id.startsWith('best_') && !z.id.startsWith('best-'));
+            const quantites: Record<string, Record<string, QtyCell>> = {};
+            zones.forEach(z => { if (data.quantites[z.id]) quantites[z.id] = data.quantites[z.id]; });
+            cleaned[projCode] = { ...data, zones, quantites };
           }
-          return { byProjet: cleaned };
+          s = { byProjet: cleaned };
         }
-        return state;
+
+        return s;
       },
     },
   ),

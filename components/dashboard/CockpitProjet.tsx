@@ -522,8 +522,11 @@ export default function CockpitProjet() {
   const zonesData = useZonesStore(s => projet ? s.byProjet[projet.code] : undefined);
   const zonePins = useMemo(() => {
     if (!zonesData || !projet) return [];
+    // Pour les projets BEST-LOT*, on ne montre que les zones du lot du projet
+    const expectedLot = projet.code === 'BEST-LOT1' ? 'LOT 1' : projet.code === 'BEST-LOT2' ? 'LOT 2' : projet.code === 'BEST-LOT3' ? 'LOT 3' : undefined;
     return zonesData.zones
       .filter(z => typeof z.lat === 'number' && typeof z.lng === 'number')
+      .filter(z => !expectedLot || !z.lot || z.lot === expectedLot)
       .map(z => ({
         id: z.id, nom: `${z.code} · ${z.localite}`, code: z.code,
         region: z.departement || projet.region, domaine: projet.domaine,

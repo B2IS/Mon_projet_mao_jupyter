@@ -64,11 +64,21 @@ function isProjetBEST(programme?: string, nom?: string, code?: string): boolean 
   return /\b(best|cpbm|padaes)\b/i.test(`${programme ?? ''} ${nom ?? ''} ${code ?? ''}`);
 }
 
+/** Lot attendu pour un projet BEST-LOT1/2/3 ; undefined pour les autres projets. */
+function bestLotForCode(code: string): 'LOT 1' | 'LOT 2' | 'LOT 3' | undefined {
+  if (code === 'BEST-LOT1') return 'LOT 1';
+  if (code === 'BEST-LOT2') return 'LOT 2';
+  if (code === 'BEST-LOT3') return 'LOT 3';
+  return undefined;
+}
+
 export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, programme, canEdit }: Props) {
   const store = useZonesStore();
   const data = useZonesStore(s => s.byProjet[projetCode]);
   const [sub, setSub] = useState<Sub>('zones');
-  const [filterLot, setFilterLot] = useState<string>('Tous');
+  // Pour les projets BEST, on pré-sélectionne automatiquement le lot du projet
+  const expectedLot = bestLotForCode(projetCode);
+  const [filterLot, setFilterLot] = useState<string>(expectedLot ?? 'Tous');
   const fileRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<null | {
     headers: string[];
@@ -76,21 +86,29 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
     mapping: Record<string, string>; // header -> role (code/localite/commune/dept/lot/lat/lng/statut/obs/qty:<key> or ignore)
   }>(null);
 
-  // Amorçage à la première ouverture du projet. Pour un projet BEST/NG-ECOWAS,
-  // on charge les localités du lot correspondant au code projet (BEST-LOT1/2/3).
+  // Synchronise filterLot si on change de projet
   useEffect(() => {
-    if (data) return; // déjà initialisé (persisté)
+    setFilterLot(bestLotForCode(projetCode) ?? 'Tous');
+  }, [projetCode]);
+
+  // Amorçage à la première ouverture du projet. Pour un projet BEST/NG-ECOWAS,
+  // on charge uniquement les localités du lot correspondant (BEST-LOT1 → LOT 1, etc.).
+  // Si des données existent mais contiennent des zones d'un autre lot, on réinitialise.
+  useEffect(() => {
     if (isProjetBEST(programme, projetNom, projetCode)) {
-      store.ensure(projetCode, false); // pas de zones d'exemple
-      const bestLot = projetCode === 'BEST-LOT1' ? 'LOT 1' : projetCode === 'BEST-LOT2' ? 'LOT 2' : projetCode === 'BEST-LOT3' ? 'LOT 3' : undefined;
-      import('@/lib/zonesBEST')
-        .then(({ zonesBESTToRows }) => store.setZones(projetCode, zonesBESTToRows(bestLot) as ZoneRow[]))
-        .catch(() => { /* chunk indisponible (HMR) */ });
-    } else {
+      const lot = bestLotForCode(projetCode);
+      const hasWrongLot = data?.zones.some(z => lot && z.lot && z.lot !== lot);
+      if (!data || hasWrongLot) {
+        store.ensure(projetCode, false);
+        import('@/lib/zonesBEST')
+          .then(({ zonesBESTToRows }) => store.setZones(projetCode, zonesBESTToRows(lot) as ZoneRow[]))
+          .catch(() => { /* chunk indisponible (HMR) */ });
+      }
+    } else if (!data) {
       store.ensure(projetCode, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projetCode, data]);
+  }, [projetCode]);
 
   const d = data ?? seedProjetData();
   const lots = useMemo(() => lotsFromZones(d.zones), [d.zones]);
@@ -318,14 +336,22 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
         <button onClick={exportExcel} style={ghostBtn(C.navy)}><Download size={12} /> Export Excel</button>
       </div>
 
-      {/* Filtre par lot — dynamique d'après le contenu (#28) */}
+      {/* Filtre par lot — pour projets BEST, un seul lot fixe (pas de choix multi-lot) */}
       {lots.length > 0 && (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: C.slate, fontWeight: 700 }}>Lots détectés :</span>
-          {['Tous', ...lots].map(l => (
-            <button key={l} onClick={() => setFilterLot(l)}
-              style={{ padding: '4px 11px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                border: `1px solid ${filterLot === l ? C.orange : C.border}`, background: filterLot === l ? `${C.orange}15` : '#fff', color: filterLot === l ? C.orange : C.slate }}>
+          <span style={{ fontSize: 11, color: C.slate, fontWeight: 700 }}>
+            {expectedLot ? 'Lot du projet :' : 'Lots détectés :'}
+          </span>
+          {(expectedLot
+            ? lots.filter(l => l === expectedLot)
+            : (['Tous', ...lots] as string[])
+          ).map(l => (
+            <button key={l} onClick={() => { if (!expectedLot) setFilterLot(l); }}
+              style={{ padding: '4px 11px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                cursor: expectedLot ? 'default' : 'pointer',
+                border: `1px solid ${filterLot === l ? C.orange : C.border}`,
+                background: filterLot === l ? `${C.orange}15` : '#fff',
+                color: filterLot === l ? C.orange : C.slate }}>
               {l}{l !== 'Tous' ? ` (${d.zones.filter(z => z.lot === l).length})` : ''}
             </button>
           ))}

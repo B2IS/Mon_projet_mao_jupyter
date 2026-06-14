@@ -963,7 +963,8 @@ function loadProjets(): Projet[] {
     // Pour les projets INIT, préférer les données sauvegardées (avancement, etc.)
     const initMerged = PROJETS_INIT.map(p => {
       const s = saved.find(x => x.id === p.id);
-      return s ? { ...p, ...s } : p;
+      // code est un identifiant système — toujours préserver la valeur de PROJETS_INIT
+      return s ? { ...p, ...s, code: p.code } : p;
     });
     return [...initMerged, ...extras];
   } catch { return PROJETS_INIT; }

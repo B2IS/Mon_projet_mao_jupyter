@@ -38,7 +38,7 @@ export function zonesBESTToRows(lot?: string): Array<{
   return ZONES_BEST
     .filter(z => !lot || z.lot === lot)
     .map((z, i) => ({
-      id: `best_${z.code || i}`,
+      id: `best_${i}_${z.code || i}`,
       code: z.code || `BEST-${i + 1}`,
       localite: z.localite,
       region: z.region,
