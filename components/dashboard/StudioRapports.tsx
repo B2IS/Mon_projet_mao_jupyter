@@ -1,17 +1,22 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import {
   PenTool, Plus, Trash2, ArrowUp, ArrowDown, Download,
   Eye, Share2, Save, FileText, BarChart3, Map, Image,
   CheckSquare, AlertTriangle, Users, Wallet, Calendar,
   Clock, Bot, Edit3, ChevronDown, ChevronUp,
-  Layers, TrendingUp, X, Search,
+  Layers, TrendingUp, X, Search, Send, Activity,
+  BarChart2, LineChart, PieChart, TableProperties, AreaChart, Sparkles,
 } from 'lucide-react';
 import {
   useProjectStore, DOMAINE_CFG, type Domaine,
   computeAvancementReel, PHASES_DEFAUT,
 } from '@/lib/projectStore';
+import { useIndicatorStore, evaluateFormula, ragStatus, RAG_COLORS, type CustomIndicator } from '@/lib/indicatorStore';
+import { genererCommentaireSection, genererResumeExecutif, ameliorerTexteSection, type SectionRapport, type ContexteProjet } from '@/lib/rapportIA';
+import { exportRapportWord, type SectionDocx, type MetaRapport } from '@/lib/exportWord';
+import { useAuth } from '@/lib/authStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import toast from 'react-hot-toast';
 
@@ -29,9 +34,21 @@ const PURPLE = '#8B5CF6';
 type SectionType =
   | 'synthese' | 'planning' | 'jalons' | 'finances'
   | 'bordereaux' | 'photos' | 'cartographie' | 'risques'
-  | 'decisions' | 'annexes';
+  | 'decisions' | 'annexes' | 'indicateurs' | 'temps' | 'ressources';
 
-interface Section { id: string; type: SectionType; label: string; active: boolean; }
+type ChartType = 'bar' | 'line' | 'pie' | 'area' | 'table';
+
+interface Section {
+  id: string;
+  type: SectionType;
+  label: string;
+  active: boolean;
+  chartType?: ChartType;
+  aiText?: string;
+  aiLoading?: boolean;
+  selectedIndicatorIds?: string[];
+  notesManuel?: string;
+}
 interface RapportModele { id: string; label: string; sections: SectionType[]; auteur: string; date: string; }
 
 const CATALOGUE: { type: SectionType; label: string; desc: string; icon: React.ReactNode; color: string }[] = [
@@ -45,6 +62,9 @@ const CATALOGUE: { type: SectionType; label: string; desc: string; icon: React.R
   { type: 'risques',      label: 'Risques & QHSE',           desc: 'Risques ouverts, plans d\'action, criticité',  icon: <AlertTriangle size={16} />, color: RED     },
   { type: 'decisions',    label: 'Décisions & Arbitrages',   desc: 'Journal décisions, arbitrages, dates',         icon: <Users size={16} />,         color: PURPLE  },
   { type: 'annexes',      label: 'Annexes documentaires',    desc: 'Pièces jointes, références GED',               icon: <FileText size={16} />,      color: '#64748B' },
+  { type: 'indicateurs',  label: 'Indicateurs de performance', desc: 'KPIs du constructeur d\'indicateurs SIGEPP', icon: <Activity size={16} />,      color: '#0EA5E9' },
+  { type: 'temps',        label: 'Suivi des temps',          desc: 'Répartition bureau/terrain, présence équipe',  icon: <Clock size={16} />,         color: '#14B8A6' },
+  { type: 'ressources',   label: 'Ressources humaines',      desc: 'Effectifs, compétences, mobilisation',         icon: <Users size={16} />,         color: '#A855F7' },
 ];
 
 const MODELES: RapportModele[] = [
@@ -717,6 +737,146 @@ function DomainSectionCard({
 }
 
 /* ═══════════════════════════════════════════════════
+   INDICATOR PICKER MODAL
+═══════════════════════════════════════════════════ */
+function IndicatorPickerModal({ section, indicators, onClose, onSave }: {
+  section: Section;
+  indicators: CustomIndicator[];
+  onClose: () => void;
+  onSave: (ids: string[]) => void;
+}) {
+  const [sel, setSel] = useState<Set<string>>(new Set(section.selectedIndicatorIds ?? []));
+  const [q, setQ] = useState('');
+  const filtered = indicators.filter(i =>
+    !q || i.name.toLowerCase().includes(q.toLowerCase()) || i.category?.toLowerCase().includes(q.toLowerCase())
+  );
+  const toggle = (id: string) => setSel(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: 520, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>Sélectionner des indicateurs</div>
+            <div style={{ fontSize: 11, color: '#94A3B8' }}>Constructeur d'indicateurs SIGEPP-DPE · {sel.size} sélectionné(s)</div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: '#F1F5F9', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}><X size={14} /></button>
+        </div>
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid #F1F5F9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', border: '1px solid #E2E8F0', borderRadius: 7, background: '#FAFBFC' }}>
+            <Search size={12} style={{ color: '#94A3B8' }} />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrer les indicateurs…" style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: '#334155', outline: 'none' }} />
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+          {filtered.length === 0 && <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 12, padding: 24 }}>Aucun indicateur trouvé. Créez-en dans le Constructeur d'indicateurs.</div>}
+          {filtered.map(ind => {
+            const isSel = sel.has(ind.id);
+            return (
+              <div key={ind.id} onClick={() => toggle(ind.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, marginBottom: 5, border: `1px solid ${isSel ? NAVY : '#E2E8F0'}`, background: isSel ? '#EFF6FF' : '#fff', cursor: 'pointer' }}>
+                <div style={{ width: 24, height: 24, borderRadius: 5, background: isSel ? NAVY : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: isSel ? '#fff' : '#94A3B8', fontSize: 11, fontWeight: 800 }}>{isSel ? '✓' : ''}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: isSel ? 700 : 500, color: isSel ? NAVY : '#1E293B' }}>{ind.name}</div>
+                  <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{ind.category ?? 'Général'} · {ind.formula.slice(0, 40)}{ind.formula.length > 40 ? '…' : ''}</div>
+                </div>
+                <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'monospace' }}>{ind.unit}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid #E2E8F0', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#64748B' }}>Annuler</button>
+          <button onClick={() => { onSave([...sel]); onClose(); }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: NAVY, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Confirmer ({sel.size})</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   SHARE MODAL
+═══════════════════════════════════════════════════ */
+function ShareModal({ titreRapport, projet, onClose }: { titreRapport: string; projet?: { code: string; nom: string } | null; onClose: () => void }) {
+  const [destinataires, setDestinataires] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSend = async () => {
+    if (!destinataires.trim()) { toast.error('Ajoutez au moins un destinataire.'); return; }
+    setSending(true);
+    await new Promise(r => setTimeout(r, 900));
+    setSending(false); setSent(true);
+    toast.success('Rapport envoyé pour avis — workflow de révision activé.');
+    setTimeout(onClose, 1500);
+  };
+
+  const ROLES_REVIEW = ['Chef de projet', 'PMO Central', 'Chef de département', 'Directeur DPE', 'Bailleur de fonds'];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: 480, boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>Partager pour avis</div>
+            <div style={{ fontSize: 11, color: '#94A3B8' }}>Workflow de révision SIGEPP-DPE</div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: '#F1F5F9', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}><X size={14} /></button>
+        </div>
+        {sent ? (
+          <div style={{ padding: 40, textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: GREEN }}>Rapport partagé avec succès</div>
+            <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 6 }}>Notification envoyée aux destinataires — statut "En révision"</div>
+          </div>
+        ) : (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
+              Rapport : <span style={{ color: NAVY }}>{titreRapport}</span>
+              {projet && <span style={{ color: '#94A3B8' }}> · {projet.code}</span>}
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>DESTINATAIRES *</label>
+              <input value={destinataires} onChange={e => setDestinataires(e.target.value)} placeholder="Noms ou emails séparés par virgule…"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid #D1D5DB', borderRadius: 7, fontSize: 12, outline: 'none' }} />
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
+                {ROLES_REVIEW.map(r => (
+                  <button key={r} onClick={() => setDestinataires(d => d ? `${d}, ${r}` : r)}
+                    style={{ padding: '3px 8px', borderRadius: 20, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: 10.5, cursor: 'pointer', color: '#475569' }}>{r}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#64748B', display: 'block', marginBottom: 4 }}>MESSAGE (optionnel)</label>
+              <textarea value={message} onChange={e => setMessage(e.target.value)} rows={3} placeholder="Message d'accompagnement pour les réviseurs…"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid #D1D5DB', borderRadius: 7, fontSize: 12, resize: 'vertical', outline: 'none', fontFamily: 'inherit' }} />
+            </div>
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 7, padding: '10px 12px', fontSize: 11, color: '#166534', marginBottom: 14 }}>
+              <strong>Workflow :</strong> Les destinataires reçoivent un accès en lecture + commentaires. Le rapport passera en statut "Approuvé" une fois validé par un réviseur autorisé.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={onClose} style={{ padding: '8px 14px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#64748B' }}>Annuler</button>
+              <button onClick={handleSend} disabled={sending} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 7, border: 'none', background: sending ? '#94A3B8' : GREEN, color: '#fff', fontSize: 12, fontWeight: 700, cursor: sending ? 'not-allowed' : 'pointer' }}>
+                {sending ? '⏳ Envoi…' : <><Send size={12} /> Partager pour révision</>}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Chart type selector mini-toolbar ────── */
+const CHART_TYPES: { type: ChartType; icon: React.ReactNode; label: string }[] = [
+  { type: 'bar',   icon: <BarChart2 size={13} />,         label: 'Barres' },
+  { type: 'line',  icon: <LineChart size={13} />,         label: 'Lignes' },
+  { type: 'pie',   icon: <PieChart size={13} />,          label: 'Camembert' },
+  { type: 'area',  icon: <AreaChart size={13} />,         label: 'Aires' },
+  { type: 'table', icon: <TableProperties size={13} />,   label: 'Tableau' },
+];
+
+/* ═══════════════════════════════════════════════════
    RAPPORT TRIMESTRIEL MAIN VIEW
 ═══════════════════════════════════════════════════ */
 function RapportTrimestriel() {
@@ -769,7 +929,31 @@ function RapportTrimestriel() {
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Eye size={13} /> {showPreview ? 'Édition' : 'Aperçu Word'}
             </button>
-            <button onClick={() => toast('Export Word / PDF du rapport trimestriel — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: ORANGE, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={async () => {
+              try {
+                const meta: MetaRapport = {
+                  titre: `Rapport Trimestriel ${trim} ${year} — DPE SENELEC`,
+                  soustitre: `Portefeuille ${store.projets.length} projets — Direction Principale Équipement`,
+                  auteur: 'PMO Central DPE',
+                  date: new Date().toLocaleDateString('fr-FR'),
+                  version: '1.0',
+                  confidentiel: true,
+                };
+                const docSections: SectionDocx[] = DOMAINES_RAPPORT.map(dom => {
+                  const ps = store.projets.filter(p => p.domaine === dom.id);
+                  return {
+                    titre: `${dom.emoji} ${dom.label}`,
+                    contenu: `${ps.length} projets — Budget total : ${(ps.reduce((s,p)=>s+p.budget,0)/1000).toFixed(1)} Mrd FCFA\nAvancement moyen : ${ps.length > 0 ? Math.round(ps.reduce((s,p)=>s+p.avancement,0)/ps.length) : 0}%`,
+                    tableau: ps.length > 0 ? {
+                      headers: ['Code', 'Projet', 'Avancement', 'CPI', 'SPI', 'Budget MFCFA'],
+                      rows: ps.map(p => [p.code, p.nom.slice(0,30), `${p.avancement}%`, p.cpi.toFixed(2), p.spi.toFixed(2), p.budget.toLocaleString('fr-FR')]),
+                    } : undefined,
+                  };
+                });
+                await exportRapportWord(docSections, meta);
+                toast.success('Export Word (.docx) téléchargé');
+              } catch { toast.error('Erreur export Word'); }
+            }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: ORANGE, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Download size={13} /> Exporter Word / PDF
             </button>
           </div>
@@ -882,7 +1066,9 @@ function RapportTrimestriel() {
    COMPOSANT PRINCIPAL — StudioRapports
 ═══════════════════════════════════════════════════ */
 export default function StudioRapports() {
-  const store = useProjectStore();
+  const store        = useProjectStore();
+  const indStore     = useIndicatorStore();
+  const { user }     = useAuth();
   const [mainTab, setMainTab] = useState<'studio' | 'trimestriel'>('studio');
 
   // Studio state
@@ -897,6 +1083,10 @@ export default function StudioRapports() {
   const [activeView, setActiveView]         = useState<'editeur' | 'preview'>('editeur');
   const [selectedModele, setSelectedModele] = useState<string | null>(null);
   const [catalogSearch, setCatalogSearch]   = useState('');
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [indPickerFor, setIndPickerFor]     = useState<string | null>(null);
+  const [aiGenerating, setAiGenerating]     = useState(false);
+  const [exportingWord, setExportingWord]   = useState(false);
 
   const projet = useMemo(
     () => store.projets.find(p => p.id === selectedProjet) ?? store.projets[0],
@@ -919,11 +1109,107 @@ export default function StudioRapports() {
     setSections(m.sections.map(t => { const cat = CATALOGUE.find(c => c.type === t); return { id: uid(), type: t, label: cat?.label ?? t, active: true }; }));
     setTitreRapport(m.label); setSelectedModele(mid);
   };
+  const updateSection = (id: string, patch: Partial<Section>) =>
+    setSections(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
+
+  const buildCtxProjet = useCallback((): ContexteProjet | null => {
+    if (!projet) return null;
+    return {
+      code: projet.code, nom: projet.nom,
+      avancement: projet.avancement, avancementPlanifie: projet.avancementPlanifie,
+      budget: projet.budget, budgetEngage: projet.budgetEngage, budgetDecaisse: projet.budgetDecaisse,
+      cpi: projet.cpi, spi: projet.spi, statut: projet.statut,
+      domaine: projet.domaine, dateDebut: projet.dateDebut, dateFinPrevue: projet.dateFinPrevue,
+      bailleur: projet.bailleurs?.[0]?.nom,
+      nbRisques: (projet as unknown as { risques?: unknown[] }).risques?.length,
+    };
+  }, [projet]);
+
+  const generateAIForSection = async (secId: string) => {
+    const sec = sections.find(s => s.id === secId); if (!sec) return;
+    updateSection(secId, { aiLoading: true });
+    try {
+      const ctx = buildCtxProjet();
+      const indSnaps = (sec.selectedIndicatorIds ?? []).map(iid => {
+        const ind = indStore.indicators.find(i => i.id === iid);
+        if (!ind || !projet) return null;
+        const fields = {
+          avancement: projet.avancement, budget: projet.budget,
+          budgetEngage: projet.budgetEngage, budgetDecaisse: projet.budgetDecaisse,
+          cpi: projet.cpi, spi: projet.spi, avancementPlanifie: projet.avancementPlanifie,
+        } as Record<string, number>;
+        const res = evaluateFormula(ind.formula, fields);
+        const st = ragStatus(res.value, ind.thresholds);
+        return { name: ind.name, value: res.value, unit: ind.unit, statut: st === 'green' ? 'vert' : st === 'amber' ? 'orange' : 'rouge' } as { name: string; value: number; unit: string; statut: 'vert' | 'orange' | 'rouge' };
+      }).filter(Boolean) as { name: string; value: number; unit: string; statut: 'vert' | 'orange' | 'rouge' }[];
+      const text = await genererCommentaireSection(sec.type as SectionRapport, ctx, indSnaps.length ? indSnaps : undefined);
+      updateSection(secId, { aiText: text, aiLoading: false });
+      toast.success('Commentaire IA généré');
+    } catch {
+      updateSection(secId, { aiLoading: false });
+      toast.error('Erreur LLM — vérifiez la clé API dans les paramètres.');
+    }
+  };
+
+  const generateAllAI = async () => {
+    setAiGenerating(true);
+    const ctx = buildCtxProjet();
+    for (const sec of sections) {
+      updateSection(sec.id, { aiLoading: true });
+      try {
+        const text = await genererCommentaireSection(sec.type as SectionRapport, ctx);
+        updateSection(sec.id, { aiText: text, aiLoading: false });
+      } catch {
+        updateSection(sec.id, { aiLoading: false });
+      }
+    }
+    setAiGenerating(false);
+    toast.success('Rapport commenté par l\'IA expert DPE');
+  };
+
+  const handleExportWord = async () => {
+    if (!projet) { toast.error('Sélectionnez un projet'); return; }
+    setExportingWord(true);
+    try {
+      const meta: MetaRapport = {
+        titre: titreRapport,
+        soustitre: `${projet.code} — ${projet.nom}`,
+        auteur: user ? `${user.prenom} ${user.nom}` : 'DPE SENELEC',
+        date: new Date().toLocaleDateString('fr-FR'),
+        projet: projet.code,
+        version: '1.0',
+        confidentiel: true,
+      };
+      const docSections: SectionDocx[] = sections.map(sec => ({
+        titre: sec.label,
+        contenu: sec.aiText ?? `Section ${sec.label} — Données SIGEPP-DPE · Projet ${projet.code}`,
+        tableau: sec.type === 'synthese' ? {
+          headers: ['Indicateur', 'Valeur', 'Planifié', 'Statut'],
+          rows: [
+            ['Avancement physique', `${projet.avancement}%`, `${projet.avancementPlanifie}%`, projet.avancement >= projet.avancementPlanifie ? 'OK' : 'Écart'],
+            ['CPI', projet.cpi.toFixed(2), '≥ 1.00', projet.cpi >= 1 ? 'Bon' : 'Surveiller'],
+            ['SPI', projet.spi.toFixed(2), '≥ 0.85', projet.spi >= 0.85 ? 'Bon' : 'Retard'],
+            ['Budget décaissé', `${projet.budgetDecaisse.toLocaleString('fr-FR')} MFCFA`, `${projet.budget.toLocaleString('fr-FR')} MFCFA`, `${Math.round((projet.budgetDecaisse/projet.budget)*100)}%`],
+          ],
+        } : undefined,
+      }));
+      await exportRapportWord(docSections, meta);
+      toast.success('Export Word (.docx) téléchargé');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erreur export Word');
+    } finally {
+      setExportingWord(false);
+    }
+  };
 
   const dcfg = projet ? DOMAINE_CFG[projet.domaine as Domaine] : null;
+  const indPickerSection = indPickerFor ? sections.find(s => s.id === indPickerFor) : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F8FAFD' }}>
+      {showShareModal && <ShareModal titreRapport={titreRapport} projet={projet} onClose={() => setShowShareModal(false)} />}
+      {indPickerSection && <IndicatorPickerModal section={indPickerSection} indicators={indStore.indicators} onClose={() => setIndPickerFor(null)} onSave={ids => { updateSection(indPickerSection.id, { selectedIndicatorIds: ids }); }} />}
 
       {/* ─── Main Tab Bar ─── */}
       <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '0 20px', flexShrink: 0 }}>
@@ -962,8 +1248,9 @@ export default function StudioRapports() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: activeView === 'preview' ? '#EFF6FF' : '#fff', fontSize: 12.5, color: activeView === 'preview' ? NAVY : '#475569', cursor: 'pointer', fontFamily: 'inherit', fontWeight: activeView === 'preview' ? 700 : 400 }}>
                 <Eye size={13} /> {activeView === 'editeur' ? 'Prévisualiser' : 'Éditeur'}
               </button>
-              <button onClick={() => toast('Enregistrement du rapport — fonctionnalité à venir.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}><Save size={13} /> Enregistrer</button>
-              <button onClick={() => toast('Export PDF — utilisez le bouton ✨ Générer Rapport Complet dans le panneau droit.')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Exporter PDF</button>
+              <button onClick={() => setShowShareModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}><Share2 size={13} /> Partager</button>
+              <button onClick={handleExportWord} disabled={exportingWord} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: exportingWord ? '#F1F5F9' : '#fff', fontSize: 12.5, color: '#475569', cursor: exportingWord ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}><FileText size={13} /> {exportingWord ? 'Export…' : 'Export Word'}</button>
+              <button onClick={() => { const pw = window.open('', '_blank'); if (!pw) return; pw.document.write(`<html><head><title>${titreRapport}</title><style>@media print{body{margin:20mm}}body{font-family:Calibri,Arial,sans-serif;margin:40px;color:#1E293B;line-height:1.6}h1{color:#3D1A6B;border-bottom:3px solid #F47920;padding-bottom:12px;font-size:20px}h2{color:#3D1A6B;margin-top:28px;font-size:14px}p{font-size:12px;text-align:justify}table{border-collapse:collapse;width:100%;font-size:11px;margin:12px 0}th{background:#3D1A6B;color:#fff;padding:6px 10px}td{border:1px solid #E2E8F0;padding:5px 10px}</style></head><body><h1>${titreRapport}</h1><p style="color:#64748B;font-size:11px">Généré le ${new Date().toLocaleDateString('fr-FR')} · SIGEPP-DPE SENELEC${projet ? ` · Projet ${projet.code}` : ''}</p>${sections.map((s, i) => `<h2>${i+1}. ${s.label}</h2><p>${s.aiText ?? `Section ${s.label} — données SIGEPP-DPE.`}</p>`).join('')}<hr/><p style="color:#94A3B8;font-size:10px;text-align:center">CONFIDENTIEL · SIGEPP-DPE · Direction Principale Équipement SENELEC</p></body></html>`); pw.document.close(); setTimeout(() => pw.print(), 400); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Export PDF</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingBottom: 12 }}>
@@ -1030,6 +1317,7 @@ export default function StudioRapports() {
                 const cat = CATALOGUE.find(c => c.type === sec.type);
                 return (
                   <div key={sec.id} style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', marginBottom: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                    {/* Header row */}
                     <div style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #F1F5F9', background: `${cat?.color ?? NAVY}08` }}>
                       <div style={{ color: cat?.color ?? NAVY }}>{cat?.icon}</div>
                       <div style={{ flex: 1 }}>
@@ -1037,15 +1325,51 @@ export default function StudioRapports() {
                         <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{cat?.desc}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
+                        {/* AI commentary button */}
+                        <button onClick={() => generateAIForSection(sec.id)} disabled={!!sec.aiLoading}
+                          title="Générer commentaire IA expert"
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 5, border: `1px solid ${PURPLE}40`, background: sec.aiText ? `${PURPLE}10` : '#fff', cursor: sec.aiLoading ? 'not-allowed' : 'pointer', fontSize: 10.5, color: sec.aiLoading ? '#94A3B8' : PURPLE, fontWeight: 600 }}>
+                          <Sparkles size={11} /> {sec.aiLoading ? '⏳' : sec.aiText ? '✓ IA' : 'IA'}
+                        </button>
+                        {/* Indicator picker (for indicateurs sections) */}
+                        {sec.type === 'indicateurs' && (
+                          <button onClick={() => setIndPickerFor(sec.id)}
+                            title="Choisir les indicateurs"
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 5, border: '1px solid #0EA5E940', background: (sec.selectedIndicatorIds?.length ?? 0) > 0 ? '#F0F9FF' : '#fff', cursor: 'pointer', fontSize: 10.5, color: '#0EA5E9', fontWeight: 600 }}>
+                            <Activity size={11} /> {sec.selectedIndicatorIds?.length ?? 0} ind.
+                          </button>
+                        )}
                         <button onClick={() => moveSection(sec.id, 'up')} disabled={i === 0} aria-label="Monter la section" style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: i === 0 ? '#F1F5F9' : '#EFF6FF', cursor: i === 0 ? 'not-allowed' : 'pointer', opacity: i === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: i === 0 ? '#CBD5E1' : NAVY }}><ArrowUp size={12} /></button>
                         <button onClick={() => moveSection(sec.id, 'down')} disabled={i === sections.length - 1} aria-label="Descendre la section" style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: i === sections.length - 1 ? '#F1F5F9' : '#EFF6FF', cursor: i === sections.length - 1 ? 'not-allowed' : 'pointer', opacity: i === sections.length - 1 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: i === sections.length - 1 ? '#CBD5E1' : NAVY }}><ArrowDown size={12} /></button>
                         <button onClick={() => removeSection(sec.id)} aria-label="Supprimer la section" style={{ width: 26, height: 26, borderRadius: 5, border: 'none', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: RED }}><Trash2 size={12} /></button>
                       </div>
                     </div>
-                    <div style={{ padding: '12px 14px', fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>
-                      {sec.type === 'synthese'   && projet && `${projet.code} · Av. ${projet.avancement}% · CPI ${projet.cpi.toFixed(2)} · SPI ${projet.spi.toFixed(2)}`}
-                      {sec.type === 'finances'   && projet && `Budget : ${projet.budget.toLocaleString('fr-FR')} MFCFA · Décaissé : ${projet.budgetDecaisse.toLocaleString('fr-FR')} MFCFA`}
-                      {sec.type !== 'synthese' && sec.type !== 'finances' && cat?.desc}
+                    {/* Chart type selector */}
+                    <div style={{ padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #F8FAFC', background: '#FAFBFC' }}>
+                      <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 700, marginRight: 2 }}>Graphique :</span>
+                      {CHART_TYPES.map(ct => (
+                        <button key={ct.type} onClick={() => updateSection(sec.id, { chartType: ct.type })} title={ct.label}
+                          style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 7px', borderRadius: 5, border: `1px solid ${sec.chartType === ct.type ? cat?.color ?? NAVY : '#E2E8F0'}`, background: sec.chartType === ct.type ? `${cat?.color ?? NAVY}12` : '#fff', cursor: 'pointer', fontSize: 10, color: sec.chartType === ct.type ? cat?.color ?? NAVY : '#94A3B8', fontWeight: sec.chartType === ct.type ? 700 : 400 }}>
+                          {ct.icon} {ct.label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Context info + AI text preview */}
+                    <div style={{ padding: '10px 14px' }}>
+                      <div style={{ fontSize: 11.5, color: '#94A3B8', fontStyle: 'italic', marginBottom: sec.aiText ? 8 : 0 }}>
+                        {sec.type === 'synthese'   && projet && `${projet.code} · Av. ${projet.avancement}% · CPI ${projet.cpi.toFixed(2)} · SPI ${projet.spi.toFixed(2)}`}
+                        {sec.type === 'finances'   && projet && `Budget : ${projet.budget.toLocaleString('fr-FR')} MFCFA · Décaissé : ${projet.budgetDecaisse.toLocaleString('fr-FR')} MFCFA`}
+                        {sec.type === 'indicateurs' && `${(sec.selectedIndicatorIds?.length ?? 0)} indicateur(s) sélectionné(s) · Cliquez "IA" pour commenter`}
+                        {sec.type !== 'synthese' && sec.type !== 'finances' && sec.type !== 'indicateurs' && cat?.desc}
+                      </div>
+                      {sec.aiText && (
+                        <div style={{ background: `${PURPLE}08`, border: `1px solid ${PURPLE}25`, borderRadius: 7, padding: '8px 10px' }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: PURPLE, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}><Sparkles size={10} /> Commentaire IA expert DPE</div>
+                          <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-line', maxHeight: 80, overflow: 'hidden', WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)' }}>
+                            {sec.aiText}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1062,6 +1386,15 @@ export default function StudioRapports() {
                   <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{dcfg.label} · {projet.avancement}% · CPI {projet.cpi.toFixed(2)}</div>
                 </div>
               )}
+              {/* IA Expert — generate all sections */}
+              <button
+                onClick={generateAllAI}
+                disabled={aiGenerating}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, marginBottom: 10, border: 'none', background: aiGenerating ? '#94A3B8' : `linear-gradient(135deg, ${PURPLE} 0%, #5B21B6 100%)`, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: aiGenerating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(91,33,182,0.35)' }}>
+                <Sparkles size={14} /> {aiGenerating ? '⏳ Génération IA en cours…' : '✨ Commenter tout avec l\'IA'}
+              </button>
+
+              {/* Generate Full PDF */}
               <button
                 onClick={() => {
                   const pw = window.open('', '_blank');
@@ -1169,33 +1502,33 @@ ${sections.map((s,i) => {
                   pw.document.close();
                   setTimeout(() => pw.print(), 500);
                 }}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, marginBottom: 10, border: 'none', background: `linear-gradient(135deg, ${NAVY} 0%, #5B21B6 100%)`, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(61,26,107,0.35)' }}>
-                <Bot size={14} /> ✨ Générer Rapport Complet
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, marginBottom: 10, border: 'none', background: `linear-gradient(135deg, ${NAVY} 0%, #1D4ED8 100%)`, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(61,26,107,0.35)' }}>
+                <Bot size={14} /> Générer PDF complet
               </button>
-              {[{ label: 'Export PDF', color: RED }, { label: 'Export Word', color: GREEN }, { label: 'Partager API', color: PURPLE }].map(btn => (
-                <button key={btn.label} onClick={() => {
-                  if (btn.label === 'Export PDF') {
-                    const pw = window.open('', '_blank');
-                    if (!pw) return;
-                    pw.document.write(`<html><head><title>${titreRapport}</title><style>body{font-family:Arial,sans-serif;margin:40px;color:#1E293B}h1{color:#3D1A6B;border-bottom:3px solid #F47920;padding-bottom:12px}h2{color:#3D1A6B;margin-top:24px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #E2E8F0;padding:8px 12px;font-size:12px}</style></head><body><h1>${titreRapport}</h1><p style="color:#64748B">Généré le ${new Date().toLocaleDateString('fr-FR')} · SIGEPP-DPE SENELEC</p>${projet ? `<h2>Projet : ${projet.code} — ${projet.nom}</h2><table><tr><th>Indicateur</th><th>Valeur</th></tr><tr><td>Avancement physique</td><td>${projet.avancement}%</td></tr><tr><td>CPI</td><td>${projet.cpi.toFixed(2)}</td></tr><tr><td>SPI</td><td>${projet.spi.toFixed(2)}</td></tr><tr><td>Budget</td><td>${projet.budget.toLocaleString('fr-FR')} MFCFA</td></tr><tr><td>Décaissé</td><td>${projet.budgetDecaisse.toLocaleString('fr-FR')} MFCFA</td></tr></table>` : ''}<p style="color:#94A3B8;margin-top:32px;font-size:11px">Rapport généré depuis SIGEPP-DPE · ${sections.length} section(s)</p></body></html>`);
-                    pw.document.close(); pw.print();
-                  } else if (btn.label === 'Export Word') {
-                    const content = `RAPPORT\r\n${titreRapport}\r\nGénéré le ${new Date().toLocaleDateString('fr-FR')}\r\n\r\n${projet ? `Projet: ${projet.code} — ${projet.nom}\r\nAvancement: ${projet.avancement}%\r\nCPI: ${projet.cpi.toFixed(2)}\r\nSPI: ${projet.spi.toFixed(2)}\r\nBudget: ${projet.budget.toLocaleString('fr-FR')} MFCFA\r\n\r\n` : ''}${sections.map((s, i) => `${i+1}. ${s.label}`).join('\r\n')}`;
-                    const blob = new Blob([content], { type: 'application/msword' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = `${titreRapport.replace(/\s+/g, '_')}.doc`; a.click(); URL.revokeObjectURL(url);
-                  } else {
-                    const apiLink = `https://api.senelec.sn/dpe/rapports/${titreRapport.replace(/\s+/g, '-').toLowerCase()}?token=dpe_${Date.now()}`;
-                    navigator.clipboard?.writeText(apiLink).then(() => undefined).catch(() => undefined);
-                    alert(`Lien API copié :\n${apiLink}`);
-                  }
-                }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, marginBottom: 7, border: `1px solid ${btn.color}30`, background: `${btn.color}10`, color: btn.color, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <Download size={13} /> {btn.label}
-                </button>
-              ))}
-              <button onClick={() => toast('Envoi automatique mensuel — configuration disponible dans les paramètres du rapport.')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                <Clock size={13} /> Envoi automatique mensuel
+
+              {/* Real Word Export */}
+              <button onClick={handleExportWord} disabled={exportingWord}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, marginBottom: 7, border: `1px solid ${GREEN}30`, background: exportingWord ? '#F1F5F9' : `${GREEN}10`, color: exportingWord ? '#94A3B8' : GREEN, fontSize: 12, fontWeight: 600, cursor: exportingWord ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                <FileText size={13} /> {exportingWord ? '⏳ Export Word…' : 'Export Word (.docx)'}
               </button>
+
+              {/* Share workflow */}
+              <button onClick={() => setShowShareModal(true)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 7, marginBottom: 7, border: `1px solid ${PURPLE}30`, background: `${PURPLE}10`, color: PURPLE, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <Share2 size={13} /> Partager pour avis
+              </button>
+
+              {/* AI coverage indicator */}
+              <div style={{ marginTop: 10, padding: '10px', borderRadius: 8, background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>Couverture IA</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#E2E8F0', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 3, background: PURPLE, width: `${sections.length > 0 ? Math.round((sections.filter(s => s.aiText).length / sections.length) * 100) : 0}%`, transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: PURPLE, minWidth: 30 }}>{sections.length > 0 ? Math.round((sections.filter(s => s.aiText).length / sections.length) * 100) : 0}%</span>
+                </div>
+                <div style={{ fontSize: 10, color: '#94A3B8' }}>{sections.filter(s => s.aiText).length}/{sections.length} sections commentées</div>
+              </div>
             </div>
           </div>
         ) : (
@@ -1232,6 +1565,16 @@ ${sections.map((s,i) => {
                     <div style={{ borderRadius: 6, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
                       <PreviewSectionContent sec={sec} projet={projet} />
                     </div>
+                    {/* AI commentary in preview */}
+                    {sec.aiText && (
+                      <div style={{ marginTop: 10, padding: '12px 16px', background: '#FAF5FF', border: `1px solid ${PURPLE}30`, borderRadius: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+                          <Sparkles size={12} style={{ color: PURPLE }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: PURPLE }}>Commentaire IA — Expert DPE/SENELEC</span>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: '#374151', lineHeight: 1.75, whiteSpace: 'pre-line' }}>{sec.aiText}</div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

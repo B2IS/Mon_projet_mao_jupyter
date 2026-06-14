@@ -429,3 +429,238 @@ export function detecterHeuresSup(
     .sort((a, b) => b.supMin - a.supMin);
 }
 
+// ── Répartition par jour ─────────────────────────────────────────────────────
+export interface JourActivite {
+  date: string;         // YYYY-MM-DD
+  totalMin: number;
+  bureauMin: number;
+  terrainMin: number;
+  projets: string[];
+  categories: Record<string, number>; // cat → minutes
+  pulse: number;
+}
+
+export function parJour(entrees: EntreeTemps[]): JourActivite[] {
+  const map = new Map<string, { totalMin: number; bureauMin: number; terrainMin: number; projets: Set<string>; cats: Map<string, number>; pulseSum: number; pulseW: number }>();
+  for (const e of entrees) {
+    const v = map.get(e.date) ?? { totalMin: 0, bureauMin: 0, terrainMin: 0, projets: new Set(), cats: new Map(), pulseSum: 0, pulseW: 0 };
+    v.totalMin += e.duree;
+    if (e.lieu === 'bureau') v.bureauMin += e.duree; else v.terrainMin += e.duree;
+    v.projets.add(e.projet);
+    v.cats.set(e.categorie, (v.cats.get(e.categorie) ?? 0) + e.duree);
+    v.pulseSum += e.productivite * e.duree;
+    v.pulseW += e.duree;
+    map.set(e.date, v);
+  }
+  return [...map.entries()]
+    .map(([date, v]) => ({
+      date,
+      totalMin: v.totalMin,
+      bureauMin: v.bureauMin,
+      terrainMin: v.terrainMin,
+      projets: [...v.projets],
+      categories: Object.fromEntries(v.cats),
+      pulse: v.pulseW ? Math.round(v.pulseSum / v.pulseW) : 0,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ── Répartition par lieu (avec GPS exact) ────────────────────────────────────
+export interface LieuActivite {
+  lieu: string;           // 'Bureau' ou nom du site terrain
+  type: 'bureau' | 'terrain';
+  totalMin: number;
+  pct: number;
+  lat?: number;
+  lng?: number;
+  projets: string[];
+  visites: number;        // nombre d'entrées distinctes
+}
+
+export function parLieu(entrees: EntreeTemps[], pingsGeo: PingGeo[], sites: SiteProjet[]): LieuActivite[] {
+  const map = new Map<string, { type: 'bureau' | 'terrain'; totalMin: number; lat?: number; lng?: number; projets: Set<string>; visites: number }>();
+
+  for (const e of entrees) {
+    const key = e.lieu === 'bureau' ? 'Bureau DPE' : (e.localisation ?? 'Terrain — Site inconnu');
+    const v = map.get(key) ?? { type: e.lieu, totalMin: 0, projets: new Set(), visites: 0 };
+    v.totalMin += e.duree;
+    v.projets.add(e.projet);
+    v.visites += 1;
+    // Cherche coordonnées GPS dans les pings
+    if (e.lieu === 'terrain' && !v.lat) {
+      const site = sites.find(s => s.projet === e.projet);
+      if (site) { v.lat = site.lat; v.lng = site.lng; }
+      const ping = pingsGeo.find(p => p.projet === e.projet && p.dansGeofence);
+      if (ping) { v.lat = ping.lat; v.lng = ping.lng; }
+    }
+    map.set(key, v);
+  }
+
+  // Ajoute les pings GPS non couverts par des entrées
+  for (const ping of pingsGeo.filter(p => p.dansGeofence && p.projet)) {
+    const key = ping.projet ?? 'Terrain — Site inconnu';
+    if (!map.has(key)) {
+      map.set(key, { type: 'terrain', totalMin: ping.dureeMin, lat: ping.lat, lng: ping.lng, projets: new Set([ping.projet ?? '']), visites: 1 });
+    }
+  }
+
+  const total = [...map.values()].reduce((s, v) => s + v.totalMin, 0) || 1;
+  return [...map.entries()]
+    .map(([lieu, v]) => ({
+      lieu,
+      type: v.type,
+      totalMin: v.totalMin,
+      pct: Math.round((v.totalMin / total) * 100),
+      lat: v.lat,
+      lng: v.lng,
+      projets: [...v.projets].filter(Boolean),
+      visites: v.visites,
+    }))
+    .sort((a, b) => b.totalMin - a.totalMin);
+}
+
+// ── Détection d'incohérences ─────────────────────────────────────────────────
+export type TypeIncoherence = 'chevauchement' | 'distance_impossible' | 'duree_excessive' | 'lieu_projet_inconnu' | 'hors_horaire';
+
+export interface Incoherence {
+  id: string;
+  type: TypeIncoherence;
+  libelle: string;
+  details: string;
+  date: string;
+  collaborateur: string;
+  gravite: 'info' | 'attention' | 'erreur';
+  entreeIds: string[];
+}
+
+export function detecterIncoherences(entrees: EntreeTemps[], pingsGeo: PingGeo[], sites: SiteProjet[]): Incoherence[] {
+  const result: Incoherence[] = [];
+  let cpt = 0;
+  const uid = () => `inc_${++cpt}`;
+
+  // Grouper par (collaborateur, date)
+  const parCollabDate = new Map<string, EntreeTemps[]>();
+  for (const e of entrees) {
+    const key = `${e.collaborateur}|${e.date}`;
+    const arr = parCollabDate.get(key) ?? [];
+    arr.push(e);
+    parCollabDate.set(key, arr);
+  }
+
+  for (const [, jour] of parCollabDate) {
+    const sorted = [...jour].sort((a, b) => a.heureDebut - b.heureDebut);
+
+    // 1. Chevauchements temporels
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i], b = sorted[i + 1];
+      const aFin = a.heureDebut + a.duree / 60;
+      if (b.heureDebut < aFin) {
+        result.push({ id: uid(), type: 'chevauchement', gravite: 'erreur',
+          libelle: 'Chevauchement temporel détecté',
+          details: `${a.collaborateur} : entrée "${a.projet}" (${a.heureDebut}h, ${a.duree}min) chevauche "${b.projet}" (${b.heureDebut}h)`,
+          date: a.date, collaborateur: a.collaborateur, entreeIds: [a.id, b.id] });
+      }
+    }
+
+    // 2. Durée excessive (> 14h/jour)
+    const total = jour.reduce((s, e) => s + e.duree, 0);
+    if (total > 840) {
+      result.push({ id: uid(), type: 'duree_excessive', gravite: 'attention',
+        libelle: `Total journalier excessif : ${Math.round(total / 60)}h`,
+        details: `${jour[0].collaborateur} — ${jour[0].date} : ${(total / 60).toFixed(1)}h déclarées (seuil 14h)`,
+        date: jour[0].date, collaborateur: jour[0].collaborateur, entreeIds: jour.map(e => e.id) });
+    }
+
+    // 3. Entrées terrain sans projet géofencé
+    for (const e of jour.filter(e => e.lieu === 'terrain')) {
+      if (!sites.some(s => s.projet === e.projet)) {
+        result.push({ id: uid(), type: 'lieu_projet_inconnu', gravite: 'info',
+          libelle: 'Projet terrain non géolocalisé',
+          details: `"${e.projet}" n'a pas de site géofencé configuré dans SIGEPP-DPE`,
+          date: e.date, collaborateur: e.collaborateur, entreeIds: [e.id] });
+      }
+    }
+
+    // 4. Hors horaires (avant 5h ou après 23h)
+    for (const e of jour) {
+      if (e.heureDebut < 5 || e.heureDebut > 22) {
+        result.push({ id: uid(), type: 'hors_horaire', gravite: 'info',
+          libelle: 'Entrée hors plage horaire standard',
+          details: `Saisie à ${e.heureDebut}h pour "${e.projet}" — hors plage 05h–22h`,
+          date: e.date, collaborateur: e.collaborateur, entreeIds: [e.id] });
+      }
+    }
+  }
+
+  // 5. Distance impossible (bureau → terrain < 30 min de trajet)
+  for (const [, jour] of parCollabDate) {
+    const bureauTerrain = jour.filter(e => e.lieu === 'bureau');
+    const terrains = jour.filter(e => e.lieu === 'terrain');
+    for (const bt of bureauTerrain) {
+      for (const t of terrains) {
+        const diff = Math.abs(t.heureDebut - (bt.heureDebut + bt.duree / 60));
+        const site = sites.find(s => s.projet === t.projet);
+        if (site && diff < 0.4 && haversineM(site.lat, site.lng, 14.6928, -17.4467) > 30_000) {
+          result.push({ id: uid(), type: 'distance_impossible', gravite: 'attention',
+            libelle: 'Transition bureau→terrain physiquement improbable',
+            details: `${bt.collaborateur} : bureau à ${bt.heureDebut + bt.duree / 60}h puis terrain "${t.projet}" à ${t.heureDebut}h (< 30 min, site distant > 30 km)`,
+            date: bt.date, collaborateur: bt.collaborateur, entreeIds: [bt.id, t.id] });
+        }
+      }
+    }
+  }
+
+  return result.sort((a, b) => {
+    const g = { erreur: 0, attention: 1, info: 2 };
+    return g[a.gravite] - g[b.gravite];
+  });
+}
+
+// ── Activité bureau (modules utilisés) ───────────────────────────────────────
+export interface ModuleActivity {
+  module: string;      // nom du module (ex: 'Cockpit Projet', 'Gantt', etc.)
+  route: string;       // route Next.js
+  dureeMin: number;    // temps cumulé sur ce module
+  dernierAcces: number; // timestamp
+  visites: number;
+}
+
+/** Met à jour l'activité d'un module (appelé par useAutoProjectContext) */
+export function computeModuleStats(moduleActivities: Record<string, { duree: number; ts: number; visites: number }>): ModuleActivity[] {
+  const ROUTE_LABELS: Record<string, string> = {
+    '/tableau-de-bord': 'Tableau de bord',
+    '/projets': 'Liste projets',
+    '/cockpit-projet': 'Cockpit Projet',
+    '/gantt': 'Gantt & Planning',
+    '/wbs': 'WBS / Structure',
+    '/budget': 'Gestion budgétaire',
+    '/gestion-projet': 'Gestion projet',
+    '/evm': 'EVM & Performance',
+    '/terrain': 'Saisies terrain',
+    '/gestion-temps': 'Gestion des temps',
+    '/feuille-de-temps': 'Feuille de temps',
+    '/portefeuille': 'Portefeuille',
+    '/analytique': 'Analytique',
+    '/reporting': 'Reporting',
+    '/studio-rapports': 'Studio rapports',
+    '/ged': 'GED documentaire',
+    '/courriers': 'Courriers',
+    '/odm': 'Ordres de mission',
+    '/flotte': 'Flotte véhicules',
+    '/marchés': 'Marchés',
+    '/risques': 'Risques',
+    '/administration': 'Administration',
+  };
+
+  return Object.entries(moduleActivities)
+    .map(([route, v]) => ({
+      module: ROUTE_LABELS[route] ?? route,
+      route,
+      dureeMin: Math.round(v.duree / 60),
+      dernierAcces: v.ts,
+      visites: v.visites,
+    }))
+    .filter(m => m.dureeMin > 0)
+    .sort((a, b) => b.dureeMin - a.dureeMin);
+}
+

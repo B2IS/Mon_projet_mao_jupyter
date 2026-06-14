@@ -11,7 +11,8 @@ import { Clock, Activity, MapPin, Banknote, Building2, Gauge, Navigation, Radio,
 import FeuilleDeTemps from '@/components/dashboard/FeuilleDeTemps';
 import {
   useTempsStore, kpis, parCategorie, parHeure, parCollaborateur, fmtDuree, repartitionTriee,
-  detecterHeuresSup, SEUIL_JOURNALIER_MIN, TYPE_HS_LABELS, type TypeHS, type JustificatifHS,
+  detecterHeuresSup, parJour, parLieu, detecterIncoherences, computeModuleStats,
+  SEUIL_JOURNALIER_MIN, TYPE_HS_LABELS, type TypeHS, type JustificatifHS,
   type StatutPresence,
 } from '@/lib/tempsStore';
 import { capturerPositionTerrain, pointerDepuisSite, demarrerSuiviTerrainAuto, CONTEXTE_TRANSVERSE } from '@/lib/tempsTracker';
@@ -127,7 +128,7 @@ export default function GestionTemps() {
   }, [sites]);
   const [geoMsg, setGeoMsg] = useState<string>('');
   const [busy, setBusy] = useState(false);
-  const [vue, setVue] = useState<'feuille' | 'productivite'>('feuille');
+  const [vue, setVue] = useState<'feuille' | 'productivite' | 'analyse'>('feuille');
   const [subVue, setSubVue] = useState<'equipe' | 'moi'>('equipe');
   const [filtreSearch, setFiltreSearch] = useState('');
   const [filtreProjet, setFiltreProjet] = useState('');
@@ -201,6 +202,7 @@ export default function GestionTemps() {
         {([
           { id: 'feuille' as const,      label: 'Feuille de temps',       icon: <CalendarDays size={14} /> },
           { id: 'productivite' as const, label: 'Suivi & Productivite',  icon: <Users size={14} /> },
+          { id: 'analyse' as const,      label: 'Analyse Détaillée',      icon: <Activity size={14} /> },
         ]).map(t => (
           <button key={t.id} onClick={() => setVue(t.id)}
             style={{
@@ -836,6 +838,176 @@ export default function GestionTemps() {
       </div>
         </>}{/* end subVue moi */}
       </>}{/* end vue productivite */}
+
+      {/* ══ ANALYSE DÉTAILLÉE ════════════════════════════════════════════ */}
+      {vue === 'analyse' && (() => {
+        const { entrees, pingsGeo, sites } = useTempsStore.getState();
+        const collab = ressourcesVisibles[0]?.nom ?? 'Équipe';
+        const mesEntrees = entrees.filter(e =>
+          isToutVoir ? true :
+          isUAGL ? ressourcesVisibles.some(r => r.nom === e.collaborateur) :
+          isChefProj ? ressourcesVisibles.some(r => r.nom === e.collaborateur) :
+          e.collaborateur.toLowerCase().includes(monNom.toLowerCase())
+        );
+
+        const parJourData = parJour(mesEntrees);
+        const parLieuData = parLieu(mesEntrees, pingsGeo, sites);
+        const incoherences = detecterIncoherences(mesEntrees, pingsGeo, sites);
+        const maxMin = parJourData.reduce((m, d) => Math.max(m, d.totalMin), 1);
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* KPI bar */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[
+                { label: 'Jours actifs', value: parJourData.length, color: PURPLE },
+                { label: 'Total heures', value: `${(mesEntrees.reduce((s,e)=>s+e.duree,0)/60).toFixed(1)}h`, color: ORANGE },
+                { label: 'Sites terrain', value: parLieuData.filter(l=>l.type==='terrain').length, color: '#0E7490' },
+                { label: 'Incohérences', value: incoherences.length, color: incoherences.length > 0 ? '#DC2626' : '#16A34A' },
+              ].map(k => (
+                <div key={k.label} style={{ ...card, textAlign: 'center', padding: '12px 8px' }}>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: k.color }}>{k.value}</div>
+                  <div style={{ fontSize: 10.5, color: MUT, marginTop: 3 }}>{k.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Répartition par jour — bar chart simple */}
+            <div style={card}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CalendarDays size={14} color={PURPLE} /> Répartition par jour
+                {parJourData.length === 0 && <span style={{ fontSize: 11, color: MUT, fontWeight: 400 }}>— Aucune entrée de temps saisie</span>}
+              </div>
+              {parJourData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: MUT, fontSize: 12 }}>Aucune données de temps disponibles</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', minHeight: 80, paddingBottom: 4 }}>
+                    {parJourData.slice(-14).map(d => (
+                      <div key={d.date} style={{ flex: 1, minWidth: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        {/* stacked bar */}
+                        <div style={{ width: '100%', height: 60, position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 0 }}>
+                          <div title={`Terrain: ${fmtDuree(d.terrainMin)}`} style={{ background: '#0E7490', borderRadius: '2px 2px 0 0', height: `${Math.round((d.terrainMin / maxMin) * 60)}px`, transition: 'height 0.3s' }} />
+                          <div title={`Bureau: ${fmtDuree(d.bureauMin)}`} style={{ background: PURPLE, borderRadius: 0, height: `${Math.round((d.bureauMin / maxMin) * 60)}px`, transition: 'height 0.3s' }} />
+                        </div>
+                        <div style={{ fontSize: 9, color: MUT, textAlign: 'center' }}>{d.date.slice(5)}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, justifyContent: 'flex-end' }}>
+                    {[{ c: PURPLE, l: 'Bureau' }, { c: '#0E7490', l: 'Terrain' }].map(leg => (
+                      <div key={leg.l} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: MUT }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: leg.c }} /> {leg.l}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Répartition par lieu */}
+            <div style={card}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <MapPin size={14} color='#0E7490' /> Répartition par lieu
+              </div>
+              {parLieuData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: MUT, fontSize: 12 }}>Aucune données de lieu</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {parLieuData.map(lieu => (
+                    <div key={lieu.lieu} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 7, background: lieu.type === 'bureau' ? `${PURPLE}18` : '#0E749018', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {lieu.type === 'bureau' ? <Building2 size={14} color={PURPLE} /> : <MapPin size={14} color='#0E7490' />}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: INK }}>{lieu.lieu}</div>
+                        <div style={{ fontSize: 10, color: MUT }}>{fmtDuree(lieu.totalMin)} · {lieu.visites} saisie(s) · {lieu.projets.slice(0,2).join(', ')}{lieu.projets.length > 2 ? '…' : ''}</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                        <div style={{ width: 80, height: 6, borderRadius: 3, background: '#E2E8F0', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 3, background: lieu.type === 'bureau' ? PURPLE : '#0E7490', width: `${lieu.pct}%` }} />
+                        </div>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: MUT }}>{lieu.pct}%</span>
+                      </div>
+                      {lieu.lat && lieu.lng && (
+                        <a href={`https://maps.google.com/?q=${lieu.lat},${lieu.lng}`} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 9, color: '#0E7490', textDecoration: 'none', background: '#CFFAFE', padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>
+                          GPS
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Incohérences */}
+            <div style={card}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertTriangle size={14} color={incoherences.length > 0 ? '#DC2626' : '#16A34A'} />
+                Détection d'incohérences
+                <span style={{ fontSize: 11, fontWeight: 600, color: incoherences.length > 0 ? '#DC2626' : '#16A34A', marginLeft: 4 }}>
+                  {incoherences.length === 0 ? '✅ Aucune incohérence détectée' : `${incoherences.length} alerte(s)`}
+                </span>
+              </div>
+              {incoherences.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: '#16A34A', fontSize: 12 }}>Les données de temps sont cohérentes.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {incoherences.slice(0, 10).map(inc => {
+                    const cfg = { erreur: { bg: '#FEE2E2', border: '#FECACA', c: '#DC2626' }, attention: { bg: '#FEF3C7', border: '#FDE68A', c: '#D97706' }, info: { bg: '#F0F9FF', border: '#BAE6FD', c: '#0369A1' } }[inc.gravite];
+                    return (
+                      <div key={inc.id} style={{ padding: '8px 12px', borderRadius: 7, border: `1px solid ${cfg.border}`, background: cfg.bg, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <AlertTriangle size={13} style={{ color: cfg.c, marginTop: 1, flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, color: cfg.c }}>{inc.libelle}</div>
+                          <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 2 }}>{inc.details}</div>
+                          <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>{inc.date} · {inc.collaborateur}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {incoherences.length > 10 && <div style={{ fontSize: 11, color: MUT, textAlign: 'center' }}>+{incoherences.length - 10} autres alertes</div>}
+                </div>
+              )}
+            </div>
+
+            {/* Activité bureau — modules utilisés */}
+            <div style={card}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Activity size={14} color={ORANGE} /> Activité bureau — Modules SIGEPP-DPE
+                <span style={{ fontSize: 10, color: MUT, fontWeight: 400 }}>RescueTime-style</span>
+              </div>
+              {(() => {
+                const stored = typeof window !== 'undefined'
+                  ? JSON.parse(localStorage.getItem('sigepp_module_activity') ?? '{}') as Record<string, { duree: number; ts: number; visites: number }>
+                  : {};
+                const mods = computeModuleStats(stored);
+                if (mods.length === 0) return <div style={{ textAlign: 'center', padding: '16px 0', color: MUT, fontSize: 12 }}>Activité bureau non encore enregistrée — naviguez dans SIGEPP-DPE pour commencer.</div>;
+                const maxM = mods[0]?.dureeMin ?? 1;
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {mods.map((m, i) => (
+                      <div key={m.route} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 4, background: `${PURPLE}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: PURPLE, flexShrink: 0 }}>{i+1}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.module}</div>
+                        </div>
+                        <div style={{ width: 120, height: 6, borderRadius: 3, background: '#E2E8F0', flexShrink: 0, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 3, background: ORANGE, width: `${Math.round((m.dureeMin / maxM) * 100)}%` }} />
+                        </div>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: MUT, width: 40, textAlign: 'right', flexShrink: 0 }}>{m.dureeMin}min</span>
+                        <span style={{ fontSize: 9.5, color: '#94A3B8', width: 32, textAlign: 'right', flexShrink: 0 }}>{m.visites}x</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        );
+      })()}
 
       <style>{`
         @media (max-width: 860px) {
