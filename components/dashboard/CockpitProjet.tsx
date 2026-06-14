@@ -1521,12 +1521,13 @@ export default function CockpitProjet() {
             {/* Planning table */}
             <div style={{
               background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`,
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden', overflowX: 'auto',
             }}>
               {/* En-tête */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '24px 28px 1fr 140px 120px 36px 36px 36px 36px 36px',
+                minWidth: 680,
                 padding: '9px 14px', background: '#F8FAFC',
                 borderBottom: `1px solid ${C.border}`,
                 fontSize: 10.5, fontWeight: 700, color: '#94A3B8',
@@ -1576,6 +1577,7 @@ export default function CockpitProjet() {
                       style={{
                         display: 'grid',
                         gridTemplateColumns: '24px 28px 1fr 140px 120px 36px 36px 36px 36px 36px',
+                        minWidth: 680,
                         padding: isRecap ? '8px 14px' : '6px 14px',
                         borderBottom: `1px solid ${t.statutTache === 'bloque' ? '#FECACA' : '#F1F5F9'}`,
                         gap: 8, alignItems: 'center',
@@ -2711,9 +2713,10 @@ export default function CockpitProjet() {
             </div>
 
             {/* Documents table */}
-            <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', overflowX: 'auto' }}>
               <div style={{
                 display: 'grid', gridTemplateColumns: '1fr 100px 120px 100px 90px 100px',
+                minWidth: 620,
                 padding: '8px 16px', background: '#F8FAFC', borderBottom: `1px solid ${C.border}`,
                 fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em',
               }}>
@@ -2731,6 +2734,7 @@ export default function CockpitProjet() {
                     key={d.id}
                     style={{
                       display: 'grid', gridTemplateColumns: '1fr 100px 120px 100px 90px 100px',
+                      minWidth: 620,
                       padding: '10px 16px', gap: 8, alignItems: 'center',
                       borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
                       cursor: 'pointer',

@@ -858,9 +858,10 @@ export default function TableauDeBord() {
             </div>
 
             {/* Tableau */}
-            <div style={{ background: C.surface, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: C.surface, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
               <div style={{
                 display: 'grid', gridTemplateColumns: '8px 32px 1fr 100px 80px 64px 64px 110px 80px',
+                minWidth: 840,
                 padding: '7px 14px', gap: 8, background: '#F8FAFC', borderBottom: `1px solid ${C.border}`,
                 fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', alignItems: 'center',
               }}>
@@ -884,18 +885,18 @@ export default function TableauDeBord() {
                 return (
                   <div key={p.id}
                     onClick={() => setDrawer(p)}
-                    style={{ display: 'grid', gridTemplateColumns: '8px 32px 1fr 100px 80px 64px 64px 110px 80px', padding: '9px 14px', borderBottom: i < metrics.filtered.length - 1 ? `1px solid #F8FAFC` : 'none', gap: 8, cursor: 'pointer', alignItems: 'center', transition: 'background 0.08s' }}
+                    style={{ display: 'grid', gridTemplateColumns: '8px 32px 1fr 100px 80px 64px 64px 110px 80px', minWidth: 700, padding: '9px 14px', borderBottom: i < metrics.filtered.length - 1 ? `1px solid #F8FAFC` : 'none', gap: 8, cursor: 'pointer', alignItems: 'center', transition: 'background 0.08s' }}
                     onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFC')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: rag, boxShadow: `0 0 0 2px ${rag}30` }} />
                     <div style={{ width: 26, height: 26, borderRadius: 6, background: `${dcfg.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>{dcfg.emoji}</div>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         <span style={{ color: dcfg.color, fontSize: 10, marginRight: 5 }}>{p.code}</span>
-                        {p.nom.length > 42 ? p.nom.slice(0, 42) + '…' : p.nom}
+                        {p.nom}
                       </div>
-                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{p.chefProjet} · {p.region}</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.chefProjet} · {p.region}</div>
                     </div>
                     <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: `${scfg.color}18`, color: scfg.color }}>{scfg.label}</span>
                     <div style={{ textAlign: 'right' }}>

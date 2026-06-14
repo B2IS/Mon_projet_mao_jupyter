@@ -1930,3 +1930,49 @@ nextjs-portal { display: none !important; }
   .hide-label-mobile { font-size: 0 !important; }
   .hide-label-mobile svg { display: inline-block !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA GRID TABLES — Prévention du texte vertical (affect 30+ composants)
+   React renders gridTemplateColumns → grid-template-columns in DOM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Wrapper scrollable pour les tables en CSS Grid */
+.data-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+.data-table-scroll::-webkit-scrollbar { height: 4px; }
+.data-table-scroll::-webkit-scrollbar-track { background: transparent; }
+.data-table-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }
+
+/* Lignes de grille à l'intérieur du wrapper: largeur minimale pour éviter l'écrasement */
+.data-table-scroll > [style*="grid-template-columns"],
+.data-table-scroll [style*="grid-template-columns"] {
+  min-width: max-content;
+}
+
+/* Cellules header (<span> direct enfant de grille) : pas de retour à la ligne */
+[style*="grid-template-columns"] > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Cellules données (<div>/<a>/<button> direct) : min-width 0 pour éviter le dépassement */
+[style*="grid-template-columns"] > div,
+[style*="grid-template-columns"] > a,
+[style*="grid-template-columns"] > label {
+  min-width: 0;
+}
+
+/* Texte dans les cellules div imbriquées sur une seule ligne */
+[style*="grid-template-columns"] > div > span:not([style*="display"]),
+[style*="grid-template-columns"] > div > p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+}

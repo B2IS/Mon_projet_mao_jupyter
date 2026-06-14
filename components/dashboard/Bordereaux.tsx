@@ -624,7 +624,7 @@ export default function Bordereaux() {
             </div>
 
             {/* Décomptes intérimaires & attachements */}
-            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', overflow: 'hidden', overflowX: 'auto' }}>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Receipt size={16} style={{ color: ORANGE }} /> Décomptes intérimaires & factures rattachées
@@ -635,12 +635,12 @@ export default function Bordereaux() {
               </div>
               <input ref={decompteFileRef} type="file" style={{ display: 'none' }} accept=".pdf,.docx,.xlsx,.png,.jpg" onChange={handleDecompteFile} />
               {/* En-têtes */}
-              <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 130px 110px 90px 110px 100px 150px 30px', gap: 8, padding: '8px 16px', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 130px 110px 90px 110px 100px 150px 30px', minWidth: 860, gap: 8, padding: '8px 16px', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 <span>N°</span><span>Période</span><span style={{ textAlign: 'right' }}>Montant HT</span><span>Facture</span><span style={{ textAlign: 'center' }}>Avanc.</span><span>Statut</span><span style={{ textAlign: 'center' }}>Attachement</span><span style={{ textAlign: 'center' }}>Actions</span><span />
               </div>
               {decomptes.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Aucun décompte — cliquez sur « Nouveau décompte ».</div>}
               {decomptes.map(d => (
-                <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 130px 110px 90px 110px 100px 150px 30px', gap: 8, padding: '9px 16px', borderBottom: '1px solid #F1F5F9', alignItems: 'center', fontSize: 12 }}>
+                <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 130px 110px 90px 110px 100px 150px 30px', minWidth: 860, gap: 8, padding: '9px 16px', borderBottom: '1px solid #F1F5F9', alignItems: 'center', fontSize: 12 }}>
                   <span style={{ fontWeight: 800, color: NAVY }}>N°{d.numero}</span>
                   <input value={d.periode} onChange={e => updateDecompte(d.id, { periode: e.target.value })} style={inlineInput} />
                   <input type="number" value={d.montantHT} onChange={e => updateDecompte(d.id, { montantHT: Number(e.target.value) })} style={{ ...inlineInput, textAlign: 'right', fontWeight: 700 }} />
@@ -709,7 +709,7 @@ export default function Bordereaux() {
             </div>
 
             {/* Situation des biens et services — contractuel vs exécuté */}
-            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0', overflow: 'hidden', overflowX: 'auto' }}>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ClipboardCheck size={16} style={{ color: GREEN }} /> Situation des biens et services — contractuel vs exécuté
@@ -718,13 +718,13 @@ export default function Bordereaux() {
                   <Download size={13} /> Exporter situation
                 </button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 70px 90px 90px 120px 120px 80px', gap: 6, padding: '8px 16px', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 70px 90px 90px 120px 120px 80px', minWidth: 760, gap: 6, padding: '8px 16px', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase' }}>
                 <span>Code</span><span>Désignation</span><span style={{ textAlign: 'right' }}>U.</span><span style={{ textAlign: 'right' }}>Qté contr.</span><span style={{ textAlign: 'right' }}>Qté exéc.</span><span style={{ textAlign: 'right' }}>Mt contractuel</span><span style={{ textAlign: 'right' }}>Mt exécuté</span><span style={{ textAlign: 'right' }}>% réal.</span>
               </div>
               {situationLignes.map((s, i) => {
                 const pct = s.montantContr > 0 ? (s.montantExec / s.montantContr) * 100 : 0;
                 return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 70px 90px 90px 120px 120px 80px', gap: 6, padding: '8px 16px', borderBottom: '1px solid #F1F5F9', fontSize: 11.5, alignItems: 'center' }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 70px 90px 90px 120px 120px 80px', minWidth: 760, gap: 6, padding: '8px 16px', borderBottom: '1px solid #F1F5F9', fontSize: 11.5, alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, color: NAVY }}>{s.code}</span>
                     <span style={{ color: '#1E293B' }}>{s.designation}</span>
                     <span style={{ textAlign: 'right', color: '#64748B' }}>{s.unite}</span>
@@ -736,7 +736,7 @@ export default function Bordereaux() {
                   </div>
                 );
               })}
-              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 70px 90px 90px 120px 120px 80px', gap: 6, padding: '10px 16px', borderTop: '2px solid #E2E8F0', background: '#F8FAFC', fontSize: 12, fontWeight: 800, color: NAVY }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 70px 90px 90px 120px 120px 80px', minWidth: 760, gap: 6, padding: '10px 16px', borderTop: '2px solid #E2E8F0', background: '#F8FAFC', fontSize: 12, fontWeight: 800, color: NAVY }}>
                 <span>TOTAL</span><span /><span /><span /><span />
                 <span style={{ textAlign: 'right' }}>{fmtFCFA(situationLignes.reduce((s, x) => s + x.montantContr, 0))}</span>
                 <span style={{ textAlign: 'right' }}>{fmtFCFA(situationLignes.reduce((s, x) => s + x.montantExec, 0))}</span>
@@ -787,10 +787,10 @@ export default function Bordereaux() {
             {/* Tableau articles */}
             <div style={{
               background: '#fff', borderRadius: 10, border: '1px solid #E2E8F0',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden', overflowX: 'auto',
             }}>
               <div style={{
-                display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 130px 90px',
+                display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 130px 90px', minWidth: 620,
                 padding: '7px 16px', background: '#F8FAFC',
                 borderBottom: '1px solid #F1F5F9',
                 fontSize: 10.5, fontWeight: 700, color: '#94A3B8',
@@ -806,7 +806,7 @@ export default function Bordereaux() {
 
               {articlesFiltres.map((art, i) => (
                 <div key={art.id} style={{
-                  display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 130px 90px',
+                  display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 130px 90px', minWidth: 620,
                   padding: '10px 16px', borderBottom: i < articlesFiltres.length - 1 ? '1px solid #F1F5F9' : 'none',
                   fontSize: 12.5, gap: 8, alignItems: 'center',
                   transition: 'background 0.1s',
