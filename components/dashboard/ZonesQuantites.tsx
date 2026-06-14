@@ -76,15 +76,16 @@ export default function ZonesQuantites({ projetCode, projetNom, projetDomaine, p
     mapping: Record<string, string>; // header -> role (code/localite/commune/dept/lot/lat/lng/statut/obs/qty:<key> or ignore)
   }>(null);
 
-  // Amorçage à la première ouverture du projet. Pour un projet BEST/CPBM-UE, on charge
-  // AUTOMATIQUEMENT le référentiel officiel des 1041 localités (au lieu de l'exemple).
+  // Amorçage à la première ouverture du projet. Pour un projet BEST/NG-ECOWAS,
+  // on charge les localités du lot correspondant au code projet (BEST-LOT1/2/3).
   useEffect(() => {
     if (data) return; // déjà initialisé (persisté)
     if (isProjetBEST(programme, projetNom, projetCode)) {
       store.ensure(projetCode, false); // pas de zones d'exemple
+      const bestLot = projetCode === 'BEST-LOT1' ? 'LOT 1' : projetCode === 'BEST-LOT2' ? 'LOT 2' : projetCode === 'BEST-LOT3' ? 'LOT 3' : undefined;
       import('@/lib/zonesBEST')
-        .then(({ zonesBESTToRows }) => store.setZones(projetCode, zonesBESTToRows() as ZoneRow[]))
-        .catch(() => { /* chunk indisponible (HMR) — le bouton manuel reste possible */ });
+        .then(({ zonesBESTToRows }) => store.setZones(projetCode, zonesBESTToRows(bestLot) as ZoneRow[]))
+        .catch(() => { /* chunk indisponible (HMR) */ });
     } else {
       store.ensure(projetCode, true);
     }

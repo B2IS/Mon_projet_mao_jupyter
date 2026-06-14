@@ -1822,3 +1822,99 @@ mark, .highlight {
 
 /* ── Masquer le DevTools Next.js 15 (indicateur "N" en dev) ── */
 nextjs-portal { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLL UNIVERSEL — toutes les pages doivent accepter scroll up/down
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Garantir que .page-content et .page-body scrollent toujours */
+.page-content,
+.page-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scroll touch fluide sur iOS pour tout container scrollable */
+[style*="overflow-y: auto"],
+[style*="overflowY: auto"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE TABLETTE (769px – 1024px)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) and (min-width: 769px) {
+  :root { --sidebar-w: 56px; }
+
+  /* Masquer labels de la sidebar, garder icônes */
+  .sidebar-nav-label,
+  .sidebar-section-header,
+  .sidebar-logo-text,
+  .sidebar-logo-sub { display: none !important; }
+
+  /* Grilles : 4 colonnes → 2 colonnes */
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(5"],
+  [style*="grid-template-columns: repeat(6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* 2 panneaux côte à côte → empilés */
+  [style*="grid-template-columns: 1fr 300px"],
+  [style*="grid-template-columns: 1fr 320px"],
+  [style*="grid-template-columns: 1fr 340px"],
+  [style*="grid-template-columns: 2fr 1fr"],
+  [style*="grid-template-columns: 1fr 2fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .page-content { padding: 14px 16px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE (≤ 768px) — complément aux règles existantes
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Cockpit Projet : onglets horizontaux scrollables */
+  [style*="overflowX: auto"],
+  [style*="overflow-x: auto"] {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  [style*="overflowX: auto"]::-webkit-scrollbar,
+  [style*="overflow-x: auto"]::-webkit-scrollbar { display: none; }
+
+  /* Hauteurs fixes → auto sur mobile pour permettre le scroll */
+  [style*="height: 480px"],
+  [style*="height: 420px"],
+  [style*="height: 400px"],
+  [style*="height: 380px"],
+  [style*="height: 360px"] {
+    height: auto !important;
+    min-height: 280px;
+  }
+
+  /* Largeurs fixes qui dépassent la fenêtre → 100% */
+  [style*="width: 680px"],
+  [style*="width: 700px"],
+  [style*="width: 720px"],
+  [style*="maxWidth: 680px"],
+  [style*="max-width: 680px"] {
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+
+  /* Modales full-screen sur mobile */
+  [style*="position: fixed"][style*="zIndex"][style*="align-items: center"] > div,
+  [style*="position: fixed"][style*="z-index"][style*="align-items: center"] > div {
+    width: 100% !important;
+    max-width: 100vw !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Boutons dans barres d'outils : texte masqué, garder icône */
+  .hide-label-mobile { font-size: 0 !important; }
+  .hide-label-mobile svg { display: inline-block !important; }
+}
