@@ -968,9 +968,19 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
   :root { --sidebar-w: 0px; }
   .sidebar-desktop { display: none !important; }
   .mobile-topbar { display: flex !important; }
+  /* Desktop header hidden on mobile — MobileTopbar takes over */
+  .app-main > header,
+  .app-main > div > header { display: none !important; }
   .header-mobile-spacer { display: none !important; width: 0 !important; }
   html, body { overflow-x: hidden; max-width: 100vw; }
+  /* Prevent sidebar-mobile transform from expanding scrollable area */
+  .sidebar-mobile { will-change: transform; }
   .app-main, .page-body, .page-content { overflow-x: hidden; min-width: 0; max-width: 100vw; }
+  /* Prevent overflow-y: auto scroll containers from enabling unintended horizontal scroll.
+     Inline overflow-x: auto overrides this (data tables still scroll horizontally). */
+  [style*="overflow-y: auto"] { overflow-x: hidden; }
+  /* Hide horizontal scrollbar on tab bars that scroll on mobile */
+  [style*="scrollbar-width: none"]::-webkit-scrollbar { display: none; }
 
   /* ── Typography ────────────────────────────────────────────────────────── */
   h1 { font-size: 18px !important; }

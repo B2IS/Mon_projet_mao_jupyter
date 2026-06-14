@@ -724,9 +724,10 @@ export default function Sidebar() {
       <aside
         className="sidebar-mobile"
         style={{
-          position: 'fixed', top: 0, left: mobileOpen ? 0 : '-280px',
+          position: 'fixed', top: 0, left: 0,
+          transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
           width: 272, height: '100vh', zIndex: 60,
-          transition: 'left 0.22s cubic-bezier(.4,0,.2,1)',
+          transition: 'transform 0.22s cubic-bezier(.4,0,.2,1)',
           boxShadow: mobileOpen ? '4px 0 32px rgba(15,23,42,0.20)' : 'none',
           overflow: 'hidden',
         }}

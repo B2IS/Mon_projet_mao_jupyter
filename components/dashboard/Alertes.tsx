@@ -98,7 +98,7 @@ export default function Alertes() {
   ];
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', background: C.bg, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: C.bg, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* En-tête */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -125,7 +125,7 @@ export default function Alertes() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, borderBottom: `1px solid ${C.border}` }}>
         {([['alertes', `Alertes portefeuille (${activeAlertes.length})`], ['notifications', `Mes notifications (${myInbox.length})`]] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             style={{
