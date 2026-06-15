@@ -285,7 +285,7 @@ export default function SuiviEvaluation() {
         padding: '16px 24px 0',
         background: '#fff', borderBottom: '1px solid #E2E8F0', flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
               <Activity size={22} style={{ color: NAVY }} /> {getSyntheseLabel(user?.role)}
@@ -302,7 +302,7 @@ export default function SuiviEvaluation() {
                       : 'Vue de travail : indicateurs à consolider · preuves attendues · anomalies · validations en attente'}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <MatriceExport
               projets={store.projets}
               canGlobal={canGlobal}
@@ -342,10 +342,10 @@ export default function SuiviEvaluation() {
         </div>
 
         {/* ── 5 KPIs top (Figure 9 SDD) ── */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
           {kpiTop.map(k => (
             <div key={k.label} style={{
-              flex: 1, padding: '10px 14px',
+              flex: '1 1 140px', minWidth: 130, padding: '10px 14px',
               background: k.alert ? '#FFF5F5' : '#fff',
               border: `1px solid ${k.alert ? '#FECACA' : '#E2E8F0'}`,
               borderTop: `3px solid ${k.color}`,
@@ -379,7 +379,7 @@ export default function SuiviEvaluation() {
 
         {/* ════════ TAB: Indicateurs à contrôler ════════ */}
         {activeTab === 'indicateurs' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: 16 }}>
 
             {/* Liste indicateurs */}
             <div style={{

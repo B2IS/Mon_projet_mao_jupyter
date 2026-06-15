@@ -439,6 +439,10 @@ export default function Budget() {
       .sort((a, b) => b.value - a.value);
   }, [scopedDomainBudget, totalBudgetScoped]);
 
+  const [activeTab, setActiveTab]   = useState<'synthese' | 'previsions'>('synthese');
+  const [prevPeriod, setPrevPeriod] = useState<'mensuel' | 'trimestriel' | 'semestriel' | 'annuel'>('trimestriel');
+  const [prevData, setPrevData]     = useState<Record<string, Record<string, number>>>({});
+
   const [year, setYear]         = useState<YearOption>('2025');
   const [sortKey, setSortKey]   = useState<SortKey>('prevu');
   const [sortDir, setSortDir]   = useState<SortDir>('desc');
@@ -573,8 +577,24 @@ export default function Budget() {
 
       </div>
 
+      {/* ── ONGLETS ─────────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: `2px solid #E2E8F0`, marginBottom: 4 }}>
+        {([
+          { key: 'synthese',   label: 'Synthèse budgétaire' },
+          { key: 'previsions', label: 'Prévisions financières' },
+        ] as const).map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+            padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            border: 'none', background: 'transparent',
+            color: activeTab === tab.key ? NAVY : '#64748B',
+            borderBottom: activeTab === tab.key ? `3px solid ${ORANGE}` : '3px solid transparent',
+            marginBottom: -2, transition: 'all .15s',
+          }}>{tab.label}</button>
+        ))}
+      </div>
+
       {/* ── VUE D'ENSEMBLE ───────────────────────────────────────────────────── */}
-      <>
+      {activeTab === 'synthese' && <>
 
       {/* ── ROW 1 — 4 KPI cards (real store data) ──────────────────────────── */}
       {(() => {
@@ -884,7 +904,162 @@ export default function Budget() {
         </div>
       </Card>
 
-      </>
+      </>}
+
+      {/* ── PRÉVISIONS FINANCIÈRES ──────────────────────────────────────────── */}
+      {activeTab === 'previsions' && (() => {
+        const PERIODES: Record<string, string[]> = {
+          mensuel:      ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'],
+          trimestriel:  ['T1','T2','T3','T4'],
+          semestriel:   ['S1','S2'],
+          annuel:       ['Annuel'],
+        };
+        const cols = PERIODES[prevPeriod];
+        const projList = storeProjects.filter(p => domainFilter === 'Tous' || p.domain === domainFilter);
+
+        function getPrev(code: string, col: string): number {
+          return prevData[code]?.[col] ?? 0;
+        }
+        function setPrev(code: string, col: string, val: number) {
+          setPrevData(prev => ({
+            ...prev,
+            [code]: { ...(prev[code] ?? {}), [col]: isNaN(val) ? 0 : val },
+          }));
+        }
+        function getRealise(p: ProjectRow, col: string): number {
+          const colIdx = cols.indexOf(col);
+          const colTotal = cols.length;
+          const share = (colIdx + 1) / colTotal;
+          return +(p.decaisse * (share / cols.length) * 4).toFixed(2);
+        }
+        const colTotauxPrev = cols.map(col =>
+          projList.reduce((s, p) => s + getPrev(p.code, col), 0)
+        );
+        const colTotauxReal = cols.map(col =>
+          projList.reduce((s, p) => s + getRealise(p, col), 0)
+        );
+        const grandTotalPrev = colTotauxPrev.reduce((s, v) => s + v, 0);
+        const grandTotalReal = colTotauxReal.reduce((s, v) => s + v, 0);
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* KPI row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <KPICard label="Total prévu" value={`${grandTotalPrev.toFixed(1)} Mrd`} accent={NAVY} badge={year} badgeColor={NAVY} />
+              <KPICard label="Total réalisé" value={`${grandTotalReal.toFixed(1)} Mrd`} accent={GREEN} badge={`${grandTotalPrev > 0 ? Math.round((grandTotalReal/grandTotalPrev)*100) : 0}%`} badgeColor={GREEN} progress={grandTotalPrev > 0 ? Math.round((grandTotalReal/grandTotalPrev)*100) : 0} progressColor={GREEN} />
+              <KPICard label="Écart" value={`${(grandTotalReal - grandTotalPrev).toFixed(1)} Mrd`} accent={grandTotalReal >= grandTotalPrev ? GREEN : AMBER} sub="Réalisé − Prévu" />
+              <KPICard label="Projets planifiés" value={`${projList.filter(p => cols.some(c => getPrev(p.code, c) > 0)).length} / ${projList.length}`} accent={ORANGE} sub="avec prévisions saisies" />
+            </div>
+
+            {/* Controls */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>Période :</span>
+              {(['mensuel','trimestriel','semestriel','annuel'] as const).map(p => (
+                <button key={p} onClick={() => setPrevPeriod(p)} style={{
+                  padding: '6px 14px', fontSize: 12, fontWeight: 700, borderRadius: 7,
+                  border: `1px solid ${prevPeriod === p ? NAVY : '#CBD5E1'}`,
+                  background: prevPeriod === p ? NAVY : '#fff',
+                  color: prevPeriod === p ? '#fff' : '#64748B',
+                  cursor: 'pointer', textTransform: 'capitalize',
+                }}>{p.charAt(0).toUpperCase() + p.slice(1)}</button>
+              ))}
+              <button onClick={() => {
+                const csv = ['Projet,Domaine,' + cols.map(c => `Prévu ${c},Réalisé ${c}`).join(',')];
+                projList.forEach(p => {
+                  csv.push(`${p.nom},${p.domain},` + cols.map(c => `${getPrev(p.code,c).toFixed(1)},${getRealise(p,c).toFixed(1)}`).join(','));
+                });
+                const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `previsions-${prevPeriod}-${year}.csv`; a.click();
+              }} style={{
+                marginLeft: 'auto', padding: '6px 14px', fontSize: 11, fontWeight: 700,
+                border: `1px solid ${NAVY}30`, borderRadius: 7, background: '#fff',
+                color: NAVY, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <Download size={13} /> Export CSV
+              </button>
+            </div>
+
+            {/* Table */}
+            <Card style={{ padding: 0, overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
+                <thead>
+                  <tr style={{ background: NAVY, color: '#fff' }}>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', position: 'sticky', left: 0, background: NAVY, zIndex: 1, minWidth: 180 }}>Projet</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', minWidth: 100 }}>Domaine</th>
+                    {cols.map(col => (
+                      <th key={col} colSpan={2} style={{ padding: '10px 12px', textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,.15)' }}>{col}</th>
+                    ))}
+                  </tr>
+                  <tr style={{ background: NAVY + 'DD', color: '#CBD5E1', fontSize: 10 }}>
+                    <th style={{ padding: '6px 12px', position: 'sticky', left: 0, background: NAVY + 'DD', zIndex: 1 }} />
+                    <th />
+                    {cols.map(col => [
+                      <th key={col+'p'} style={{ padding: '6px 8px', textAlign: 'right', borderLeft: '1px solid rgba(255,255,255,.1)', fontWeight: 600 }}>Prévu</th>,
+                      <th key={col+'r'} style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Réalisé</th>,
+                    ])}
+                  </tr>
+                </thead>
+                <tbody>
+                  {projList.length === 0 && (
+                    <tr><td colSpan={2 + cols.length * 2} style={{ padding: 24, textAlign: 'center', color: '#94A3B8' }}>Aucun projet dans ce périmètre</td></tr>
+                  )}
+                  {projList.map((p, idx) => (
+                    <tr key={p.code} style={{ background: idx % 2 === 0 ? '#F8FAFC' : '#fff', borderBottom: '1px solid #E2E8F0' }}>
+                      <td style={{ padding: '8px 12px', fontWeight: 700, color: NAVY, position: 'sticky', left: 0, background: idx % 2 === 0 ? '#F8FAFC' : '#fff', zIndex: 1 }}>
+                        <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 400 }}>{p.code}</div>
+                        <div style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</div>
+                      </td>
+                      <td style={{ padding: '8px 12px', color: DOMAIN_COLORS[p.domain] ?? NAVY, fontWeight: 600, fontSize: 11 }}>{p.domain}</td>
+                      {cols.map(col => {
+                        const prev = getPrev(p.code, col);
+                        const real = getRealise(p, col);
+                        const ecart = real - prev;
+                        return [
+                          <td key={col+'p'} style={{ padding: '6px 8px', borderLeft: '1px solid #E2E8F0' }}>
+                            <input
+                              type="number"
+                              value={prev === 0 ? '' : prev}
+                              placeholder="0"
+                              onChange={e => setPrev(p.code, col, parseFloat(e.target.value))}
+                              style={{
+                                width: 70, fontSize: 12, textAlign: 'right', border: '1px solid #E2E8F0',
+                                borderRadius: 5, padding: '3px 6px', background: '#fff',
+                                color: NAVY, fontWeight: 600, outline: 'none',
+                              }}
+                            />
+                          </td>,
+                          <td key={col+'r'} style={{ padding: '6px 8px', textAlign: 'right' }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: real > 0 ? GREEN : '#CBD5E1' }}>{real > 0 ? real.toFixed(1) : '—'}</div>
+                            {prev > 0 && real > 0 && (
+                              <div style={{ fontSize: 9, color: ecart >= 0 ? GREEN : RED, fontWeight: 600 }}>{ecart >= 0 ? '+' : ''}{ecart.toFixed(1)}</div>
+                            )}
+                          </td>,
+                        ];
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: NAVY + '10', borderTop: `2px solid ${NAVY}30`, fontWeight: 800 }}>
+                    <td colSpan={2} style={{ padding: '10px 12px', color: NAVY, fontSize: 12 }}>TOTAL ({projList.length} projets)</td>
+                    {cols.map((col, i) => [
+                      <td key={col+'p'} style={{ padding: '10px 8px', textAlign: 'right', borderLeft: '1px solid #E2E8F0', color: NAVY, fontWeight: 800 }}>{colTotauxPrev[i].toFixed(1)}</td>,
+                      <td key={col+'r'} style={{ padding: '10px 8px', textAlign: 'right', color: GREEN, fontWeight: 800 }}>{colTotauxReal[i].toFixed(1)}</td>,
+                    ])}
+                  </tr>
+                </tfoot>
+              </table>
+            </Card>
+
+            {/* Info */}
+            <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>
+              Saisir les montants en Milliards FCFA (Mrd) · Les valeurs réalisées sont calculées à partir des décaissements enregistrés dans les projets
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
