@@ -3695,11 +3695,12 @@ export default function CockpitProjet() {
               INDICATEURS DE PERFORMANCE (KPIs)
               <SectionEditBtn section="kpis" readOnly />
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 520 }}>
               <thead>
                 <tr style={{ background: '#F8FAFC' }}>
-                  {['Indicateur', 'Valeur cible', 'Valeur actuelle', 'Écart', 'Statut'].map(h => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#64748B', fontSize: 10, textTransform: 'uppercase', borderBottom: '2px solid #E2E8F0', letterSpacing: '.5px' }}>{h}</th>
+                  {['Indicateur', 'Valeur cible', 'Valeur actuelle', 'Écart', 'Statut'].map((h, i) => (
+                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#64748B', fontSize: 10, textTransform: 'uppercase', borderBottom: '2px solid #E2E8F0', letterSpacing: '.5px', whiteSpace: 'nowrap', width: i === 0 ? '40%' : undefined }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -3715,10 +3716,10 @@ export default function CockpitProjet() {
                   return (
                     <tr key={i} style={{ borderBottom: '1px solid #F1F5F9', background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
                       <td style={{ padding: '8px 10px', color: '#374151', fontWeight: 500 }}>{row.indicateur}</td>
-                      <td style={{ padding: '8px 10px', color: '#64748B', fontFamily: 'monospace' }}>{row.cible}</td>
-                      <td style={{ padding: '8px 10px', fontWeight: 700, color: '#1E293B', fontFamily: 'monospace' }}>{row.actuel}</td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'monospace', color: row.rag === 'vert' ? C.green : C.red, fontWeight: 600 }}>{row.ecart}</td>
-                      <td style={{ padding: '8px 10px' }}>
+                      <td style={{ padding: '8px 10px', color: '#64748B', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{row.cible}</td>
+                      <td style={{ padding: '8px 10px', fontWeight: 700, color: '#1E293B', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{row.actuel}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'monospace', color: row.rag === 'vert' ? C.green : C.red, fontWeight: 600, whiteSpace: 'nowrap' }}>{row.ecart}</td>
+                      <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: ragColor, background: `${ragColor}18`, padding: '2px 8px', borderRadius: 99 }}>
                           <span style={{ width: 7, height: 7, borderRadius: '50%', background: ragColor, display: 'inline-block' }} />
                           {row.rag === 'vert' ? 'Satisfaisant' : row.rag === 'amber' ? 'À surveiller' : 'Critique'}
@@ -3729,6 +3730,7 @@ export default function CockpitProjet() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* ── Livrables par phase ── */}
