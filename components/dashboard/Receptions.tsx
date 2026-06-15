@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import { X, Calendar, Search } from 'lucide-react';
 import { downloadExcel } from '@/lib/exportUtils';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
+import { useImmobilisationStore, type CategorieImmo } from '@/lib/immobilisationStore';
+import { useNotificationStore } from '@/lib/notificationStore';
+import { useProjectStore } from '@/lib/projectStore';
+import { useAuth, DEMO_ACCOUNTS } from '@/lib/authStore';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,6 +148,26 @@ function inferCategorieImmo(txt: string): string {
   if (/(hta|33\s*kv|30\s*kv|moyenne tension|\bmt\b)/.test(t)) return 'Réseau HTA';
   if (/(\bbt\b|basse tension|0[.,]4\s*kv|branchement|extension r[eé]seau)/.test(t)) return 'Réseau BT';
   return 'Équipements divers';
+}
+
+/** Mappe la catégorie locale Receptions → CategorieImmo du store. */
+function toCategorieImmo(local: string): CategorieImmo {
+  const MAP: Record<string, CategorieImmo> = {
+    'Réseau HTA':            'Ligne HTA',
+    'Réseau BT':             'Ligne BT',
+    'Postes':                'Poste HTA/BT',
+    'Génie civil / Bâtiment':'Bâtiment & Génie Civil',
+    'Production':            'Centrale / Production',
+    'Comptage / AMI':        'Compteurs / AMI',
+  };
+  return MAP[local] ?? 'Autre';
+}
+
+/** Tolérant dd/mm/yyyy ou yyyy-mm-dd → yyyy-mm-dd pour le store. */
+function normDate(d: string): string {
+  const m = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return d.slice(0, 10);
 }
 
 function estimerValeurImmo(categorie: string): number {
@@ -487,6 +511,89 @@ export default function Receptions() {
   const [paiements, setPaiements] = useState<Paiement[]>(PAIEMENTS_INIT);
   const [paySearch, setPaySearch] = useState('');
 
+  // Défini tôt pour être accessible dans validerPVP (useCallback ci-dessous)
+  const updatePvpStatut = (id: string, statut: StatutPV) =>
+    setPvps(prev => prev.map(p => p.id === id ? { ...p, statut } : p));
+
+  // ── Immobilisation & notification hooks ──
+  const immoStore = useImmobilisationStore();
+  const { notifyUser } = useNotificationStore();
+  const { projets } = useProjectStore();
+  const { user } = useAuth();
+
+  /** Résout l'email du chef de projet à partir de son nom (DEMO_ACCOUNTS ou courant). */
+  const resolveChefEmail = useCallback((chefNom: string): string => {
+    const nom = chefNom.toLowerCase();
+    const found = DEMO_ACCOUNTS.find(a =>
+      `${a.prenom} ${a.nom}`.toLowerCase() === nom ||
+      nom.includes(a.nom.toLowerCase()) ||
+      nom.includes((a.prenom ?? '').toLowerCase())
+    );
+    return found?.email ?? user?.email ?? 'chef.de.projet.dpd@dpe.sn';
+  }, [user]);
+
+  /** Trouve le projetId dans projectStore par correspondance partielle de nom. */
+  const resolveProjetId = useCallback((projetNom: string): string => {
+    const slug = projetNom.toLowerCase().slice(0, 18);
+    const found = projets.find(p => p.nom.toLowerCase().includes(slug) || slug.includes(p.nom.toLowerCase().slice(0, 12)));
+    return found?.id ?? `pv-${Date.now()}`;
+  }, [projets]);
+
+  /** PVRP validé → encours d'immobilisation + notification chef de projet. */
+  const validerPVP = useCallback((p: PVP) => {
+    updatePvpStatut(p.id, 'VALIDE');
+    const ctx = `${p.projet} ${p.localite} ${p.entreprise}`;
+    const catLocal = inferCategorieImmo(ctx);
+    const cat = toCategorieImmo(catLocal);
+    const dateISO = normDate(p.dateVisite);
+    const projetId = resolveProjetId(p.projet);
+    const { created } = immoStore.onPVRP({ projetId, pvRef: p.ref, projetNom: p.projet, date: dateISO, categorie: cat });
+
+    // Chef de projet du projet (projectStore)
+    const projet = projets.find(pr => pr.id === projetId);
+    const chefEmail = projet ? resolveChefEmail(projet.chefProjet) : (user?.email ?? 'chef.de.projet.dpd@dpe.sn');
+    const chefNom   = projet?.chefProjet ?? 'Chef de Projet';
+
+    if (!created) return; // déjà traité
+
+    const msg = `PVRP ${p.ref} validé pour « ${p.projet} » (${p.localite}). `
+      + `Une immobilisation en cours (${catLocal}) a été créée dans le registre. `
+      + `L'amortissement démarrera automatiquement à la validation de la mise en service.`;
+
+    [chefEmail, 'chef.de.service.immobilisations@dpe.sn'].forEach(email =>
+      notifyUser({ recipientEmail: email, title: `🏗️ PVRP reçu — ${p.ref}`, message: msg, type: 'info', link: '/immobilisations', source: 'Réceptions & Patrimoine', ref: `pvrp-${p.ref}`, sendMail: true })
+    );
+    if (user?.email && user.email !== chefEmail) {
+      notifyUser({ recipientEmail: user.email, title: `✅ PVP validé — ${p.ref}`, message: `Vous avez validé le PVRP ${p.ref}. Immobilisation créée en encours pour ${chefNom}.`, type: 'success', link: '/immobilisations', source: 'Réceptions & Patrimoine', ref: `pvrp-ok-${p.ref}`, sendMail: false });
+    }
+  }, [immoStore, notifyUser, projets, resolveChefEmail, resolveProjetId, user]);
+
+  /** PVD (Mise en service) validé → amortissement démarré + notification. */
+  const validerPVD = useCallback((p: PVD) => {
+    setPvds(prev => prev.map(x => x.id === p.id ? { ...x, statut: 'VALIDE' as const, retenueLibere: true } : x));
+    const ctx = `${p.projet} ${p.localite} ${p.entreprise}`;
+    const catLocal = inferCategorieImmo(ctx);
+    const cat = toCategorieImmo(catLocal);
+    const dateISO = normDate(p.dateVisite);
+    const projetId = resolveProjetId(p.projet);
+    const { annuite, duree } = immoStore.onMES({ projetId, pvRef: p.ref, projetNom: p.projet, date: dateISO, categorie: cat });
+
+    const projet = projets.find(pr => pr.id === projetId);
+    const chefEmail = projet ? resolveChefEmail(projet.chefProjet) : (user?.email ?? 'chef.de.projet.dpd@dpe.sn');
+
+    const annuiteStr = annuite >= 1 ? `${annuite.toFixed(1)} M FCFA/an` : `${(annuite * 1000).toFixed(0)} k FCFA/an`;
+    const msg = `Mise en service validée (${p.ref}) pour « ${p.projet} » — ${p.localite}. `
+      + `L'amortissement ${catLocal} a démarré le ${p.dateVisite} sur ${duree} ans. `
+      + `Annuité : ${annuiteStr}. Retenue de garantie libérée.`;
+
+    [chefEmail, 'chef.de.service.immobilisations@dpe.sn'].forEach(email =>
+      notifyUser({ recipientEmail: email, title: `✅ Mise en service — ${p.ref} : amortissement démarré`, message: msg, type: 'success', link: '/immobilisations', source: 'Réceptions & Patrimoine', ref: `mes-${p.ref}`, sendMail: true })
+    );
+    if (user?.email && user.email !== chefEmail) {
+      notifyUser({ recipientEmail: user.email, title: `✅ PVD validé — ${p.ref}`, message: `Vous avez validé la mise en service ${p.ref}. Amortissement enregistré (${annuiteStr}).`, type: 'success', link: '/immobilisations', source: 'Réceptions & Patrimoine', ref: `mes-ok-${p.ref}`, sendMail: false });
+    }
+  }, [immoStore, notifyUser, projets, resolveChefEmail, resolveProjetId, user]);
+
   const filteredPaiements = useMemo(() => {
     if (!paySearch.trim()) return paiements;
     const q = paySearch.toLowerCase();
@@ -535,10 +642,6 @@ export default function Receptions() {
     setImmos(prev => [nouvelle, ...prev]);
     setPropositions(prev => prev.filter(x => x.id !== p.id));
   };
-
-  // ── Workflow de validation des PV (remplace les anciens alert()) ──
-  const setPvpStatut = (id: string, statut: StatutPV) =>
-    setPvps(prev => prev.map(p => p.id === id ? { ...p, statut } : p));
 
   const filteredPvps = useMemo(() => {
     if (!pvpSearch.trim()) return pvps;
@@ -680,8 +783,8 @@ export default function Receptions() {
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-ghost btn-xs" onClick={() => setPvpSelected(p)}>Voir</button>
                         {p.statut === 'EN_COURS' && <>
-                          <button className="btn btn-ghost btn-xs hide-mobile" style={{ color: 'var(--green)' }} onClick={() => setPvpStatut(p.id, 'VALIDE')}>Valider</button>
-                          <button className="btn btn-ghost btn-xs hide-mobile" style={{ color: 'var(--red)' }} onClick={() => setPvpStatut(p.id, 'REJETE')}>Rejeter</button>
+                          <button className="btn btn-ghost btn-xs hide-mobile" style={{ color: 'var(--green)' }} onClick={() => validerPVP(p)}>Valider</button>
+                          <button className="btn btn-ghost btn-xs hide-mobile" style={{ color: 'var(--red)' }} onClick={() => updatePvpStatut(p.id, 'REJETE')}>Rejeter</button>
                         </>}
                       </div>
                     </td>
@@ -748,7 +851,7 @@ export default function Receptions() {
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-ghost btn-xs" onClick={() => setPvdSelected(p)}>Voir</button>
                         {p.statut === 'EN_COURS' && (
-                          <button className="btn btn-ghost btn-xs hide-mobile" style={{ color: 'var(--green)' }} onClick={() => setPvds(prev => prev.map(x => x.id === p.id ? { ...x, statut: 'VALIDE' as const, retenueLibere: true } : x))}>Valider</button>
+                          <button className="btn btn-ghost btn-xs hide-mobile" style={{ color: 'var(--green)' }} onClick={() => validerPVD(p)}>Valider</button>
                         )}
                       </div>
                     </td>

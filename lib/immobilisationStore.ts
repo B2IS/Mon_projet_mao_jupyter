@@ -44,6 +44,7 @@ export interface Immobilisation {
   actifLivrable?: string;    // composant produit (Alternateur, Armoires BT…)
   unite?: string;            // unité de l'actif livrable (ML, MVA, MW…)
   bailleur?: string;         // source de financement
+  sourcePV?: string;         // réf. PV origine (PVRP ou MES) — idempotence
   createdAt: string;
   updatedAt: string;
 }
@@ -126,8 +127,40 @@ export function valeurNetteComptable(immo: Immobilisation, at: Date = new Date()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RÉFÉRENTIELS — durées & valeurs par défaut par catégorie
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const DUREE_PAR_CATEGORIE: Partial<Record<CategorieImmo, number>> = {
+  'Ligne HTA': 30, 'Ligne HTB': 35, 'Ligne BT': 20,
+  'Poste HTA/BT': 25, 'Poste HTB': 30, 'Transformateur': 15,
+  'Centrale / Production': 25, 'Stockage / Batteries': 10,
+  'Bâtiment & Génie Civil': 40, 'Matériel & Équipement': 10,
+  'Matériel roulant': 5, 'Matériel informatique': 3,
+  'Compteurs / AMI': 10, 'Autre': 10,
+};
+
+export const VALEUR_PAR_CATEGORIE: Partial<Record<CategorieImmo, number>> = {
+  'Ligne HTA': 850, 'Ligne HTB': 2500, 'Ligne BT': 420,
+  'Poste HTA/BT': 165, 'Poste HTB': 800, 'Transformateur': 42,
+  'Centrale / Production': 1500, 'Stockage / Batteries': 600,
+  'Bâtiment & Génie Civil': 600, 'Matériel & Équipement': 60,
+  'Matériel roulant': 25, 'Matériel informatique': 5,
+  'Compteurs / AMI': 95, 'Autre': 50,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STORE
 // ─────────────────────────────────────────────────────────────────────────────
+
+export interface TriggerPVArgs {
+  projetId: string;
+  pvRef: string;
+  projetNom: string;
+  date: string;          // YYYY-MM-DD
+  categorie?: CategorieImmo;
+  valeur?: number;       // M FCFA — optionnel, estimé si absent
+  duree?: number;        // années d'amortissement
+}
 
 interface ImmoState {
   immobilisations: Immobilisation[];
@@ -136,6 +169,10 @@ interface ImmoState {
   remove: (id: string) => void;
   byProjet: (projetId: string) => Immobilisation[];
   seedFor: (projetId: string) => void;
+  /** PVRP validé → crée un encours d'immobilisation (statut en_cours). Idempotent sur pvRef. */
+  onPVRP: (args: TriggerPVArgs) => { id: string; created: boolean };
+  /** Mise en service validée → passe l'immo en_service, démarre l'amortissement. */
+  onMES:  (args: TriggerPVArgs) => { id: string; annuite: number; duree: number };
 }
 
 function uid() { return `immo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`; }
@@ -155,6 +192,73 @@ export const useImmobilisationStore = create<ImmoState>()(
       })),
       remove: (id) => set(s => ({ immobilisations: s.immobilisations.filter(x => x.id !== id) })),
       byProjet: (projetId) => get().immobilisations.filter(x => x.projetId === projetId),
+
+      onPVRP: ({ projetId, pvRef, projetNom, date, categorie = 'Autre', valeur, duree }) => {
+        const existing = get().immobilisations.find(x => x.sourcePV === pvRef);
+        if (existing) return { id: existing.id, created: false };
+        const now = new Date().toISOString();
+        const id = uid();
+        const nextCode = `IMM-${new Date(date).getFullYear()}-${String(get().immobilisations.length + 1).padStart(3, '0')}`;
+        const defaultDuree = DUREE_PAR_CATEGORIE[categorie] ?? 15;
+        const defaultValeur = VALEUR_PAR_CATEGORIE[categorie] ?? 100;
+        const immo: Immobilisation = {
+          id, projetId, code: nextCode,
+          designation: `${categorie} — ${projetNom}`,
+          categorie,
+          valeurAcquisition: valeur ?? defaultValeur,
+          valeurResiduelle: 0,
+          dateMiseEnService: date,
+          datePVReception: date,
+          dureeAmortissement: duree ?? defaultDuree,
+          methode: 'lineaire',
+          statut: 'en_cours',
+          sourcePV: pvRef,
+          createdAt: now, updatedAt: now,
+        };
+        set(s => ({ immobilisations: [...s.immobilisations, immo] }));
+        return { id, created: true };
+      },
+
+      onMES: ({ projetId, pvRef, projetNom, date, categorie = 'Autre', valeur, duree }) => {
+        // Cherche l'encours lié à ce projet ou à ce PV
+        const existing = get().immobilisations.find(
+          x => x.sourcePV === pvRef || (x.projetId === projetId && x.statut === 'en_cours')
+        );
+        const defaultDuree = duree ?? DUREE_PAR_CATEGORIE[categorie] ?? 15;
+        const defaultValeur = valeur ?? VALEUR_PAR_CATEGORIE[categorie] ?? 100;
+        if (existing) {
+          const patch: Partial<Immobilisation> = {
+            statut: 'en_service',
+            dateMiseEnService: date,
+            dureeAmortissement: duree ?? existing.dureeAmortissement,
+            updatedAt: new Date().toISOString(),
+          };
+          set(s => ({ immobilisations: s.immobilisations.map(x => x.id === existing.id ? { ...x, ...patch } : x) }));
+          const annuite = (existing.valeurAcquisition - existing.valeurResiduelle) / (duree ?? existing.dureeAmortissement);
+          return { id: existing.id, annuite, duree: duree ?? existing.dureeAmortissement };
+        }
+        // Pas d'encours → crée directement en_service
+        const now = new Date().toISOString();
+        const id = uid();
+        const nextCode = `IMM-${new Date(date).getFullYear()}-${String(get().immobilisations.length + 1).padStart(3, '0')}`;
+        const immo: Immobilisation = {
+          id, projetId, code: nextCode,
+          designation: `${categorie} — ${projetNom}`,
+          categorie,
+          valeurAcquisition: defaultValeur,
+          valeurResiduelle: 0,
+          dateMiseEnService: date,
+          datePVReception: date,
+          dureeAmortissement: defaultDuree,
+          methode: 'lineaire',
+          statut: 'en_service',
+          sourcePV: pvRef,
+          createdAt: now, updatedAt: now,
+        };
+        set(s => ({ immobilisations: [...s.immobilisations, immo] }));
+        return { id, annuite: defaultValeur / defaultDuree, duree: defaultDuree };
+      },
+
       seedFor: (projetId) => {
         if (get().immobilisations.some(x => x.projetId === projetId)) return;
         const now = new Date().toISOString();
