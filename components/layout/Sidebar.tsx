@@ -340,7 +340,7 @@ export default function Sidebar() {
     .filter(i => path === i.href || path.startsWith(i.href + '/'))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? '';
 
-  const handleLogout = async () => { await logout(); router.push('/login'); };
+  const handleLogout = async () => { await logout(); window.location.replace('/login'); };
   const switchProfile = (email: string) => {
     login(email, 'dpe2026');
     setShowProfileSwitch(false);
@@ -388,7 +388,7 @@ export default function Sidebar() {
 
       {/* Domain icons */}
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 0', gap: 2, overflowY: 'auto', overflowX: 'hidden' }}>
-        {DOMAINS.map(domain => {
+        {DOMAINS.filter(domain => !domain.sectionId || canAccessSection(domain.sectionId)).map(domain => {
           const Icon = domain.icon;
           const isActive = activeDomain === domain.id;
           const badge = domainBadge(domain);
@@ -746,7 +746,7 @@ export default function Sidebar() {
               </div>
             </div>
             <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 0', gap: 2 }}>
-              {DOMAINS.map(domain => {
+              {DOMAINS.filter(domain => !domain.sectionId || canAccessSection(domain.sectionId)).map(domain => {
                 const Icon = domain.icon;
                 const isActive = activeDomain === domain.id;
                 const badge = domainBadge(domain);

@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header';
 import Administration from '@/components/dashboard/Administration';
 
+export const metadata = { title: 'Administration' };
+
 export default function Page() {
   return (
     <>

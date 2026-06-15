@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import EVM from '@/components/dashboard/EVM';
+
+export const metadata = { title: 'Analyse Valeur Acquise' };
 export default function Page() {
   return (
     <>

@@ -897,7 +897,7 @@ export default function Taches() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#1B4F8A', color: '#fff' }}>
-                  <th style={{ padding: '10px 8px', width: 32, textAlign: 'center' }}>#</th>
+                  <th style={{ padding: '10px 8px', width: 32, textAlign: 'center', whiteSpace: 'nowrap' }}>#</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', minWidth: 200 }}>Nom</th>
                   <th style={{ padding: '10px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>Type</th>
                   <th style={{ padding: '10px 8px', textAlign: 'center' }}>Durée</th>
@@ -939,7 +939,7 @@ export default function Taches() {
                       style={{ background: rowBg, borderBottom: '1px solid #F1F5F9', transition: 'background 0.1s' }}
                     >
                       {/* # */}
-                      <td style={{ padding: '6px 8px', textAlign: 'center', color: '#94A3B8', fontWeight: 600 }}>
+                      <td style={{ padding: '6px 8px', textAlign: 'center', color: '#94A3B8', fontWeight: 600, whiteSpace: 'nowrap', minWidth: 32 }}>
                         {t.ordre}
                       </td>
 

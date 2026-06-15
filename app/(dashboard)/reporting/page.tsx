@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Reporting from '@/components/dashboard/Reporting';
+
+export const metadata = { title: 'Studio Rapports' };
 export default function Page() {
   return (
     <>

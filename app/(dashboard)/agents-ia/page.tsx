@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Bot, Sparkles } from 'lucide-react';
 import AIMultimodalChat from '@/components/ui/AIMultimodalChat';
 import Copilot from '@/components/dashboard/Copilot';
-
 type Tab = 'assistant' | 'copilot';
 
 export default function CentreIAPage() {

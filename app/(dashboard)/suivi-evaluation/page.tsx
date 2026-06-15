@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import SuiviEvaluation from '@/components/dashboard/SuiviEvaluation';
+
+export const metadata = { title: 'Suivi & Évaluation' };
 export default function Page() {
   return (
     <>

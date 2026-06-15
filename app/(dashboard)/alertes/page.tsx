@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header';
 import Alertes from '@/components/dashboard/Alertes';
 
+export const metadata = { title: 'Alertes & Notifications' };
+
 export default function AlertesPage() {
   return (
     <>

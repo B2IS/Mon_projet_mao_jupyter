@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Analytique from '@/components/dashboard/Analytique';
+
+export const metadata = { title: 'Analytique BI' };
 export default function Page() {
   return (
     <>

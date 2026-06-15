@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import GED from '@/components/dashboard/GED';
+
+export const metadata = { title: 'Espace Documentaire' };
 export default function Page() {
   return (
     <>

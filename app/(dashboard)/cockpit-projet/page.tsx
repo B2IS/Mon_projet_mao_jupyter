@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import CockpitProjet from '@/components/dashboard/CockpitProjet';
 
+export const metadata = { title: 'Cockpit Projet' };
+
 export default function CockpitProjetPage() {
   return (
     <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', minHeight: 0 }}>

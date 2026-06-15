@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header';
 import ImmobilisationsWorkspace from '@/components/dashboard/ImmobilisationsWorkspace';
 
+export const metadata = { title: 'Immobilisations' };
+
 export default function Page() {
   return (
     <>

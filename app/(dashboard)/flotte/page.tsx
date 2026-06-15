@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Flotte from '@/components/dashboard/Flotte';
+
+export const metadata = { title: 'Gestion de Flotte' };
 export default function Page() {
   return (
     <>

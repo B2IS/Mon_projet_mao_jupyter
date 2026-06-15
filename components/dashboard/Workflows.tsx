@@ -499,7 +499,7 @@ function DetailPanel({
         </div>
 
         {/* Méta */}
-        <div style={{ display: 'flex', gap: 20, fontSize: 11, color: '#64748B' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, rowGap: 4, fontSize: 11, color: '#64748B' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <User size={10} /> {dossier.soumetteur}
           </span>

@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header';
 import TableauDeBord from '@/components/dashboard/TableauDeBord';
 
+export const metadata = { title: 'Tableau de Bord' };
+
 export default function Page() {
   return (
     <>

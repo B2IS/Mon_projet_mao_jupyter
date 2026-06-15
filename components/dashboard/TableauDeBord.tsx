@@ -509,7 +509,7 @@ export default function TableauDeBord() {
 
         {/* ── KPI Row (6 cartes PROJET) — masquée pour les profils SUPPORT (UAGL/assistante/secrétaire/chauffeur) ── */}
         {!isSupportProfile && (
-        <div style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', padding: '12px 24px 0', scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', padding: '12px 24px 0' }}>
           {[
             { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels`, href: '/portefeuille', pfFilter: null },
             { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA`, href: '/budget', pfFilter: null },
@@ -548,7 +548,7 @@ export default function TableauDeBord() {
         )}
 
         {/* Onglets */}
-        <div style={{ display: 'flex', flexWrap: 'nowrap', padding: '0 24px', marginTop: 4, overflowX: 'auto', scrollbarWidth: 'thin' }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', padding: '0 24px', marginTop: 4, overflowX: 'auto', scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id as typeof activeTab)} style={{
               padding: '8px 16px', border: 'none', flexShrink: 0, whiteSpace: 'nowrap',

@@ -128,11 +128,10 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100dvh',
+      position: 'fixed', inset: 0, zIndex: 9000, overflowY: 'auto', overflowX: 'hidden',
       background: 'linear-gradient(150deg, #140830 0%, #2D1167 45%, #3D1A6B 75%, #5A2080 100%)',
       display: 'flex', alignItems: 'stretch', justifyContent: 'center',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif',
-      position: 'relative', overflow: 'hidden',
     }}>
       {/* Accent bar */}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 3, zIndex: 100,

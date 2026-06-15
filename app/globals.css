@@ -2004,6 +2004,57 @@ nextjs-portal { display: none !important; }
   min-width: max-content;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   CORRECTIFS RESPONSIVE v2 — bugs identifiés par audit QA
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Barres d'onglets : toujours scrollables horizontalement sans coupure
+   Cible les conteneurs flex inline-styled avec overflow-x: auto qui
+   contiennent des boutons d'onglets (flexShrink: 0 + whiteSpace: nowrap). */
+@media (max-width: 768px) {
+  /* Touch-scrolling fluide sur Safari iOS pour TOUS les conteneurs à défilement */
+  [style*="overflow-x: auto"],
+  [style*="overflowX: auto"] {
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* KPI cards (flex-wrap: wrap) : supprimer le border-right sur les cards
+     en fin de ligne pour éviter un trait à droite du viewport. */
+  [style*="flex-wrap: wrap"] > [style*="borderRight"],
+  [style*="flexWrap: wrap"] > [style*="borderRight"] {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Colonnes de numéro de ligne (#) : jamais de césure */
+  td:first-child[style*="text-align: center"],
+  th:first-child[style*="text-align: center"] {
+    white-space: nowrap !important;
+    min-width: 28px !important;
+  }
+
+  /* Meta-rows (flex avec gap > 12) : autoriser le wrap */
+  [style*="gap: 20"][style*="display: flex"],
+  [style*="gap: 24"][style*="display: flex"] {
+    flex-wrap: wrap !important;
+    row-gap: 4px !important;
+  }
+}
+
+/* 2. Page login — contenu pleine largeur quel que soit le viewport */
+/* (La page login utilise position:fixed + inset:0 pour couvrir tout contenu
+   résiduel du layout dashboard pendant les transitions client-side.) */
+
+/* 3. Tables inline : empêcher overflow-wrap: anywhere de casser les chiffres
+   dans les cellules étroites (ex. colonne # des tâches). */
+td[style*="whiteSpace: nowrap"],
+th[style*="whiteSpace: nowrap"],
+td[style*="white-space: nowrap"],
+th[style*="white-space: nowrap"] {
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
+}
+
 /* Cellules header (<span> direct enfant de grille) : pas de retour à la ligne */
 [style*="grid-template-columns"] > span {
   min-width: 0;

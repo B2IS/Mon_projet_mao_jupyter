@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header';
 import Administration from '@/components/dashboard/Administration';
 
+export const metadata = { title: 'Paramétrage' };
+
 export default function Page() {
   return (
     <>

@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Workflows from '@/components/dashboard/Workflows';
+
+export const metadata = { title: 'Parapheur BPM' };
 export default function Page() {
   return (
     <>

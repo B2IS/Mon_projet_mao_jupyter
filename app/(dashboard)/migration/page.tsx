@@ -16,7 +16,6 @@ import { swarmContextToProjetPatch, swarmContextToIndicators } from '@/lib/swarm
 import { extractAllFiles } from '@/lib/ai/extractors/fileExtractor';
 import { useIndicatorStore } from '@/lib/indicatorStore';
 import toast from 'react-hot-toast';
-
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 const T = {
   purple:  '#2D1167',

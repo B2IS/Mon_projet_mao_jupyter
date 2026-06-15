@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Taches from '@/components/dashboard/Taches';
+
+export const metadata = { title: 'Tâches & Activités' };
 export default function Page() {
   return (
     <>

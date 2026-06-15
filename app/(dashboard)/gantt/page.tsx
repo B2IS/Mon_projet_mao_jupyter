@@ -1,5 +1,7 @@
 import Gantt from '@/components/dashboard/Gantt';
 
+export const metadata = { title: 'Planning Gantt' };
+
 /* Planning Gantt — toolbar autonome, sans Header générique */
 export default function Page() {
   return (

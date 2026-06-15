@@ -198,8 +198,8 @@ function ProjectCard({ projet, onOpen, onStatusChange }: ProjectCardProps) {
             </span>
             <span style={{ fontSize: 9, padding: '1px 7px', borderRadius: 20, background: `${cfg.color}15`, color: cfg.color, fontWeight: 600 }}>{cfg.label}</span>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', lineHeight: 1.3, marginBottom: 2 }} title={projet.nom}>{projet.nom}</div>
-          <div style={{ fontSize: 11, color: '#6B7280' }} title={projet.description}>{projet.description}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', lineHeight: 1.3, marginBottom: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={projet.nom}>{projet.nom}</div>
+          <div style={{ fontSize: 11, color: '#6B7280', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={projet.description}>{projet.description}</div>
         </div>
         <ChevronRight size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
       </div>
@@ -470,7 +470,7 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#FFF', display: 'inline-block' }} />{stCfg.label}
                 </span>
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#FFF', lineHeight: 1.3 }}>{projet.nom}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#FFF', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={projet.nom}>{projet.nom}</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 3 }}>{cfg.label}</div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>

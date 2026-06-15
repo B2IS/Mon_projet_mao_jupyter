@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Marches from '@/components/dashboard/Marches';
+
+export const metadata = { title: 'Marchés & Contrats' };
 export default function Page() {
   return (
     <>

@@ -4,7 +4,10 @@ import ToastContainer from '@/components/ui/ToastContainer';
 import { AuthProvider } from '@/lib/authStore';
 
 export const metadata: Metadata = {
-  title: 'SIGEPP-DPE — Système Intégré de Gouvernance, d\'Exécution et de Pilotage de Projet',
+  title: {
+    template: '%s — SIGEPP-DPE',
+    default: 'SIGEPP-DPE · Gouvernance & Pilotage de Projet',
+  },
   description: 'SIGEPP-DPE · Direction Principale Équipement SENELEC · PMO Multi-Projets · Portefeuille · Planification · Suivi-Évaluation',
 };
 

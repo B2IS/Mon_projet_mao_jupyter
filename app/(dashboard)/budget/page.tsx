@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Budget from '@/components/dashboard/Budget';
+
+export const metadata = { title: 'Gestion Budgétaire' };
 export default function Page() {
   return (
     <>

@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Portefeuille from '@/components/dashboard/Portefeuille';
+
+export const metadata = { title: 'Vue Portefeuille' };
 export default function Page() {
   return (
     <>

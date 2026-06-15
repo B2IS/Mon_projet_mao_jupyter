@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import Receptions from '@/components/dashboard/Receptions';
+
+export const metadata = { title: 'PV Réceptions' };
 export default function Page() {
   return (
     <>

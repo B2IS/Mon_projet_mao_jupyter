@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header';
 import ProjetsDPE from '@/components/dashboard/ProjetsDPE';
 
+export const metadata = { title: 'Gestion des Projets' };
+
 export default function Page() {
   return (
     <>

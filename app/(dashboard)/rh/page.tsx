@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import RH from '@/components/dashboard/RH';
+
+export const metadata = { title: 'Ressources Humaines' };
 export default function Page() {
   return (
     <>

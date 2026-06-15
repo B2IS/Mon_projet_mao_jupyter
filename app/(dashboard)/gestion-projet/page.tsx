@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header';
 import GestionProjet from '@/components/dashboard/GestionProjet';
 
+export const metadata = { title: 'Gestion de Projet' };
+
 export default function Page() {
   return (
     <>
