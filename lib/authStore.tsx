@@ -3,9 +3,15 @@
  * authStore.tsx — Système RBAC SIGEPP-DPE SENELEC
  * Types/constantes RBAC purs → lib/authTypes.ts (importable middleware).
  * Ce fichier = React context + fonctions avec dépendances runtime.
+ *
+ * Auth.js v5 (next-auth) est utilisé pour :
+ *   - SSO Microsoft Entra ID / Google
+ *   - Credentials email/password (via signIn('credentials', ...))
+ * L'ancien JWT httpOnly (sigepp_session) reste actif en fallback de transition.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
 export { DEMO_ACCOUNTS, TEST_USERS } from './usersDb';
 import { TEST_USERS } from './usersDb';
 import { usePasswordPolicyStore } from './passwordPolicyStore';
@@ -100,9 +106,35 @@ const LS_KEY = 'sigepp_dpe_user';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<TestUser | null>(null);
+  const { data: session, status } = useSession();
 
-  // Hydrate depuis le JWT côté serveur — fallback localStorage pour le dev hot-reload
+  // ── Hydratation : NextAuth session (prioritaire) → legacy JWT → localStorage ──
   useEffect(() => {
+    if (status === 'loading') return;
+
+    // 1. Session NextAuth présente (credentials ou SSO)
+    if (status === 'authenticated' && session?.user) {
+      const su = session.user;
+      const mapped: TestUser = {
+        id:          su.id ?? su.email ?? '',
+        email:       su.email ?? '',
+        prenom:      su.prenom ?? su.name?.split(' ')[0] ?? '',
+        nom:         su.nom   ?? su.name?.split(' ').slice(1).join(' ') ?? '',
+        role:        su.role ?? 'INGENIEUR',
+        direction:   su.direction ?? 'DPE',
+        initials:    su.initials  ?? (su.name ?? '??').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+        avatarColor: su.avatarColor ?? '#374151',
+        password:    '',
+        poste:       su.poste,
+        departement: su.departement,
+        cellule:     su.cellule,
+      };
+      setUser(mapped);
+      localStorage.setItem(LS_KEY, JSON.stringify(mapped));
+      return;
+    }
+
+    // 2. Fallback : ancien JWT via /api/auth/me (transition)
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -122,19 +154,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (stored) setUser(JSON.parse(stored));
         } catch { /* ignore */ }
       });
-  }, []);
+  }, [status, session]);
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     const emailLower = email.trim().toLowerCase();
     const pwdTrim    = password.trim();
     const policy     = usePasswordPolicyStore.getState();
 
-    // Vérification locale du verrouillage avant d'appeler l'API
+    // Vérification locale du verrouillage
     if (policy.isLocked(emailLower)) {
       const mins = Math.ceil(policy.lockRemainingMs(emailLower) / 60_000);
       return { success: false, locked: true, error: `Compte verrouillé. Réessayez dans ${mins} min.` };
     }
 
+    // ── Tentative via Auth.js Credentials (nouvelle voie) ──────────────────
+    try {
+      const result = await nextAuthSignIn('credentials', {
+        email: emailLower,
+        password: pwdTrim,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        const { locked, attemptsLeft } = policy.recordFailure(emailLower);
+        if (locked) {
+          return { success: false, locked: true, error: `Compte verrouillé après ${policy.config.maxFailedAttempts} tentatives. Réessayez dans ${policy.config.lockoutMinutes} min.` };
+        }
+        return { success: false, error: `Identifiants incorrects. ${attemptsLeft} tentative(s) restante(s) avant verrouillage.` };
+      }
+
+      if (!result?.error) {
+        policy.recordSuccess(emailLower);
+        policy.ensureRecord(emailLower, pwdTrim);
+        const mustChangePassword = policy.isExpired(emailLower);
+
+        try {
+          const { logAudit } = require('./auditStore') as typeof import('./auditStore');
+          logAudit({ utilisateur: emailLower, email: emailLower,
+            role: 'INCONNU', action: 'Connexion Auth.js', objet: emailLower,
+            type: 'connexion', direction: 'DPE' });
+        } catch { /* noop */ }
+
+        return { success: true, mustChangePassword };
+      }
+    } catch { /* Si nextAuthSignIn échoue (ex: config incomplète), fallback legacy */ }
+
+    // ── Fallback legacy : /api/auth/login (ancien JWT httpOnly) ────────────
     let res: Response;
     try {
       res = await fetch('/api/auth/login', {
@@ -166,7 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { logAudit } = require('./auditStore') as typeof import('./auditStore');
       logAudit({ utilisateur: `${data.user.prenom} ${data.user.nom}`, email: data.user.email,
-        role: data.user.role, action: 'Connexion JWT', objet: data.user.email,
+        role: data.user.role, action: 'Connexion JWT (legacy)', objet: data.user.email,
         type: 'connexion', direction: data.user.direction });
     } catch { /* noop */ }
 
@@ -214,7 +279,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     setUser(null);
     localStorage.removeItem(LS_KEY);
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    // Révoque la session Auth.js ET l'ancien cookie JWT
+    await Promise.allSettled([
+      nextAuthSignOut({ redirect: false }),
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }),
+    ]);
   }, []);
 
   const canAccessRoute = useCallback((route: string) => {

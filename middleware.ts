@@ -1,8 +1,23 @@
+/**
+ * middleware.ts — Auth.js v5 middleware SIGEPP-DPE
+ * Utilise auth.config.ts (Edge-compatible, sans Node.js APIs).
+ * La logique RBAC (canAccess) est dans le callback `authorized` de auth.config.ts.
+ *
+ * Compatibilité ascendante : l'ancien cookie sigepp_session est toujours accepté
+ * comme fallback pendant la période de transition (voir bloc legacy ci-dessous).
+ */
+import NextAuth from 'next-auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import authConfig from './auth.config';
+
+const { auth } = NextAuth(authConfig);
+
+// ── Fallback legacy : si pas de session NextAuth, vérifier l'ancien JWT ──────
+// Conservé pour les sessions existantes (cookie sigepp_session) qui n'ont pas
+// encore été ré-authentifiées via Auth.js.
 import { jwtVerify } from 'jose';
-import { canAccess, SESSION_COOKIE } from '@/lib/authTypes';
-import type { RoleCode } from '@/lib/authTypes';
+import { SESSION_COOKIE } from '@/lib/authTypes';
 
 const SECRET_KEY = new TextEncoder().encode(
   process.env.SIGEPP_JWT_SECRET ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
@@ -10,51 +25,44 @@ const SECRET_KEY = new TextEncoder().encode(
 
 const PUBLIC_PREFIXES = ['/login', '/api/', '/_next/', '/favicon', '/icons/', '/images/'];
 
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PREFIXES.some(p => pathname.startsWith(p)) || pathname === '/';
+function isPublicPath(pathname: string): boolean {
+  return (
+    pathname === '/' ||
+    pathname.includes('.') ||
+    PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
+  );
 }
 
-function redirectLogin(request: NextRequest, returnUrl?: string): NextResponse {
-  const url = request.nextUrl.clone();
-  url.pathname = '/login';
-  if (returnUrl) url.searchParams.set('returnUrl', returnUrl);
-  url.search = returnUrl ? url.search : '';
-  return NextResponse.redirect(url);
-}
+export default auth(async (req) => {
+  const { pathname } = req.nextUrl;
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  // Routes publiques : toujours laisser passer
+  if (isPublicPath(pathname)) return NextResponse.next();
 
-  if (isPublic(pathname) || pathname.includes('.')) return NextResponse.next();
+  // Auth.js session présente → déjà validée par le callback `authorized`
+  if (req.auth?.user) return NextResponse.next();
 
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return redirectLogin(request, pathname);
-
-  // Verify JWT signature — rejects tampered or expired tokens
-  let role: RoleCode | undefined;
-  try {
-    const { payload } = await jwtVerify(token, SECRET_KEY, {
-      issuer: 'sigepp-dpe',
-      audience: 'sigepp-dpe-client',
-    });
-    role = payload.role as RoleCode | undefined;
-  } catch {
-    const res = redirectLogin(request, pathname);
-    res.cookies.set({ name: SESSION_COOKIE, value: '', maxAge: 0, path: '/' });
-    return res;
+  // ── Fallback legacy JWT ──────────────────────────────────────────────────
+  const legacyToken = (req as unknown as NextRequest).cookies.get(SESSION_COOKIE)?.value;
+  if (legacyToken) {
+    try {
+      await jwtVerify(legacyToken, SECRET_KEY, {
+        issuer: 'sigepp-dpe',
+        audience: 'sigepp-dpe-client',
+      });
+      // Token legacy valide → laisser passer (l'authStore hydrate depuis /api/auth/me)
+      return NextResponse.next();
+    } catch {
+      // Token invalide ou expiré → supprimer et rediriger vers login
+      const res = NextResponse.redirect(new URL(`/login?returnUrl=${encodeURIComponent(pathname)}`, req.url));
+      res.cookies.set({ name: SESSION_COOKIE, value: '', maxAge: 0, path: '/' });
+      return res;
+    }
   }
 
-  if (!role) return redirectLogin(request, pathname);
-  if (role === 'ADMIN' || role === 'AUDIT') return NextResponse.next();
-  if (!canAccess(role, pathname)) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/tableau-de-bord';
-    url.search = '';
-    return NextResponse.redirect(url);
-  }
-
-  return NextResponse.next();
-}
+  // Aucune session → rediriger vers login
+  return NextResponse.redirect(new URL(`/login?returnUrl=${encodeURIComponent(pathname)}`, req.url));
+});
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],

@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide
 import { DEMO_ACCOUNTS, ROLES, useAuth, getDirectionLabel } from '@/lib/authStore';
 import { getDepartementLabel } from '@/lib/dpeOrgStructure';
 import SenelecLogo from '@/components/ui/SenelecLogo';
+import { signIn as nextAuthSignIn } from 'next-auth/react';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const PURPLE    = '#3D1A6B';
@@ -360,6 +361,77 @@ export default function LoginPage() {
                 <Lock size={11} /> Authentification JWT · SENELEC SIGEPP-DPE V1
               </div>
             </form>
+
+            {/* ── Séparateur SSO ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 14px' }}>
+              <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+              <span style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap' }}>ou continuer avec</span>
+              <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+            </div>
+
+            {/* ── Boutons SSO ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Microsoft Entra ID */}
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => nextAuthSignIn('microsoft-entra-id', { callbackUrl: returnUrl })}
+                style={{
+                  width: '100%', padding: '11px 14px',
+                  background: '#fff',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: 10, cursor: loading ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#1A1A2E',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#0078D4'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,120,212,0.12)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#E2E8F0'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; }}
+              >
+                {/* Logo Microsoft */}
+                <svg width="18" height="18" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                  <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+                  <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+                  <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                </svg>
+                Se connecter avec Microsoft 365
+              </button>
+
+              {/* Google */}
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => nextAuthSignIn('google', { callbackUrl: returnUrl })}
+                style={{
+                  width: '100%', padding: '11px 14px',
+                  background: '#fff',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: 10, cursor: loading ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#1A1A2E',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#4285F4'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(66,133,244,0.12)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#E2E8F0'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; }}
+              >
+                {/* Logo Google */}
+                <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                </svg>
+                Se connecter avec Google
+              </button>
+            </div>
+
+            {/* Note sur les domaines autorisés */}
+            <p style={{ fontSize: 10.5, color: '#94A3B8', textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
+              SSO autorisé : <strong style={{ color: '#64748B' }}>@dpe.sn · @senelec.sn · @enerticai.com</strong>
+            </p>
           </div>
 
           <div style={{ textAlign: 'center', marginTop: 20, color: 'rgba(255,255,255,0.22)', fontSize: 10 }}>

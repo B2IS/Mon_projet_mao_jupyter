@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ToastContainer from '@/components/ui/ToastContainer';
 import { AuthProvider } from '@/lib/authStore';
+import { SessionProvider } from 'next-auth/react';
 
 export const metadata: Metadata = {
   title: {
@@ -20,10 +21,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body style={{ height: '100%', margin: 0 }}>
-        <AuthProvider>
-          {children}
-          <ToastContainer />
-        </AuthProvider>
+        <SessionProvider>
+          <AuthProvider>
+            {children}
+            <ToastContainer />
+          </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );
