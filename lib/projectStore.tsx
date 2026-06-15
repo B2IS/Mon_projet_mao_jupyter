@@ -235,6 +235,8 @@ export interface TacheWBS {
   coutReel?: number;
   coutPrevu?: number;
   livrables?: Livrable[];
+  /** Matrice RACI : clé = nom de l'acteur, valeur = R | A | C | I */
+  raci?: Record<string, 'R' | 'A' | 'C' | 'I'>;
 }
 
 export interface Ressource {
@@ -283,19 +285,45 @@ export type TypeLivrable = 'Bordereau' | 'Plan' | 'Rapport' | 'PV' | 'Contrat' |
 export type PrioriteLivrable = 'Elevee' | 'Moyenne' | 'Faible';
 export type StatutLivrable = 'Nouveau' | 'En_cours' | 'Termine' | 'Rejete';
 
+export interface LivrableVersion {
+  version: number;
+  dateModification: string;
+  modifiePar: string;
+  champs: Partial<Omit<Livrable, 'id' | 'historique' | 'decisions'>>;
+  commentaire?: string;
+}
+
+export interface LivrableDecision {
+  id: string;
+  date: string;
+  auteur: string;
+  texte: string;
+  impact: 'Majeur' | 'Mineur' | 'Informatif';
+}
+
 export interface Livrable {
   id: string;
   nom: string;
+  description?: string;
   abregeAuto?: string;
   typeLivrable: TypeLivrable;
   proprietaireId: string;
   proprietaireNom: string;
+  valideurNom?: string;
   dateRequise: string;
+  dateLivraison?: string;
   priorite: PrioriteLivrable;
   statut: StatutLivrable;
   piecesJointes: string[];
   dateCreation: string;
   creePar: string;
+  /** Versionning */
+  version: number;
+  historique: LivrableVersion[];
+  /** Décisions & arbitrages liés */
+  decisions: LivrableDecision[];
+  /** Commentaire courant */
+  commentaire?: string;
 }
 
 // ────────────────────────── INCIDENTS ────────────────────────────────────────

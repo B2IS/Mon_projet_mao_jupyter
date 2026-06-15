@@ -134,13 +134,13 @@ const { trimestre: TRIMESTRE_COURANT, annee: ANNEE_COURANTE } = getCurrentPeriod
 /** Retourne le libellé du premier onglet en fonction du rôle — CDC §8.8 */
 function getSyntheseLabel(role?: string): string {
   switch (role) {
-    case 'DIR_DPE':   return `Tableau de Bord Exécutif — Portefeuille DPE`;
-    case 'PMO':       return `Cockpit PMO — Multi-Projets ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
-    case 'CHEF_DEPT': return `Tableau de Direction — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
-    case 'CHEF_PROJ': return `Cockpit Projet — Bilan ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
-    case 'CTRL_FIN':  return `Synthèse Financière — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
-    case 'AUDIT':     return `Audit & Conformité — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
-    default:          return `Suivi & Évaluation — ${TRIMESTRE_COURANT} ${ANNEE_COURANTE}`;
+    case 'DIR_DPE':   return 'Tableau de Bord Exécutif — Portefeuille DPE';
+    case 'PMO':       return 'Cockpit PMO — Multi-Projets';
+    case 'CHEF_DEPT': return 'Tableau de Direction';
+    case 'CHEF_PROJ': return 'Cockpit Projet — Bilan';
+    case 'CTRL_FIN':  return 'Synthèse Financière';
+    case 'AUDIT':     return 'Audit & Conformité';
+    default:          return 'Suivi & Évaluation';
   }
 }
 
@@ -759,10 +759,10 @@ export default function SuiviEvaluation() {
                 </button>
               </div>
               {[
-                { label: 'Rapport T2 2026 — Portefeuille DPE',     statut: 'En attente publication', date: '2026-06-30', color: AMBER },
-                { label: 'Rapport mensuel Mai 2026 — BT Sud',      statut: 'Publié',                 date: '2026-05-31', color: GREEN },
-                { label: 'Rapport mensuel Avr 2026 — HTA Centre',  statut: 'Publié',                 date: '2026-04-30', color: GREEN },
-                { label: 'Rapport T1 2026 — Portefeuille DPE',     statut: 'Publié',                 date: '2026-03-31', color: GREEN },
+                { label: `Rapport ${TRIMESTRE_COURANT} ${ANNEE_COURANTE} — Portefeuille DPE`, statut: 'En attente publication', date: `${ANNEE_COURANTE}-06-30`, color: AMBER },
+                { label: `Rapport mensuel Mai ${ANNEE_COURANTE} — BT Sud`,                 statut: 'Publié',                 date: `${ANNEE_COURANTE}-05-31`, color: GREEN },
+                { label: `Rapport mensuel Avr ${ANNEE_COURANTE} — HTA Centre`,             statut: 'Publié',                 date: `${ANNEE_COURANTE}-04-30`, color: GREEN },
+                { label: `Rapport T1 ${ANNEE_COURANTE} — Portefeuille DPE`,                statut: 'Publié',                 date: `${ANNEE_COURANTE}-03-31`, color: GREEN },
               ].map((r, i) => (
                 <div key={i} style={{
                   padding: '12px 16px', borderBottom: '1px solid #F1F5F9',

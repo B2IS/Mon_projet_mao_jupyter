@@ -20,10 +20,12 @@ import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import toast from 'react-hot-toast';
 import {
   Layers, ListChecks, Users, Flag, Plus, Trash2, Save, AlertTriangle,
-  CalendarClock, RefreshCw, GanttChart, CheckCircle2,
+  CalendarClock, RefreshCw, GanttChart, CheckCircle2, FileSpreadsheet, Network,
 } from 'lucide-react';
+import MatriceLivrables from '@/components/dashboard/MatriceLivrables';
+import MatriceRACI from '@/components/dashboard/MatriceRACI';
 
-type Onglet = 'cycle' | 'taches' | 'ressources' | 'suivi';
+type Onglet = 'cycle' | 'taches' | 'ressources' | 'suivi' | 'livrables' | 'raci';
 
 const NAVY = '#1B4F8A';
 
@@ -70,6 +72,8 @@ export default function GestionProjet() {
     { key: 'taches', label: 'Tâches (WBS)', icon: ListChecks },
     { key: 'ressources', label: 'Ressources & affectation', icon: Users },
     { key: 'suivi', label: 'Référence & Suivi', icon: Flag },
+    { key: 'livrables', label: 'Livrables', icon: FileSpreadsheet },
+    { key: 'raci', label: 'Matrice RACI', icon: Network },
   ];
 
   return (
@@ -116,6 +120,16 @@ export default function GestionProjet() {
       {onglet === 'taches' && <TachesPanel projet={projet} taches={taches} canEdit={canEdit} />}
       {onglet === 'ressources' && <RessourcesPanel projet={projet} taches={taches} canEdit={canEdit} />}
       {onglet === 'suivi' && <SuiviPanel projet={projet} taches={taches} canEdit={canEdit} />}
+      {onglet === 'livrables' && (
+        <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', minHeight: 420 }}>
+          <MatriceLivrables />
+        </div>
+      )}
+      {onglet === 'raci' && (
+        <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', minHeight: 420 }}>
+          <MatriceRACI />
+        </div>
+      )}
     </div>
   );
 }
