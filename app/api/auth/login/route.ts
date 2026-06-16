@@ -14,11 +14,19 @@ export async function POST(req: Request) {
 
   const found = findUser(emailLower, pwdTrim);
 
-  // Allow any @dpe.sn / @senelec.sn / @enerticai.com domain as DIR_DPE fallback
-  const isTrustedDomain =
+  // FAILLE CORRIGÉE : le repli « domaine de confiance » accordait un accès
+  // DIR_DPE à n'importe quel email @dpe.sn/@senelec.sn/@enerticai.com avec
+  // n'importe quel mot de passe (contournement d'authentification). Il est
+  // désormais désactivé en production sauf activation explicite via
+  // SIGEPP_ALLOW_DOMAIN_FALLBACK=true (utile pour les démos).
+  const domainFallbackEnabled =
+    process.env.NODE_ENV !== 'production' ||
+    process.env.SIGEPP_ALLOW_DOMAIN_FALLBACK === 'true';
+
+  const isTrustedDomain = domainFallbackEnabled && (
     emailLower.endsWith('@dpe.sn') ||
     emailLower.endsWith('@senelec.sn') ||
-    emailLower.endsWith('@enerticai.com');
+    emailLower.endsWith('@enerticai.com'));
 
   const sessionUser = found ?? (isTrustedDomain
     ? { id: 'legacy', email: emailLower, role: 'DIR_DPE' as const, prenom: emailLower.split('@')[0].split('.')[0], nom: 'SENELEC', initials: emailLower.substring(0,2).toUpperCase(), avatarColor: '#0E3460', direction: 'DPE', password: pwdTrim }

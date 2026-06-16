@@ -16,7 +16,7 @@ import {
   Settings, ShieldCheck, LayoutGrid,
   ChevronRight, Menu, X, LogOut, Repeat, Check, Search, Command,
   BarChart2, Sparkles, Banknote, AlertCircle,
-  Target, Database, Plug2, MessagesSquare,
+  Target, Database, Plug2, MessagesSquare, Landmark,
 } from 'lucide-react';
 import { getAnalytics } from '@/lib/data';
 import { useAuth, ROLES, DEMO_ACCOUNTS, type SidebarSectionId, type RoleCode, getDirectionLabel } from '@/lib/authStore';
@@ -125,6 +125,7 @@ const DOMAINS: Domain[] = [
       {
         label: 'Terrain & Maîtrise des risques',
         items: [
+          { href: '/patrimoine-sig', icon: Landmark, label: 'Patrimoine SIG (réf. maître)' },
           { href: '/terrain', icon: MapPin, label: 'Avancement Terrain', hideRoles: ['DIR_DPE'] },
           { href: '/risques', icon: ShieldAlert, label: 'Risques & QHSE', badge: '4', badgeType: 'warning' },
           { href: '/cartographie', icon: Map, label: 'Cartographie SIG', badge: '4', badgeType: 'danger' },
@@ -207,6 +208,7 @@ const DOMAINS: Domain[] = [
         label: 'Analyse & Performance',
         items: [
           { href: '/suivi-evaluation', icon: Activity, label: 'KPI & Suivi-Évaluation' },
+          { href: '/lecons-apprises', icon: BookOpen, label: 'Leçons apprises (RETEX)' },
           { href: '/analytique', icon: PieChart, label: 'Analytique & BI' },
           { href: '/constructeur-indicateurs', icon: Calculator, label: 'Constructeur d\'Indicateurs', onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN', 'CHEF_DEPT'] },
 
