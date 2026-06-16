@@ -1,13 +1,8 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
-import type { RoleCode, SessionPayload } from './authTypes';
-
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.SIGEPP_JWT_SECRET ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
-);
+import type { SessionPayload } from './authTypes';
+import { getJwtSecretKey, JWT_ISSUER as ISSUER, JWT_AUDIENCE as AUDIENCE } from './authSecret';
 
 const ALG = 'HS256';
-const ISSUER = 'sigepp-dpe';
-const AUDIENCE = 'sigepp-dpe-client';
 
 export interface JWTClaims extends JWTPayload, SessionPayload {}
 
@@ -18,12 +13,12 @@ export async function signToken(payload: SessionPayload, maxAgeSec = 7 * 24 * 36
     .setIssuer(ISSUER)
     .setAudience(AUDIENCE)
     .setExpirationTime(Math.floor(Date.now() / 1000) + maxAgeSec)
-    .sign(SECRET_KEY);
+    .sign(getJwtSecretKey());
 }
 
 export async function verifyToken(token: string): Promise<JWTClaims | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY, { issuer: ISSUER, audience: AUDIENCE });
+    const { payload } = await jwtVerify(token, getJwtSecretKey(), { issuer: ISSUER, audience: AUDIENCE });
     return payload as JWTClaims;
   } catch {
     return null;

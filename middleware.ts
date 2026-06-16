@@ -3,10 +3,7 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import { canAccess, SESSION_COOKIE } from '@/lib/authTypes';
 import type { RoleCode } from '@/lib/authTypes';
-
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.SIGEPP_JWT_SECRET ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
-);
+import { getJwtSecretKey, JWT_ISSUER, JWT_AUDIENCE } from '@/lib/authSecret';
 
 const PUBLIC_PREFIXES = ['/login', '/api/', '/_next/', '/favicon', '/icons/', '/images/'];
 
@@ -33,9 +30,9 @@ export async function middleware(request: NextRequest) {
   // Verify JWT signature — rejects tampered or expired tokens
   let role: RoleCode | undefined;
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY, {
-      issuer: 'sigepp-dpe',
-      audience: 'sigepp-dpe-client',
+    const { payload } = await jwtVerify(token, getJwtSecretKey(), {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
     });
     role = payload.role as RoleCode | undefined;
   } catch {
