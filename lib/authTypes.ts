@@ -217,7 +217,7 @@ export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
   ADMIN:     ['*'],
 };
 
-export const UNIVERSAL_ROUTES = ['/reservation-salle', '/suivi-temps', '/pointage'];
+export const UNIVERSAL_ROUTES = ['/reservation-salle', '/pointage'];
 
 export const ASSISTANT_DETAIL_ROUTES = [
   '/gestion-projet', '/wbs', '/taches', '/terrain', '/gantt',
