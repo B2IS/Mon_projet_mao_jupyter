@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { DEMO_ACCOUNTS, ROLES, useAuth, getDirectionLabel } from '@/lib/authStore';
@@ -27,7 +27,7 @@ function inputStyle(focused: boolean, hasError: boolean, valid: boolean): React.
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
-export default function LoginPage() {
+function LoginForm() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const { login, changePassword } = useAuth();
@@ -447,5 +447,14 @@ export default function LoginPage() {
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
       `}</style>
     </div>
+  );
+}
+
+// useSearchParams() impose une frontière <Suspense> pour le prerender (Next.js).
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

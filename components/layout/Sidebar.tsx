@@ -208,6 +208,7 @@ const DOMAINS: Domain[] = [
         label: 'Analyse & Performance',
         items: [
           { href: '/suivi-evaluation', icon: Activity, label: 'KPI & Suivi-Évaluation' },
+          { href: '/lecons-apprises', icon: BookOpen, label: 'Leçons apprises (RETEX)' },
           { href: '/analytique', icon: PieChart, label: 'Analytique & BI' },
           { href: '/constructeur-indicateurs', icon: Calculator, label: 'Constructeur d\'Indicateurs', onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN', 'CHEF_DEPT'] },
 

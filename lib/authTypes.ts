@@ -235,6 +235,8 @@ function moduleAccess(role: RoleCode, route: string): boolean | null {
   if (route === '/ged'       || route.startsWith('/ged/'))       return true;
   // Patrimoine SIG = référentiel maître → accessible à tous les profils.
   if (route === '/patrimoine-sig' || route.startsWith('/patrimoine-sig/')) return true;
+  // Registre des leçons apprises = base de connaissance transverse → accessible à tous.
+  if (route === '/lecons-apprises' || route.startsWith('/lecons-apprises/')) return true;
   if (route === '/workflows' || route.startsWith('/workflows/')) return true;
   if (route === '/migration' || route.startsWith('/migration/')) return role === 'ADMIN' || MIGRATION_ROLES.includes(role);
   if (route === '/courriers'  || route.startsWith('/courriers/')) return role === 'ADMIN' || COURRIERS_ROLES.includes(role);
