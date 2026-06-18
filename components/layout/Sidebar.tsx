@@ -58,15 +58,16 @@ interface Domain {
   sectionId?: SidebarSectionId;
 }
 
-/* ── Domain / Menu structure ─────────────────────────────────────────────────
-   Architecture IA (Information Architecture) — principes appliqués :
-   ① Groupes ≤ 5 items  ② Regroupement par tâche utilisateur, pas par feature
-   ③ Intégrations = Système (infrastructure)  ④ Routes orphelines surfacées
-   ⑤ Redondances supprimées (3 entrées temps → 1)  ⑥ IA en 1re classe
+/* ── Domain / Menu structure — Architecture SIGEPP-DPE (5 niveaux + UAGL) ──
+   Principe directeur : Le SIG est le référentiel maître de la plateforme.
+   Les projets alimentent le patrimoine. Les actifs sont permanents.
+   NIVEAU 1 — Socle SIG · NIVEAU 2 — Cycle de vie projets (M1-M6)
+   NIVEAU 3 — Économique & contractuel (M9-M11) · NIVEAU 4 — GED (M12-M13)
+   NIVEAU 5 — Intelligence & Pilotage (M14-M17) · UAGL & RH · Système
 ─────────────────────────────────────────────────────────────────────────── */
 const DOMAINS: Domain[] = [
 
-  /* ── 1. COCKPIT ──────────────────────────────────────────────────────────── */
+  /* ── COCKPIT — Vue générale & alertes ───────────────────────────────────── */
   {
     id: 'cockpit',
     icon: Home,
@@ -79,7 +80,13 @@ const DOMAINS: Domain[] = [
           {
             href: '/tableau-de-bord', icon: LayoutDashboard,
             label: 'Tableau de bord',
-            labelByRole: { DIR_DPE: 'Cockpit Direction', PMO: 'Cockpit PMO', CHEF_PROJ: 'Mon Tableau de bord', CHEF_DEPT: 'Cockpit Département', CTRL_FIN: 'Dashboard Financier' },
+            labelByRole: { DIR_DPE: 'Cockpit Direction', CHEF_CELLULE: 'Cockpit Cellule', COORDINATEUR: 'Cockpit Programme', EXPERT_PMO: 'Cockpit PMO', CHEF_PROJ: 'Mon Tableau de bord', CHEF_DEPT: 'Cockpit Département', RAF: 'Dashboard Financier' },
+          },
+          {
+            href: '/springboard', icon: Sparkles,
+            label: 'Portail de Pilotage',
+            labelByRole: { CHEF_PROJ: 'Mon Portail Projet', COORDINATEUR: 'Portail Programme', CHEF_CELLULE: 'Portail Cellule' },
+            onlyRoles: ['CHEF_PROJ', 'CHEF_CELLULE', 'COORDINATEUR', 'DIR_DPE', 'CHEF_DEPT', 'ADMIN'],
           },
           {
             href: '/alertes', icon: Bell,
@@ -92,93 +99,199 @@ const DOMAINS: Domain[] = [
     ],
   },
 
-  /* ── 2. OPÉRATIONS PROJET ────────────────────────────────────────────────── */
+  /* ── NIVEAU 1 — MODULE 0 : Référentiel Patrimonial Géospatial ───────────── */
   {
-    id: 'operations',
-    icon: Activity,
-    label: 'Cœur Opérationnel',
-    shortLabel: 'Opérations',
+    id: 'sig',
+    icon: Map,
+    label: 'MODULE 0 — Référentiel SIG',
+    shortLabel: 'SIG',
     groups: [
       {
-        label: 'Portefeuille & Programmes',
+        label: 'Référentiel Géospatial Maître',
         items: [
-          { href: '/portefeuille', icon: FolderKanban, label: 'Vue Portefeuille', hideRoles: ['CHEF_DEPT', 'CHEF_PROJ'] },
-          { href: '/programmes', icon: Layers, label: 'Programmes', hideRoles: ['CHEF_DEPT', 'CHEF_PROJ'] },
-          { href: '/projets', icon: Briefcase, label: 'Projets', labelByRole: { PMO: 'Tous les projets', CHEF_DEPT: 'Mes Projets', CHEF_PROJ: 'Mes Projets' }, hideRoles: ['DIR_DPE'] },
-          { href: '/cockpit-projet', icon: LayoutDashboard, label: 'Fiche Exécutive Projet', labelByRole: { CHEF_PROJ: 'Mon Cockpit Projet' } },
-          { href: '/springboard', icon: Sparkles, label: 'Springboard Chef de Projet', labelByRole: { CHEF_PROJ: 'Mon Springboard', PMO: 'Springboard PMO' }, onlyRoles: ['CHEF_PROJ', 'PMO', 'DIR_DPE', 'CHEF_DEPT', 'ADMIN'] },
-        ],
-      },
-      {
-        label: 'Planification & Pilotage',
-        items: [
-          { href: '/gestion-projet', icon: Target, label: 'Gestion de projet', labelByRole: { CHEF_PROJ: 'Mon projet' } },
-          { href: '/gantt', icon: GanttChart, label: 'Chronogramme / Gantt', labelByRole: { DIR_DPE: 'Planning Jalons', PMO: 'Planning / Gantt', CHEF_PROJ: 'Mon Planning' } },
-          { href: '/wbs', icon: Network, label: 'Structure WBS', onlyRoles: ['CHEF_PROJ', 'ASSISTANT', 'INGENIEUR', 'CONTROLEUR', 'ADMIN'] },
           {
-            href: '/taches', icon: CheckSquare2, label: 'Tâches & Activités',
-            onlyRoles: ['CHEF_PROJ', 'ASSISTANT', 'INGENIEUR', 'CONTROLEUR', 'ADMIN'],
-            badge: stats.tachesEnRetard > 0 ? String(stats.tachesEnRetard) : undefined, badgeType: 'danger',
+            href: '/cartographie', icon: Map,
+            label: 'Cartographie SIG — Référentiel Maître',
+            labelByRole: { DIR_DPE: 'SIG Portefeuille', CHEF_PROJ: 'SIG Projet', CHAUFFEUR: 'Carte des missions' },
+            badge: '4', badgeType: 'danger',
           },
-        ],
-      },
-      {
-        label: 'Terrain & Maîtrise des risques',
-        items: [
-          { href: '/terrain', icon: MapPin, label: 'Avancement Terrain', hideRoles: ['DIR_DPE'] },
-          { href: '/risques', icon: ShieldAlert, label: 'Risques & QHSE', badge: '4', badgeType: 'warning' },
-          { href: '/cartographie', icon: Map, label: 'Cartographie SIG', badge: '4', badgeType: 'danger' },
         ],
       },
     ],
   },
 
-  /* ── 3. INGÉNIERIE FINANCIÈRE ────────────────────────────────────────────── */
+  /* ── NIVEAU 2 — CYCLE DE VIE DES PROJETS (MODULEs 1-6) ─────────────────── */
   {
-    id: 'finances',
-    icon: Wallet,
-    label: 'Ingénierie Financière',
-    shortLabel: 'Finances',
-    sectionId: 'finances',
+    id: 'cycle-vie',
+    icon: Activity,
+    label: 'Cycle de Vie des Projets',
+    shortLabel: 'Cycle de Vie',
     groups: [
       {
-        /* Budgets & pilotage financier — max 3 items */
-        label: 'Budgets & Valorisation',
+        label: 'M1 · Portfolio & Programmes',
         items: [
-          { href: '/budget', icon: Wallet, label: 'Budget & Décaissements', labelByRole: { DIR_DPE: 'Budget portefeuille', CHEF_PROJ: 'Budget de mon projet' } },
-          { href: '/evm', icon: TrendingUp, label: 'Valeur Acquise (EVM)' },
-          { href: '/fournisseurs', icon: Building2, label: 'Fournisseurs & Engagements' },
+          { href: '/portefeuille', icon: FolderKanban, label: 'Vue Portefeuille', hideRoles: ['CHEF_DEPT', 'CHEF_PROJ'] },
+          { href: '/programmes', icon: Layers, label: 'Programmes', hideRoles: ['CHEF_DEPT', 'CHEF_PROJ'] },
+          {
+            href: '/cockpit-projet', icon: LayoutDashboard,
+            label: 'Fiche Exécutive Projet',
+            labelByRole: { CHEF_PROJ: 'Mon Cockpit Projet' },
+          },
         ],
       },
       {
-        /* Processus achat → réception → paiement */
-        label: 'Marchés & Achats',
+        label: 'M2 · Projets Géoréférencés',
         items: [
+          {
+            href: '/projets', icon: Briefcase,
+            label: 'Projets',
+            labelByRole: { COORDINATEUR: 'Tous les projets', CHEF_CELLULE: 'Projets Programme', CHEF_DEPT: 'Mes Projets', CHEF_PROJ: 'Mes Projets' },
+            hideRoles: ['DIR_DPE'],
+          },
+          { href: '/gestion-projet', icon: Target, label: 'Gestion de projet', labelByRole: { CHEF_PROJ: 'Mon projet' } },
+        ],
+      },
+      {
+        label: 'M5 · Planification',
+        items: [
+          {
+            href: '/wbs', icon: Network,
+            label: 'WBS — Structure des tâches',
+            onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'COORDINATEUR', 'EXPERT_PMO', 'ASSISTANT_PROJ', 'ADMIN'],
+          },
+          {
+            href: '/gantt', icon: GanttChart,
+            label: 'Chronogramme / Gantt',
+            labelByRole: { DIR_DPE: 'Planning Jalons', COORDINATEUR: 'Planning / Gantt', CHEF_CELLULE: 'Planning Programme', CHEF_PROJ: 'Mon Planning' },
+          },
+          { href: '/risques', icon: ShieldAlert, label: 'Risques & QHSE', badge: '4', badgeType: 'warning' },
+        ],
+      },
+      {
+        label: 'M6 · Exécution & Travaux',
+        items: [
+          {
+            href: '/taches', icon: CheckSquare2,
+            label: 'Tâches & Activités',
+            onlyRoles: ['CHEF_PROJ', 'ASSISTANT_DIR', 'INGENIEUR', 'CONTROLEUR', 'ADMIN'],
+            badge: stats.tachesEnRetard > 0 ? String(stats.tachesEnRetard) : undefined, badgeType: 'danger',
+          },
+          {
+            href: '/terrain', icon: MapPin,
+            label: 'Avancement Terrain',
+            labelByRole: { CHAUFFEUR: 'Mes Missions Terrain', RESP_LOG: 'Missions & Terrain' },
+            hideRoles: ['DIR_DPE'],
+          },
+        ],
+      },
+    ],
+  },
+
+  /* ── NIVEAU 3 — GESTION ÉCONOMIQUE & CONTRACTUELLE (MODULEs 9-11) ──────── */
+  {
+    id: 'economique',
+    icon: Wallet,
+    label: 'Gestion Économique & Contractuelle',
+    shortLabel: 'Économique',
+    sectionId: 'finances',
+    groups: [
+      {
+        label: 'M9 · Budgets & Finances',
+        items: [
+          { href: '/budget', icon: Wallet, label: 'Budget & Décaissements', labelByRole: { DIR_DPE: 'Budget portefeuille', CHEF_PROJ: 'Budget de mon projet' } },
+          { href: '/evm', icon: TrendingUp, label: 'Valeur Acquise (EVM)' },
+        ],
+      },
+      {
+        label: 'M10 · Marchés & Contrats',
+        items: [
+          { href: '/fournisseurs', icon: Building2, label: 'Fournisseurs & Engagements' },
           { href: '/marches', icon: FileSignature, label: 'Contrats & Marchés', hideRoles: ['DIR_DPE'] },
           { href: '/bordereaux', icon: BookOpen, label: 'Bordereaux / BOQ', hideRoles: ['DIR_DPE'] },
           { href: '/receptions', icon: ClipboardCheck, label: 'Réceptions & Paiements', hideRoles: ['DIR_DPE'] },
         ],
       },
+      {
+        label: 'M11 · Immobilisations & Actifs',
+        items: [
+          { href: '/immobilisations', icon: Building2, label: 'Immobilisations & Patrimoine', labelByRole: { RESP_LOG: 'Patrimoine & Inventaire', IMMO: 'Registre des actifs' } },
+          { href: '/structuration', icon: Boxes, label: 'Structuration (Swarm IA)', onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'IMMO', 'ADMIN'] },
+        ],
+      },
     ],
   },
 
-  /* ── 4. ACTIFS, RESSOURCES & LOGISTIQUE ──────────────────────────────────── */
+  /* ── NIVEAU 4 — GED & CONNAISSANCE (MODULEs 12-13) ─────────────────────── */
   {
-    id: 'actifs',
-    icon: Building2,
-    label: 'Actifs & Ressources',
-    shortLabel: 'Actifs',
+    id: 'ged',
+    icon: FolderOpen,
+    label: 'GED & Connaissance',
+    shortLabel: 'GED',
     groups: [
       {
-        /* Immobilisations : entrée unique → navigation interne via onglets du workspace */
-        label: 'Immobilisations & Patrimoine',
+        label: 'M12 · GED Géocontextualisée',
         items: [
-          { href: '/immobilisations', icon: Building2, label: 'Immobilisations & Patrimoine', labelByRole: { RESP_LOG: 'Patrimoine & Inventaire', IMMO: 'Registre des actifs' } },
-          { href: '/structuration', icon: Boxes, label: 'Structuration des actifs', onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'PMO', 'IMMO', 'ADMIN'] },
+          { href: '/ged', icon: FolderOpen, label: 'Espace documentaire GED', labelByRole: { DIR_DPE: 'Bibliothèque documentaire DPE' } },
+          { href: '/canevas', icon: FileText, label: 'Canevas & Documents-types' },
+          { href: '/courriers', icon: MessagesSquare, label: 'Courriers' },
         ],
       },
       {
-        label: 'Logistique & Terrain',
+        label: 'Validation & Parapheur',
+        items: [
+          { href: '/workflows', icon: CheckSquare2, label: 'Parapheur & Validations', badge: '8', badgeType: 'danger' },
+        ],
+      },
+    ],
+  },
+
+  /* ── NIVEAU 5 — INTELLIGENCE & PILOTAGE (MODULEs 14-17) ────────────────── */
+  {
+    id: 'intelligence',
+    icon: BarChart2,
+    label: 'Intelligence & Pilotage',
+    shortLabel: 'Intelligence',
+    groups: [
+      {
+        label: 'M14 · Reporting Automatique',
+        items: [
+          { href: '/reporting', icon: FileText, label: 'Rapports & Exports' },
+          { href: '/studio-rapports', icon: PenTool, label: 'Studio de Rapports', hideRoles: ['CHEF_PROJ', 'CHEF_DEPT'] },
+        ],
+      },
+      {
+        label: 'M15 · KPI Métiers',
+        items: [
+          { href: '/suivi-evaluation', icon: Activity, label: 'KPI & Suivi-Évaluation' },
+          { href: '/analytique', icon: PieChart, label: 'Analytique & BI' },
+          { href: '/constructeur-indicateurs', icon: Calculator, label: 'Constructeur d\'Indicateurs', onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'CHEF_DEPT'] },
+          { href: '/dashboard-builder', icon: LayoutGrid, label: 'Dashboard personnalisé' },
+        ],
+      },
+      {
+        label: 'M16 · IA Copilot',
+        items: [
+          { href: '/agents-ia', icon: Sparkles, label: 'Copilot IA & Centre IA', labelByRole: { DIR_DPE: 'Copilot Exécutif & IA' } },
+        ],
+      },
+      {
+        label: 'M17 · Swarm IA — Digitalisation',
+        items: [
+          { href: '/migration', icon: Database, label: 'Swarm IA — Reconstruction', onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT_PMO'] },
+        ],
+      },
+    ],
+  },
+
+  /* ── LOGISTIQUE & RH — UAGL ─────────────────────────────────────────────── */
+  {
+    id: 'logistique',
+    icon: Car,
+    label: 'Logistique & Ressources',
+    shortLabel: 'UAGL & RH',
+    groups: [
+      {
+        label: 'Logistique — UAGL',
         items: [
           { href: '/flotte', icon: Car, label: 'Flotte & Chauffeurs', badge: '5', badgeType: 'info', hideRoles: ['CHEF_DEPT'] },
           { href: '/odm', icon: ClipboardList, label: 'Ordres de Mission' },
@@ -189,57 +302,29 @@ const DOMAINS: Domain[] = [
         label: 'Ressources Humaines',
         items: [
           { href: '/rh', icon: Users2, label: 'Ressources Humaines', hideRoles: ['CHEF_DEPT'] },
-          /* gestion-temps centralise : temps sup., pointage, suivi heures — 1 seule entrée */
-          { href: '/gestion-temps', icon: Clock, label: 'Temps & Pointage', labelByRole: { DIR_DPE: 'Temps & Activités RH', RESP_LOG: 'Gestion des temps' } },
+          {
+            href: '/gestion-temps', icon: Clock,
+            label: 'Temps & Pointage équipe',
+            labelByRole: { DIR_DPE: 'Temps & Activités RH', RESP_LOG: 'Gestion des temps' },
+            hideRoles: ['CHAUFFEUR', 'SECRETAIRE', 'COMMUNICATION', 'DESSINATEUR'],
+          },
+          {
+            href: '/suivi-temps', icon: Clock,
+            label: 'Ma feuille de temps',
+            labelByRole: { RESP_LOG: 'Feuilles de temps équipe', CHEF_PROJ: 'Feuilles de temps — équipe', CHEF_DEPT: 'Feuilles de temps' },
+            hideRoles: ['CHAUFFEUR'],
+          },
+          {
+            href: '/pointage', icon: Clock,
+            label: 'Bulletins heures suppl.',
+            labelByRole: { RESP_LOG: 'Validation bulletins HS', CHEF_PROJ: 'Bulletins HS équipe', CHEF_DEPT: 'Bulletins HS département' },
+          },
         ],
       },
     ],
   },
 
-  /* ── 5. DATA, DOCUMENTS & IA ─────────────────────────────────────────────── */
-  {
-    id: 'data',
-    icon: BarChart2,
-    label: 'Intelligence & Documents',
-    shortLabel: 'Intel & Docs',
-    groups: [
-      {
-        label: 'Analyse & Performance',
-        items: [
-          { href: '/suivi-evaluation', icon: Activity, label: 'KPI & Suivi-Évaluation' },
-          { href: '/analytique', icon: PieChart, label: 'Analytique & BI' },
-          { href: '/constructeur-indicateurs', icon: Calculator, label: 'Constructeur d\'Indicateurs', onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN', 'CHEF_DEPT'] },
-
-        ],
-      },
-      {
-        label: 'Rapports & Exports',
-        items: [
-          { href: '/studio-rapports', icon: PenTool, label: 'Studio de Rapports', hideRoles: ['CHEF_PROJ', 'CHEF_DEPT'] },
-          { href: '/reporting', icon: FileText, label: 'Exports & Tableaux de bord' },
-        ],
-      },
-      {
-        label: 'Documents & Collaboration',
-        items: [
-          { href: '/ged', icon: FolderOpen, label: 'Espace documentaire' },
-          { href: '/canevas', icon: FileText, label: 'Canevas & Documents-types', labelByRole: { DIR_DPE: 'Bibliothèque documentaire DPE' } },
-          { href: '/courriers', icon: MessagesSquare, label: 'Courriers' },
-          { href: '/workflows', icon: CheckSquare2, label: 'Parapheur & Validations', badge: '8', badgeType: 'danger' },
-        ],
-      },
-      {
-        label: 'Intelligence Artificielle',
-        items: [
-          /* /agents-ia contient déjà 3 onglets : Assistant IA + Copilot M365 + Migration IA.
-             /copilot est donc redondant → supprimé du sidebar (redirige vers /agents-ia). */
-          { href: '/agents-ia', icon: Sparkles, label: 'Centre IA & Copilot', labelByRole: { DIR_DPE: 'Copilot Exécutif & IA' } },
-        ],
-      },
-    ],
-  },
-
-  /* ── 6. SYSTÈME ─────────────────────────────────────────────────────────── */
+  /* ── SYSTÈME ─────────────────────────────────────────────────────────────── */
   {
     id: 'systeme',
     icon: Settings,
@@ -250,19 +335,17 @@ const DOMAINS: Domain[] = [
       {
         label: 'Paramétrage & Admin',
         items: [
-          { href: '/administration', icon: Settings, label: 'Utilisateurs & Rôles' },
+          { href: '/administration', icon: Settings, label: 'Utilisateurs & Rôles', onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'AUDIT'] },
+          { href: '/parametrage', icon: Settings, label: 'Paramétrage & Préférences', hideRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'AUDIT'] },
           { href: '/administration/acces', icon: ShieldCheck, label: 'Habilitations & Droits', onlyRoles: ['ADMIN', 'DIR_DPE'] },
-          { href: '/administration/org-config', icon: Building2, label: 'Organigramme & Config', onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN'] },
-          { href: '/dashboard-builder', icon: LayoutGrid, label: 'Dashboard personnalisé' },
+          { href: '/administration/org-config', icon: Building2, label: 'Organigramme & Config', onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN'] },
         ],
       },
       {
-        /* ERP et outils d'intégration/migration : c'est de l'infrastructure, pas du quotidien */
         label: 'Intégrations & Données',
         items: [
-          { href: '/erp-interface', icon: Plug2, label: 'Interface ERP', labelByRole: { DIR_DPE: 'Connecteurs SAP / Oracle / Sage' }, onlyRoles: ['DIR_DPE', 'PMO', 'ADMIN', 'CTRL_FIN'] },
-          { href: '/migration', icon: Database, label: 'Migration des données', onlyRoles: ['ADMIN', 'DIR_DPE', 'PMO'] },
-          { href: '/docs', icon: BookOpen, label: 'Documentation API', onlyRoles: ['ADMIN', 'DIR_DPE', 'PMO'] },
+          { href: '/erp-interface', icon: Plug2, label: 'Interface ERP', labelByRole: { DIR_DPE: 'Connecteurs SAP / Oracle / Sage' }, onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'RAF'] },
+          { href: '/docs', icon: BookOpen, label: 'Documentation API', onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE'] },
         ],
       },
     ],
@@ -296,6 +379,10 @@ function isVisible(item: NavItem, role: RoleCode | undefined, canNav: (href: str
   if (item.onlyRoles && !item.onlyRoles.includes(role)) return false;
   if (item.hideRoles && item.hideRoles.includes(role)) return false;
   return true;
+}
+
+function domainHasVisibleItems(domain: Domain, role: RoleCode | undefined, canNav: (href: string) => boolean): boolean {
+  return domain.groups.some(g => g.items.some(item => isVisible(item, role, canNav)));
 }
 
 const BADGE_COLORS: Record<BadgeType, { bg: string; text: string }> = {
@@ -388,7 +475,10 @@ export default function Sidebar() {
 
       {/* Domain icons */}
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 0', gap: 2, overflowY: 'auto', overflowX: 'hidden' }}>
-        {DOMAINS.filter(domain => !domain.sectionId || canAccessSection(domain.sectionId)).map(domain => {
+        {DOMAINS.filter(domain => {
+          if (domain.sectionId && !canAccessSection(domain.sectionId)) return false;
+          return domainHasVisibleItems(domain, role, canAccessNavItem);
+        }).map(domain => {
           const Icon = domain.icon;
           const isActive = activeDomain === domain.id;
           const badge = domainBadge(domain);
@@ -555,8 +645,13 @@ export default function Sidebar() {
                 {visibleItems.map(item => {
                   const Icon = item.icon;
                   const active = item.href === activeHref;
-                  const hasBadge = item.badge && parseInt(item.badge) > 0;
                   const label = getLabel(item, role);
+                  // Live badges: parapheur & alertes override static counts
+                  const dynamicBadge =
+                    item.href === '/workflows' ? (pendingParapheur > 0 ? String(pendingParapheur) : null) :
+                    item.href === '/alertes'   ? (unreadInbox > 0 ? String(unreadInbox) : null) :
+                    (item.badge && parseInt(item.badge) > 0 ? item.badge : null);
+                  const bType = item.badgeType ?? 'danger';
 
                   return (
                     <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'block', margin: '0 8px' }}>
@@ -585,14 +680,14 @@ export default function Sidebar() {
                         }}>
                           {label}
                         </span>
-                        {hasBadge && item.badgeType && (
+                        {dynamicBadge && (
                           <span style={{
-                            ...BADGE_COLORS[item.badgeType],
+                            ...BADGE_COLORS[bType],
                             fontSize: 9, fontWeight: 800,
                             padding: '1px 5px', borderRadius: 99,
                             flexShrink: 0, lineHeight: 1.4,
                           }}>
-                            {item.badge}
+                            {parseInt(dynamicBadge) > 99 ? '99+' : dynamicBadge}
                           </span>
                         )}
                       </div>
@@ -746,7 +841,10 @@ export default function Sidebar() {
               </div>
             </div>
             <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 0', gap: 2 }}>
-              {DOMAINS.filter(domain => !domain.sectionId || canAccessSection(domain.sectionId)).map(domain => {
+              {DOMAINS.filter(domain => {
+                if (domain.sectionId && !canAccessSection(domain.sectionId)) return false;
+                return domainHasVisibleItems(domain, role, canAccessNavItem);
+              }).map(domain => {
                 const Icon = domain.icon;
                 const isActive = activeDomain === domain.id;
                 const badge = domainBadge(domain);

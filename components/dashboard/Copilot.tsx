@@ -468,7 +468,7 @@ export default function Copilot() {
           {keyOk === false && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 11px', borderRadius: 7, background: '#FEF3C7', border: '1px solid #FCD34D', marginBottom: 8, fontSize: 11, color: '#92400E' }}>
               <AlertTriangle size={12} />
-              Clé Groq manquante — configurez <strong style={{ margin: '0 3px' }}>NEXT_PUBLIC_GROQ_API_KEY</strong> ou saisissez-la dans Migration.
+              IA non configurée — saisissez votre clé Groq dans <strong style={{ margin: '0 3px' }}>Centre IA → Paramètres</strong> ou demandez à l'administrateur de configurer GROQ_API_KEY côté serveur.
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>

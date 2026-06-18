@@ -35,7 +35,7 @@ const SECTION_LABELS: Record<SidebarSectionId, string> = {
   parametrage:  'Paramétrage / Administration',
 };
 const SECTION_ORDER: SidebarSectionId[] = ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'logistique', 'transverses', 'parametrage'];
-const ROLE_ORDER: RoleCode[] = ['DIR_DPE', 'PMO', 'CHEF_DEPT', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT', 'CONTROLEUR', 'CHARGE', 'ASSISTANT', 'SECRETAIRE', 'CHAUFFEUR', 'CTRL_FIN', 'RESP_LOG', 'ADMIN'];
+const ROLE_ORDER: RoleCode[] = ['DIR_DPE', 'CHEF_CELLULE', 'CHEF_DEPT', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT_SE', 'CONTROLEUR', 'HSE', 'ASSISTANT_DIR', 'SECRETAIRE', 'CHAUFFEUR', 'RAF', 'RESP_LOG', 'ADMIN'];
 
 /* ═══════════════════════════════════════════════════════════════════════
    TYPES & MOCK DATA
@@ -173,25 +173,34 @@ const PERMISSIONS: Permission[] = [
 ];
 
 const MATRICE: Record<RoleCode, Record<string, boolean>> = {
-  ADMIN:       { read_projets: true,  write_projets: true,  delete_projets: true,  valider: true,  signer: true,  configurer: true,  exporter: true,  admin_users: true  },
-  PMO:         { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
-  DIR_DPE:     { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: true,  configurer: false, exporter: true,  admin_users: false },
-  CHEF_PROJ:   { read_projets: true,  write_projets: true,  delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  CHEF_DEPT:   { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
-  INGENIEUR:   { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  EXPERT:      { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  CONTROLEUR:  { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  CHARGE:      { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  ASSISTANT:   { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  SECRETAIRE:  { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  CHAUFFEUR:   { read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: false, admin_users: false },
-  CTRL_FIN:    { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  RESP_LOG:    { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
-  MARCHES:     { read_projets: true,  write_projets: false, delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
-  SIG:         { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  IMMO:        { read_projets: true,  write_projets: true,  delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  AUDIT:       { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
-  CONTROLEUR_TRAVAUX: { read_projets: true, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true, admin_users: false },
+  ADMIN:          { read_projets: true,  write_projets: true,  delete_projets: true,  valider: true,  signer: true,  configurer: true,  exporter: true,  admin_users: true  },
+  DIR_DPE:        { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: true,  configurer: false, exporter: true,  admin_users: false },
+  DIRECTEUR:      { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
+  COORDINATEUR:   { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
+  CHEF_DEPT:      { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
+  CHEF_CELLULE:   { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
+  CHEF_PROJ:      { read_projets: true,  write_projets: true,  delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  CONSEILLER:     { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  EXPERT_SE:      { read_projets: true,  write_projets: false, delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
+  EXPERT_PMO:     { read_projets: true,  write_projets: false, delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
+  INGENIEUR:      { read_projets: true,  write_projets: true,  delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  CONTROLEUR:     { read_projets: true,  write_projets: true,  delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  RAF:            { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  COMPTABLE:      { read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  MARCHES:        { read_projets: true,  write_projets: true,  delete_projets: false, valider: true,  signer: false, configurer: false, exporter: true,  admin_users: false },
+  SPM:            { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  SIG:            { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  IMMO:           { read_projets: true,  write_projets: true,  delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  DESSINATEUR:    { read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  HSE:            { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  COMMUNICATION:  { read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  ASSISTANT_PROJ: { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  ASSISTANT_ADMIN:{ read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  ASSISTANT_DIR:  { read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  SECRETAIRE:     { read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: false, admin_users: false },
+  RESP_LOG:       { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
+  CHAUFFEUR:      { read_projets: false, write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: false, admin_users: false },
+  AUDIT:          { read_projets: true,  write_projets: false, delete_projets: false, valider: false, signer: false, configurer: false, exporter: true,  admin_users: false },
 };
 
 /* ─── Modules ─── */
@@ -456,6 +465,7 @@ function InviterModal({ onClose, onSend }: { onClose: () => void; onSend?: (inv:
 export default function Administration() {
   const { isRole: adminIsRole } = useAuth();
   const isAdminOnly = adminIsRole('ADMIN');
+  const hasAdminAccess = isAdminOnly || adminIsRole('DIR_DPE') || adminIsRole('CHEF_CELLULE') || adminIsRole('AUDIT');
   const { addNotification } = useNotificationStore();
   // ── Habilitations configurables (sections + direction + niveau de vue par rôle) ──
   const sectionOverrides = usePermissionStore(s => s.sectionOverrides);
@@ -492,6 +502,59 @@ export default function Administration() {
   const [moduleActif, setModuleActif] = useState<Record<string, Record<string, boolean>>>(
     Object.fromEntries(MODULES_LIST.map(m => [m.id, Object.fromEntries(TENANTS.map(t => [t.id, t.modules.includes(m.id)]))]))
   );
+
+  // ── Visibilité modules par profil (rôle) — configurable par l'admin ──
+  const [modulesByRole, setModulesByRole] = useState<Record<string, Record<string, boolean>>>(() => {
+    // Source de vérité : authTypes.ts canAccess/canAccessNavItem
+    // PROJET←/projets/cockpit/gantt/wbs  SCHEDULE←/gantt/suivi-evaluation  FINANCE←/budget/evm
+    // RESOURCE←/rh/odm/flotte/immobilisations  SIG←/cartographie  COURRIER←/courriers
+    // GED←/ged  REPORTING←/reporting/workflows/analytique  BAILLEUR←/programmes
+    // TERRAIN←/terrain  MARCHE←/marches/bordereaux/receptions/fournisseurs  RISK←/risques
+    const DEFAULT: Record<string, string[]> = {
+      ADMIN:          ['PROJET','SCHEDULE','FINANCE','RESOURCE','SIG','COURRIER','GED','REPORTING','BAILLEUR','TERRAIN','MARCHE','RISK'],
+      DIR_DPE:        ['PROJET','SCHEDULE','FINANCE','RESOURCE','SIG','COURRIER','GED','REPORTING','BAILLEUR','TERRAIN','MARCHE','RISK'],
+      DIRECTEUR:      ['PROJET','SCHEDULE','FINANCE','RESOURCE','SIG','COURRIER','GED','REPORTING','BAILLEUR','TERRAIN','MARCHE','RISK'],
+      COORDINATEUR:   ['PROJET','SCHEDULE','FINANCE','RESOURCE','SIG','COURRIER','GED','REPORTING','BAILLEUR','MARCHE','RISK'],
+      CHEF_DEPT:      ['PROJET','SCHEDULE','FINANCE','RESOURCE','SIG','COURRIER','GED','REPORTING','BAILLEUR','TERRAIN','MARCHE','RISK'],
+      CHEF_CELLULE:   ['PROJET','SCHEDULE','FINANCE','RESOURCE','SIG','COURRIER','GED','REPORTING','BAILLEUR','MARCHE'],
+      CHEF_PROJ:      ['PROJET','SCHEDULE','FINANCE','COURRIER','GED','REPORTING','TERRAIN','MARCHE','RISK'],
+      CONSEILLER:     ['PROJET','SCHEDULE','SIG','COURRIER','GED','REPORTING','BAILLEUR','TERRAIN','RISK'],
+      EXPERT_SE:      ['SCHEDULE','SIG','COURRIER','GED','REPORTING','BAILLEUR'],
+      EXPERT_PMO:     ['PROJET','SCHEDULE','SIG','COURRIER','GED','REPORTING','BAILLEUR','TERRAIN','RISK'],
+      CONTROLEUR:     ['PROJET','SCHEDULE','SIG','COURRIER','GED','REPORTING','TERRAIN','RISK'],
+      INGENIEUR:      ['PROJET','SCHEDULE','SIG','COURRIER','GED','REPORTING','TERRAIN'],
+      RAF:            ['FINANCE','RESOURCE','COURRIER','GED','REPORTING','MARCHE'],
+      COMPTABLE:      ['FINANCE','COURRIER','GED','REPORTING','MARCHE'],
+      MARCHES:        ['COURRIER','GED','REPORTING','MARCHE'],
+      SPM:            ['COURRIER','GED','REPORTING','MARCHE'],
+      SIG:            ['PROJET','SIG','COURRIER','GED'],
+      IMMO:           ['RESOURCE','COURRIER','GED','REPORTING'],
+      DESSINATEUR:    ['COURRIER','GED','REPORTING'],
+      HSE:            ['PROJET','SCHEDULE','SIG','COURRIER','GED','REPORTING','TERRAIN'],
+      COMMUNICATION:  ['COURRIER','GED'],
+      ASSISTANT_PROJ: ['PROJET','SCHEDULE','SIG','COURRIER','GED','REPORTING','TERRAIN'],
+      ASSISTANT_ADMIN:['FINANCE','COURRIER','GED','REPORTING'],
+      ASSISTANT_DIR:  ['COURRIER','GED','REPORTING'],
+      SECRETAIRE:     ['COURRIER','GED','REPORTING'],
+      RESP_LOG:       ['RESOURCE','COURRIER','GED','REPORTING','MARCHE'],
+      CHAUFFEUR:      ['TERRAIN','RESOURCE','REPORTING'],
+      AUDIT:          ['PROJET','SCHEDULE','FINANCE','GED','REPORTING','RISK'],
+    };
+    return Object.fromEntries(
+      Object.keys(DEFAULT).map(rc => [
+        rc,
+        Object.fromEntries(MODULES_LIST.map(m => [m.id, DEFAULT[rc]?.includes(m.id) ?? false])),
+      ])
+    );
+  });
+
+  const toggleModuleForRole = (role: string, moduleId: string) => {
+    if (role === 'ADMIN') return;
+    setModulesByRole(prev => ({
+      ...prev,
+      [role]: { ...prev[role], [moduleId]: !prev[role]?.[moduleId] },
+    }));
+  };
 
   // ── Calculated Fields state ──
   const [calculatedFields, setCalculatedFields] = useState<CalculatedField[]>([
@@ -571,6 +634,19 @@ export default function Administration() {
       [moduleId]: { ...prev[moduleId], [tenantId]: !prev[moduleId]?.[tenantId] },
     }));
   };
+
+  if (!hasAdminAccess) {
+    return (
+      <div className="page-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 16 }}>
+        <Lock size={48} color="#DC2626" />
+        <div style={{ fontSize: 22, fontWeight: 700, color: '#DC2626' }}>Accès restreint</div>
+        <div style={{ color: '#6B7280', textAlign: 'center', maxWidth: 380 }}>
+          Cette section est réservée aux administrateurs et à la Direction.<br />
+          Contactez votre administrateur si vous pensez avoir besoin d&apos;un accès.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content">
@@ -1023,10 +1099,10 @@ export default function Administration() {
                   { fonction: 'Directeur / rang Directeur', role: 'DIR_DPE', desc: 'Directeurs de direction principale, coordonnateurs BM/UE' },
                   { fonction: 'Chef de Département / rang Chef de Département', role: 'CHEF_DEPT', desc: 'Chefs de département et de service' },
                   { fonction: 'Chef de Projet / rang Chef de Service', role: 'CHEF_PROJ', desc: 'Chefs de projet affectés à un portefeuille' },
-                  { fonction: 'Expert / Responsable', role: 'EXPERT', desc: 'Experts techniques, responsables S&E' },
+                  { fonction: 'Expert / Responsable', role: 'EXPERT_SE', desc: 'Experts techniques, responsables S&E' },
                   { fonction: 'Chef UAGL / Responsable Logistique', role: 'RESP_LOG', desc: 'Responsables logistique, gestionnaires ressources' },
                   { fonction: 'Chargé / Ingénieur d\'étude', role: 'INGENIEUR', desc: 'Ingénieurs d\'étude et agents de maîtrise' },
-                  { fonction: 'Chef de Cellule Suivi-Évaluation', role: 'PMO', desc: 'PMO, cellule CSE, coordonnateurs de programme' },
+                  { fonction: 'Chef de Cellule Suivi-Évaluation', role: 'CHEF_CELLULE', desc: 'PMO, cellule CSE, coordonnateurs de programme' },
                   { fonction: 'Responsable Marchés / Acheteur', role: 'MARCHES', desc: 'Chargés de passation de marchés' },
                 ].map(row => {
                   const r = ROLES_LIST.find(x => x.id === row.role);
@@ -1049,6 +1125,95 @@ export default function Administration() {
             Pour modifier la règle Fonction→Rôle ou créer de nouvelles fonctions pour une réorganisation future, utilisez le module{' '}
             <a href="/administration/org-config" style={{ color: 'var(--primary)', fontWeight: 700 }}>Configuration organisationnelle</a> (onglet Postes).
             Chaque agent peut aussi recevoir un rôle individuel différent de sa fonction via l'onglet Agents.
+          </div>
+        </div>
+
+        {/* ── Visibilité modules par profil DPE ── */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="card-title">Visibilité des modules par profil DPE</span>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                Sélectionnez les modules accessibles à chaque profil / fonction occupée. Cliquez une case pour activer ou désactiver.
+              </div>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => { addNotification({ type: 'success', title: 'Matrice enregistrée', message: 'Les droits modules par profil ont été sauvegardés.' }); }}
+            >
+              <Save size={12} /> Enregistrer
+            </button>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl" style={{ fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <th style={{ minWidth: 56, position: 'sticky', left: 0, background: 'var(--bg-card)', zIndex: 1 }}>#</th>
+                  <th style={{ minWidth: 170, position: 'sticky', left: 56, background: 'var(--bg-card)', zIndex: 1 }}>Profil / Fonction DPE</th>
+                  <th style={{ minWidth: 110 }}>Direction</th>
+                  {MODULES_LIST.map(m => (
+                    <th key={m.id} style={{ textAlign: 'center', minWidth: 72 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--navy)' }}>{m.nom}</div>
+                      <div style={{ fontSize: 9, color: 'var(--muted)', fontFamily: 'monospace' }}>{m.id}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(Object.values(ROLES) as { code: string; label: string; color: string; icon: string; description: string }[]).map((r, idx) => {
+                  const isAdmin = r.code === 'ADMIN';
+                  const rowMods = modulesByRole[r.code] ?? {};
+                  const enabledCount = MODULES_LIST.filter(m => rowMods[m.id]).length;
+                  return (
+                    <tr key={r.code} style={{ background: isAdmin ? '#F0FDF4' : undefined }}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 10, position: 'sticky', left: 0, background: isAdmin ? '#F0FDF4' : 'var(--bg-card)', zIndex: 1 }}>
+                        {idx + 1}
+                      </td>
+                      <td style={{ position: 'sticky', left: 56, background: isAdmin ? '#F0FDF4' : 'var(--bg-card)', zIndex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 15 }}>{r.icon}</span>
+                          <div>
+                            <div style={{ fontWeight: 700, color: r.color, fontSize: 11 }}>{r.label}</div>
+                            <div style={{ fontSize: 9, color: 'var(--muted)', fontFamily: 'monospace' }}>{r.code}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', maxWidth: 110, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={r.description}>
+                          {r.description.split('—')[0].trim().slice(0, 30)}{r.description.length > 30 ? '…' : ''}
+                        </div>
+                        <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>
+                          {enabledCount}/{MODULES_LIST.length} modules
+                        </div>
+                      </td>
+                      {MODULES_LIST.map(m => {
+                        const on = isAdmin || (rowMods[m.id] ?? false);
+                        return (
+                          <td key={m.id} style={{ textAlign: 'center' }}>
+                            <button
+                              disabled={isAdmin}
+                              title={isAdmin ? 'Admin — accès complet (non modifiable)' : on ? `Désactiver ${m.nom} pour ${r.label}` : `Activer ${m.nom} pour ${r.label}`}
+                              onClick={() => !isAdmin && toggleModuleForRole(r.code, m.id)}
+                              style={{ background: 'none', border: 'none', cursor: isAdmin ? 'default' : 'pointer', padding: 2, opacity: isAdmin ? 0.7 : 1 }}
+                            >
+                              {on
+                                ? <Check size={13} style={{ color: isAdmin ? '#10B981' : 'var(--green)' }} />
+                                : <X size={13} style={{ color: 'var(--border-2)' }} />
+                              }
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="card-body" style={{ borderTop: '1px solid var(--border-2)', background: '#F8FAFC', fontSize: 11, color: 'var(--muted)' }}>
+            <Info size={11} style={{ display: 'inline', verticalAlign: -1, marginRight: 4 }} />
+            <strong>ADMIN</strong> a toujours accès à tous les modules (non modifiable). Les modifications ici <strong>surchargent</strong> les droits RBAC par défaut
+            et s'appliquent immédiatement à tous les agents portant ce profil.
           </div>
         </div>
 
@@ -2066,7 +2231,7 @@ function ArcGISConfigPanel() {
 function deriveTenantFromEmail(email: string): string {
   const domain = (email.split('@')[1] || '').toLowerCase();
   // Known SENELEC domains → common tenant slug (real UUID lives in env MS_TENANT_ID)
-  if (domain === 'senelec.sn' || domain === 'enerticai.com') return 'senelec.sn';
+  if (domain === 'senelec.sn' || domain === 'dpe.sn') return 'senelec.sn';
   return 'organizations'; // generic multi-tenant fallback
 }
 
@@ -2338,7 +2503,7 @@ function CopilotConfigPanel() {
 function CriteresGouvernance() {
   const { user } = useAuth();
   const role = user?.role;
-  const canEdit = role === 'DIR_DPE' || role === 'PMO' || role === 'ADMIN';
+  const canEdit = role === 'DIR_DPE' || role === 'CHEF_CELLULE' || role === 'ADMIN';
 
   const prioritization = useCriteriaStore(s => s.prioritization);
   const supplier       = useCriteriaStore(s => s.supplier);

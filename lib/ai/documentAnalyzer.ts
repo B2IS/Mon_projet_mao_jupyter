@@ -17,42 +17,44 @@
 import { kimiChat, kimiExtractJSON, getKimiKey, isKimiAvailable } from './kimiClient';
 import type { SwarmInputFile } from './types';
 
-const GROQ_BASE    = 'https://api.groq.com/openai/v1';
-const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'; // vision capable
+const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const TEXT_MODEL   = 'llama-3.3-70b-versatile';
 const MOONSHOT_VISION_BASE  = 'https://api.moonshot.cn/v1';
-const MOONSHOT_VISION_MODEL = 'moonshot-v1-32k'; // Moonshot vision model
+const MOONSHOT_VISION_MODEL = 'moonshot-v1-32k';
 
-// ── Groq key helper ───────────────────────────────────────────────────────────
+// ── Groq key helper (localStorage uniquement — clé env sur le serveur) ─────────
 
-function getGroqKey(): string {
+function getGroqClientKey(): string {
   if (typeof window !== 'undefined') {
     const s = localStorage.getItem('sigepp_groq_key');
     if (s?.startsWith('gsk_')) return s;
   }
-  return typeof process !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_GROQ_API_KEY ?? '')
-    : '';
+  return '';
 }
 
-// ── Appel Groq OpenAI-compat ──────────────────────────────────────────────────
+// ── Appel Groq via proxy serveur /api/ai/groq ─────────────────────────────────
 
 async function groqChat(
   messages: Array<{ role: string; content: unknown }>,
   model = TEXT_MODEL,
 ): Promise<string | null> {
-  const key = getGroqKey();
-  if (!key) return null;
   try {
-    const resp = await fetch(`${GROQ_BASE}/chat/completions`, {
+    const resp = await fetch('/api/ai/groq', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 4096, stream: false }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        temperature: 0.1,
+        max_tokens: 4096,
+        clientKey: getGroqClientKey() || undefined,
+      }),
       signal: AbortSignal.timeout(90_000),
     });
     if (!resp.ok) return null;
-    const json = await resp.json();
-    return (json.choices?.[0]?.message?.content as string | undefined) ?? null;
+    const json = await resp.json() as { choices?: { message?: { content?: string } }[] };
+    return json.choices?.[0]?.message?.content ?? null;
   } catch { return null; }
 }
 
@@ -63,9 +65,8 @@ async function visionChat(
   userText: string,
   imageDataUrls: string[],
 ): Promise<string | null> {
-  // Essaie Groq Llama-4-Scout (vision)
-  const groqKey = getGroqKey();
-  if (groqKey && imageDataUrls.length > 0) {
+  // Essaie Groq Llama-4-Scout (vision) via proxy serveur
+  if (imageDataUrls.length > 0) {
     const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
       { type: 'text', text: userText },
       ...imageDataUrls.slice(0, 4).map(url => ({   // max 4 images

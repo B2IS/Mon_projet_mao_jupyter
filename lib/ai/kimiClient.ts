@@ -41,7 +41,7 @@ export function getKimiKey(): string {
     const ls = localStorage.getItem('sigepp_kimi_key');
     if (ls?.trim()) return ls.trim();
   }
-  return process.env.NEXT_PUBLIC_KIMI_API_KEY ?? '';
+  return '';
 }
 
 export function isKimiAvailable(): boolean {

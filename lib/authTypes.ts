@@ -1,14 +1,47 @@
 /**
  * authTypes.ts — Types purs + tables RBAC SIGEPP-DPE
+ * Rôles calés sur les postes réels du fichier personnel DPE (203 agents).
  * Sans directive React / sans import dynamique — importable côté serveur (middleware.ts).
  */
 
 // ─── RÔLES ───────────────────────────────────────────────────────────────────
 export type RoleCode =
-  | 'DIR_DPE' | 'PMO' | 'CHEF_PROJ' | 'CHEF_DEPT' | 'INGENIEUR' | 'EXPERT'
-  | 'CONTROLEUR' | 'CHARGE' | 'ASSISTANT' | 'SECRETAIRE' | 'CHAUFFEUR'
-  | 'CTRL_FIN' | 'RESP_LOG' | 'MARCHES' | 'SIG' | 'IMMO' | 'AUDIT'
-  | 'CONTROLEUR_TRAVAUX' | 'ADMIN';
+  // Direction générale
+  | 'DIR_DPE'         // Directeur Principal Equipement
+  | 'DIRECTEUR'       // Directeurs DIT, DGC, DEP
+  | 'COORDINATEUR'    // Coordinateurs CC26, BM-UE
+  // Management
+  | 'CHEF_DEPT'       // Chefs de Département (DPT, DIT, DGC, DPEC, DPER, DET&GI)
+  | 'CHEF_CELLULE'    // Chefs de Cellule (CSE, CPADERAU, CPAMACEL)
+  | 'CHEF_PROJ'       // Chefs de Projet (tous)
+  // Expertise & Conseil
+  | 'CONSEILLER'      // Conseillers Techniques
+  | 'EXPERT_SE'       // Experts Suivi Évaluation
+  | 'EXPERT_PMO'      // Expert en Gestion de Projet CSE
+  // Opérationnel projets
+  | 'CONTROLEUR'      // Contrôleurs terrain / projet
+  | 'INGENIEUR'       // Ingénieurs (Étude, Projets, Travaux)
+  // Finances & Marchés
+  | 'RAF'             // Responsables Administratifs et Financiers
+  | 'COMPTABLE'       // Comptables
+  | 'MARCHES'         // Responsable Passation des Marchés
+  | 'SPM'             // SPM Chargé Suivi Gestion Contrats
+  // Techniques spécialisés
+  | 'SIG'             // SIG / Cartographie / Géomatique
+  | 'IMMO'            // Immobilisations / DOE / Actifs
+  | 'DESSINATEUR'     // Dessinateurs / Projeteurs
+  | 'HSE'             // HSE / Social / Environnement
+  | 'COMMUNICATION'   // Communication
+  // Administratifs & Support
+  | 'ASSISTANT_PROJ'  // Assistants Projet + Assistants PM
+  | 'ASSISTANT_ADMIN' // Assistants Administratifs et Budget
+  | 'ASSISTANT_DIR'   // Assistantes de Direction
+  | 'SECRETAIRE'      // Secrétaires
+  | 'RESP_LOG'        // Chefs UAGL + Chef Groupe Logistique
+  | 'CHAUFFEUR'       // Chauffeurs
+  // Système
+  | 'AUDIT'           // Responsable Audit Interne
+  | 'ADMIN';          // Administrateur Système
 
 export interface UserRole {
   code: RoleCode;
@@ -19,25 +52,34 @@ export interface UserRole {
 }
 
 export const ROLES: Record<RoleCode, UserRole> = {
-  DIR_DPE:   { code: 'DIR_DPE',   label: 'Directeur DPE',             description: 'Vision exécutive — portefeuille stratégique, KPIs, arbitrages & bailleurs',        color: '#3D1A6B', icon: '👔' },
-  PMO:       { code: 'PMO',       label: 'PMO / Chef Programmes',     description: 'Pilotage portefeuille multi-projets, EVM, planning consolidé, reporting',           color: '#7C3AED', icon: '📊' },
-  CHEF_PROJ: { code: 'CHEF_PROJ', label: 'Chef de Projet',            description: 'Gestion opérationnelle de ses projets — planning, coûts, équipe, jalons',          color: '#1D4ED8', icon: '🧑‍💼' },
-  CHEF_DEPT: { code: 'CHEF_DEPT', label: 'Chef de Département',       description: 'Chef de Département / Service / Unité — projets et indicateurs de son unité',       color: '#0F766E', icon: '🏢' },
-  INGENIEUR: { code: 'INGENIEUR', label: 'Ingénieur / Études',        description: 'Conception technique, études, dessin, cartographie et ingénierie de projets',       color: '#2563EB', icon: '⚙️' },
-  EXPERT:    { code: 'EXPERT',    label: 'Expert Technique',          description: 'Expertise sectorielle, conseil technique et gestion avancée de projet',              color: '#7C3AED', icon: '🔬' },
-  CONTROLEUR:{ code: 'CONTROLEUR',label: 'Contrôleur',                description: 'Contrôle qualité, performance et conformité des projets et marchés',                 color: '#D97706', icon: '🔍' },
-  CHARGE:    { code: 'CHARGE',    label: 'Chargé de Mission',        description: 'Suivi social, environnemental et missions transversales des programmes',          color: '#059669', icon: '📋' },
-  ASSISTANT: { code: 'ASSISTANT', label: 'Assistant de Direction',    description: 'Assistant de direction — support administratif, gestion documentaire, accueil',       color: '#4B5563', icon: '📝' },
-  SECRETAIRE:{ code: 'SECRETAIRE',label: 'Secrétaire',                description: 'Secrétariat, archivage et gestion des flux documentaires',                           color: '#8B5CF6', icon: '📁' },
-  CHAUFFEUR: { code: 'CHAUFFEUR', label: 'Chauffeur / UAGL',          description: 'Conduite, logistique transport et gestion de la flotte de véhicules',                color: '#0891B2', icon: '🚗' },
-  CTRL_FIN:  { code: 'CTRL_FIN',  label: 'Contrôleur Financier',      description: 'Budget, marchés, bordereaux de prix, réceptions, situation financière',             color: '#B45309', icon: '💰' },
-  RESP_LOG:  { code: 'RESP_LOG',  label: 'Resp. UAGL / Logistique',   description: 'Ordres de mission, validation déplacements, flotte, ressources humaines',          color: '#0891B2', icon: '🚐' },
-  MARCHES:   { code: 'MARCHES',   label: 'Passation des Marchés',     description: 'DAO · DRPO · AO · Contrats · Avenants · Décomptes — sur son périmètre',             color: '#9333EA', icon: '📑' },
-  SIG:       { code: 'SIG',       label: 'SIG / Géomatique',          description: 'Cartographie · Réseaux · Actifs · Géolocalisation (sans données financières)',       color: '#0D9488', icon: '🗺️' },
-  IMMO:      { code: 'IMMO',      label: 'Immobilisations',           description: 'Actifs · Capitalisation · Mise en service · Amortissements (sans tâches projet)',    color: '#92400E', icon: '🏛️' },
-  AUDIT:     { code: 'AUDIT',     label: 'Audit',                     description: 'Lecture seule globale · audit · historique complet de la DPE',                       color: '#475569', icon: '🛡️' },
-  CONTROLEUR_TRAVAUX: { code: 'CONTROLEUR_TRAVAUX', label: 'Contrôleur de Travaux', description: 'Terrain · Contrôles · Réceptions · Photos · Non-conformités (sans finances/marchés)', color: '#EA580C', icon: '👷' },
-  ADMIN:     { code: 'ADMIN',     label: 'Administrateur Système',    description: 'Accès complet — paramétrage, gestion utilisateurs, rôles, journaux d\'audit',        color: '#374151', icon: '🔧' },
+  DIR_DPE:        { code: 'DIR_DPE',        label: 'Directeur Principal',          description: 'Vision exécutive — portefeuille stratégique, KPIs, arbitrages & bailleurs',              color: '#3D1A6B', icon: '👔' },
+  DIRECTEUR:      { code: 'DIRECTEUR',      label: 'Directeur',                    description: 'Directeur DIT / DGC / DEP — projets et résultats de sa direction',                       color: '#4C1D95', icon: '🏛️' },
+  COORDINATEUR:   { code: 'COORDINATEUR',   label: 'Coordinateur de Programme',    description: 'Coordination CC26 / BM-UE — gestion programme multi-projets, bailleurs, finances',       color: '#7C3AED', icon: '📊' },
+  CHEF_DEPT:      { code: 'CHEF_DEPT',      label: 'Chef de Département',          description: 'Chef de Département / Service / Unité — projets et indicateurs de son unité',            color: '#0F766E', icon: '🏢' },
+  CHEF_CELLULE:   { code: 'CHEF_CELLULE',   label: 'Chef de Cellule',             description: 'Chef de Cellule (CSE / CPADERAU / CPAMACEL) — KPIs, reporting, programme',               color: '#0D9488', icon: '📋' },
+  CHEF_PROJ:      { code: 'CHEF_PROJ',      label: 'Chef de Projet',              description: 'Gestion opérationnelle de ses projets — planning, coûts, équipe, jalons',                color: '#1D4ED8', icon: '🧑‍💼' },
+  CONSEILLER:     { code: 'CONSEILLER',     label: 'Conseiller Technique',        description: 'Consultation avancée tous projets du périmètre, reporting et KPIs',                       color: '#6D28D9', icon: '🔬' },
+  EXPERT_SE:      { code: 'EXPERT_SE',      label: 'Expert Suivi Évaluation',     description: 'KPIs, reporting, dashboard, analyse portefeuille — validation KPI',                       color: '#7C3AED', icon: '📈' },
+  EXPERT_PMO:     { code: 'EXPERT_PMO',     label: 'Expert Gestion de Projet',    description: 'PMO / KPI / Reporting / Audit Projet — CSE',                                              color: '#5B21B6', icon: '🎯' },
+  CONTROLEUR:     { code: 'CONTROLEUR',     label: 'Contrôleur',                  description: 'Contrôle physique, missions terrain, photos, contraintes — mise à jour avancement',       color: '#D97706', icon: '🔍' },
+  INGENIEUR:      { code: 'INGENIEUR',      label: 'Ingénieur',                   description: 'APS · APD · DAO · GED · Planning · Avancement · Cartographie',                           color: '#2563EB', icon: '⚙️' },
+  RAF:            { code: 'RAF',            label: 'Responsable Adm. Financier',  description: 'Budget · Factures · Décaissements · Bailleurs — gestion financière programme',           color: '#B45309', icon: '💰' },
+  COMPTABLE:      { code: 'COMPTABLE',      label: 'Comptable',                   description: 'Factures · Paiements · Décaissements — saisie et suivi comptable',                        color: '#92400E', icon: '🧾' },
+  MARCHES:        { code: 'MARCHES',        label: 'Passation des Marchés',       description: 'DAO · DRPO · AO · Contrats · Avenants · Décomptes — gestion complète',                   color: '#9333EA', icon: '📑' },
+  SPM:            { code: 'SPM',            label: 'SPM Contrats',                description: 'Contrats · Avenants · Décomptes · Réceptions — suivi et gestion des contrats',            color: '#7C2D12', icon: '📝' },
+  SIG:            { code: 'SIG',            label: 'SIG / Géomatique',            description: 'Cartographie · Réseaux · Actifs · Géolocalisation (sans données financières)',            color: '#0D9488', icon: '🗺️' },
+  IMMO:           { code: 'IMMO',           label: 'Immobilisations',             description: 'Actifs · Capitalisation · Mise en service · Amortissements',                              color: '#92400E', icon: '🏛️' },
+  DESSINATEUR:    { code: 'DESSINATEUR',    label: 'Dessinateur / Projeteur',     description: 'Plans · DOE · GED — production et archivage des plans techniques',                        color: '#1E40AF', icon: '📐' },
+  HSE:            { code: 'HSE',            label: 'HSE / Social / Enviro.',      description: 'EIES · PAR · PGES · Suivi social et environnemental des projets',                         color: '#059669', icon: '🌿' },
+  COMMUNICATION:  { code: 'COMMUNICATION',  label: 'Communication',               description: 'Actualités projets · Publications · Documentation institutionnelle',                       color: '#EC4899', icon: '📢' },
+  ASSISTANT_PROJ: { code: 'ASSISTANT_PROJ', label: 'Assistant Projet / PM',       description: 'GED · Livrables · Réunions · Courriers — support opérationnel projets',                  color: '#4B5563', icon: '📁' },
+  ASSISTANT_ADMIN:{ code: 'ASSISTANT_ADMIN',label: 'Assistant Adm. & Budget',     description: 'Budget · Courriers · Documents — support administratif et budgétaire',                    color: '#6B7280', icon: '📊' },
+  ASSISTANT_DIR:  { code: 'ASSISTANT_DIR',  label: 'Assistante de Direction',     description: 'Courriers · Réunions · GED · Agenda — support direction',                                color: '#8B5CF6', icon: '🗓️' },
+  SECRETAIRE:     { code: 'SECRETAIRE',     label: 'Secrétaire',                  description: 'Courriers entrants/sortants · GED · Agenda — secrétariat',                               color: '#A855F7', icon: '📫' },
+  RESP_LOG:       { code: 'RESP_LOG',       label: 'Resp. UAGL / Logistique',     description: 'Logistique · Véhicules · Missions · Ordres de mission',                                  color: '#0891B2', icon: '🚐' },
+  CHAUFFEUR:      { code: 'CHAUFFEUR',      label: 'Chauffeur',                   description: 'Mes missions · ODM · Véhicule affecté · Kilométrage · Consommation carburant',            color: '#0369A1', icon: '🚗' },
+  AUDIT:          { code: 'AUDIT',          label: 'Audit Interne',               description: 'Lecture seule globale · audit · historique complet de la DPE',                           color: '#475569', icon: '🛡️' },
+  ADMIN:          { code: 'ADMIN',          label: 'Administrateur Système',       description: 'Accès complet — paramétrage, gestion utilisateurs, rôles, journaux d\'audit',            color: '#374151', icon: '🔧' },
 };
 
 // ─── UTILISATEUR ─────────────────────────────────────────────────────────────
@@ -73,7 +115,7 @@ export const DPE_UNITES = [
 ] as const;
 
 export const DPE_EFFECTIF = {
-  total: 201,
+  total: 203,
   parCollege: { Cadre: 93, Maitrise: 78, Executif: 30 },
   parSexe:    { Hommes: 140, Femmes: 61 },
 } as const;
@@ -117,25 +159,34 @@ export type SidebarSectionId =
   | 'finances' | 'immobilisations' | 'logistique' | 'transverses' | 'parametrage';
 
 export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
-  DIR_DPE:   ['accueil', 'portefeuille', 'finances', 'immobilisations', 'transverses'],
-  PMO:       ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
-  CHEF_DEPT: ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
-  CHEF_PROJ: ['accueil', 'mes_projets', 'execution', 'finances', 'immobilisations', 'transverses'],
-  INGENIEUR: ['accueil', 'mes_projets', 'execution', 'transverses'],
-  EXPERT:    ['accueil', 'portefeuille', 'mes_projets', 'execution', 'transverses'],
-  CONTROLEUR:['accueil', 'mes_projets', 'execution', 'finances', 'transverses'],
-  CHARGE:    ['accueil', 'mes_projets', 'execution', 'transverses'],
-  ASSISTANT: ['accueil', 'mes_projets', 'execution', 'logistique', 'transverses'],
-  SECRETAIRE:['accueil', 'logistique', 'transverses'],
-  CHAUFFEUR: ['accueil', 'logistique'],
-  CTRL_FIN:  ['accueil', 'finances', 'immobilisations', 'transverses'],
-  RESP_LOG:  ['accueil', 'logistique', 'finances', 'immobilisations', 'transverses'],
-  MARCHES:   ['accueil', 'finances', 'transverses'],
-  SIG:       ['accueil', 'execution', 'transverses'],
-  IMMO:      ['accueil', 'finances', 'immobilisations', 'transverses'],
-  AUDIT:     ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses'],
-  CONTROLEUR_TRAVAUX: ['accueil', 'mes_projets', 'execution', 'transverses'],
-  ADMIN:     ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses', 'parametrage'],
+  DIR_DPE:        ['accueil', 'portefeuille', 'finances', 'immobilisations', 'transverses'],
+  DIRECTEUR:      ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
+  COORDINATEUR:   ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'transverses'],
+  CHEF_DEPT:      ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'transverses'],
+  CHEF_CELLULE:   ['accueil', 'portefeuille', 'mes_projets', 'finances', 'transverses'],
+  CHEF_PROJ:      ['accueil', 'mes_projets', 'execution', 'finances', 'transverses'],
+  CONSEILLER:     ['accueil', 'portefeuille', 'execution', 'finances', 'transverses'],
+  EXPERT_SE:      ['accueil', 'portefeuille', 'transverses'],
+  EXPERT_PMO:     ['accueil', 'portefeuille', 'mes_projets', 'execution', 'transverses'],
+  CONTROLEUR:     ['accueil', 'mes_projets', 'execution', 'transverses'],
+  INGENIEUR:      ['accueil', 'mes_projets', 'execution', 'transverses'],
+  RAF:            ['accueil', 'finances', 'transverses'],
+  COMPTABLE:      ['accueil', 'finances', 'transverses'],
+  MARCHES:        ['accueil', 'finances', 'transverses'],
+  SPM:            ['accueil', 'finances', 'transverses'],
+  SIG:            ['accueil', 'execution', 'transverses'],
+  IMMO:           ['accueil', 'immobilisations', 'transverses'],
+  DESSINATEUR:    ['accueil', 'transverses'],
+  HSE:            ['accueil', 'mes_projets', 'execution', 'transverses'],
+  COMMUNICATION:  ['accueil', 'transverses'],
+  ASSISTANT_PROJ: ['accueil', 'mes_projets', 'execution', 'transverses'],
+  ASSISTANT_ADMIN:['accueil', 'finances', 'transverses'],
+  ASSISTANT_DIR:  ['accueil', 'logistique', 'transverses'],
+  SECRETAIRE:     ['accueil', 'logistique', 'transverses'],
+  RESP_LOG:       ['accueil', 'logistique', 'finances', 'immobilisations', 'transverses'],
+  CHAUFFEUR:      ['accueil', 'execution', 'logistique'],
+  AUDIT:          ['accueil', 'portefeuille', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses'],
+  ADMIN:          ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses', 'parametrage'],
 };
 
 const S_DIR_BASE: SidebarSectionId[] = ['accueil', 'portefeuille', 'mes_projets', 'execution', 'finances', 'immobilisations', 'logistique', 'transverses'];
@@ -174,46 +225,124 @@ const R_CHEF_TEAM = [
 ];
 
 export const ROLE_ROUTES: Record<RoleCode, string[]> = {
-  DIR_DPE:   [R_TBL, ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps'],
-  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT],
-  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT],
-  CHEF_PROJ: [...R_CHEF_TEAM, '/migration', '/agents-ia'],
-  INGENIEUR: [R_TBL, ...R_PROJ, ...R_WBS, '/migration', '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/workflows'],
-  EXPERT:    [R_TBL, ...R_PORT.slice(0,1), ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, '/agents-ia', ...R_GED, '/workflows', '/reporting'],
-  CONTROLEUR:[...R_CHEF_TEAM, '/agents-ia'],
-  CHARGE:    [R_TBL, ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1,3), ...R_RPT],
-  ASSISTANT: [R_TBL, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
-  SECRETAIRE:[R_TBL, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
-  CHAUFFEUR: [R_TBL, '/odm', '/flotte'],
-  CTRL_FIN:  [R_TBL, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0,2), ...R_RPT],
-  RESP_LOG:  [R_TBL, ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/courriers', ...R_GED, '/reporting'],
-  MARCHES:   [R_TBL, '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT],
-  SIG:       [R_TBL, ...R_CARTO, '/projets', ...R_GED],
-  IMMO:      [R_TBL, '/immobilisations', ...R_GED, ...R_RPT],
+  // ── Direction générale ──────────────────────────────────────────────────────
+  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/migration', '/administration'],
+
+  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers'],
+
+  COORDINATEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', '/agents-ia', ...R_GED, ...R_RPT, '/courriers', '/migration'],
+
+  // ── Management ──────────────────────────────────────────────────────────────
+  CHEF_DEPT: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT],
+
+  CHEF_CELLULE: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/administration'],
+
+  CHEF_PROJ: ['/alertes', '/springboard', ...R_CHEF_TEAM, '/migration', '/agents-ia'],
+
+  // ── Expertise & Conseil ──────────────────────────────────────────────────────
+  CONSEILLER: [R_TBL, '/alertes', ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_EXEC, ...R_CARTO, ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers'],
+
+  EXPERT_SE: [R_TBL, '/alertes', ...R_PORT, '/suivi-evaluation', ...R_CARTO, ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers'],
+
+  EXPERT_PMO: [R_TBL, '/alertes', ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_EXEC, ...R_CARTO, '/agents-ia', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers'],
+
+  // ── Opérationnel projets ─────────────────────────────────────────────────────
+  CONTROLEUR: [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', '/risques', ...R_CARTO, ...R_GED, '/courriers', '/workflows'],
+
+  INGENIEUR: [R_TBL, '/alertes', ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/workflows'],
+
+  // ── Finances & Marchés ───────────────────────────────────────────────────────
+  RAF:      [R_TBL, '/alertes', ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers'],
+
+  COMPTABLE:[R_TBL, '/alertes', '/budget', '/bordereaux', '/receptions', ...R_GED, '/reporting', '/courriers'],
+
+  MARCHES:  [R_TBL, '/alertes', '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT],
+
+  SPM:      [R_TBL, '/alertes', '/marches', '/bordereaux', '/receptions', ...R_GED, '/courriers', '/workflows'],
+
+  // ── Techniques spécialisés ───────────────────────────────────────────────────
+  SIG:      [R_TBL, '/alertes', ...R_CARTO, '/projets', ...R_GED, '/courriers'],
+
+  IMMO:     [R_TBL, '/alertes', '/immobilisations', '/structuration', ...R_GED, ...R_RPT, '/courriers'],
+
+  DESSINATEUR: [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows'],
+
+  HSE:      [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/workflows'],
+
+  COMMUNICATION: [R_TBL, '/alertes', ...R_GED, '/courriers'],
+
+  // ── Administratifs & Support ─────────────────────────────────────────────────
+  ASSISTANT_PROJ:  [R_TBL, '/alertes', ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
+
+  ASSISTANT_ADMIN: [R_TBL, '/alertes', '/budget', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
+
+  ASSISTANT_DIR:   [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
+
+  SECRETAIRE: [R_TBL, '/alertes', ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
+
+  RESP_LOG:  [R_TBL, '/alertes', ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/courriers', ...R_GED, '/reporting'],
+
+  CHAUFFEUR: [R_TBL, '/alertes', '/terrain', '/odm', '/flotte', '/workflows'],
+
+  // ── Système ──────────────────────────────────────────────────────────────────
   AUDIT:     ['*'],
-  CONTROLEUR_TRAVAUX: [R_TBL, '/projets', '/cockpit-projet', '/terrain', '/risques', '/receptions', ...R_CARTO, ...R_GED, ...R_RPT],
   ADMIN:     ['*'],
 };
 
 export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
-  DIR_DPE:   [R_TBL, ...R_PORT, '/cockpit-projet', '/gantt', '/suivi-evaluation', ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_RPT, '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows'],
-  PMO:       [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN.slice(0,2), '/fournisseurs', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  CHEF_DEPT: [R_TBL, ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  CHEF_PROJ: [...R_CHEF_TEAM, '/migration', '/agents-ia', '/courriers', '/workflows'],
-  INGENIEUR: [R_TBL, ...R_PROJ, ...R_WBS, '/migration', '/terrain', ...R_CARTO, ...R_GED, '/workflows', '/courriers'],
-  EXPERT:    [R_TBL, ...R_PORT.slice(0,1), ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, '/agents-ia', ...R_GED, '/workflows', '/courriers', '/reporting'],
-  CONTROLEUR:[...R_CHEF_TEAM, '/agents-ia', '/courriers', '/workflows'],
-  CHARGE:    [R_TBL, ...R_PROJ, '/suivi-evaluation', ...R_EXEC.slice(1,3), ...R_RPT, '/courriers', '/workflows'],
-  ASSISTANT: [R_TBL, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'],
-  SECRETAIRE:[R_TBL, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'],
-  MARCHES:   [R_TBL, '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  SIG:       [R_TBL, ...R_CARTO, '/projets', ...R_GED, '/courriers', '/workflows'],
-  IMMO:      [R_TBL, '/immobilisations', '/structuration', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows', '/migration', '/administration'],
+
+  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  COORDINATEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', '/agents-ia', ...R_GED, ...R_RPT, '/courriers', '/workflows', '/migration'],
+
+  CHEF_DEPT: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  CHEF_CELLULE: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', '/administration'],
+
+  CHEF_PROJ: ['/alertes', '/springboard', ...R_CHEF_TEAM, '/migration', '/agents-ia', '/courriers', '/workflows'],
+
+  CONSEILLER: [R_TBL, '/alertes', ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_EXEC, ...R_CARTO, ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  EXPERT_SE: [R_TBL, '/alertes', ...R_PORT, '/suivi-evaluation', ...R_CARTO, ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  EXPERT_PMO: [R_TBL, '/alertes', ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_EXEC, ...R_CARTO, '/agents-ia', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  CONTROLEUR: [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', '/risques', ...R_CARTO, ...R_GED, '/courriers', '/workflows'],
+
+  INGENIEUR: [R_TBL, '/alertes', ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/workflows'],
+
+  RAF:       [R_TBL, '/alertes', ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  COMPTABLE: [R_TBL, '/alertes', '/budget', '/bordereaux', '/receptions', ...R_GED, '/reporting', '/courriers', '/workflows'],
+
+  MARCHES:   [R_TBL, '/alertes', '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  SPM:       [R_TBL, '/alertes', '/marches', '/bordereaux', '/receptions', ...R_GED, '/courriers', '/workflows'],
+
+  SIG:       [R_TBL, '/alertes', ...R_CARTO, '/projets', ...R_GED, '/courriers', '/workflows'],
+
+  IMMO:      [R_TBL, '/alertes', '/immobilisations', '/structuration', ...R_GED, ...R_RPT, '/courriers', '/workflows'],
+
+  DESSINATEUR:   [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows'],
+
+  HSE:           [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/workflows'],
+
+  COMMUNICATION: [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows'],
+
+  ASSISTANT_PROJ:  [R_TBL, '/alertes', ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'],
+
+  ASSISTANT_ADMIN: [R_TBL, '/alertes', '/budget', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
+
+  ASSISTANT_DIR:   [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
+
+  SECRETAIRE: [R_TBL, '/alertes', ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'],
+
+  RESP_LOG:  [R_TBL, '/alertes', ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/gestion-temps', '/courriers', ...R_GED, '/reporting', '/workflows'],
+
+  CHAUFFEUR: [R_TBL, '/alertes', '/terrain', '/odm', '/flotte', '/workflows'],
+
   AUDIT:     ['*'],
-  CONTROLEUR_TRAVAUX: [R_TBL, '/projets', '/cockpit-projet', '/terrain', '/risques', '/receptions', ...R_CARTO, ...R_GED, ...R_RPT, '/courriers', '/workflows'],
-  CHAUFFEUR: [R_TBL, '/odm', '/flotte', '/courriers', '/workflows'],
-  CTRL_FIN:  [R_TBL, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0,2), ...R_RPT, '/courriers', '/workflows'],
-  RESP_LOG:  [R_TBL, ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/gestion-temps', '/courriers', ...R_GED, '/reporting', '/workflows'],
   ADMIN:     ['*'],
 };
 
@@ -225,17 +354,28 @@ export const ASSISTANT_DETAIL_ROUTES = [
 ];
 
 // ─── HELPERS D'ACCÈS ─────────────────────────────────────────────────────────
-const MIGRATION_ROLES: RoleCode[] = ['CHEF_PROJ', 'CHEF_DEPT', 'INGENIEUR', 'PMO', 'ADMIN'];
-const COURRIERS_ROLES: RoleCode[] = ['DIR_DPE', 'PMO', 'CHEF_DEPT', 'CHEF_PROJ', 'ASSISTANT', 'SECRETAIRE', 'RESP_LOG', 'MARCHES', 'ADMIN'];
+const MIGRATION_ROLES: RoleCode[] = ['CHEF_PROJ', 'CHEF_DEPT', 'CHEF_CELLULE', 'COORDINATEUR', 'INGENIEUR', 'ADMIN'];
+const COURRIERS_ROLES: RoleCode[] = [
+  'DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'CHEF_PROJ',
+  'CONSEILLER', 'EXPERT_SE', 'EXPERT_PMO', 'CONTROLEUR', 'INGENIEUR', 'RAF', 'COMPTABLE',
+  'MARCHES', 'SPM', 'SIG', 'IMMO', 'HSE', 'COMMUNICATION',
+  'ASSISTANT_PROJ', 'ASSISTANT_ADMIN', 'ASSISTANT_DIR', 'SECRETAIRE', 'RESP_LOG',
+  'AUDIT', 'ADMIN',
+];
 export const NO_SALLE_ROLES: RoleCode[] = ['CHAUFFEUR'];
 
+const PARAMETRAGE_ROLES: RoleCode[] = [
+  'DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'CHEF_PROJ',
+  'CONSEILLER', 'EXPERT_SE', 'EXPERT_PMO', 'CONTROLEUR', 'INGENIEUR', 'RAF', 'COMPTABLE',
+  'MARCHES', 'SPM', 'SIG', 'IMMO', 'DESSINATEUR', 'HSE', 'COMMUNICATION',
+  'ASSISTANT_PROJ', 'ASSISTANT_ADMIN', 'ASSISTANT_DIR', 'SECRETAIRE', 'RESP_LOG', 'CHAUFFEUR',
+  'AUDIT', 'ADMIN',
+];
+
 function moduleAccess(role: RoleCode, route: string): boolean | null {
-  if (route === '/agents-ia' || route.startsWith('/agents-ia/')) return true;
-  if (route === '/copilot'   || route.startsWith('/copilot/'))   return true;
-  if (route === '/ged'       || route.startsWith('/ged/'))       return true;
-  if (route === '/workflows' || route.startsWith('/workflows/')) return true;
-  if (route === '/migration' || route.startsWith('/migration/')) return role === 'ADMIN' || MIGRATION_ROLES.includes(role);
-  if (route === '/courriers'  || route.startsWith('/courriers/')) return role === 'ADMIN' || COURRIERS_ROLES.includes(role);
+  if (route === '/migration'   || route.startsWith('/migration/'))   return role === 'ADMIN' || MIGRATION_ROLES.includes(role);
+  if (route === '/courriers'   || route.startsWith('/courriers/'))   return role === 'ADMIN' || COURRIERS_ROLES.includes(role);
+  if (route === '/parametrage' || route.startsWith('/parametrage/')) return PARAMETRAGE_ROLES.includes(role);
   return null;
 }
 
@@ -264,10 +404,9 @@ export function canAccessNavItem(role: RoleCode, href: string): boolean {
 }
 
 export function isAssistantProjet(user: { role: string; poste?: string } | null): boolean {
-  if (!user || user.role !== 'ASSISTANT') return false;
-  const p = `${user.poste ?? ''}`.toLowerCase();
-  if (/direction|directeur|secr[ée]tar|administrati/.test(p)) return false;
-  return /\bprojet/.test(p);
+  if (!user) return false;
+  if (user.role === 'ASSISTANT_PROJ') return true;
+  return false;
 }
 
 // ─── AUTH RESULTS ─────────────────────────────────────────────────────────────

@@ -512,5 +512,9 @@ export async function groqAvailable(_apiKey?: string): Promise<boolean> {
 
 /** @deprecated Utiliser llmClient.detectProvider() */
 export function getGroqKey(): string {
-  return (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_GROQ_API_KEY) || '';
+  if (typeof window !== 'undefined') {
+    const s = localStorage.getItem('sigepp_groq_key');
+    if (s?.startsWith('gsk_')) return s;
+  }
+  return '';
 }

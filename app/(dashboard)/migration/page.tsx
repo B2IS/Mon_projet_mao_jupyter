@@ -273,7 +273,7 @@ export default function MigrationPage() {
   const [budget,     setBudget]   = useState('500');
   const [bailleur,   setBailleur] = useState('IDA / Banque Mondiale');
   const [programme,  setProg]     = useState('PASER / PSES');
-  const [kimiKey,    setKimi]     = useState(() => typeof window!=='undefined'?(localStorage.getItem('sigepp_kimi_key')||process.env.NEXT_PUBLIC_KIMI_API_KEY||''):'');
+  const [kimiKey,    setKimi]     = useState(() => typeof window!=='undefined'?(localStorage.getItem('sigepp_kimi_key')||''):'');
   const [showKey,    setShowKey]  = useState(false);
   const [formOpen,   setFormOpen] = useState(true);
   const [createdId,  setCreated]  = useState('');

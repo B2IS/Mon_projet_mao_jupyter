@@ -11,33 +11,67 @@ import { useAuth } from '@/lib/authStore';
 import SenelecLogo from '@/components/ui/SenelecLogo';
 
 const PAGE_TITLES: Record<string, string> = {
-  '/tableau-de-bord':  'Tableau de bord',
-  '/portefeuille':     'Portefeuille',
-  '/projets':          'Projets',
-  '/cockpit-projet':   'Cockpit Projet',
-  '/gantt':            'Gantt',
-  '/gestion-projet':   'Gestion de Projet',
-  '/wbs':              'Structure WBS',
-  '/taches':           'Tâches',
-  '/budget':           'Budget',
-  '/evm':              'Valeur Acquise',
-  '/marches':          'Marchés',
-  '/terrain':          'Terrain',
-  '/risques':          'Risques',
-  '/cartographie':     'Cartographie',
-  '/suivi-evaluation': 'Suivi-Évaluation',
-  '/agents-ia':        'Centre IA',
-  '/migration':        'Migration IA',
-  '/ged':              'Documents',
-  '/courriers':        'Courriers',
-  '/workflows':        'Parapheur',
-  '/odm':              'Ordres de Mission',
-  '/flotte':           'Flotte',
-  '/rh':               'Ressources Humaines',
-  '/reporting':        'Reporting',
-  '/analytique':       'Analytique',
-  '/administration':   'Administration',
-  '/immobilisations':  'Immobilisations',
+  /* COCKPIT */
+  '/tableau-de-bord':          'Tableau de bord',
+  '/springboard':              'Portail de Pilotage',
+  '/alertes':                  'Alertes',
+  /* M1 — PORTFOLIO */
+  '/portefeuille':             'Portefeuille',
+  '/programmes':               'Programmes',
+  '/cockpit-projet':           'Cockpit Projet',
+  /* M2 — PROJETS */
+  '/projets':                  'Projets',
+  '/gestion-projet':           'Gestion de Projet',
+  /* M3-M4 — ÉTUDES / CONCEPTION */
+  '/canevas':                  'Canevas & Plans',
+  /* M5 — PLANIFICATION */
+  '/wbs':                      'Structure WBS',
+  '/gantt':                    'Chronogramme Gantt',
+  '/risques':                  'Risques & QHSE',
+  /* M6 — EXÉCUTION */
+  '/taches':                   'Tâches',
+  '/terrain':                  'Avancement Terrain',
+  /* M9 — BUDGETS */
+  '/budget':                   'Budget',
+  '/evm':                      'Valeur Acquise (EVM)',
+  /* M10 — MARCHÉS */
+  '/fournisseurs':             'Fournisseurs',
+  '/marches':                  'Marchés & Contrats',
+  '/bordereaux':               'Bordereaux',
+  '/receptions':               'Réceptions',
+  /* M11 — IMMOBILISATIONS */
+  '/immobilisations':          'Immobilisations',
+  '/structuration':            'Structuration Swarm IA',
+  /* M12 — GED */
+  '/ged':                      'Documents',
+  '/courriers':                'Courriers',
+  '/workflows':                'Parapheur & Validations',
+  /* M14 — REPORTING */
+  '/reporting':                'Reporting',
+  '/studio-rapports':          'Studio Rapports',
+  /* M15 — KPI */
+  '/suivi-evaluation':         'Suivi-Évaluation',
+  '/analytique':               'Analytique',
+  '/constructeur-indicateurs': 'Constructeur KPI',
+  '/dashboard-builder':        'Dashboard Builder',
+  /* M16-M17 — IA */
+  '/agents-ia':                'Centre IA',
+  '/migration':                'Swarm IA — Migration',
+  /* LOGISTIQUE */
+  '/flotte':                   'Flotte',
+  '/odm':                      'Ordres de Mission',
+  '/reservation-salle':        'Réservation Salles',
+  /* RH */
+  '/rh':                       'Ressources Humaines',
+  '/gestion-temps':            'Gestion des Temps',
+  '/suivi-temps':              'Suivi des Temps',
+  '/pointage':                 'Pointage',
+  /* SYSTÈME */
+  '/administration':           'Administration',
+  '/parametrage':              'Paramétrage',
+  '/cartographie':             'Cartographie SIG',
+  '/docs':                     'Documentation',
+  '/erp-interface':            'Interface ERP',
 };
 
 export default function MobileTopbar() {

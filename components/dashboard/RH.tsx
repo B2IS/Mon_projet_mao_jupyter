@@ -282,7 +282,7 @@ const DEMO_DEMANDES: DemandeRessource[] = [
 ];
 
 function DemandesRessourcesCAB({ user }: { user: { role: string; direction?: string; nom?: string; prenom?: string } | null }) {
-  const isCAB = user?.role === 'PMO' || user?.role === 'ADMIN' || user?.role === 'DIR_DPE' || user?.role === 'CHEF_DEPT';
+  const isCAB = user?.role === 'CHEF_CELLULE' || user?.role === 'ADMIN' || user?.role === 'DIR_DPE' || user?.role === 'CHEF_DEPT';
   const [demandes, setDemandes] = useState<DemandeRessource[]>(DEMO_DEMANDES);
   const [showForm, setShowForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1364,7 +1364,8 @@ export default function RH() {
             <div style={{ padding: '12px 18px', borderBottom: '1px solid #F3F4F6', fontWeight: 700, fontSize: 13, color: NAVY }}>
               Toutes les feuilles de temps — {TIMESHEETS.length} enregistrements
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
               <thead>
                 <tr style={{ background: '#F9FAFB' }}>
                   <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Ressource</th>
@@ -1401,6 +1402,7 @@ export default function RH() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -1504,8 +1506,8 @@ export default function RH() {
               <input value={effSearch} onChange={e => setEffSearch(e.target.value)} placeholder="Rechercher nom, poste, matricule…" style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', fontSize: 12, width: 240, fontFamily: 'inherit' }} />
               <button onClick={exportEffectifCSV} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Exporter CSV</button>
             </div>
-            <div style={{ maxHeight: 440, overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <div style={{ maxHeight: 440, overflowY: 'auto', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#F8FAFC' }}>
                   <tr style={{ textAlign: 'left', color: '#94A3B8', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     <th style={{ padding: '8px 12px' }}>Matricule</th><th style={{ padding: '8px 12px' }}>Agent</th><th style={{ padding: '8px 12px' }}>Direction</th><th style={{ padding: '8px 12px' }}>Poste occupé</th><th style={{ padding: '8px 12px' }}>Collège</th><th style={{ padding: '8px 12px' }}>Site</th>

@@ -7,7 +7,7 @@
  *       → http://OLLAMA_BASE_URL/v1  (default: localhost:11434)
  *       → Aucune donnée ne quitte le réseau interne
  *
- *   2. GROQ    (cloud, fallback)  — si clé NEXT_PUBLIC_GROQ_API_KEY configurée
+ *   2. GROQ    (cloud, fallback)  — si clé GROQ_API_KEY configurée (serveur) ou saisie utilisateur
  *       → Llama 3.x hébergé sur infrastructure Groq (USA)
  *       → Utilisé UNIQUEMENT si Ollama non disponible
  *
@@ -67,15 +67,29 @@ function getOllamaBase(): string {
   return 'http://localhost:11434';
 }
 
+/** Clé Groq saisie manuellement par l'utilisateur (localStorage uniquement). */
 function getGroqKey(): string {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('sigepp_groq_key') ?? '';
     if (stored.startsWith('gsk_')) return stored;
   }
-  return (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_GROQ_API_KEY) || '';
+  return '';
 }
 
-const GROQ_BASE = 'https://api.groq.com/openai/v1';
+/** Vérifie si le proxy serveur /api/ai/groq est disponible (clé env ou clé user). */
+async function isGroqAvailable(): Promise<boolean> {
+  const userKey = getGroqKey();
+  if (userKey) return true;
+  try {
+    const r = await fetch('/api/ai/groq', { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return false;
+    const data = await r.json() as { available?: boolean };
+    return !!data.available;
+  } catch {
+    return false;
+  }
+}
+
 
 /** Modèles Ollama recommandés pour SIGEPP-DPE, par priorité décroissante.
  *  Tous open-source, bons pour le français et le contexte métier. */
@@ -159,7 +173,7 @@ export async function detectProvider(): Promise<ProviderStatus> {
     return status;
   }
 
-  if (getGroqKey()) {
+  if (await isGroqAvailable()) {
     _cachedStatus = {
       provider: 'groq', available: true,
       models: Object.values(GROQ_MODELS).map(id => ({ id, name: id, provider: 'groq' })),
@@ -208,24 +222,25 @@ async function streamGroq(
   model: string,
   opts: StreamChatOpts,
 ): Promise<string> {
-  const key = getGroqKey();
-  if (!key) throw new Error('Clé Groq non configurée.');
-  const resp = await fetch(`${GROQ_BASE}/chat/completions`, {
+  const resp = await fetch('/api/ai/groq', {
     method: 'POST',
     signal: opts.signal,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
       messages,
       stream: true,
       temperature: opts.temperature ?? 0.4,
       max_tokens: opts.maxTokens ?? 2048,
+      clientKey: getGroqKey() || undefined,
     }),
   });
   if (!resp.ok) {
+    const err = await resp.json().catch(() => ({})) as { error?: string };
     if (resp.status === 401) throw new Error('Clé Groq invalide.');
     if (resp.status === 429) throw new Error('Quota Groq dépassé.');
-    throw new Error(`Groq ${resp.status}`);
+    if (resp.status === 503) throw new Error('Groq non configuré.');
+    throw new Error(err.error ?? `Groq ${resp.status}`);
   }
   return consumeSSE(resp, opts.onToken);
 }
@@ -283,7 +298,7 @@ export async function streamChat(
   throw new Error(
     'Aucun moteur IA disponible. ' +
     'Démarrez Ollama (ollama serve) pour le mode souverain, ' +
-    'ou configurez NEXT_PUBLIC_GROQ_API_KEY pour le mode cloud.'
+    'ou configurez GROQ_API_KEY (serveur) pour le mode cloud.'
   );
 }
 
@@ -309,16 +324,21 @@ async function onceOllama(messages: ChatMessage[], model: string, opts: OnceOpts
 }
 
 async function onceGroq(messages: ChatMessage[], model: string, opts: OnceOpts): Promise<string> {
-  const key = getGroqKey();
-  if (!key) throw new Error('Clé Groq non configurée.');
-  const resp = await fetch(`${GROQ_BASE}/chat/completions`, {
+  const resp = await fetch('/api/ai/groq', {
     method: 'POST',
     signal: opts.signal,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, temperature: opts.temperature ?? 0.35, max_tokens: opts.maxTokens ?? 1024 }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: false,
+      temperature: opts.temperature ?? 0.35,
+      max_tokens: opts.maxTokens ?? 1024,
+      clientKey: getGroqKey() || undefined,
+    }),
   });
   if (!resp.ok) throw new Error(`Groq ${resp.status}`);
-  const data = await resp.json();
+  const data = await resp.json() as { choices?: { message?: { content?: string } }[] };
   return data.choices?.[0]?.message?.content ?? '';
 }
 

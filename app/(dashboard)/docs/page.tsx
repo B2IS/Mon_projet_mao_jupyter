@@ -77,7 +77,7 @@ export default function DocsPage() {
 
   const envVars = [
     { key: 'OLLAMA_BASE_URL', value: 'http://localhost:11434', desc: 'URL Ollama (défaut: localhost)' },
-    { key: 'NEXT_PUBLIC_GROQ_API_KEY', value: 'gsk_...', desc: 'Clé Groq (fallback cloud)' },
+    { key: 'GROQ_API_KEY', value: 'gsk_...', desc: 'Clé Groq — serveur uniquement (non exposée au client)' },
     { key: 'NEXT_PUBLIC_SIGEPP_API', value: 'http://localhost:4000/api', desc: 'URL backend NestJS' },
     { key: 'AZURE_OPENAI_ENDPOINT', value: 'https://<resource>.openai.azure.com', desc: 'Azure OpenAI' },
     { key: 'AZURE_OPENAI_KEY', value: 'sk_...', desc: 'Clé Azure OpenAI' },

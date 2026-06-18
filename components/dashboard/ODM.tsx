@@ -1337,7 +1337,8 @@ function OptimisationTab({ odms }: { odms: ODMItem[] }) {
 
 export default function ODM() {
   const { user, isRole } = useAuth();
-  const canConfigOdm = isRole('DIR_DPE', 'PMO', 'CTRL_FIN', 'ADMIN');
+  const isChauffeur = user?.role === 'CHAUFFEUR';
+  const canConfigOdm = isRole('DIR_DPE', 'CHEF_CELLULE', 'RAF', 'ADMIN');
   const odmCfg = useOdmConfig();
   // Flotte paramétrable (véhicules actifs) — remplace la constante codée en dur
   const vehiculesDispo = odmCfg.vehicules.filter(v => v.actif);
@@ -1546,16 +1547,28 @@ export default function ODM() {
   }, []);
 
   const fatODMs = odms.filter(o => o.international);
-  const ONGLETS: { key: OngletODM; label: string; icon?: React.ReactNode; badge?: number }[] = [
-    { key: 'mes-odm',           label: 'Mes ODM' },
-    { key: 'fat-international', label: '✈️ Missions FAT / Internationales', badge: fatODMs.length },
-    { key: 'importer-pdf',      label: '📥 Importer PDF', icon: <FileUp size={12} /> },
-    { key: 'nouvelle',          label: 'Nouvelle demande', icon: <Plus size={12} /> },
-    { key: 'validation',        label: 'Validation' },
-    { key: 'cloture',           label: 'Clôture & Suivi' },
-    { key: 'optimisation',      label: '🤖 Optimisation IA', icon: <Sparkles size={12} /> },
-    ...(canConfigOdm ? [{ key: 'parametres' as OngletODM, label: 'Paramètres ODM', icon: <Settings size={12} /> }] : []),
-  ];
+
+  // CHAUFFEUR : filtre sur ses propres ODMs (missions où il est participant ou chauffeur désigné)
+  const userInitials = user ? `${user.prenom.charAt(0)}. ${user.nom}` : '';
+  const mesOdmsChauffeur = isChauffeur
+    ? odms.filter(o => o.participants.some(p => p.toLowerCase().includes(user?.nom?.toLowerCase() ?? '__')))
+    : odms;
+
+  const ONGLETS: { key: OngletODM; label: string; icon?: React.ReactNode; badge?: number }[] = isChauffeur
+    ? [
+        { key: 'mes-odm',  label: 'Mes Missions' },
+        { key: 'cloture',  label: 'Clôture & Rapport' },
+      ]
+    : [
+        { key: 'mes-odm',           label: 'Mes ODM' },
+        { key: 'fat-international', label: '✈️ Missions FAT / Internationales', badge: fatODMs.length },
+        { key: 'importer-pdf',      label: '📥 Importer PDF', icon: <FileUp size={12} /> },
+        { key: 'nouvelle',          label: 'Nouvelle demande', icon: <Plus size={12} /> },
+        { key: 'validation',        label: 'Validation' },
+        { key: 'cloture',           label: 'Clôture & Suivi' },
+        { key: 'optimisation',      label: '🤖 Optimisation IA', icon: <Sparkles size={12} /> },
+        ...(canConfigOdm ? [{ key: 'parametres' as OngletODM, label: 'Paramètres ODM', icon: <Settings size={12} /> }] : []),
+      ];
 
   // ─── RENDER ────────────────────────────────────────────────────────────────
 
@@ -1565,13 +1578,19 @@ export default function ODM() {
       {/* ── Quick demande button ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--navy)' }}>Ordres de Mission — UAGL</h2>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94A3B8' }}>Gestion des missions terrain · Optimisation IA · Validation UAGL</p>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--navy)' }}>
+            {isChauffeur ? `Mes Ordres de Mission — ${user?.prenom} ${user?.nom}` : 'Ordres de Mission — UAGL'}
+          </h2>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94A3B8' }}>
+            {isChauffeur ? 'Missions assignées · Véhicule · Clôture & rapports' : 'Gestion des missions terrain · Optimisation IA · Validation UAGL'}
+          </p>
         </div>
-        <button onClick={() => { setDemSubmitted(false); setDemObjet(''); setDemDest(''); setDemDepart(''); setDemRetour(''); setDemNotes(''); setShowDemandeModal(true); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 9, border: 'none', background: '#F47920', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          <Plus size={14} /> Demander une mission
-        </button>
+        {!isChauffeur && (
+          <button onClick={() => { setDemSubmitted(false); setDemObjet(''); setDemDest(''); setDemDepart(''); setDemRetour(''); setDemNotes(''); setShowDemandeModal(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 9, border: 'none', background: '#F47920', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <Plus size={14} /> Demander une mission
+          </button>
+        )}
       </div>
 
       {/* ── KPI Row ── */}
@@ -1743,7 +1762,8 @@ export default function ODM() {
                     })()}
                   </div>
                   {(selectedODM.participantsDetail ?? []).length > 0 ? (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 420 }}>
                       <thead>
                         <tr style={{ background: '#F8FAFC' }}>
                           {['N°', 'Prénoms et Nom', 'Mle', 'Unité', 'CR', 'H. Sup.'].map(h => (
@@ -1768,6 +1788,7 @@ export default function ODM() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   ) : (
                     <div style={{ padding: '8px 14px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {(editMode && editedODM ? editedODM : selectedODM).participants.map(p => (
@@ -1805,7 +1826,7 @@ export default function ODM() {
           ) : (
             // ── Liste ODM ──
             (() => {
-              const odmsFiltered = odms.filter(o => {
+              const odmsFiltered = mesOdmsChauffeur.filter(o => {
                 if (odmStatutFilter !== 'tous' && o.statut !== odmStatutFilter) return false;
                 if (odmSearchQ.trim()) {
                   const q = odmSearchQ.toLowerCase();
@@ -2070,7 +2091,8 @@ export default function ODM() {
                   <div style={{ background: '#F8FAFC', borderRadius: 7, padding: '10px 12px', border: '1px solid #E2E8F0' }}>
                     <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Participants ({extracted.participants.length})</div>
                     {extracted.participantsDetail.length > 0 ? (
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 320 }}>
                         <thead>
                           <tr style={{ background: '#F1F5F9' }}>
                             {['Prénoms et Nom', 'Mle', 'Unité', 'CR'].map(h => (
@@ -2089,6 +2111,7 @@ export default function ODM() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     ) : (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {extracted.participants.map(p => (
