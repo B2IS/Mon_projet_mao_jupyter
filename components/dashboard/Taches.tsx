@@ -1378,7 +1378,7 @@ export default function Taches() {
                       store.updateLivrable(selectedProjetId, livrableTaskId, livrableEdit, { ...livrableForm });
                       setLivrableEdit(null);
                     } else {
-                      store.addLivrable(selectedProjetId, livrableTaskId, { ...livrableForm, proprietaireId: user?.id ?? 'u-current', piecesJointes: [], creePar: user ? `${user.prenom} ${user.nom}` : 'Utilisateur' });
+                      store.addLivrable(selectedProjetId, livrableTaskId, { ...livrableForm, proprietaireId: user?.id ?? 'u-current', piecesJointes: [], creePar: user ? `${user.prenom} ${user.nom}` : 'Utilisateur', version: 1, historique: [], decisions: [] });
                     }
                     setLivrableForm({ nom: '', typeLivrable: 'General', proprietaireNom: '', dateRequise: '', priorite: 'Moyenne', statut: 'Nouveau' });
                   }}
@@ -1397,7 +1397,8 @@ export default function Taches() {
                     <p>Aucun livrable pour cette tâche.</p>
                   </div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 560 }}>
                     <thead>
                       <tr style={{ background: '#F8FAFC' }}>
                         {['Type','Nom','Propriétaire','Date requise','Priorité','Statut','Actions'].map(h => (
@@ -1453,6 +1454,7 @@ export default function Taches() {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
 

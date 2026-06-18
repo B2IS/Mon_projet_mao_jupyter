@@ -17,10 +17,15 @@ const { auth } = NextAuth(authConfig);
 // Conservé pour les sessions existantes (cookie sigepp_session) qui n'ont pas
 // encore été ré-authentifiées via Auth.js.
 import { jwtVerify } from 'jose';
-import { SESSION_COOKIE } from '@/lib/authTypes';
+import { SESSION_COOKIE, canAccess } from '@/lib/authTypes';
+import type { RoleCode, SessionPayload } from '@/lib/authTypes';
 
+const _jwtSecret = process.env.SIGEPP_JWT_SECRET;
+if (!_jwtSecret && process.env.NODE_ENV === 'production') {
+  throw new Error('[SIGEPP] SIGEPP_JWT_SECRET must be set in production. Refusing to start with default secret.');
+}
 const SECRET_KEY = new TextEncoder().encode(
-  process.env.SIGEPP_JWT_SECRET ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
+  _jwtSecret ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
 );
 
 const PUBLIC_PREFIXES = ['/login', '/api/', '/_next/', '/favicon', '/icons/', '/images/'];
@@ -46,11 +51,21 @@ export default auth(async (req) => {
   const legacyToken = (req as unknown as NextRequest).cookies.get(SESSION_COOKIE)?.value;
   if (legacyToken) {
     try {
-      await jwtVerify(legacyToken, SECRET_KEY, {
+      const { payload } = await jwtVerify(legacyToken, SECRET_KEY, {
         issuer: 'sigepp-dpe',
         audience: 'sigepp-dpe-client',
       });
-      // Token legacy valide → laisser passer (l'authStore hydrate depuis /api/auth/me)
+      const session = payload as unknown as SessionPayload;
+      const role = session.role as RoleCode;
+
+      // RBAC : vérifier que le rôle a accès à cette route
+      if (role && role !== 'ADMIN' && role !== 'AUDIT') {
+        if (!canAccess(role, pathname)) {
+          return NextResponse.redirect(new URL('/tableau-de-bord', req.url));
+        }
+      }
+
+      // Token legacy valide et accès autorisé
       return NextResponse.next();
     } catch {
       // Token invalide ou expiré → supprimer et rediriger vers login

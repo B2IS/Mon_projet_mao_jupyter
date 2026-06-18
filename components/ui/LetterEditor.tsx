@@ -11,6 +11,11 @@ import { chatOnce } from '@/lib/llmClient';
 import { useAuth } from '@/lib/authStore';
 import { useSignatureStore } from '@/lib/signatureStore';
 
+/** Échappe les caractères HTML spéciaux pour prévenir les injections XSS. */
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
 export interface LetterEditorProps {
@@ -200,7 +205,7 @@ export default function LetterEditor({ onClose, responseTo, onSave }: LetterEdit
     if (!editorRef.current) return;
     editorRef.current.innerHTML = responseTo
       ? `<p>Monsieur / Madame,</p>
-<p>En réponse à votre courrier référencé <strong>${responseTo.num}</strong> en date du ${responseTo.recu}, relatif à l'objet <em>« ${responseTo.objet} »</em>,</p>
+<p>En réponse à votre courrier référencé <strong>${esc(responseTo.num)}</strong> en date du ${esc(responseTo.recu)}, relatif à l'objet <em>« ${esc(responseTo.objet)} »</em>,</p>
 <p>J'ai l'honneur de porter à votre connaissance que…</p>
 <p>&nbsp;</p>
 <p>Veuillez agréer, Monsieur / Madame, l'expression de ma haute considération.</p>`
@@ -290,8 +295,9 @@ ${sigImgTag}
       );
 
       if (editorRef.current) {
-        const paragraphs = resp
-          .trim()
+        // Escape HTML entities dans la réponse IA avant injection dans le DOM
+        const safeResp = esc(resp.trim());
+        const paragraphs = safeResp
           .split(/\n{2,}/)
           .filter(Boolean)
           .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)

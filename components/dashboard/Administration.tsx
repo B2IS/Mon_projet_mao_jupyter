@@ -727,15 +727,15 @@ export default function Administration() {
             </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table className="tbl">
+            <table className="tbl" style={{ minWidth: 720 }}>
               <thead>
                 <tr>
-                  <th>Utilisateur</th>
-                  <th>Direction</th>
-                  <th>Profil / Poste occupé (DPE)</th>
-                  <th>Accès</th>
-                  <th>Statut</th>
-                  <th>Actions</th>
+                  <th style={{ minWidth: 180 }}>Utilisateur</th>
+                  <th style={{ minWidth: 90 }}>Direction</th>
+                  <th style={{ minWidth: 180 }}>Profil / Poste occupé (DPE)</th>
+                  <th style={{ minWidth: 110 }}>Accès</th>
+                  <th style={{ minWidth: 70 }}>Statut</th>
+                  <th style={{ minWidth: 70 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -753,9 +753,9 @@ export default function Administration() {
                         <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                           {u.nom.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 600 }}>{u.nom}</div>
-                          <div style={{ fontSize: 10, color: 'var(--muted)' }}>{u.email}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{u.nom}</div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{u.email}</div>
                         </div>
                       </div>
                     </td>
@@ -2075,8 +2075,8 @@ function AlertesConfigPanel() {
           <span className="card-title">📡 Canaux de notification</span>
           <button className="btn btn-secondary btn-sm" onClick={() => { if (confirm('Réinitialiser toute la configuration des alertes ?')) resetConfig(); }}>Réinitialiser</button>
         </div>
-        <div className="card-body" style={{ padding: 0 }}>
-          <table className="tbl">
+        <div className="card-body" style={{ padding: 0, overflowX: 'auto' }}>
+          <table className="tbl" style={{ minWidth: 480 }}>
             <thead>
               <tr><th>Canal</th><th>Actif</th><th>Destinataire / Endpoint</th><th>Paramètre</th></tr>
             </thead>

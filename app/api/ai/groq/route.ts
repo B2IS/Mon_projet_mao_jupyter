@@ -6,6 +6,9 @@
  *   2. clientKey dans le body — clé personnelle saisie par l'utilisateur dans l'UI
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/jwt';
+import { SESSION_COOKIE } from '@/lib/authTypes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +23,11 @@ export async function GET() {
 
 /** POST /api/ai/groq — proxy vers Groq Chat Completions */
 export async function POST(req: NextRequest) {
+  // Vérification session (cookie legacy JWT ou clientKey valide)
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
+  const hasSession = sessionToken ? !!(await verifyToken(sessionToken)) : false;
+
   let body: {
     messages?: { role: string; content: string }[];
     model?: string;
@@ -35,9 +43,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 });
   }
 
-  const apiKey =
-    process.env.GROQ_API_KEY ||
-    (body.clientKey?.startsWith('gsk_') ? body.clientKey : null);
+  const clientKey = body.clientKey?.startsWith('gsk_') ? body.clientKey : null;
+  // Exiger session OU clé personnelle valide
+  if (!hasSession && !clientKey) {
+    return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 });
+  }
+
+  const apiKey = process.env.GROQ_API_KEY || clientKey;
 
   if (!apiKey) {
     return NextResponse.json({ error: 'Groq non configuré.' }, { status: 503 });

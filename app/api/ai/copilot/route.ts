@@ -13,6 +13,44 @@ export const dynamic = 'force-dynamic';
 
 interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 
+/** Réponses heuristiques locales quand aucune clé IA n'est configurée. */
+function heuristicResponse(messages: ChatMsg[]): string {
+  const last = messages.filter(m => m.role === 'user').pop()?.content?.toLowerCase() ?? '';
+
+  if (/avancement|taux|progress/.test(last))
+    return "Pour consulter le taux d'avancement d'un projet, rendez-vous dans **Cockpit Projet** → onglet KPIs. Le pourcentage d'avancement physique est calculé à partir des livrables validés.";
+  if (/risque|risk/.test(last))
+    return "La matrice des risques est accessible dans le module **Risques**. Les risques sont classés par probabilité × impact. Les risques critiques (rouge) déclenchent une alerte automatique au Chef de Projet.";
+  if (/budget|finance|dépense|fcfa/.test(last))
+    return "Le suivi budgétaire est disponible dans **Finance & Budget**. Vous pouvez consulter les engagements, décaissements et le reste à dépenser par axe WBS.";
+  if (/livrable|deliverable|matrice/.test(last))
+    return "La matrice des livrables est accessible dans **Gestion Projet** → Livrables. Chaque livrable peut être marqué Validé / En cours / Non démarré avec une date de validation.";
+  if (/planning|gantt|délai|retard/.test(last))
+    return "Le planning Gantt est disponible dans **Planning / Schedule**. Les jalons en retard sont signalés en rouge. Vous pouvez ajuster les dates directement sur le diagramme.";
+  if (/document|ged|fichier/.test(last))
+    return "La GED (Gestion Électronique des Documents) centralise tous les documents projets : ANOs, rapports, plans, contrats. Utilisez les filtres par projet, direction ou type de document.";
+  if (/utilisateur|profil|accès|rôle/.test(last))
+    return "La gestion des accès est dans **Administration** → Profils. Chaque profil DPE dispose d'une visibilité sur les modules correspondant à sa fonction (Chef de Projet, Ingénieur, RAF, etc.).";
+  if (/marché|contrat|appel d'offre/.test(last))
+    return "Le module **Marchés & Contrats** permet de suivre les marchés par projet : AOI/AON, attributions, avenants et situations de travaux.";
+  if (/terrain|géoloc|pointage/.test(last))
+    return "Le suivi terrain utilise la géolocalisation GPS. Depuis l'app mobile, le système détecte automatiquement si vous êtes dans un géofence projet et impute le temps en conséquence.";
+  if (/kimi|groq|ia|copilot|assistant/.test(last))
+    return "Le copilote IA SIGEPP nécessite une clé API configurée (Kimi ou Groq). Accédez à **Paramètres** → Sécurité pour renseigner votre clé personnelle. Les clés ne sont jamais partagées.";
+
+  return `Je suis en mode **heuristique local** — aucune clé API IA n'est configurée.\n\nPour activer le copilote IA complet :\n1. Allez dans **Paramètres** → Sécurité\n2. Renseignez votre clé Kimi ou Groq\n3. Les réponses seront alors générées par un modèle IA complet\n\nEn attendant, je peux répondre à des questions simples sur les modules SIGEPP.`;
+}
+
+/** Domaines autorisés pour l'endpoint Azure/OpenAI (prévention SSRF). */
+const ALLOWED_ENDPOINT_HOSTS = ['.openai.azure.com', 'api.openai.com'];
+function isEndpointAllowed(url: string): boolean {
+  if (!url) return false;
+  try {
+    const { hostname } = new URL(url);
+    return ALLOWED_ENDPOINT_HOSTS.some(h => hostname === h.replace(/^\./, '') || hostname.endsWith(h));
+  } catch { return false; }
+}
+
 export async function POST(req: NextRequest) {
   let body: {
     messages?: ChatMsg[];
@@ -31,17 +69,24 @@ export async function POST(req: NextRequest) {
 
   // Priorité aux variables d'environnement serveur (déploiement entreprise),
   // sinon configuration fournie par le client (compte lié dans l'UI).
-  const endpoint   = (process.env.AZURE_OPENAI_ENDPOINT   || body.endpoint   || '').replace(/\/+$/, '');
+  const rawEndpoint = process.env.AZURE_OPENAI_ENDPOINT || body.endpoint || '';
+  // Sécurité SSRF : valider l'endpoint contre l'allowlist
+  if (rawEndpoint && !process.env.AZURE_OPENAI_ENDPOINT && !isEndpointAllowed(rawEndpoint)) {
+    return NextResponse.json({ error: 'Endpoint non autorisé.' }, { status: 400 });
+  }
+  const endpoint = rawEndpoint.replace(/\/+$/, '');
   const deployment =  process.env.AZURE_OPENAI_DEPLOYMENT || body.deployment || 'gpt-4o';
   const apiKey     =  process.env.AZURE_OPENAI_KEY        || body.apiKey     || '';
   const apiVersion =  process.env.AZURE_OPENAI_API_VERSION|| body.apiVersion || '2024-08-01-preview';
   const messages   =  Array.isArray(body.messages) ? body.messages : [];
 
   if (!endpoint || !apiKey) {
-    return NextResponse.json(
-      { error: 'Compte Microsoft Copilot non configuré (endpoint ou clé manquant).' },
-      { status: 422 },
-    );
+    return NextResponse.json({
+      content: heuristicResponse(messages),
+      model: 'heuristic-local',
+      usage: null,
+      fallback: true,
+    });
   }
   if (!messages.length) {
     return NextResponse.json({ error: 'Aucun message fourni.' }, { status: 400 });

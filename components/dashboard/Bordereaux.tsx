@@ -48,7 +48,7 @@ const VERSIONS_DEMO: Record<string, BordereauVersion[]> = {
   b1: [
     { version: 'v3.2', date: '2026-04-15', auteur: 'A. NDIAYE', note: 'Révision quantités HTA Nord après métré contradictoire' },
     { version: 'v3.1', date: '2026-03-02', auteur: 'A. NDIAYE', note: 'Ajout poste sectionnement HTA' },
-    { version: 'v3.0', date: '2026-01-20', auteur: 'PMO',        note: 'Version contractuelle — marché notifié' },
+    { version: 'v3.0', date: '2026-01-20', auteur: 'CHEF_CELLULE',        note: 'Version contractuelle — marché notifié' },
     { version: 'v2.0', date: '2025-11-10', auteur: 'TRACTEBEL',  note: 'APD validé' },
   ],
   b2: [
@@ -143,7 +143,7 @@ const BORDEREAUX_DEMO: Bordereau[] = [
 const CATEGORIES = ['Tous', 'Structure', 'Câblage', 'Équipement', 'Protection', 'Accessoires', 'Sécurité', "Main d'œuvre"];
 
 const MATRICES_DEMO: MatriceRACI[] = [
-  { id: 'm1', projetId: '', version: '3', date: '2026-04-20', acteurs: ['CP', 'PMO', 'Finance', 'DG', 'Ingénieur'] },
+  { id: 'm1', projetId: '', version: '3', date: '2026-04-20', acteurs: ['CP', 'CHEF_CELLULE', 'Finance', 'DG', 'Ingénieur'] },
   { id: 'm2', projetId: '', version: '2', date: '2026-05-08', acteurs: ['CP', 'UAGL', 'Contrôle interne'] },
 ];
 
@@ -361,10 +361,10 @@ export default function Bordereaux() {
           </div>
         </div>
         {/* Onglets */}
-        <div style={{ display: 'flex' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id as typeof activeTab)} style={{
-              padding: '8px 16px', border: 'none',
+              padding: '8px 16px', border: 'none', flexShrink: 0, whiteSpace: 'nowrap',
               borderBottom: activeTab === t.id ? `2px solid ${ORANGE}` : '2px solid transparent',
               background: 'transparent', fontSize: 13,
               fontWeight: activeTab === t.id ? 700 : 400,
@@ -1030,7 +1030,7 @@ function AttachementsPanel() {
   const [selId, setSelId] = useState('');
   const userName = `${user?.prenom ?? ''} ${user?.nom ?? ''}`.trim();
   // Rôle « entreprise » = saisie ; chef de projet / pilotage = validation.
-  const peutValider = isRole('CHEF_PROJ', 'CHEF_DEPT', 'DIR_DPE', 'PMO', 'ADMIN', 'CONTROLEUR');
+  const peutValider = isRole('CHEF_PROJ', 'CHEF_DEPT', 'DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'CONTROLEUR');
 
   const liste = att.attachements.filter(a => a.projetCode === projetCode);
   const sel = att.attachements.find(a => a.id === selId);

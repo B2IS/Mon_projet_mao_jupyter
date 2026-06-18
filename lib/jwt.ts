@@ -1,8 +1,12 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import type { RoleCode, SessionPayload } from './authTypes';
 
+const _jwtSecret = process.env.SIGEPP_JWT_SECRET;
+if (!_jwtSecret && process.env.NODE_ENV === 'production') {
+  throw new Error('[SIGEPP] SIGEPP_JWT_SECRET must be set in production.');
+}
 const SECRET_KEY = new TextEncoder().encode(
-  process.env.SIGEPP_JWT_SECRET ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
+  _jwtSecret ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
 );
 
 const ALG = 'HS256';

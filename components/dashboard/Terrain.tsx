@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   MapPin, Camera, Wifi, WifiOff, CheckCircle2, Clock, AlertTriangle,
   X, Send, Plus, Shield, Zap, Activity, Layers, RefreshCw,
   ClipboardList, ChevronRight, BarChart2, Thermometer, Wind,
+  Truck, Fuel, Navigation, Upload, FileText, Image as ImageIcon,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useProjectStore, DOMAINE_CFG } from '@/lib/projectStore';
@@ -266,8 +267,191 @@ function cpiColor(v: number, max: number) {
 /* ═══════════════════════════════════════════════════════════════════
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   VUE CHAUFFEUR — missions + rapport + photos terrain
+═══════════════════════════════════════════════════════════════════ */
+function ChauffeurView() {
+  const { user } = useAuth();
+  const fullName = `${user?.prenom ?? ''} ${user?.nom ?? ''}`.trim();
+
+  // Mock missions assignées à ce chauffeur (filtré par nom)
+  const mesMissions = [
+    { id: 'ODM-DER-2026-042', destination: 'Ziguinchor', dateDepart: '26/05/2026', dateRetour: '28/05/2026', objet: 'Transport équipe projet PAMACEL — Réception ouvrages', statut: 'En mission' as const, vehicule: 'Toyota Land Cruiser DK-0392-SN', kmDepart: 51850, kmPrevu: 790, carburantPrevu: 130 },
+    { id: 'ODM-DER-2026-038', destination: 'Thiès', dateDepart: '20/05/2026', dateRetour: '20/05/2026', objet: 'Transport chefs projet — visite chantier Thiès-Nord', statut: 'Clôturé' as const, vehicule: 'Toyota Land Cruiser DK-0392-SN', kmDepart: 85780, kmPrevu: 140, carburantPrevu: 23 },
+    { id: 'ODM-DER-2026-045', destination: 'Kaolack', dateDepart: '02/06/2026', dateRetour: '03/06/2026', objet: 'Transport ingénieurs — suivi travaux réseau BT Kaolack', statut: 'Planifié' as const, vehicule: 'Toyota Land Cruiser DK-0392-SN', kmDepart: 0, kmPrevu: 200, carburantPrevu: 35 },
+  ];
+
+  const STATUT_COL = { 'En mission': '#1B4F8A', 'Clôturé': '#16A34A', 'Planifié': '#9333EA', 'Validé': '#16A34A' } as Record<string, string>;
+  const STATUT_BG  = { 'En mission': '#EFF6FF', 'Clôturé': '#F0FDF4', 'Planifié': '#FAF5FF', 'Validé': '#F0FDF4' } as Record<string, string>;
+
+  const [selMission, setSelMission] = useState(mesMissions[0].id);
+  const [kmArrivee, setKmArrivee] = useState('');
+  const [litres, setLitres] = useState('');
+  const [rapport, setRapport] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [sent, setSent] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const mission = mesMissions.find(m => m.id === selMission) ?? mesMissions[0];
+
+  function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = ev => setPhotos(p => [...p, ev.target?.result as string]);
+      reader.readAsDataURL(f);
+    });
+  }
+
+  function handleSubmit() {
+    if (!kmArrivee || !rapport) return;
+    setSent(true);
+    setTimeout(() => setSent(false), 4000);
+    setKmArrivee(''); setLitres(''); setRapport(''); setPhotos([]);
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 0 24px' }}>
+      {/* Header chauffeur */}
+      <div className="card" style={{ borderLeft: '4px solid #0369A1' }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title" style={{ color: '#0369A1' }}>
+              <Truck size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+              Mes Missions Terrain — {fullName || 'Chauffeur'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+              ODMs assignées · Rapport de mission · Photos terrain · Carnet de bord
+            </div>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#0369A1', background: '#E0F2FE', padding: '4px 10px', borderRadius: 6 }}>
+            UAGL — {user?.direction ?? 'DER'}
+          </span>
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+        {[
+          { icon: <Navigation size={14} color="#0369A1" />, label: 'Missions ce mois', val: mesMissions.length, color: '#0369A1' },
+          { icon: <Truck size={14} color="#16A34A" />, label: 'En mission', val: mesMissions.filter(m => m.statut === 'En mission').length, color: '#16A34A' },
+          { icon: <Fuel size={14} color="#D97706" />, label: 'Carburant alloué', val: `${mesMissions.reduce((s,m)=>s+m.carburantPrevu,0)} L`, color: '#D97706' },
+          { icon: <MapPin size={14} color="#8B5CF6" />, label: 'Km prévus', val: mesMissions.reduce((s,m)=>s+m.kmPrevu,0), color: '#8B5CF6' },
+        ].map(k => (
+          <div key={k.label} className="card" style={{ padding: '10px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>{k.icon}<span style={{ fontSize: 10, color: 'var(--muted)' }}>{k.label}</span></div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 14 }}>
+        {/* Liste missions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Mes ODMs</div>
+          {mesMissions.map(m => (
+            <div key={m.id}
+              onClick={() => setSelMission(m.id)}
+              style={{ background: selMission === m.id ? '#EFF6FF' : 'var(--bg-card)', border: `2px solid ${selMission === m.id ? '#1B4F8A' : 'var(--border)'}`, borderRadius: 8, padding: 12, cursor: 'pointer', transition: 'all 0.15s' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#1B4F8A', fontFamily: 'monospace' }}>{m.id}</span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: STATUT_COL[m.statut], background: STATUT_BG[m.statut], padding: '1px 6px', borderRadius: 99 }}>{m.statut}</span>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{m.destination}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)' }}>{m.dateDepart} → {m.dateRetour}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, lineHeight: 1.3 }}>{m.objet}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Détail mission + rapport */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Info mission */}
+          <div className="card">
+            <div className="card-header"><span className="card-title">Détail ODM — {mission.id}</span></div>
+            <div className="card-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {[
+                ['Destination', mission.destination],
+                ['Dates', `${mission.dateDepart} → ${mission.dateRetour}`],
+                ['Véhicule', mission.vehicule],
+                ['KM départ', mission.kmDepart > 0 ? mission.kmDepart.toLocaleString() : '—'],
+                ['KM prévu', `+${mission.kmPrevu} km`],
+                ['Carburant alloué', `${mission.carburantPrevu} L`],
+              ].map(([l, v]) => (
+                <div key={l} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{l}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginTop: 2 }}>{v}</div>
+                </div>
+              ))}
+              <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#374151' }}>
+                <span style={{ color: 'var(--muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Objet : </span>{mission.objet}
+              </div>
+            </div>
+          </div>
+
+          {/* Rapport de mission */}
+          <div className="card">
+            <div className="card-header"><span className="card-title"><FileText size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />Rapport de Mission</span></div>
+            <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {sent && (
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '8px 12px', color: '#166534', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <CheckCircle2 size={14} /> Rapport envoyé et synchronisé avec succès
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="form-group">
+                  <label className="form-label">KM arrivée (compteur)</label>
+                  <input className="form-input" type="number" placeholder={`ex. ${(mission.kmDepart || 51850) + mission.kmPrevu}`} value={kmArrivee} onChange={e => setKmArrivee(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Carburant consommé (litres)</label>
+                  <input className="form-input" type="number" placeholder={`Prévu : ${mission.carburantPrevu} L`} value={litres} onChange={e => setLitres(e.target.value)} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Compte-rendu de mission</label>
+                <textarea className="form-input" rows={3} placeholder="Décrire le déroulement de la mission, incidents éventuels, observations terrain…" value={rapport} onChange={e => setRapport(e.target.value)} style={{ resize: 'vertical' }} />
+              </div>
+
+              {/* Upload photos */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
+                  <ImageIcon size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Photos terrain ({photos.length})
+                </div>
+                <input ref={fileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  {photos.map((src, i) => (
+                    <div key={i} style={{ position: 'relative' }}>
+                      <img src={src} alt={`Photo ${i+1}`} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, border: '2px solid #E2E8F0' }} />
+                      <button onClick={() => setPhotos(p => p.filter((_,j) => j !== i))} style={{ position: 'absolute', top: -6, right: -6, background: '#EF3340', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', fontSize: 10, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>×</button>
+                    </div>
+                  ))}
+                  <button onClick={() => fileRef.current?.click()} style={{ width: 72, height: 72, border: '2px dashed #CBD5E1', borderRadius: 6, background: '#F8FAFC', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#94A3B8', transition: 'all 0.15s' }}>
+                    <Camera size={20} />
+                    <span style={{ fontSize: 9 }}>Photo</span>
+                  </button>
+                  <button onClick={() => fileRef.current?.click()} style={{ width: 72, height: 72, border: '2px dashed #CBD5E1', borderRadius: 6, background: '#F8FAFC', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#94A3B8' }}>
+                    <Upload size={20} />
+                    <span style={{ fontSize: 9 }}>Galerie</span>
+                  </button>
+                </div>
+              </div>
+
+              <button onClick={handleSubmit} disabled={!kmArrivee || !rapport} className="btn btn-primary" style={{ alignSelf: 'flex-start', opacity: (!kmArrivee || !rapport) ? 0.5 : 1 }}>
+                <Send size={13} /> Soumettre le rapport
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Terrain() {
-  const store = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
+  const { user } = useAuth();
+  const store = readOnlyGuard(useProjectStore(), isOperationalReadOnly(user));
+  const isChauffeur = user?.role === 'CHAUFFEUR';
   const [activeTab, setActiveTab] = useState(0);
   const [selectedChantier, setSelectedChantier] = useState('CH-001');
   const [avancement, setAvancement] = useState(67);
@@ -717,7 +901,8 @@ export default function Terrain() {
     };
     return (
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
             <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
               {['ID', 'Chantier', 'Localité', 'Date', 'Agent', 'Avancement', 'Statut'].map(h => (
@@ -751,6 +936,7 @@ export default function Terrain() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     );
   }
@@ -969,6 +1155,8 @@ export default function Terrain() {
   /* ═══════════════════════════════════════════════════════════════
      RENDER
   ═══════════════════════════════════════════════════════════════ */
+  if (isChauffeur) return <ChauffeurView />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 0 24px' }}>
 

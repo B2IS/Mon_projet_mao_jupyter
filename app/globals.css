@@ -1005,7 +1005,7 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
 
   /* ── Spacing ───────────────────────────────────────────────────────────── */
   .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .kpi-value { font-size: 20px; }
+  .kpi-value { font-size: clamp(14px, 4.5vw, 20px); word-break: break-word; }
   .hide-mobile { display: none !important; }
   .page-body { padding: 10px; }
   .page-content { padding: 10px 12px; }
@@ -1014,7 +1014,11 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
   .drawer { width: 100%; }
   .topbar-search { display: none; }
   .table-responsive { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Empêche overflow-y:auto d'un parent de clipper overflow-x des tables enfants */
+  [style*="overflow-y: auto"] > [style*="overflow-x: auto"],
+  [style*="overflow-y:auto"] > [style*="overflow-x:auto"] { overflow-x: auto !important; }
   .flex-wrap-mobile { flex-wrap: wrap !important; }
+  .ged-sidebar { width: 100% !important; max-height: 220px; }
   .grid-cols-4-mobile-2 { grid-template-columns: repeat(2, 1fr) !important; }
   .grid-cols-3-mobile-1 { grid-template-columns: 1fr !important; }
 

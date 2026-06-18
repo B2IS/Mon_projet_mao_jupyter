@@ -7,6 +7,14 @@ import {
   ListChecks,
 } from 'lucide-react';
 
+/** Supprime les balises script, handlers d'événements et URLs javascript: du HTML. */
+function sanitizeDocHtml(dirty: string): string {
+  return dirty
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+    .replace(/javascript\s*:/gi, 'blocked:');
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    DocumentAnnotator — visionneuse + annotation découplée
    Architecture :
@@ -777,7 +785,7 @@ function XLSXViewer({ doc }: { doc: AnnotatedDoc }) {
           #xls-tbl tr:first-child td, #xls-tbl tr:first-child th { background: #F1F5F9; font-weight: 700; color: #1B4F8A; position: sticky; top: 0; }
           #xls-tbl tr:nth-child(even) td { background: #FAFAFA; }
         `}</style>
-        <div dangerouslySetInnerHTML={{ __html: tableHTML }} style={{ pointerEvents: 'none' }} />
+        <div dangerouslySetInnerHTML={{ __html: sanitizeDocHtml(tableHTML) }} style={{ pointerEvents: 'none' }} />
       </div>
     </div>
   );
@@ -804,7 +812,7 @@ function DOCXViewer({ doc }: { doc: AnnotatedDoc }) {
         } else throw new Error('Aucune source');
 
         const result = await mammoth.convertToHtml({ arrayBuffer: buf });
-        setHtml(result.value || '<p style="color:#94A3B8">Document vide ou non lisible.</p>');
+        setHtml(sanitizeDocHtml(result.value || '<p style="color:#94A3B8">Document vide ou non lisible.</p>'));
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur chargement');
       } finally { setLoading(false); }
