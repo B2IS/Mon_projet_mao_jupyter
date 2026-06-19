@@ -112,18 +112,45 @@ export function cockpitCardsForRole(role: RoleKey, k: IndicateursSenelec): IndCa
     { label: 'Alertes jalons', value: String(k.projetsEnRetard), sub: 'Alerte globale', accent: '#F47920' },
   ];
   switch (role) {
-    case 'DIR_DPE': case 'ADMIN': case 'PMO': case 'AUDIT':
+    case 'DIR_DPE': case 'ADMIN': case 'CHEF_CELLULE': case 'AUDIT':
       // Bandeau exécutif (haut) couvre déjà Projets/Avancement/Alertes : on ne garde
       // que le Budget total (unique) puis l'impact énergie — pas de doublon de KPI.
       return [{ label: 'Budget total', value: fmtFCFA(k.budgetTotal), accent: '#1D4ED8' }, ...energie];
+    case 'DIRECTEUR': case 'COORDINATEUR':
+      return [...portef, ...energie.slice(0, 3)];                     // Directeur/Coordinateur : portefeuille + énergie partielle
     case 'CHEF_DEPT':
-      return [...portef, ...perf];                                    // Directeur/Chef Dépt : projets + KPI direction
-    case 'CHEF_PROJ': case 'INGENIEUR': case 'CONTROLEUR': case 'CONTROLEUR_TRAVAUX': case 'ASSISTANT':
-      return portef;                                                  // Chef Projet : mes projets (+ tâches/marchés/risques via onglets)
-    case 'EXPERT': case 'CHARGE':
-      return expert;                                                    // S&E : performance · KPI · écarts
-    case 'CTRL_FIN': case 'MARCHES': case 'IMMO':
-      return fin;                                                     // Finance : engagements · paiements · décaissements
+      return [...portef, ...perf];                                     // Chef Dépt : projets + KPI direction
+    case 'CHEF_PROJ': case 'INGENIEUR': case 'CONTROLEUR': case 'ASSISTANT_PROJ':
+      return portef;                                                   // Chef Projet / Ingénieur : mes projets
+    case 'EXPERT_SE': case 'EXPERT_PMO':
+      return expert;                                                   // S&E / PMO : performance · KPI · écarts
+    case 'HSE':
+      return [
+        { label: 'Projets QHSE', value: String(k.nbProjets), sub: 'dans mon périmètre', accent: '#059669' },
+        { label: 'Risques actifs', value: String(k.projetsEnRetard), sub: 'alertes', accent: k.projetsEnRetard > 0 ? '#DC2626' : '#16A34A' },
+        { label: 'Avancement moyen', value: `${k.avancementMoyen}%`, accent: '#F47920' },
+      ];
+    case 'RAF': case 'MARCHES': case 'IMMO':
+      return fin;                                                      // Finance : engagements · paiements · décaissements
+    case 'COMPTABLE':
+      return [
+        { label: 'Budget total', value: fmtFCFA(k.budgetTotal), accent: '#B45309' },
+        { label: 'Décaissements', value: fmtFCFA(k.decaisse), sub: `${k.tauxDecaissement}% du budget`, accent: '#16A34A' },
+        { label: 'Solde disponible', value: fmtFCFA(k.soldeDisponible), accent: '#0E3460' },
+      ];
+    case 'SIG': case 'DESSINATEUR':
+      // SIG / Dessinateur : indicateurs physiques réseau, pas les finances
+      return [
+        { label: 'Réseau HTA déployé', value: `${k.kmReseauHTA.toLocaleString('fr-FR')} km`, accent: '#0E3460' },
+        { label: 'Réseau BT déployé', value: `${k.kmReseauBT.toLocaleString('fr-FR')} km`, accent: '#1D4ED8' },
+        { label: 'Postes construits', value: String(k.postesConstruits), accent: '#9333EA' },
+      ];
+    case 'RESP_LOG': case 'CHAUFFEUR': case 'SECRETAIRE': case 'ASSISTANT_DIR':
+    case 'COMMUNICATION': case 'ASSISTANT_ADMIN':
+      // Profils logistique / soutien : aucun KPI projet — le SupportCockpit gère leurs indicateurs
+      return [];
+    case 'CONSEILLER':
+      return [...portef, ...perf.slice(0, 2)];
     default:
       return portef;
   }

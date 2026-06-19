@@ -58,21 +58,19 @@ interface Domain {
   sectionId?: SidebarSectionId;
 }
 
-/* ── Domain / Menu structure — Architecture SIGEPP-DPE (5 niveaux + UAGL) ──
-   Principe directeur : Le SIG est le référentiel maître de la plateforme.
-   Les projets alimentent le patrimoine. Les actifs sont permanents.
-   NIVEAU 1 — Socle SIG · NIVEAU 2 — Cycle de vie projets (M1-M6)
-   NIVEAU 3 — Économique & contractuel (M9-M11) · NIVEAU 4 — GED (M12-M13)
-   NIVEAU 5 — Intelligence & Pilotage (M14-M17) · UAGL & RH · Système
+/* ── Architecture SIGEPP-DPE — Vision Géospatiale & Cycle de Vie ─────────────
+   SIG = référentiel maître (domaine 2, premier domaine fonctionnel).
+   Logique As Planned → As Built → As Operated visible dans Projets.
+   17 modules du system prompt organisés en 10 domaines de navigation.
 ─────────────────────────────────────────────────────────────────────────── */
 const DOMAINS: Domain[] = [
 
-  /* ── COCKPIT — Vue générale & alertes ───────────────────────────────────── */
+  /* ── 1. ACCUEIL ──────────────────────────────────────────────────────────── */
   {
     id: 'cockpit',
     icon: Home,
-    label: 'Cockpit & Pilotage',
-    shortLabel: 'Cockpit',
+    label: 'Accueil',
+    shortLabel: 'Accueil',
     groups: [
       {
         label: 'Vue d\'ensemble',
@@ -80,13 +78,22 @@ const DOMAINS: Domain[] = [
           {
             href: '/tableau-de-bord', icon: LayoutDashboard,
             label: 'Tableau de bord',
-            labelByRole: { DIR_DPE: 'Cockpit Direction', CHEF_CELLULE: 'Cockpit Cellule', COORDINATEUR: 'Cockpit Programme', EXPERT_PMO: 'Cockpit PMO', CHEF_PROJ: 'Mon Tableau de bord', CHEF_DEPT: 'Cockpit Département', RAF: 'Dashboard Financier' },
+            labelByRole: {
+              DIR_DPE: 'Cockpit Direction',
+              DIRECTEUR: 'Cockpit Exécutif',
+              CHEF_CELLULE: 'Cockpit Cellule',
+              COORDINATEUR: 'Cockpit Programme',
+              EXPERT_PMO: 'Cockpit PMO',
+              CHEF_PROJ: 'Mon tableau de bord',
+              CHEF_DEPT: 'Cockpit Département',
+              RAF: 'Dashboard Financier',
+            },
           },
           {
             href: '/springboard', icon: Sparkles,
             label: 'Portail de Pilotage',
-            labelByRole: { CHEF_PROJ: 'Mon Portail Projet', COORDINATEUR: 'Portail Programme', CHEF_CELLULE: 'Portail Cellule' },
-            onlyRoles: ['CHEF_PROJ', 'CHEF_CELLULE', 'COORDINATEUR', 'DIR_DPE', 'CHEF_DEPT', 'ADMIN'],
+            labelByRole: { CHEF_PROJ: 'Mes Projets', COORDINATEUR: 'Portail Programme', CHEF_CELLULE: 'Portail Cellule', DIR_DPE: 'Portail Portefeuille' },
+            onlyRoles: ['CHEF_PROJ', 'CHEF_CELLULE', 'COORDINATEUR', 'DIR_DPE', 'CHEF_DEPT', 'EXPERT_PMO', 'ADMIN'],
           },
           {
             href: '/alertes', icon: Bell,
@@ -99,76 +106,143 @@ const DOMAINS: Domain[] = [
     ],
   },
 
-  /* ── NIVEAU 1 — MODULE 0 : Référentiel Patrimonial Géospatial ───────────── */
+  /* ── 2. SIG — RÉFÉRENTIEL MAÎTRE ─────────────────────────────────────────
+     Module 0 : Référentiel Patrimonial Géospatial.
+     Le SIG constitue le référentiel maître de l'ensemble de la plateforme.
+  ─────────────────────────────────────────────────────────────────────────── */
   {
     id: 'sig',
     icon: Map,
-    label: 'MODULE 0 — Référentiel SIG',
+    label: 'SIG — Référentiel Maître',
     shortLabel: 'SIG',
     groups: [
       {
-        label: 'Référentiel Géospatial Maître',
+        label: 'Patrimoine Géospatial',
         items: [
           {
             href: '/cartographie', icon: Map,
-            label: 'Cartographie SIG — Référentiel Maître',
-            labelByRole: { DIR_DPE: 'SIG Portefeuille', CHEF_PROJ: 'SIG Projet', CHAUFFEUR: 'Carte des missions' },
+            label: 'Carte & Patrimoine SIG',
+            labelByRole: {
+              DIR_DPE: 'SIG Portefeuille',
+              CHEF_PROJ: 'SIG Projet',
+              SIG: 'Référentiel SIG',
+            },
             badge: '4', badgeType: 'danger',
+            // CHAUFFEUR et RESP_LOG n'ont pas accès à la cartographie projet/patrimoine
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION'],
+          },
+        ],
+      },
+      {
+        label: 'Récolement & Mise en Service',
+        items: [
+          {
+            href: '/recolement', icon: Repeat,
+            label: 'Récolement Numérique',
+            labelByRole: { SIG: 'Récolement As Built', INGENIEUR: 'Récolement travaux' },
+            onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'SIG', 'CHEF_CELLULE', 'CHEF_DEPT', 'COORDINATEUR', 'EXPERT_PMO', 'DIRECTEUR', 'DIR_DPE', 'ADMIN', 'AUDIT'],
+          },
+          {
+            href: '/mise-en-service', icon: Zap,
+            label: 'Mise en Service',
+            labelByRole: { IMMO: 'Activation Patrimoine', DIR_DPE: 'MES & Activation' },
+            onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'IMMO', 'CHEF_CELLULE', 'CHEF_DEPT', 'COORDINATEUR', 'EXPERT_PMO', 'DIRECTEUR', 'DIR_DPE', 'ADMIN', 'AUDIT'],
           },
         ],
       },
     ],
   },
 
-  /* ── NIVEAU 2 — CYCLE DE VIE DES PROJETS (MODULEs 1-6) ─────────────────── */
+  /* ── 3. PORTEFEUILLE & PROGRAMMES ────────────────────────────────────────── */
   {
-    id: 'cycle-vie',
-    icon: Activity,
-    label: 'Cycle de Vie des Projets',
-    shortLabel: 'Cycle de Vie',
+    id: 'portefeuille',
+    icon: FolderKanban,
+    label: 'Portefeuille & Programmes',
+    shortLabel: 'Portefeuille',
     groups: [
       {
-        label: 'M1 · Portfolio & Programmes',
+        label: 'Portefeuille',
         items: [
-          { href: '/portefeuille', icon: FolderKanban, label: 'Vue Portefeuille', hideRoles: ['CHEF_DEPT', 'CHEF_PROJ'] },
-          { href: '/programmes', icon: Layers, label: 'Programmes', hideRoles: ['CHEF_DEPT', 'CHEF_PROJ'] },
           {
-            href: '/cockpit-projet', icon: LayoutDashboard,
-            label: 'Fiche Exécutive Projet',
-            labelByRole: { CHEF_PROJ: 'Mon Cockpit Projet' },
+            href: '/portefeuille', icon: FolderKanban,
+            label: 'Vue Portefeuille',
+            labelByRole: { DIR_DPE: 'Portefeuille DPE', COORDINATEUR: 'Portefeuille Programme' },
+            // Profils opérationnels et support qui ne voient pas le portefeuille consolidé
+            hideRoles: ['CHEF_DEPT', 'CHEF_PROJ', 'CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'COMPTABLE'],
+          },
+          {
+            href: '/programmes', icon: Layers,
+            label: 'Programmes',
+            hideRoles: ['CHEF_DEPT', 'CHEF_PROJ', 'CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'COMPTABLE'],
           },
         ],
       },
+    ],
+  },
+
+  /* ── 4. PROJETS — CYCLE DE VIE ───────────────────────────────────────────
+     Modules 2→8 : Fiche Projet → Études → Conception → Planification
+                   → Exécution → Récolement → Mise en Service
+     Le projet est un mécanisme créant / modifiant le patrimoine SIG.
+  ─────────────────────────────────────────────────────────────────────────── */
+  {
+    id: 'projets',
+    icon: Briefcase,
+    label: 'Projets — Cycle de Vie',
+    shortLabel: 'Projets',
+    groups: [
       {
-        label: 'M2 · Projets Géoréférencés',
+        label: 'Projets',
         items: [
           {
             href: '/projets', icon: Briefcase,
-            label: 'Projets',
-            labelByRole: { COORDINATEUR: 'Tous les projets', CHEF_CELLULE: 'Projets Programme', CHEF_DEPT: 'Mes Projets', CHEF_PROJ: 'Mes Projets' },
-            hideRoles: ['DIR_DPE'],
+            label: 'Liste des projets',
+            labelByRole: { COORDINATEUR: 'Tous les projets', CHEF_CELLULE: 'Projets du programme', CHEF_DEPT: 'Mes projets', CHEF_PROJ: 'Mes projets' },
+            hideRoles: ['DIR_DPE', 'CHAUFFEUR', 'RESP_LOG', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
           },
-          { href: '/gestion-projet', icon: Target, label: 'Gestion de projet', labelByRole: { CHEF_PROJ: 'Mon projet' } },
+          {
+            href: '/cockpit-projet', icon: LayoutDashboard,
+            label: 'Fiche exécutive projet',
+            labelByRole: { CHEF_PROJ: 'Mon cockpit projet', DIR_DPE: 'Cockpit projet' },
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
+          },
         ],
       },
       {
-        label: 'M5 · Planification',
+        label: 'Études & Conception',
+        items: [
+          {
+            href: '/etudes', icon: FileText,
+            label: 'Études (APS / APD / DAO)',
+            labelByRole: { INGENIEUR: 'Mes études', DESSINATEUR: 'Plans & études', CHEF_PROJ: 'Études projet' },
+            onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'DESSINATEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'COORDINATEUR', 'EXPERT_PMO', 'DIRECTEUR', 'DIR_DPE', 'CONSEILLER', 'ASSISTANT_PROJ', 'ADMIN', 'AUDIT'],
+          },
+          {
+            href: '/gestion-projet', icon: Target,
+            label: 'Gestion de projet',
+            labelByRole: { CHEF_PROJ: 'Mon projet' },
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
+          },
+        ],
+      },
+      {
+        label: 'Planification (As Planned)',
         items: [
           {
             href: '/wbs', icon: Network,
-            label: 'WBS — Structure des tâches',
+            label: 'WBS & Structure',
             onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'COORDINATEUR', 'EXPERT_PMO', 'ASSISTANT_PROJ', 'ADMIN'],
           },
           {
             href: '/gantt', icon: GanttChart,
             label: 'Chronogramme / Gantt',
-            labelByRole: { DIR_DPE: 'Planning Jalons', COORDINATEUR: 'Planning / Gantt', CHEF_CELLULE: 'Planning Programme', CHEF_PROJ: 'Mon Planning' },
+            labelByRole: { DIR_DPE: 'Planning jalons', COORDINATEUR: 'Planning programme', CHEF_CELLULE: 'Planning cellule', CHEF_PROJ: 'Mon planning' },
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
           },
-          { href: '/risques', icon: ShieldAlert, label: 'Risques & QHSE', badge: '4', badgeType: 'warning' },
         ],
       },
       {
-        label: 'M6 · Exécution & Travaux',
+        label: 'Exécution terrain',
         items: [
           {
             href: '/taches', icon: CheckSquare2,
@@ -178,174 +252,301 @@ const DOMAINS: Domain[] = [
           },
           {
             href: '/terrain', icon: MapPin,
-            label: 'Avancement Terrain',
-            labelByRole: { CHAUFFEUR: 'Mes Missions Terrain', RESP_LOG: 'Missions & Terrain' },
-            hideRoles: ['DIR_DPE'],
+            label: 'Avancement terrain',
+            labelByRole: { RESP_LOG: 'Missions & terrain' },
+            // CHAUFFEUR accède à ses missions via /odm (pas /terrain qui est projet)
+            hideRoles: ['DIR_DPE', 'CHAUFFEUR', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
+          },
+          {
+            href: '/risques', icon: ShieldAlert,
+            label: 'Risques & QHSE',
+            badge: '4', badgeType: 'warning',
+            // Risques projet : pas pertinent pour logistique/support
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
           },
         ],
       },
     ],
   },
 
-  /* ── NIVEAU 3 — GESTION ÉCONOMIQUE & CONTRACTUELLE (MODULEs 9-11) ──────── */
+  /* ── 5. FINANCES & MARCHÉS ──────────────────────────────────────────────── */
   {
-    id: 'economique',
+    id: 'finances',
     icon: Wallet,
-    label: 'Gestion Économique & Contractuelle',
-    shortLabel: 'Économique',
+    label: 'Finances & Marchés',
+    shortLabel: 'Finances',
     sectionId: 'finances',
     groups: [
       {
-        label: 'M9 · Budgets & Finances',
+        label: 'Contrôle financier',
         items: [
-          { href: '/budget', icon: Wallet, label: 'Budget & Décaissements', labelByRole: { DIR_DPE: 'Budget portefeuille', CHEF_PROJ: 'Budget de mon projet' } },
-          { href: '/evm', icon: TrendingUp, label: 'Valeur Acquise (EVM)' },
+          {
+            href: '/budget', icon: Wallet,
+            label: 'Budget & Décaissements',
+            labelByRole: { DIR_DPE: 'Budget portefeuille', CHEF_PROJ: 'Budget projet' },
+            // CHAUFFEUR et RESP_LOG ne voient pas le budget projet/portefeuille
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'HSE', 'SIG', 'IMMO'],
+          },
+          {
+            href: '/evm', icon: TrendingUp,
+            label: 'Valeur acquise (EVM)',
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'HSE', 'SIG'],
+          },
         ],
       },
       {
-        label: 'M10 · Marchés & Contrats',
+        label: 'Marchés & Contrats',
         items: [
-          { href: '/fournisseurs', icon: Building2, label: 'Fournisseurs & Engagements' },
-          { href: '/marches', icon: FileSignature, label: 'Contrats & Marchés', hideRoles: ['DIR_DPE'] },
-          { href: '/bordereaux', icon: BookOpen, label: 'Bordereaux / BOQ', hideRoles: ['DIR_DPE'] },
-          { href: '/receptions', icon: ClipboardCheck, label: 'Réceptions & Paiements', hideRoles: ['DIR_DPE'] },
-        ],
-      },
-      {
-        label: 'M11 · Immobilisations & Actifs',
-        items: [
-          { href: '/immobilisations', icon: Building2, label: 'Immobilisations & Patrimoine', labelByRole: { RESP_LOG: 'Patrimoine & Inventaire', IMMO: 'Registre des actifs' } },
-          { href: '/structuration', icon: Boxes, label: 'Structuration (Swarm IA)', onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'IMMO', 'ADMIN'] },
+          {
+            href: '/fournisseurs', icon: Building2,
+            label: 'Fournisseurs & Engagements',
+            hideRoles: ['DIR_DPE', 'CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'HSE', 'SIG'],
+          },
+          {
+            href: '/marches', icon: FileSignature,
+            label: 'Contrats & Marchés',
+            hideRoles: ['DIR_DPE', 'CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'HSE', 'SIG'],
+          },
+          {
+            href: '/bordereaux', icon: BookOpen,
+            label: 'Bordereaux / BOQ',
+            hideRoles: ['DIR_DPE', 'CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'HSE', 'SIG'],
+          },
+          {
+            href: '/receptions', icon: ClipboardCheck,
+            label: 'Réceptions & Paiements',
+            // RESP_LOG voit les réceptions logistiques — mais via /receptions dans section logistique, pas finances
+            hideRoles: ['DIR_DPE', 'CHAUFFEUR', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'HSE', 'SIG'],
+          },
         ],
       },
     ],
   },
 
-  /* ── NIVEAU 4 — GED & CONNAISSANCE (MODULEs 12-13) ─────────────────────── */
+  /* ── 6. PATRIMOINE & ACTIFS ──────────────────────────────────────────────
+     Module 11 : Immobilisations & Actifs.
+     Le patrimoine est rattaché aux objets SIG, pas aux projets.
+  ─────────────────────────────────────────────────────────────────────────── */
   {
-    id: 'ged',
+    id: 'patrimoine',
+    icon: Building2,
+    label: 'Patrimoine & Actifs',
+    shortLabel: 'Patrimoine',
+    groups: [
+      {
+        label: 'Registre patrimonial',
+        items: [
+          {
+            href: '/immobilisations', icon: Building2,
+            label: 'Immobilisations & Actifs',
+            labelByRole: { RESP_LOG: 'Patrimoine & Inventaire', IMMO: 'Registre des actifs', DIR_DPE: 'Portefeuille actifs' },
+          },
+          {
+            href: '/structuration', icon: Boxes,
+            label: 'Structuration IA des actifs',
+            onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'IMMO', 'ADMIN'],
+          },
+        ],
+      },
+    ],
+  },
+
+  /* ── 7. DOCUMENTS & GED ──────────────────────────────────────────────────
+     Module 12 : GED Géocontextualisée.
+  ─────────────────────────────────────────────────────────────────────────── */
+  {
+    id: 'documents',
     icon: FolderOpen,
-    label: 'GED & Connaissance',
+    label: 'Documents & GED',
     shortLabel: 'GED',
     groups: [
       {
-        label: 'M12 · GED Géocontextualisée',
+        label: 'Gestion documentaire',
         items: [
-          { href: '/ged', icon: FolderOpen, label: 'Espace documentaire GED', labelByRole: { DIR_DPE: 'Bibliothèque documentaire DPE' } },
-          { href: '/canevas', icon: FileText, label: 'Canevas & Documents-types' },
-          { href: '/courriers', icon: MessagesSquare, label: 'Courriers' },
+          {
+            href: '/ged', icon: FolderOpen,
+            label: 'GED — Espace documentaire',
+            labelByRole: { DIR_DPE: 'Bibliothèque documentaire DPE' },
+          },
+          { href: '/courriers', icon: MessagesSquare, label: 'Courriers & Correspondances' },
         ],
       },
       {
-        label: 'Validation & Parapheur',
+        label: 'Validation & Circuits',
         items: [
-          { href: '/workflows', icon: CheckSquare2, label: 'Parapheur & Validations', badge: '8', badgeType: 'danger' },
+          {
+            href: '/workflows', icon: CheckSquare2,
+            label: 'Parapheur & Validations',
+            badge: '8', badgeType: 'danger',
+            // CHAUFFEUR n'a pas de circuit de validation projet
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG'],
+          },
         ],
       },
     ],
   },
 
-  /* ── NIVEAU 5 — INTELLIGENCE & PILOTAGE (MODULEs 14-17) ────────────────── */
+  /* ── 8. PILOTAGE & IA ────────────────────────────────────────────────────
+     Modules 14-17 : Reporting, KPI Métiers, Copilot IA, Swarm IA.
+  ─────────────────────────────────────────────────────────────────────────── */
   {
-    id: 'intelligence',
+    id: 'pilotage',
     icon: BarChart2,
-    label: 'Intelligence & Pilotage',
-    shortLabel: 'Intelligence',
+    label: 'Pilotage & IA',
+    shortLabel: 'Pilotage',
     groups: [
       {
-        label: 'M14 · Reporting Automatique',
+        label: 'Reporting & KPI',
         items: [
-          { href: '/reporting', icon: FileText, label: 'Rapports & Exports' },
-          { href: '/studio-rapports', icon: PenTool, label: 'Studio de Rapports', hideRoles: ['CHEF_PROJ', 'CHEF_DEPT'] },
+          {
+            href: '/suivi-evaluation', icon: Activity,
+            label: 'Suivi-évaluation & KPI',
+            labelByRole: { DIR_DPE: 'KPI Métiers & Portefeuille' },
+            // Pas de KPI portefeuille pour les profils support/logistique
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'COMPTABLE'],
+          },
+          {
+            href: '/reporting', icon: FileText,
+            label: 'Rapports & Exports',
+            // RESP_LOG accède au reporting RH/log uniquement — les autres profiles support n'ont pas ce module
+            hideRoles: ['CHAUFFEUR', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR'],
+          },
+          {
+            href: '/studio-rapports', icon: PenTool,
+            label: 'Studio de rapports',
+            hideRoles: ['CHEF_PROJ', 'CHEF_DEPT', 'CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'COMPTABLE'],
+          },
+          {
+            href: '/analytique', icon: PieChart,
+            label: 'Analytique & Tableaux de bord',
+            labelByRole: { DIR_DPE: 'BI & Indicateurs DPE' },
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'COMPTABLE'],
+          },
         ],
       },
       {
-        label: 'M15 · KPI Métiers',
+        label: 'Intelligence artificielle',
         items: [
-          { href: '/suivi-evaluation', icon: Activity, label: 'KPI & Suivi-Évaluation' },
-          { href: '/analytique', icon: PieChart, label: 'Analytique & BI' },
-          { href: '/constructeur-indicateurs', icon: Calculator, label: 'Constructeur d\'Indicateurs', onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'CHEF_DEPT'] },
-          { href: '/dashboard-builder', icon: LayoutGrid, label: 'Dashboard personnalisé' },
-        ],
-      },
-      {
-        label: 'M16 · IA Copilot',
-        items: [
-          { href: '/agents-ia', icon: Sparkles, label: 'Copilot IA & Centre IA', labelByRole: { DIR_DPE: 'Copilot Exécutif & IA' } },
-        ],
-      },
-      {
-        label: 'M17 · Swarm IA — Digitalisation',
-        items: [
-          { href: '/migration', icon: Database, label: 'Swarm IA — Reconstruction', onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT_PMO'] },
+          {
+            href: '/agents-ia', icon: Sparkles,
+            label: 'Copilot IA & Agents',
+            labelByRole: { DIR_DPE: 'Copilot exécutif & IA' },
+            hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'COMPTABLE'],
+          },
+          {
+            href: '/migration', icon: Database,
+            label: 'Swarm IA — Digitalisation',
+            onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT_PMO', 'COORDINATEUR'],
+          },
         ],
       },
     ],
   },
 
-  /* ── LOGISTIQUE & RH — UAGL ─────────────────────────────────────────────── */
+  /* ── 9. LOGISTIQUE & RH ──────────────────────────────────────────────────── */
   {
     id: 'logistique',
     icon: Car,
-    label: 'Logistique & Ressources',
-    shortLabel: 'UAGL & RH',
+    label: 'Logistique & RH',
+    shortLabel: 'Log & RH',
     groups: [
       {
         label: 'Logistique — UAGL',
         items: [
-          { href: '/flotte', icon: Car, label: 'Flotte & Chauffeurs', badge: '5', badgeType: 'info', hideRoles: ['CHEF_DEPT'] },
-          { href: '/odm', icon: ClipboardList, label: 'Ordres de Mission' },
-          { href: '/reservation-salle', icon: DoorOpen, label: 'Réservation de salle' },
+          {
+            href: '/flotte', icon: Car,
+            label: 'Flotte & Chauffeurs',
+            labelByRole: { CHAUFFEUR: 'Mon véhicule' },
+            badge: '5', badgeType: 'info',
+            hideRoles: ['CHEF_DEPT'],
+          },
+          {
+            href: '/odm', icon: ClipboardList,
+            label: 'Ordres de mission',
+            labelByRole: { CHAUFFEUR: 'Mes missions' },
+          },
+          {
+            href: '/reservation-salle', icon: DoorOpen,
+            label: 'Réservation de salle',
+            // CHAUFFEUR ne peut pas réserver de salle (NO_SALLE_ROLES)
+            hideRoles: ['CHAUFFEUR'],
+          },
         ],
       },
       {
-        label: 'Ressources Humaines',
+        label: 'Ressources humaines',
         items: [
-          { href: '/rh', icon: Users2, label: 'Ressources Humaines', hideRoles: ['CHEF_DEPT'] },
+          {
+            href: '/rh', icon: Users2,
+            label: 'Ressources humaines',
+            // CHAUFFEUR et SECRETAIRE n'ont pas accès au module RH global
+            hideRoles: ['CHEF_DEPT', 'CHAUFFEUR', 'SECRETAIRE', 'COMMUNICATION'],
+          },
           {
             href: '/gestion-temps', icon: Clock,
-            label: 'Temps & Pointage équipe',
-            labelByRole: { DIR_DPE: 'Temps & Activités RH', RESP_LOG: 'Gestion des temps' },
-            hideRoles: ['CHAUFFEUR', 'SECRETAIRE', 'COMMUNICATION', 'DESSINATEUR'],
-          },
-          {
-            href: '/suivi-temps', icon: Clock,
-            label: 'Ma feuille de temps',
-            labelByRole: { RESP_LOG: 'Feuilles de temps équipe', CHEF_PROJ: 'Feuilles de temps — équipe', CHEF_DEPT: 'Feuilles de temps' },
-            hideRoles: ['CHAUFFEUR'],
-          },
-          {
-            href: '/pointage', icon: Clock,
-            label: 'Bulletins heures suppl.',
-            labelByRole: { RESP_LOG: 'Validation bulletins HS', CHEF_PROJ: 'Bulletins HS équipe', CHEF_DEPT: 'Bulletins HS département' },
+            label: 'Temps & Activités',
+            labelByRole: {
+              DIR_DPE: 'Temps & Activités RH',
+              RESP_LOG: 'Gestion des temps',
+              CHEF_PROJ: 'Temps équipe & feuille',
+              CHEF_DEPT: 'Temps & Bulletins HS',
+              CHAUFFEUR: 'Mes heures & missions',
+            },
+            // CHAUFFEUR voit SES temps ; SECRETAIRE/COMMUNICATION/DESSINATEUR n'en ont pas besoin
+            hideRoles: ['SECRETAIRE', 'COMMUNICATION', 'DESSINATEUR'],
           },
         ],
       },
     ],
   },
 
-  /* ── SYSTÈME ─────────────────────────────────────────────────────────────── */
+  /* ── 10. SYSTÈME & CONFIGURATION ─────────────────────────────────────────── */
   {
     id: 'systeme',
     icon: Settings,
-    label: 'Système',
+    label: 'Système & Config',
     shortLabel: 'Système',
     sectionId: 'parametrage',
     groups: [
       {
-        label: 'Paramétrage & Admin',
+        label: 'Administration',
         items: [
-          { href: '/administration', icon: Settings, label: 'Utilisateurs & Rôles', onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'AUDIT'] },
-          { href: '/parametrage', icon: Settings, label: 'Paramétrage & Préférences', hideRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'AUDIT'] },
-          { href: '/administration/acces', icon: ShieldCheck, label: 'Habilitations & Droits', onlyRoles: ['ADMIN', 'DIR_DPE'] },
-          { href: '/administration/org-config', icon: Building2, label: 'Organigramme & Config', onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN'] },
+          {
+            href: '/administration', icon: Settings,
+            label: 'Utilisateurs & Rôles',
+            onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'AUDIT'],
+          },
+          {
+            href: '/parametrage', icon: Settings,
+            label: 'Paramétrage & Préférences',
+            hideRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'AUDIT'],
+          },
+          {
+            href: '/administration/acces', icon: ShieldCheck,
+            label: 'Habilitations & Droits',
+            onlyRoles: ['ADMIN', 'DIR_DPE'],
+          },
+          {
+            href: '/administration/org-config', icon: Building2,
+            label: 'Organigramme & Configuration',
+            onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN'],
+          },
         ],
       },
       {
-        label: 'Intégrations & Données',
+        label: 'Intégrations',
         items: [
-          { href: '/erp-interface', icon: Plug2, label: 'Interface ERP', labelByRole: { DIR_DPE: 'Connecteurs SAP / Oracle / Sage' }, onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'RAF'] },
-          { href: '/docs', icon: BookOpen, label: 'Documentation API', onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE'] },
+          {
+            href: '/erp-interface', icon: Plug2,
+            label: 'Interface système financier',
+            labelByRole: { DIR_DPE: 'Connecteurs ERP' },
+            onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'RAF'],
+          },
+          {
+            href: '/docs', icon: BookOpen,
+            label: 'Documentation API',
+            onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE'],
+          },
         ],
       },
     ],

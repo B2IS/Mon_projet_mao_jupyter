@@ -221,25 +221,31 @@ export default function TableauDeBord() {
   const router = useRouter();
   // Bandeau d'indicateurs CONSOLIDÉS réservé aux profils de PILOTAGE
   // (chef de département/cellule, PMO, Directeur, Experts S&E/CSE).
-  const canSeeConsolidated = isRole('DIR_DPE', 'ADMIN', 'PMO', 'CHEF_DEPT', 'EXPERT');
+  const canSeeConsolidated = isRole('DIR_DPE', 'ADMIN', 'CHEF_CELLULE', 'CHEF_DEPT', 'EXPERT_SE');
 
   /* ── Niveau de consolidation selon le profil (détaillé → consolidé) ── */
   const scope = useMemo(() => {
     if (!user) return { titre: 'Portefeuille DPE', sousTitre: 'Vue consolidée', badge: 'Consolidé' };
-    if (isRole('DIR_DPE', 'PMO', 'ADMIN'))
+    if (isRole('DIR_DPE', 'CHEF_CELLULE', 'ADMIN'))
       return { titre: 'Portefeuille DPE — Cockpit Exécutif', sousTitre: 'Vue consolidée — Portefeuille global', badge: 'Consolidé' };
     if (isRole('CHEF_DEPT')) {
       const lib = getDirectionLabel(user.direction || '');
       return { titre: `Portefeuille ${user.departement || lib}`, sousTitre: `Vue département — ${lib}`, badge: 'Département' };
     }
-    if (isRole('CTRL_FIN', 'RESP_LOG'))
+    if (isRole('RAF'))
       return { titre: 'Tableau de bord — Périmètre', sousTitre: `Vue périmètre — ${getDirectionLabel(user.direction || '')}`, badge: 'Périmètre' };
+    if (isRole('RESP_LOG'))
+      return { titre: 'Espace UAGL — Logistique', sousTitre: 'Flotte, missions et ressources', badge: 'UAGL' };
     if (isRole('CHAUFFEUR'))
-      return { titre: 'Mon portail chauffeur', sousTitre: 'Missions affectées et véhicule', badge: 'Chauffeur' };
+      return { titre: 'Mon portail chauffeur', sousTitre: 'Mes missions et mon véhicule', badge: 'Chauffeur' };
     if (isRole('SECRETAIRE'))
       return { titre: 'Espace Secrétariat', sousTitre: 'Courriers, réunions et GED', badge: 'Secrétariat' };
-    if (isRole('ASSISTANT'))
+    if (isRole('ASSISTANT_DIR'))
       return { titre: 'Espace Assistante de Direction', sousTitre: 'Agenda, courriers et validations', badge: 'Direction' };
+    if (isRole('COMMUNICATION'))
+      return { titre: 'Espace Communication', sousTitre: 'Courriers, publications et GED', badge: 'Communication' };
+    if (isRole('ASSISTANT_ADMIN'))
+      return { titre: 'Espace Administratif', sousTitre: 'Budget, courriers et documents', badge: 'Administratif' };
     return { titre: 'Mes projets', sousTitre: 'Vue détaillée — Projets dont je suis responsable ou membre', badge: 'Détaillé' };
   }, [user, isRole]);
   const [drawer, setDrawer] = useState<Projet | null>(null);
@@ -374,20 +380,20 @@ export default function TableauDeBord() {
     .map(([k, v]) => ({ value: k, label: `${v.emoji} ${v.label}` }));
 
   // Libellé du cockpit ADAPTÉ AU PROFIL (Direction / Département / Mes projets…).
-  const cockpitTabLabel = isRole('DIR_DPE', 'ADMIN', 'PMO')
+  const cockpitTabLabel = isRole('DIR_DPE', 'ADMIN', 'CHEF_CELLULE')
     ? 'Cockpit Direction'
     : isRole('CHEF_DEPT')
       ? 'Cockpit Département'
-      : isRole('CTRL_FIN', 'RESP_LOG')
+      : isRole('RAF', 'RESP_LOG')
         ? 'Cockpit Périmètre'
         : 'Mes Projets';
-  const portfolioTabLabel = isRole('DIR_DPE', 'ADMIN', 'PMO') ? 'Portefeuille complet'
+  const portfolioTabLabel = isRole('DIR_DPE', 'ADMIN', 'CHEF_CELLULE') ? 'Portefeuille complet'
     : isRole('CHEF_DEPT') ? 'Projets du département' : 'Mes projets détaillés';
-  // Profils SUPPORT (UAGL, assistante de direction, secrétaire, chauffeur) : leur cockpit
-  // porte sur LEUR travail (missions, courriers, flotte, réunions) — PAS les KPI projet.
+  // Profils SUPPORT (UAGL, assistante de direction, secrétaire, chauffeur, communication) :
+  // leur cockpit porte sur LEUR travail quotidien — PAS les KPI projet/portefeuille.
   const isSupportProfile =
-    isRole('RESP_LOG', 'CHAUFFEUR', 'SECRETAIRE') ||
-    (user?.role === 'ASSISTANT' && !isAssistantProjet(user));
+    isRole('RESP_LOG', 'CHAUFFEUR', 'SECRETAIRE', 'COMMUNICATION', 'ASSISTANT_ADMIN') ||
+    (user?.role === 'ASSISTANT_DIR' && !isAssistantProjet(user));
   const TABS = isSupportProfile
     ? [{ id: 'cockpit', label: 'Mon espace de travail' }]
     : [
@@ -403,12 +409,12 @@ export default function TableauDeBord() {
       <div style={{ background: '#fff', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
 
         {/* Title bar + Global KPIs */}
-        <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: 19, fontWeight: 900, color: '#0F172A', margin: 0 }}>{scope.titre}</h1>
-              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#EEF2FF', color: C.navy }}>{scope.badge}</span>
-              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#DCFCE7', color: C.green }}>● Temps réel</span>
+              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#EEF2FF', color: C.navy, whiteSpace: 'nowrap' }}>{scope.badge}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#DCFCE7', color: C.green, whiteSpace: 'nowrap' }}>● Temps réel</span>
             </div>
             <p style={{ fontSize: 12, color: C.slate, margin: '3px 0 0' }}>
               {isSupportProfile
@@ -513,7 +519,7 @@ export default function TableauDeBord() {
           {[
             { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels`, href: '/portefeuille', pfFilter: null },
             { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA`, href: '/budget', pfFilter: null },
-            { label: 'Avancement moyen',      value: fmtPct(metrics.avgAv),           sub: isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille global' : 'Mon périmètre', color: C.purple, icon: <Target   size={15} style={{ color: C.purple }} />, alert: false, title: `Avancement physique moyen du portefeuille : ${fmtPct(metrics.avgAv)}`, href: '/portefeuille', pfFilter: null },
+            { label: 'Avancement moyen',      value: fmtPct(metrics.avgAv),           sub: isRole('DIR_DPE','ADMIN','CHEF_CELLULE') ? 'Portefeuille global' : 'Mon périmètre', color: C.purple, icon: <Target   size={15} style={{ color: C.purple }} />, alert: false, title: `Avancement physique moyen du portefeuille : ${fmtPct(metrics.avgAv)}`, href: '/portefeuille', pfFilter: null },
             { label: 'Projets critiques',     value: String(metrics.alertes),         sub: 'CPI < 0.90 ou SPI < 0.85',        color: metrics.alertes > 0 ? C.red : C.green, icon: <AlertTriangle size={15} style={{ color: metrics.alertes > 0 ? C.red : C.green }} />, alert: metrics.alertes > 0, title: `${metrics.alertes} projet(s) avec CPI < 0,90 ou SPI < 0,85 ou en retard`, href: '/portefeuille', pfFilter: { alert: true } },
             { label: 'Arbitrages en attente', value: String(arbitrages.length),        sub: 'Décisions requises',               color: C.amber,  icon: <Zap      size={15} style={{ color: C.amber  }} />, alert: arbitrages.length > 0, title: `${arbitrages.length} décision(s) d'arbitrage requises`, href: '/workflows', pfFilter: null },
             { label: 'Jalons prochain 30j',   value: String(metrics.jalonsSoon.length), sub: 'Jalons non atteints',             color: C.orange, icon: <Flag     size={15} style={{ color: C.orange }} />, alert: false, title: `${metrics.jalonsSoon.length} jalon(s) non atteint(s) à échéance dans les 30 prochains jours`, href: '/portefeuille', pfFilter: { jalons: true } },
@@ -569,7 +575,7 @@ export default function TableauDeBord() {
         {canSeeConsolidated && (
         <details open style={{ background: 'linear-gradient(135deg, #1B4F8A 0%, #0F3460 100%)', borderRadius: 10, padding: '8px 12px', marginBottom: 16 }}>
           <summary style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '.7px', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Zap size={12} style={{ color: '#FCD34D' }} /> Indicateurs DPE &amp; Énergie — {isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille consolidé' : 'Mon périmètre'}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Zap size={12} style={{ color: '#FCD34D' }} /> Indicateurs DPE &amp; Énergie — {isRole('DIR_DPE','ADMIN','CHEF_CELLULE') ? 'Portefeuille consolidé' : 'Mon périmètre'}</span>
             <span style={{ fontSize: 9, opacity: 0.6, display: 'inline-flex', alignItems: 'center', gap: 2 }}>réduire <ChevronRight size={10} style={{ transform: 'rotate(90deg)' }} /></span>
           </summary>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 7, marginTop: 8 }}>
@@ -1041,20 +1047,22 @@ function SupportCockpit({ role, router }: { role: string; router: ReturnType<typ
     },
     CHAUFFEUR: {
       titre: 'Mon espace chauffeur',
-      sous: 'Mes missions et mon véhicule',
+      sous: 'Mes missions et mon véhicule affecté',
       cards: [
-        { label: 'Véhicule affecté', value: premierVehicule, sub: 'plaque d\'immatriculation', accent: C.green },
-        { label: 'Parc actif', value: String(vehiculesDispos), sub: `sur ${vehiculesActifs.length + vehiculesPanne} véhicules`, accent: C.navy },
-        { label: 'Demandes réunion', value: String(demandesReunion), sub: 'en attente', accent: C.orange },
+        // CHAUFFEUR : KPIs strictement personnels — pas de réunions, pas de parc global
+        { label: 'Véhicule affecté', value: premierVehicule, sub: 'véhicule assigné', accent: C.green },
+        { label: 'Chauffeurs actifs', value: String(odmCfg.chauffeurs.filter(c => c.actif).length), sub: 'dans l\'équipe UAGL', accent: C.navy },
+        { label: 'Alertes', value: String(parapheurPending), sub: 'notifications', accent: C.orange },
       ],
       tiles: [
-        { label: 'Mes missions', desc: 'missions affectées · calendrier', href: '/odm', icon: <Activity size={18} />, accent: C.navy },
-        { label: 'Mon véhicule', desc: 'véhicule affecté · documents', href: '/flotte', icon: <Fuel size={18} />, accent: C.purple },
+        { label: 'Mes missions (ODM)', desc: 'missions affectées · itinéraires', href: '/odm', icon: <Activity size={18} />, accent: C.navy },
+        { label: 'Mon véhicule', desc: 'véhicule affecté · carburant · km', href: '/flotte', icon: <Fuel size={18} />, accent: C.purple },
+        { label: 'Mes temps', desc: 'heures de travail · heures sup', href: '/gestion-temps', icon: <Clock size={18} />, accent: C.green },
       ],
     },
     SECRETAIRE: {
-      titre: 'Espace Secrétariat — Administration Département',
-      sous: 'Courriers, réunions, GED et liste des projets (lecture)',
+      titre: 'Espace Secrétariat',
+      sous: 'Courriers, réunions, GED — administration du département',
       cards: [
         { label: 'Courriers', value: String(courriersPending || 0), sub: 'dans le parapheur', accent: '#0891B2' },
         { label: 'Demandes de réservation', value: String(demandesReunion), sub: 'à traiter', accent: C.orange },
@@ -1062,11 +1070,37 @@ function SupportCockpit({ role, router }: { role: string; router: ReturnType<typ
         { label: 'Parapheur', value: String(parapheurPending), sub: 'en attente de signature', accent: C.navy },
       ],
       tiles: [
-        { label: 'Courriers du département', desc: 'entrants · sortants · notes', href: '/courriers', icon: <Bell size={18} />, accent: '#0891B2' },
-        { label: 'Projets (lecture)', desc: 'liste · statuts · chefs de projet', href: '/projets', icon: <Folder size={18} />, accent: C.navy },
+        { label: 'Courriers', desc: 'entrants · sortants · notes de service', href: '/courriers', icon: <Bell size={18} />, accent: '#0891B2' },
+        { label: 'GED & Documents', desc: 'classement · archivage documentaire', href: '/ged', icon: <Folder size={18} />, accent: C.slate },
+        { label: 'Réservation de salle', desc: 'réunions · équipements', href: '/reservation-salle', icon: <Calendar size={18} />, accent: C.orange },
+      ],
+    },
+    COMMUNICATION: {
+      titre: 'Espace Communication',
+      sous: 'Courriers, publications et gestion documentaire',
+      cards: [
+        { label: 'Courriers', value: String(courriersPending || 0), sub: 'dans le parapheur', accent: '#0891B2' },
+        { label: 'Alertes', value: String(parapheurPending), sub: 'notifications', accent: C.orange },
+      ],
+      tiles: [
+        { label: 'Courriers & Correspondances', desc: 'entrants · sortants · diffusions', href: '/courriers', icon: <Bell size={18} />, accent: '#0891B2' },
+        { label: 'GED — Publications', desc: 'rapports · photos · documents comm.', href: '/ged', icon: <Folder size={18} />, accent: C.navy },
+      ],
+    },
+    ASSISTANT_ADMIN: {
+      titre: 'Espace Administratif & Budget',
+      sous: 'Budget, courriers et support administratif',
+      cards: [
+        { label: 'Courriers', value: String(courriersPending || 0), sub: 'dans le parapheur', accent: '#0891B2' },
+        { label: 'Parapheur', value: String(parapheurPending), sub: 'en attente de signature', accent: C.navy },
+        { label: 'Demandes salle', value: String(demandesReunion), sub: 'à traiter', accent: C.orange },
+        { label: 'Réunions confirmées', value: String(reunionsConfirmees), accent: C.green },
+      ],
+      tiles: [
+        { label: 'Courriers', desc: 'entrants · sortants · classement', href: '/courriers', icon: <Bell size={18} />, accent: '#0891B2' },
+        { label: 'Budget & Suivi', desc: 'engagements · justificatifs', href: '/budget', icon: <BarChart3 size={18} />, accent: C.amber },
         { label: 'GED & Documents', desc: 'classement · archivage', href: '/ged', icon: <Folder size={18} />, accent: C.slate },
-        { label: 'Réunions & Salles', desc: 'réservations · planning', href: '/reservation-salle', icon: <Calendar size={18} />, accent: C.orange },
-        { label: 'Agenda & Contacts', desc: 'annuaire · plannings', href: '/agenda', icon: <Users size={18} />, accent: C.purple },
+        { label: 'Réservation de salle', desc: 'réunions · équipements', href: '/reservation-salle', icon: <Calendar size={18} />, accent: C.orange },
       ],
     },
     ASSISTANT: {
@@ -1083,12 +1117,12 @@ function SupportCockpit({ role, router }: { role: string; router: ReturnType<typ
         { label: 'Agenda & Réunions', desc: 'réunions · comités · missions', href: '/reservation-salle', icon: <Calendar size={18} />, accent: C.orange },
         { label: 'GED Direction', desc: 'notes · rapports · PV', href: '/ged', icon: <Folder size={18} />, accent: C.navy },
         { label: 'Parapheur / Validations', desc: 'documents à signer · à valider', href: '/workflows', icon: <CheckCircle2 size={18} />, accent: C.green },
-        { label: 'Reporting & Exports', desc: 'documents de synthèse', href: '/reporting', icon: <BarChart3 size={18} />, accent: C.slate },
       ],
     },
   };
 
-  const cfg = CFG[role] ?? CFG.ASSISTANT;
+  // Résolution du profil : ASSISTANT_DIR utilise la clé 'ASSISTANT'
+  const cfg = CFG[role] ?? (role === 'ASSISTANT_DIR' ? CFG.ASSISTANT : CFG.ASSISTANT);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
