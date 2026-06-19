@@ -87,6 +87,15 @@ export type TranslationKey =
   | 'route.ged.label' | 'route.ged.sub'
   | 'route.agentsIa.label' | 'route.agentsIa.sub'
   | 'route.dashboardBuilder.label' | 'route.dashboardBuilder.sub'
+  | 'route.springboard.label' | 'route.springboard.sub'
+  | 'route.gestionTemps.label' | 'route.gestionTemps.sub'
+  | 'route.etudes.label' | 'route.etudes.sub'
+  | 'route.recolement.label' | 'route.recolement.sub'
+  | 'route.miseEnService.label' | 'route.miseEnService.sub'
+  | 'route.gestionProjet.label' | 'route.gestionProjet.sub'
+  | 'route.migration.label' | 'route.migration.sub'
+  | 'route.immobilisations.label' | 'route.immobilisations.sub'
+  | 'route.structuration.label' | 'route.structuration.sub'
 
   // Sidebar sections
   | 'sidebar.accueil' | 'sidebar.portefeuilleProjets' | 'sidebar.executionControle'
@@ -282,6 +291,24 @@ const FR: Record<TranslationKey, string> = {
   'route.agentsIa.sub': 'RAG documentaire · Synthèses automatiques · Détection anomalies · Recommandations supervisées',
   'route.dashboardBuilder.label': 'Paramétrage — Vue personnalisée',
   'route.dashboardBuilder.sub': 'Widgets configurables · Sauvegarde par profil · Données temps réel store',
+  'route.springboard.label': 'Mon Espace',
+  'route.springboard.sub': 'Vue d\'ensemble projets · Alertes · KPIs',
+  'route.gestionTemps.label': 'Logistique & Ressources — Temps & Activités',
+  'route.gestionTemps.sub': 'Feuille de temps · Pointage · Productivité · Bulletins heures supplémentaires',
+  'route.etudes.label': 'Études & Conception',
+  'route.etudes.sub': 'APS · APD · DAO · Notes techniques · EIES · DOE — chaque étude produit des géométries SIG',
+  'route.recolement.label': 'Récolement Numérique',
+  'route.recolement.sub': 'Comparaison As Planned → As Designed → As Built · Validation conformité · Activation patrimoine SIG',
+  'route.miseEnService.label': 'Mise en Service & Activation Patrimoine',
+  'route.miseEnService.sub': 'PV réception · Validation ouvrages · Activation SIG · Création immobilisations · Plan amortissement',
+  'route.gestionProjet.label': 'Gestion de Projet',
+  'route.gestionProjet.sub': 'Exigences · Livrables · Risques · Parties prenantes · RACI',
+  'route.migration.label': 'Swarm IA — Digitalisation',
+  'route.migration.sub': 'Reconstruction automatique projet · SIG · Patrimoine · Immobilisations · GED à partir des sources existantes',
+  'route.immobilisations.label': 'Patrimoine & Actifs',
+  'route.immobilisations.sub': 'Registre des actifs · Immobilisations · Amortissements · Réconciliation comptable',
+  'route.structuration.label': 'Structuration IA des Actifs',
+  'route.structuration.sub': 'Décomposition sous-composants · Classification Liste de Valeurs · Knowledge Graph patrimonial',
 
   'sidebar.accueil': 'Accueil',
   'sidebar.portefeuilleProjets': 'Portefeuille & Projets',
@@ -482,6 +509,24 @@ const EN: Record<TranslationKey, string> = {
   'route.agentsIa.sub': 'Document RAG · Auto summaries · Anomaly detection · Supervised recommendations',
   'route.dashboardBuilder.label': 'Settings — Custom View',
   'route.dashboardBuilder.sub': 'Configurable widgets · Profile-based save · Real-time store data',
+  'route.springboard.label': 'My Workspace',
+  'route.springboard.sub': 'Projects overview · Alerts · KPIs',
+  'route.gestionTemps.label': 'Logistics & Resources — Time & Activities',
+  'route.gestionTemps.sub': 'Timesheets · Attendance · Productivity · Overtime bulletins',
+  'route.etudes.label': 'Studies & Engineering Design',
+  'route.etudes.sub': 'APS · APD · Tender Docs · Technical notes · EIES · DOE — each study produces GIS geometries',
+  'route.recolement.label': 'Digital As-Built Survey',
+  'route.recolement.sub': 'As Planned → As Designed → As Built comparison · Conformity validation · GIS heritage activation',
+  'route.miseEnService.label': 'Commissioning & Asset Activation',
+  'route.miseEnService.sub': 'Reception PV · Works validation · GIS activation · Fixed asset creation · Depreciation plan',
+  'route.gestionProjet.label': 'Project Management',
+  'route.gestionProjet.sub': 'Requirements · Deliverables · Risks · Stakeholders · RACI',
+  'route.migration.label': 'AI Swarm — Digitalization',
+  'route.migration.sub': 'Automatic reconstruction of project · GIS · Assets · Fixed assets · DMS from existing sources',
+  'route.immobilisations.label': 'Heritage & Assets',
+  'route.immobilisations.sub': 'Asset register · Fixed assets · Depreciation · Accounting reconciliation',
+  'route.structuration.label': 'AI Asset Structuring',
+  'route.structuration.sub': 'Sub-component breakdown · Value list classification · Heritage knowledge graph',
 
   'sidebar.accueil': 'Home',
   'sidebar.portefeuilleProjets': 'Portfolio & Projects',
