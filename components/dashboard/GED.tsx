@@ -852,7 +852,7 @@ export default function GED() {
         {/* Arborescence */}
         <div className="card ged-sidebar" style={{ width: 220, flexShrink: 0, overflowY: 'auto' }}>
           <div className="card-header">
-            <span className="card-title">Bibliothèque</span>
+            <span className="card-title">GED</span>
           </div>
           <div style={{ padding: '8px 0' }}>
             <div
@@ -937,7 +937,7 @@ export default function GED() {
                     </div>
                     {pillStatut(d.statut)}
                     {/* Workflow steps */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--muted)', flexWrap: 'wrap', minWidth: 0 }}>
                       {(['Soumis','Réviser','Approuver','Publier'] as const).map((step, i) => (
                         <span key={step} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                           <span style={{ padding: '2px 6px', borderRadius: 4, background: i === 0 ? 'var(--navy)' : 'var(--border-2)', color: i === 0 ? '#fff' : 'var(--muted)', fontSize: 9, fontWeight: 600, whiteSpace: 'nowrap' }}>{step}</span>
@@ -1010,7 +1010,7 @@ export default function GED() {
                         <td>{pillStatut(d.statut)}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', gap: 3 }}>
-                            <button aria-label="Visualiser" className="btn btn-ghost btn-xs" title="Visualiser" onClick={() => annoter(d)}><Eye size={10} /></button>
+                            <button aria-label="Visualiser" className="btn btn-ghost btn-xs" title="Visualiser" onClick={() => setViewerDoc(d.id)}><Eye size={10} /></button>
                             <button aria-label="Annoter / commenter" className="btn btn-ghost btn-xs" title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /></button>
                             <button aria-label="Modifier les métadonnées" className="btn btn-ghost btn-xs" title="Modifier" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
                             <button aria-label="Télécharger" className="btn btn-ghost btn-xs" title="Télécharger" onClick={() => {
@@ -1058,7 +1058,7 @@ export default function GED() {
                         <span>{d.taille}</span>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => annoter(d)}><Eye size={10} /> Voir</button>
+                        <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => setViewerDoc(d.id)}><Eye size={10} /> Voir</button>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} title="Annoter / commenter" onClick={() => annoter(d)}><Edit2 size={10} style={{ color: 'var(--orange)' }} /> Annoter</button>
                         <button aria-label="Modifier les métadonnées" className="btn btn-ghost btn-xs" title="Modifier les métadonnées" onClick={() => setEditDoc(d)}><Edit2 size={10} /></button>
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => {
