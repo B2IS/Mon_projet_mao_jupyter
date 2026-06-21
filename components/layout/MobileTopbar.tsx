@@ -13,64 +13,67 @@ import SenelecLogo from '@/components/ui/SenelecLogo';
 const PAGE_TITLES: Record<string, string> = {
   /* COCKPIT */
   '/tableau-de-bord':          'Tableau de bord',
-  '/springboard':              'Portail de Pilotage',
+  '/springboard':              'Mon Espace',
   '/alertes':                  'Alertes',
-  /* M1 — PORTFOLIO */
-  '/portefeuille':             'Portefeuille',
+  /* PORTFOLIO */
+  '/portefeuille':             'Portefeuille DPE',
   '/programmes':               'Programmes',
   '/cockpit-projet':           'Cockpit Projet',
-  /* M2 — PROJETS */
-  '/projets':                  'Projets',
-  '/gestion-projet':           'Gestion de Projet',
-  /* M3-M4 — ÉTUDES / CONCEPTION */
-  '/canevas':                  'Canevas & Plans',
-  /* M5 — PLANIFICATION */
-  '/wbs':                      'Structure WBS',
-  '/gantt':                    'Chronogramme Gantt',
-  '/risques':                  'Risques & QHSE',
-  /* M6 — EXÉCUTION */
-  '/taches':                   'Tâches',
-  '/terrain':                  'Avancement Terrain',
-  /* M9 — BUDGETS */
-  '/budget':                   'Budget',
-  '/evm':                      'Valeur Acquise (EVM)',
-  /* M10 — MARCHÉS */
-  '/fournisseurs':             'Fournisseurs',
-  '/marches':                  'Marchés & Contrats',
-  '/bordereaux':               'Bordereaux',
-  '/receptions':               'Réceptions',
-  /* M11 — IMMOBILISATIONS */
-  '/immobilisations':          'Immobilisations',
-  '/structuration':            'Structuration Swarm IA',
-  /* M12 — GED */
-  '/ged':                      'Documents',
-  '/courriers':                'Courriers',
-  '/workflows':                'Parapheur & Validations',
-  /* M14 — REPORTING */
-  '/reporting':                'Reporting',
-  '/studio-rapports':          'Studio Rapports',
-  /* M15 — KPI */
   '/suivi-evaluation':         'Suivi-Évaluation',
-  '/analytique':               'Analytique',
+  /* PROJETS */
+  '/projets':                  'Mes Projets',
+  '/gestion-projet':           'Gestion de Projet',
+  /* ÉTUDES */
+  '/etudes':                   'Études & Conception',
+  '/recolement':               'Récolement Numérique',
+  '/mise-en-service':          'Mise en Service',
+  '/canevas':                  'Canevas & Plans',
+  /* PLANIFICATION */
+  '/wbs':                      'Structure WBS',
+  '/gantt':                    'Planning Gantt',
+  '/risques':                  'Risques & QHSE',
+  /* EXÉCUTION */
+  '/taches':                   'Tâches & Jalons',
+  '/terrain':                  'Avancement Terrain',
+  /* FINANCES */
+  '/budget':                   'Budget & Finances',
+  '/evm':                      'Valeur Acquise (EVM)',
+  /* MARCHÉS */
+  '/fournisseurs':             'Fournisseurs',
+  '/marches':                  'Contrats & Marchés',
+  '/bordereaux':               'Bordereaux',
+  '/receptions':               'Réceptions & Paiements',
+  /* IMMOBILISATIONS */
+  '/immobilisations':          'Patrimoine & Actifs',
+  '/structuration':            'Structuration IA',
+  /* GED */
+  '/ged':                      'GED & Recherche',
+  '/courriers':                'Courriers',
+  '/workflows':                'Parapheur & Workflows',
+  /* REPORTING */
+  '/reporting':                'Reporting & Exports',
+  '/studio-rapports':          'Studio de Rapports',
+  /* ANALYTIQUE */
+  '/analytique':               'Analytique & BI',
   '/constructeur-indicateurs': 'Constructeur KPI',
-  '/dashboard-builder':        'Dashboard Builder',
-  /* M16-M17 — IA */
-  '/agents-ia':                'Centre IA',
-  '/migration':                'Swarm IA — Migration',
+  '/dashboard-builder':        'Vue Personnalisée',
+  /* IA */
+  '/agents-ia':                'Agents IA',
+  '/migration':                'Migration Numérique',
   /* LOGISTIQUE */
-  '/flotte':                   'Flotte',
+  '/flotte':                   'Flotte & Chauffeurs',
   '/odm':                      'Ordres de Mission',
   '/reservation-salle':        'Réservation Salles',
   /* RH */
   '/rh':                       'Ressources Humaines',
-  '/gestion-temps':            'Gestion des Temps',
+  '/gestion-temps':            'Temps & Activités',
   '/suivi-temps':              'Suivi des Temps',
   '/pointage':                 'Pointage',
   /* SYSTÈME */
   '/administration':           'Administration',
   '/parametrage':              'Paramétrage',
   '/cartographie':             'Cartographie SIG',
-  '/docs':                     'Documentation',
+  '/docs':                     'Documentation API',
   '/erp-interface':            'Interface ERP',
 };
 

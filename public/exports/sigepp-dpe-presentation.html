@@ -100,6 +100,7 @@
   <button onclick="show('ia',this)">Fonctionnalités IA</button>
   <button onclick="show('rbac',this)">Sécurité RBAC/ABAC</button>
   <button onclick="show('archi',this)">Architecture</button>
+  <button onclick="show('recette',this)">✓ Recette Juin 2026</button>
 </div>
 
 <!-- PAGE 1 -->
@@ -110,20 +111,20 @@
     <div class="cover-subtitle">Système Intégré de Gouvernance, d'Exécution et de Pilotage de Projet</div>
     <div class="cover-sub">Plateforme numérique de gestion du portefeuille de projets d'investissement SENELEC — DPE. Couvre l'intégralité du cycle de vie d'un projet : programmation budgétaire, planification, exécution terrain, gestion contractuelle, marchés et reporting exécutif.</div>
     <div class="cover-badges">
-      <span class="badge badge-orange">Next.js 15</span>
-      <span class="badge badge-white">77 projets simulés (DPT + DPD)</span>
-      <span class="badge badge-white">19 profils RBAC</span>
+      <span class="badge badge-orange">Next.js 15 · Auth.js v5</span>
+      <span class="badge badge-white">79 projets (Transport + Distribution)</span>
+      <span class="badge badge-white">28 rôles RBAC/ABAC</span>
       <span class="badge badge-white">50+ modules</span>
-      <span class="badge badge-white">Responsive Mobile/Tablet</span>
-      <span class="badge badge-white">Version Juin 2026</span>
+      <span class="badge badge-white">Responsive Mobile/Tablet/Desktop</span>
+      <span class="badge badge-white">✓ Recette Juin 2026</span>
     </div>
   </div>
 
   <div class="kpi-row">
-    <div class="kpi-card"><div class="kpi-val">77</div><div class="kpi-lbl">Projets dans le portefeuille</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="color:#F47920">478 Md</div><div class="kpi-lbl">Budget total FCFA</div></div>
+    <div class="kpi-card"><div class="kpi-val">79</div><div class="kpi-lbl">Projets dans le portefeuille</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#F47920">497.9 Md</div><div class="kpi-lbl">Budget total FCFA</div></div>
     <div class="kpi-card"><div class="kpi-val" style="color:#16A34A">50+</div><div class="kpi-lbl">Modules fonctionnels</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="color:#7C3AED">19</div><div class="kpi-lbl">Rôles utilisateurs</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#7C3AED">28</div><div class="kpi-lbl">Rôles utilisateurs</div></div>
   </div>
 
   <div class="stack-row">
@@ -371,7 +372,7 @@
 <!-- PAGE 5 -->
 <div class="page" id="roles">
   <div class="section-title">Profils utilisateurs & Contrôle d'accès (RBAC)</div>
-  <div class="section-sub">19 rôles métier avec contrôle granulaire par module, action et périmètre organisationnel</div>
+  <div class="section-sub">28 rôles métier avec contrôle granulaire par module, action et périmètre organisationnel</div>
   <div class="roles-grid">
 
     <div class="role-card">
@@ -566,7 +567,7 @@
     <div class="pillar">
       <div class="pillar-title">🔐 RBAC — Contrôle par Rôle</div>
       <ul class="pillar-list">
-        <li><span class="dot" style="background:#1B4F8A"></span>19 rôles prédéfinis couvrant toute la hiérarchie DPE</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>28 rôles prédéfinis couvrant toute la hiérarchie DPE</li>
         <li><span class="dot" style="background:#1B4F8A"></span>Niveaux 1→5 : DPE global → direction → cellule → agent → externe</li>
         <li><span class="dot" style="background:#F47920"></span>canGlobal = niveau ≤ 1 (DIR_DPE, PMO, ADMIN, AUDIT)</li>
         <li><span class="dot" style="background:#F47920"></span>isOperationalReadOnly : lecture seule opérationnelle</li>
@@ -720,7 +721,7 @@
     <div class="pillar">
       <div class="pillar-title">📦 Données DPE embarquées</div>
       <ul class="pillar-list">
-        <li><span class="dot" style="background:#1B4F8A"></span>77 projets initialisés (Transport + Distribution)</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>79 projets chargés (Transport + Distribution)</li>
         <li><span class="dot" style="background:#F47920"></span>1 041 localités BEST avec codes ANSD 13 chiffres</li>
         <li><span class="dot" style="background:#16A34A"></span>180+ agents DPE avec organigramme réel</li>
         <li><span class="dot" style="background:#7C3AED"></span>PROJETS_INIT figés — code système protégé</li>
@@ -744,6 +745,78 @@
   </div>
 
   <div class="footer">SIGEP-DPE · SENELEC Direction Principale Equipement · Version Juin 2026 · Confidentiel</div>
+</div>
+
+<!-- PAGE RECETTE -->
+<div class="page" id="recette">
+  <div class="section-title">Tests de recette — Juin 2026</div>
+  <div class="section-sub">Campagne complète effectuée le 21 juin 2026 — 25+ pages · 3 breakpoints · 4 profils utilisateurs</div>
+
+  <div class="archi-row">
+    <div class="pillar">
+      <div class="pillar-title">✅ Pages testées (PASS)</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#16A34A"></span>Tableau de bord — KPIs, graphiques, alertes</li>
+        <li><span class="dot" style="background:#16A34A"></span>Mon Espace (Springboard) — raccourcis, profil</li>
+        <li><span class="dot" style="background:#16A34A"></span>Portefeuille DPE — 79 projets, filtres, cartes</li>
+        <li><span class="dot" style="background:#16A34A"></span>Cockpit Projet — Gantt, EVM, jalons</li>
+        <li><span class="dot" style="background:#16A34A"></span>Budget & Finances — tableaux, graphiques</li>
+        <li><span class="dot" style="background:#16A34A"></span>Agents IA — Copilot, Groq, swarm</li>
+        <li><span class="dot" style="background:#16A34A"></span>Migration Numérique — digitalisation docs</li>
+        <li><span class="dot" style="background:#16A34A"></span>Cartographie SIG — ArcGIS, localités</li>
+        <li><span class="dot" style="background:#16A34A"></span>GED & Recherche — téléversement, indexation</li>
+        <li><span class="dot" style="background:#16A34A"></span>Reporting & Exports — PDF, Excel</li>
+        <li><span class="dot" style="background:#16A34A"></span>Administration — RBAC, org-config</li>
+        <li><span class="dot" style="background:#16A34A"></span>Interface ERP Oracle — synchronisation</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">📱 Breakpoints validés</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#1B4F8A"></span>Mobile 375px — MobileTopbar, menu drawer</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Tablette 900px — sidebar inline push (272px)</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Desktop 1280px — rail + sous-panneau complet</li>
+        <li><span class="dot" style="background:#F47920"></span>Overflow horizontal — document.body.scrollWidth = false ✓</li>
+        <li><span class="dot" style="background:#F47920"></span>Notifications bell — ouverture/fermeture sans erreur JS</li>
+        <li><span class="dot" style="background:#F47920"></span>Sous-menu sidebar — ouverture inline tablette ✓</li>
+        <li><span class="dot" style="background:#F47920"></span>MobileTopbar — titres synchronisés 50+ routes ✓</li>
+        <li><span class="dot" style="background:#16A34A"></span>0 erreur console sur toutes les pages testées</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">👤 Profils testés</div>
+      <ul class="pillar-list">
+        <li><span class="dot" style="background:#3D1A6B"></span>directeur@dpe.sn — accès complet, données globales</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>pmo@dpe.sn — portefeuille complet, PMO</li>
+        <li><span class="dot" style="background:#F47920"></span>utilisateur@dpe.sn — scope filtré (0 projets) ✓</li>
+        <li><span class="dot" style="background:#EF3340"></span>RBAC : isAdmin, canGlobal, direction codes ✓</li>
+        <li><span class="dot" style="background:#16A34A"></span>SSO Auth.js v5 — Microsoft Entra + Google</li>
+        <li><span class="dot" style="background:#16A34A"></span>Session JWT httpOnly — persistance inter-pages</li>
+        <li><span class="dot" style="background:#16A34A"></span>Rate limiting API — 60 req/min par IP actif</li>
+        <li><span class="dot" style="background:#16A34A"></span>Headers CSP / HSTS / X-Frame — tous présents</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pillar" style="margin-top:16px">
+    <div class="pillar-title">📊 Résumé chiffré — État au 21 juin 2026</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0;margin-top:8px;">
+      <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">79 projets chargés</span>
+      <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">497.9 Md FCFA budget</span>
+      <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">28 rôles RBAC/ABAC</span>
+      <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">50+ modules fonctionnels</span>
+      <span class="tech-pill" style="background:#EFF6FF;color:#1B4F8A">25+ pages testées</span>
+      <span class="tech-pill" style="background:#EFF6FF;color:#1B4F8A">3 breakpoints validés</span>
+      <span class="tech-pill" style="background:#EFF6FF;color:#1B4F8A">4 profils utilisateurs</span>
+      <span class="tech-pill" style="background:#FFF7ED;color:#F47920">0 erreur console</span>
+      <span class="tech-pill" style="background:#FFF7ED;color:#F47920">0 overflow horizontal</span>
+      <span class="tech-pill" style="background:#F5F3FF;color:#7C3AED">Build TypeScript 0 erreur</span>
+      <span class="tech-pill" style="background:#F5F3FF;color:#7C3AED">50+ routes SSR — 0 erreur</span>
+      <span class="tech-pill" style="background:#FEF2F2;color:#EF3340">Sécurité : PASS complet</span>
+    </div>
+  </div>
+
+  <div class="footer">SIGEP-DPE · SENELEC Direction Principale Equipement · Recette Juin 2026 · Confidentiel</div>
 </div>
 
 <script>
