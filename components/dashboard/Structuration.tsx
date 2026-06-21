@@ -478,9 +478,11 @@ export default function Structuration() {
           }
         }
 
-        // ── Feuilles LOT (à partir de la 4e ou toute feuille ≠ ref) ──
-        const lotSheets = SheetNames.filter((_, i) => i >= 3)
-          .filter(n => !/(liste|raci|decomp|valeur)/i.test(n));
+        // ── Feuilles LOT : exclure les feuilles récap/référence par nom ──
+        // (anciennement i >= 3 — cassait les fichiers avec seulement 3 feuilles
+        //  dont les LOT sont aux indices 1 et 2)
+        const lotSheets = SheetNames
+          .filter(n => !/(recap|synthese|sommaire|liste|raci|decomp|valeur)/i.test(n));
         // Fallback: si le fichier n'a qu'une seule feuille utile
         const sheetsToProcess = lotSheets.length > 0 ? lotSheets : [SheetNames[0]];
 
