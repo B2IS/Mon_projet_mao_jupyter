@@ -741,10 +741,10 @@ export default function GED() {
               <div style={{ fontSize: 15, fontWeight: 800, color: PURPLE, marginBottom: 4 }}>Les 4 Piliers du Cycle de Vie Documentaire</div>
               <div style={{ fontSize: 11, color: '#64748B', marginBottom: 18 }}>Norme GED DPE SENELEC — SIGEP-DPE v3.0</div>
               {/* Pipeline arrow */}
-              <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, overflowX: 'auto', minWidth: 0 }}>
                 {PILLARS.map((p, i) => (
-                  <div key={p.num} style={{ flex: 1, display: 'flex', alignItems: 'stretch' }}>
-                    <div style={{ flex: 1, background: p.color + '0E', border: `1px solid ${p.color}30`, borderRadius: i === 0 ? '10px 0 0 10px' : i === 3 ? '0 10px 10px 0' : 0, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div key={p.num} style={{ flex: '1 0 150px', display: 'flex', alignItems: 'stretch' }}>
+                    <div style={{ flex: 1, minWidth: 0, background: p.color + '0E', border: `1px solid ${p.color}30`, borderRadius: i === 0 ? '10px 0 0 10px' : i === 3 ? '0 10px 10px 0' : 0, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ width: 32, height: 32, borderRadius: 8, background: p.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>{p.icon}</div>
                         <div>
