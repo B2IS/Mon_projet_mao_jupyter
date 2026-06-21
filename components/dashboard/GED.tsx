@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   FileText, File, Image, Download, Share2, Plus, Search, Upload,
   Folder, FolderOpen, ChevronRight, Grid, List, X, CheckCircle,
@@ -14,6 +14,7 @@ import CreateWorkflowModal, { type WorkflowSource } from '@/components/ui/Create
 import { useAuth } from '@/lib/authStore';
 import { useProjectStore } from '@/lib/projectStore';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import UniversalDocViewer, { isPreviewable } from '@/components/ui/UniversalDocViewer';
 import toast from 'react-hot-toast';
 
 /** Journalise une action GED dans le journal d'audit (CCF ADM-03 · GED-03). */
@@ -550,140 +551,6 @@ function saveGedDocs(docs: Document[]) {
     const toSave = docs.map(({ fileUrl, ...meta }) => meta);
     localStorage.setItem(LS_GED, JSON.stringify(toSave));
   } catch { /* quota exceeded — ignore */ }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   WORD VIEWER — mammoth : data URL → HTML
-═══════════════════════════════════════════════════════════════════════ */
-function WordViewer({ fileUrl }: { fileUrl: string }) {
-  const [html, setHtml] = useState<string | null>(null);
-  const [err,  setErr]  = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const base64 = fileUrl.split(',')[1];
-        const binary = atob(base64);
-        const bytes  = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const mammoth = await import('mammoth');
-        const result  = await mammoth.convertToHtml({ arrayBuffer: bytes.buffer });
-        if (!cancelled) setHtml(result.value);
-      } catch (e: unknown) {
-        if (!cancelled) setErr(e instanceof Error ? e.message : 'Erreur de lecture');
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [fileUrl]);
-
-  if (err) return (
-    <div style={{ padding: 32, color: '#EF3340', fontWeight: 600, textAlign: 'center' }}>
-      Impossible de lire le document Word : {err}
-    </div>
-  );
-  if (!html) return (
-    <div style={{ padding: 32, color: '#64748B', textAlign: 'center' }}>
-      Conversion du document Word en cours…
-    </div>
-  );
-  // srcdoc évite les blob URLs éphémères et s'affiche immédiatement
-  const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; line-height: 1.7;
-           color: #1E293B; max-width: 820px; margin: 32px auto; padding: 0 24px 40px; }
-    h1,h2,h3 { color: #1B4F8A; margin-top: 1.4em; }
-    table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-    td, th { border: 1px solid #CBD5E1; padding: 6px 10px; }
-    th { background: #EFF6FF; font-weight: 700; }
-    p { margin: 0.5em 0; }
-    img { max-width: 100%; }
-  </style></head><body>${html}</body></html>`;
-  return (
-    <iframe
-      srcDoc={srcdoc}
-      title="Aperçu Word"
-      sandbox="allow-same-origin"
-      style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
-    />
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   EXCEL VIEWER — @e965/xlsx : data URL → tableaux HTML
-═══════════════════════════════════════════════════════════════════════ */
-type SheetData = { name: string; rows: (string | number)[][] };
-
-function ExcelViewer({ fileUrl }: { fileUrl: string }) {
-  const [sheets,  setSheets]  = useState<SheetData[] | null>(null);
-  const [active,  setActive]  = useState(0);
-  const [err,     setErr]     = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const base64 = fileUrl.split(',')[1];
-        const binary = atob(base64);
-        const bytes  = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const XLSX  = await import('@e965/xlsx');
-        const wb    = XLSX.read(bytes, { type: 'array' });
-        const result: SheetData[] = wb.SheetNames.map(name => ({
-          name,
-          rows: XLSX.utils.sheet_to_json<(string | number)[]>(wb.Sheets[name], { header: 1, defval: '' }),
-        }));
-        if (!cancelled) setSheets(result);
-      } catch (e: unknown) {
-        if (!cancelled) setErr(e instanceof Error ? e.message : 'Erreur de lecture');
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [fileUrl]);
-
-  if (err) return (
-    <div style={{ padding: 32, color: '#EF3340', fontWeight: 600, textAlign: 'center' }}>
-      Impossible de lire le fichier Excel : {err}
-    </div>
-  );
-  if (!sheets) return (
-    <div style={{ padding: 32, color: '#64748B', textAlign: 'center' }}>Chargement…</div>
-  );
-
-  const sheet = sheets[active];
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Onglets feuilles */}
-      {sheets.length > 1 && (
-        <div style={{ display: 'flex', gap: 0, background: '#1E293B', flexShrink: 0, overflowX: 'auto' }}>
-          {sheets.map((s, i) => (
-            <button key={s.name} onClick={() => setActive(i)} style={{
-              padding: '8px 16px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-              fontFamily: 'inherit', whiteSpace: 'nowrap',
-              background: i === active ? '#16A34A' : 'transparent',
-              color: i === active ? '#fff' : 'rgba(255,255,255,0.6)',
-              borderBottom: i === active ? '2px solid #22C55E' : '2px solid transparent',
-            }}>{s.name}</button>
-          ))}
-        </div>
-      )}
-      {/* Tableau */}
-      <div style={{ flex: 1, overflow: 'auto', background: '#fff' }}>
-        <table style={{ borderCollapse: 'collapse', fontSize: 11.5, width: '100%' }}>
-          <tbody>
-            {sheet.rows.map((row, ri) => (
-              <tr key={ri} style={{ background: ri === 0 ? '#EFF6FF' : ri % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                {(row as (string | number)[]).map((cell, ci) => (
-                  ri === 0
-                    ? <th key={ci} style={{ border: '1px solid #CBD5E1', padding: '5px 10px', textAlign: 'left', fontWeight: 700, color: '#1B4F8A', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#EFF6FF' }}>{String(cell ?? '')}</th>
-                    : <td key={ci} style={{ border: '1px solid #E2E8F0', padding: '4px 10px', color: '#1E293B', whiteSpace: 'nowrap' }}>{String(cell ?? '')}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
 }
 
 export default function GED() {
@@ -1370,12 +1237,11 @@ export default function GED() {
       {viewerDoc && (() => {
         const doc = docs.find(d => d.id === viewerDoc);
         if (!doc) return null;
-        const ext = (doc.fileExt || '').toLowerCase();
-        const isImage  = doc.type === 'Image';
-        const isPdf    = doc.type === 'PDF'   || ext === 'pdf';
-        const isWord   = doc.type === 'Word'  || ext === 'docx' || ext === 'doc';
-        const isExcel  = doc.type === 'Excel' || ext === 'xlsx' || ext === 'xls';
-        const canPreview = !!doc.fileUrl && (isImage || isPdf || isWord || isExcel);
+        const ext = (doc.fileExt || (
+          doc.type === 'PDF' ? 'pdf' : doc.type === 'Image' ? 'png' :
+          doc.type === 'Excel' ? 'xlsx' : doc.type === 'Word' ? 'docx' : ''
+        )).toLowerCase().replace(/^\./, '');
+        const canPreview = !!doc.fileUrl && isPreviewable(ext);
         return (
           <div style={{ position: 'fixed', inset: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setViewerDoc(null)}>
             <div style={{ width: '100%', maxWidth: 880, height: '88vh', background: 'var(--bg-card)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
@@ -1413,14 +1279,13 @@ export default function GED() {
                 </span>
               </div>
               <div style={{ flex: 1, overflow: 'auto', background: '#525659', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {canPreview && isImage && (
-                  <img src={doc.fileUrl} alt={doc.nom} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                {canPreview && (
+                  <UniversalDocViewer
+                    fileUrl={doc.fileUrl!}
+                    fileExt={ext}
+                    fileName={doc.nom}
+                  />
                 )}
-                {canPreview && isPdf && (
-                  <iframe src={doc.fileUrl!} title={doc.nom} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
-                )}
-                {canPreview && isWord && <WordViewer fileUrl={doc.fileUrl!} />}
-                {canPreview && isExcel && <ExcelViewer fileUrl={doc.fileUrl!} />}
                 {!canPreview && (
                   <div style={{ background: '#fff', borderRadius: 12, padding: '32px 40px', maxWidth: 520, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
