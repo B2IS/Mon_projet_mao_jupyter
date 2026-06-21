@@ -1,7 +1,7 @@
 /**
- * erpAgent.ts — Agent ERP / Codes Imputation
- * Phase 1 — Extrait codes Oracle/SAP, codes BIT/CPF, centres de coût.
- * Peuple : metadata.codeImputation · metadata.codeBIT · references ERP.
+ * erpAgent.ts — Agent Immobilisations & Actifs SIGEP-DPE
+ * Phase 1 — Reconstruit actifs, immobilisations, codes BIT/CPF, centres de coût.
+ * Étape 13 du Swarm SIGEP : Reconstruction des Immobilisations.
  */
 
 import type {
@@ -45,14 +45,15 @@ export async function runERPAgent(
 
   const erpFiles = files.filter(f =>
     ['xlsx', 'xls', 'csv'].includes(f.ext.toLowerCase()) ||
-    f.name.toLowerCase().includes('oracle') ||
+    f.name.toLowerCase().includes('immo') ||
     f.name.toLowerCase().includes('erp') ||
-    f.name.toLowerCase().includes('imputation')
+    f.name.toLowerCase().includes('imputation') ||
+    f.name.toLowerCase().includes('actif')
   );
   const filesUsed = erpFiles.map(f => f.name);
 
   if (erpFiles.length === 0) {
-    warnings.push('Aucun fichier ERP/Oracle détecté — codes générés par heuristique selon type projet.');
+    warnings.push('Aucun fichier immobilisations détecté — codes générés par heuristique selon type projet.');
   }
 
   const cat = detectCategory(ctx);
@@ -75,9 +76,9 @@ export async function runERPAgent(
       codeBIT: bit.code,
       codesCPF: [bit.cpf],
       referencesOracle: [
-        `OR-${year}-DPE-${seq}`,
-        `BUD-${year}-${seq}`,
-        `ENG-${year}-${seq}`,
+        `IMMO-${year}-DPE-${seq}`,
+        `ACT-${year}-${seq}`,
+        `AMO-${year}-${seq}`,
       ],
       referencesSAP: [`SAP-${year}-${prefix}-${seq}`],
       centresCout: [

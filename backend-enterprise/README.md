@@ -1,4 +1,4 @@
-# SIGEPP-DPE — Backend Enterprise (refonte selon Master Prompt)
+# SIGEP-DPE — Backend Enterprise (refonte selon Master Prompt)
 
 Backend **NestJS / DDD / CQRS / PostgreSQL (Prisma) / Camunda 8 / Keycloak**,
 **organization-driven** : l'organisation est le référentiel maître, tous les objets
@@ -68,8 +68,8 @@ consolidé ; `pathFilter` exclut les parallèles ; héritage (projet caché ⇒ 
 - [x] Phase 5 — Pilotage : KPI sécurisés (consolidé = DPE/CSE), Risques, S&E.
 - [x] Phase 6 — Workflow : Camunda 8 (défs versionnées, instances org-scoped, candidate-groups).
 - [x] Phase 7 — AI Center : agents org-secured (RAG borné au périmètre), migration IA (HITL).
-- [~] Phase 8 — Frontend : client typé `lib/api/sigeppApi.ts` (REST + GraphQL, drapeau
-      `NEXT_PUBLIC_SIGEPP_API`) prêt ; branchement écran par écran sans régression.
+- [~] Phase 8 — Frontend : client typé `lib/api/sigepApi.ts` (REST + GraphQL, drapeau
+      `NEXT_PUBLIC_SIGEP_API`) prêt ; branchement écran par écran sans régression.
 - [x] Modules 15 & 18 — Low-Code Studio (forms/dashboards/reports) & Administration (rôles/
       modules/paramètres/délégations) ; Workflow Studio (créer/versionner/simuler).
 - [x] GraphQL BFF org-aware (code-first, `/graphql`) — livrable 7 en code réel.
@@ -80,5 +80,5 @@ consolidé ; `pathFilter` exclut les parallèles ; héritage (projet caché ⇒ 
 > bout (20 modules + schéma GraphQL généré), `npm run test:security` **7/7**. Une seule instance
 > Prisma (`PrismaModule` @Global). Démarrage réel : `docker compose up -d db` puis migrate/seed/RLS/start.
 
-> Le frontend SIGEPP-DPE actuel (Next.js) reste le produit fonctionnel et la référence
+> Le frontend SIGEP-DPE actuel (Next.js) reste le produit fonctionnel et la référence
 > UX ; il sera connecté à ce backend module par module, sans rupture.

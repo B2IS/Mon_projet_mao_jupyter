@@ -1,6 +1,6 @@
-# SIGEPP — Dossier de conception Enterprise (par étapes)
+# SIGEP — Dossier de conception Enterprise (par étapes)
 
-> **SIGEPP** (sans suffixe) — Système Intégré de Gouvernance, d'Exécution et de Pilotage des Projets
+> **SIGEP** (sans suffixe) — Système Intégré de Gouvernance, d'Exécution et de Pilotage des Projets
 > et Investissements de la **DPE / SENELEC**. Évolution Enterprise de la **V1 existante**
 > (38 pages · 20 stores · 42 composants · RBAC/ABAC/GED/ODM/BOQ/EVM/GIS/IA/Dashboards).
 > **Principe directeur : ne jamais repartir de zéro — capitaliser sur la V1.**

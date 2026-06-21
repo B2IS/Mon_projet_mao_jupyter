@@ -1,5 +1,5 @@
 /**
- * immobilisationStore.ts — Immobilisations & Amortissements SIGEPP-DPE
+ * immobilisationStore.ts — Immobilisations & Amortissements SIGEP-DPE
  * --------------------------------------------------------------------
  * Chaque immobilisation est rattachée à un PROJET (jusqu'au niveau de détail :
  * poste, transformateur, tronçon de ligne, bâtiment, véhicule, matériel…).
@@ -273,7 +273,7 @@ export const useImmobilisationStore = create<ImmoState>()(
         }));
       },
     }),
-    { name: 'sigepp-immobilisations' }
+    { name: 'sigep-immobilisations' }
   )
 );
 

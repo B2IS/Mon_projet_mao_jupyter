@@ -79,7 +79,7 @@ export default function MobileTopbar() {
   const { user } = useAuth();
   const path = usePathname();
 
-  const title = PAGE_TITLES[path] ?? 'SIGEPP-DPE';
+  const title = PAGE_TITLES[path] ?? 'SIGEP-DPE';
 
   return (
     <div className="mobile-topbar" style={{

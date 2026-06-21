@@ -24,8 +24,8 @@ const SECTIONS: { id: SidebarSectionId; label: string }[] = [
 ];
 
 const ROLE_ORDER: RoleCode[] = [
-  'DIR_DPE', 'PMO', 'CHEF_DEPT', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT', 'CONTROLEUR',
-  'CHARGE', 'CTRL_FIN', 'RESP_LOG', 'ASSISTANT', 'SECRETAIRE', 'CHAUFFEUR', 'ADMIN',
+  'DIR_DPE', 'CHEF_CELLULE', 'CHEF_DEPT', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT_SE', 'CONTROLEUR',
+  'HSE', 'RAF', 'RESP_LOG', 'ASSISTANT_DIR', 'SECRETAIRE', 'CHAUFFEUR', 'ADMIN',
 ];
 
 export default function GestionAcces() {

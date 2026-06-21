@@ -7,8 +7,9 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock, Activity, MapPin, Banknote, Building2, Gauge, Navigation, Radio, CheckCircle2, Crosshair, AlertTriangle, FileText, Printer, Plus, Check, X, ChevronDown, ChevronUp, CalendarDays, Users, UserCheck, Search, RefreshCw, Camera, Image, Sparkles, Eye } from 'lucide-react';
+import { Clock, Activity, MapPin, Banknote, Building2, Gauge, Navigation, Radio, CheckCircle2, Crosshair, AlertTriangle, FileText, Printer, Plus, Check, X, ChevronDown, ChevronUp, CalendarDays, Users, UserCheck, Search, RefreshCw, Camera, Image, Sparkles, Eye, ChevronLeft } from 'lucide-react';
 import FeuilleDeTemps from '@/components/dashboard/FeuilleDeTemps';
+import Pointage from '@/components/dashboard/Pointage';
 import {
   useTempsStore, kpis, parCategorie, parHeure, parCollaborateur, fmtDuree, repartitionTriee,
   detecterHeuresSup, parJour, parLieu, detecterIncoherences, computeModuleStats,
@@ -17,6 +18,7 @@ import {
 } from '@/lib/tempsStore';
 import { capturerPositionTerrain, pointerDepuisSite, demarrerSuiviTerrainAuto, CONTEXTE_TRANSVERSE } from '@/lib/tempsTracker';
 import { useAuth } from '@/lib/authStore';
+import { useRouter } from 'next/navigation';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
 const PURPLE = '#3D1A6B', ORANGE = '#F47920', INK = '#0F172A', MUT = '#64748B';
@@ -36,6 +38,7 @@ const STATUT_CFG: Record<StatutPresence, { label: string; c: string; bg: string;
 };
 
 export default function GestionTemps() {
+  const router = useRouter();
   const { user, isRole } = useAuth();
   const {
     entrees, seed, projetActif, setProjetActif, repartition, pingsGeo, sites,
@@ -44,13 +47,28 @@ export default function GestionTemps() {
   } = useTempsStore();
 
   // Visibilité des temps selon le rôle
-  // - RESP_LOG (UAGL) → chauffeurs, contrôleurs, assistants de projet
+  // - RESP_LOG (UAGL) → uniquement les ressources de son unité (DPD / DPT / DEP…)
   // - CHEF_PROJ → ressources dont le nPlus1 correspond à son nom
-  // - Autres managers → tout
+  // - DIRECTEUR direction → toutes les ressources de sa direction
+  // - DIR_DPE / ADMIN / CHEF_DEPT / CHEF_CELLULE → tout
   const isUAGL = isRole('RESP_LOG');
   const isChefProj = isRole('CHEF_PROJ');
-  const isToutVoir = isRole('DIR_DPE', 'CHEF_DEPT', 'PMO', 'ADMIN');
+  const isDirecteur = isRole('DIRECTEUR');
+  const isToutVoir = isRole('DIR_DPE', 'CHEF_DEPT', 'CHEF_CELLULE', 'ADMIN');
   const monNom = user ? `${user.prenom} ${user.nom}` : '';
+
+  // Extrait le code unité depuis le département de l'utilisateur (ex. DPD_DISTRIBUTION → "DPD")
+  const monUniteCode = useMemo(() => {
+    const dept = (user?.departement ?? '').toUpperCase();
+    if (dept.includes('DPD')) return 'DPD';
+    if (dept.includes('DPT')) return 'DPT';
+    if (dept.includes('DEP_PEC')) return 'DPEC';
+    if (dept.includes('DEP_PER')) return 'DPER';
+    if (dept.includes('DEP')) return 'DEP';
+    if (dept.includes('DIT')) return 'DIT';
+    if (dept.includes('DGC')) return 'DGC';
+    return '';
+  }, [user?.departement]);
 
   const fonctionUAGL = (f: string) => {
     const fl = f.toLowerCase();
@@ -59,10 +77,20 @@ export default function GestionTemps() {
 
   const ressourcesVisibles = useMemo(() => {
     if (isToutVoir) return ressourcesUAGL;
-    if (isUAGL) return ressourcesUAGL.filter(r => fonctionUAGL(r.fonction));
+    // RESP_LOG : seulement les ressources de son unité — deny by default si unité non résolue
+    if (isUAGL) {
+      if (!monUniteCode) return []; // périmètre non résolu → accès vide par sécurité
+      const byFonction = ressourcesUAGL.filter(r => fonctionUAGL(r.fonction));
+      return byFonction.filter(r => r.fonction.toUpperCase().includes(monUniteCode));
+    }
+    // DIRECTEUR direction : toutes les ressources de sa direction
+    if (isDirecteur) {
+      const dir = (user?.direction ?? '').toUpperCase();
+      return ressourcesUAGL.filter(r => r.direction.toUpperCase() === dir || dir === 'DER');
+    }
     if (isChefProj) return ressourcesUAGL.filter(r => r.nPlus1 === monNom);
     return ressourcesUAGL;
-  }, [ressourcesUAGL, isToutVoir, isUAGL, isChefProj, monNom]);
+  }, [ressourcesUAGL, isToutVoir, isUAGL, isChefProj, isDirecteur, monNom, monUniteCode, user?.direction]);
 
   // ── Photo terrain (chauffeurs & agents) ──────────────────────────────────
   const [photoModal, setPhotoModal] = useState<string | null>(null); // ressource.id
@@ -129,12 +157,18 @@ export default function GestionTemps() {
   }, [sites]);
   const [geoMsg, setGeoMsg] = useState<string>('');
   const [busy, setBusy] = useState(false);
-  const [vue, setVue] = useState<'feuille' | 'productivite' | 'analyse'>('feuille');
+  const [vue, setVue] = useState<'feuille' | 'productivite' | 'analyse' | 'bulletins'>('feuille');
   const [subVue, setSubVue] = useState<'equipe' | 'moi'>('equipe');
   const [filtreSearch, setFiltreSearch] = useState('');
   const [filtreProjet, setFiltreProjet] = useState('');
   const [filtreRegion, setFiltreRegion] = useState('');
   const [filtreStatut, setFiltreStatut] = useState<StatutPresence | ''>('');
+
+  // Réinitialise les filtres à chaque changement de vue principale
+  useEffect(() => {
+    setFiltreSearch(''); setFiltreProjet(''); setFiltreRegion(''); setFiltreStatut('');
+    setSubVue('equipe');
+  }, [vue]);
   // Suivi terrain automatique (GPS continu) — façon RescueTime côté terrain.
   const [autoTerrain, setAutoTerrain] = useState(false);
   const stopAutoRef = React.useRef<null | (() => void)>(null);
@@ -179,10 +213,15 @@ export default function GestionTemps() {
     return list;
   }, [ressourcesVisibles, filtreSearch, filtreProjet, filtreRegion, filtreStatut]);
 
+  const isChauffeur = isRole('CHAUFFEUR');
+
   return (
-    <div style={{ padding: 20, maxWidth: 1320, margin: '0 auto', width: '100%' }}>
+    <div style={{ padding: 20, maxWidth: 1320, margin: '0 auto', width: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}>
       {/* En-tête */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+          <ChevronLeft size={13} /> Retour
+        </button>
         <div style={{ width: 42, height: 42, borderRadius: 11, background: `${PURPLE}14`, display: 'grid', placeItems: 'center' }}>
           <Clock size={22} style={{ color: PURPLE }} />
         </div>
@@ -198,21 +237,22 @@ export default function GestionTemps() {
         </span>
       </div>
 
-      {/* Onglets : Feuille de temps (timesheet) | Productivité & terrain */}
-      <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${BORDER}`, marginBottom: 18 }}>
+      {/* Onglets — CHAUFFEUR : feuille de temps uniquement */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${BORDER}`, marginBottom: 18, overflowX: 'auto', flexWrap: 'nowrap' }}>
         {([
-          { id: 'feuille' as const,      label: 'Feuille de temps',       icon: <CalendarDays size={14} /> },
-          { id: 'productivite' as const, label: 'Suivi & Productivite',  icon: <Users size={14} /> },
-          { id: 'analyse' as const,      label: 'Analyse Détaillée',      icon: <Activity size={14} /> },
-        ]).map(t => (
+          { id: 'feuille' as const,      label: 'Feuille de temps',      icon: <CalendarDays size={14} />, restricted: false },
+          { id: 'productivite' as const, label: 'Suivi & Productivité',  icon: <Users size={14} />,        restricted: true },
+          { id: 'analyse' as const,      label: 'Analyse Détaillée',      icon: <Activity size={14} />,    restricted: true },
+          { id: 'bulletins' as const,    label: 'Bulletins Heures Sup.', icon: <Banknote size={14} />,    restricted: true },
+        ]).filter(t => !isChauffeur || !t.restricted).map(t => (
           <button key={t.id} onClick={() => setVue(t.id)}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px',
               border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: vue === t.id ? 700 : 500,
+              fontSize: 13, fontWeight: vue === t.id ? 700 : 500, whiteSpace: 'nowrap',
               color: vue === t.id ? ORANGE : '#64748B',
               borderBottom: vue === t.id ? `2px solid ${ORANGE}` : '2px solid transparent',
-              marginBottom: -1,
+              marginBottom: -1, flexShrink: 0,
             }}>
             {t.icon} {t.label}
           </button>
@@ -220,6 +260,8 @@ export default function GestionTemps() {
       </div>
 
       {vue === 'feuille' && <FeuilleDeTemps />}
+
+      {vue === 'bulletins' && <Pointage />}
 
       {vue === 'productivite' && <>
 
@@ -981,15 +1023,15 @@ export default function GestionTemps() {
             {/* Activité bureau — modules utilisés */}
             <div style={card}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Activity size={14} color={ORANGE} /> Activité bureau — Modules SIGEPP-DPE
+                <Activity size={14} color={ORANGE} /> Activité bureau — Modules SIGEP-DPE
                 <span style={{ fontSize: 10, color: MUT, fontWeight: 400 }}>RescueTime-style</span>
               </div>
               {(() => {
                 const stored = typeof window !== 'undefined'
-                  ? JSON.parse(localStorage.getItem('sigepp_module_activity') ?? '{}') as Record<string, { duree: number; ts: number; visites: number }>
+                  ? JSON.parse(localStorage.getItem('sigep_module_activity') ?? '{}') as Record<string, { duree: number; ts: number; visites: number }>
                   : {};
                 const mods = computeModuleStats(stored);
-                if (mods.length === 0) return <div style={{ textAlign: 'center', padding: '16px 0', color: MUT, fontSize: 12 }}>Activité bureau non encore enregistrée — naviguez dans SIGEPP-DPE pour commencer.</div>;
+                if (mods.length === 0) return <div style={{ textAlign: 'center', padding: '16px 0', color: MUT, fontSize: 12 }}>Activité bureau non encore enregistrée — naviguez dans SIGEP-DPE pour commencer.</div>;
                 const maxM = mods[0]?.dureeMin ?? 1;
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

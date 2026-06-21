@@ -327,7 +327,7 @@ export async function syncImmobilisationsDPEVersOracle(
   if (!res.success) return { ...res, data: undefined };
   const log: SyncLog = {
     id: res.data!.syncId,
-    systemeSource: 'SIGEPP',
+    systemeSource: 'SIGEP',
     systemeCible: 'ORACLE_R12',
     typeOperation: 'PUSH',
     entite: 'IMMOBILISATIONS',

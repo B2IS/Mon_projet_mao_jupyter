@@ -248,7 +248,7 @@ export function responsableUnite(unite: string): typeof PERSONNEL_DPE[0] | undef
   return PERSONNEL_DPE.find(p => p.direction === unite && (p.fonction === 'Directeur' || p.fonction === 'Chef de Département' || p.fonction === 'rang Directeur'));
 }
 
-/** Mapping Poste occupé + Fonction → Rôle SIGEPP (basé sur le fichier RH réel)
+/** Mapping Poste occupé + Fonction → Rôle SIGEP (basé sur le fichier RH réel)
  *  Lecture DYNAMIQUE via orgConfigStore — modifiable sans recompilation
  */
 export function posteToRole(fonction: string, poste: string, direction: string): string {
@@ -268,85 +268,108 @@ export function posteToRole(fonction: string, poste: string, direction: string):
   } catch { /* SSR / cycle → fallback statique */ }
 
   // ─── 2. LOGIQUE STATIQUE (fallback) ─────────────────────────────────────
-  // 1. DIRECTEURS
+  // Mapping aligné sur les postes réels du fichier personnel DPE (203 agents)
+
+  // 1. DIRECTION GÉNÉRALE
   if (p.includes('directeur principal')) return 'DIR_DPE';
-  if (p.includes('directeur genie civil')) return 'DIR_DPE';
-  if (p.includes('directeur innovation technologique')) return 'DIR_DPE';
+  if (p.includes('directeur genie civil')) return 'DIRECTEUR';
+  if (p.includes('directeur innovation technologique')) return 'DIRECTEUR';
+  if (p.includes('directeur equipement production') || (p.includes('directeur') && d === 'DEP')) return 'DIRECTEUR';
 
-  // 2. PMO / COORDONNATEURS / CHEFS DE CELLULE
-  if (p.includes('coordonnateur des programmes')) return 'PMO';
-  if (p.includes('coordonnateur administration et budget')) return 'PMO';
-  if (p.includes('coordonnateur compact')) return 'PMO';
-  if (p.includes('chef de cellule')) return 'PMO';
-  if (p.includes('responsable suivi et evaluation') && d === 'CC26') return 'PMO';
-  if (p.includes('conseiller technique superviseur')) return 'EXPERT';
-  if (p.includes('conseiller technique') && d.includes('EM')) return 'PMO';
+  // 2. COORDINATEURS DE PROGRAMME
+  if (p.includes('coordonnateur des programmes')) return 'COORDINATEUR';
+  if (p.includes('coordonnateur compact') || p.includes('coordonnateur administration et budget')) return 'COORDINATEUR';
 
-  // 3. CHEFS DE DÉPARTEMENT / SERVICE / UNITÉ
+  // 3. CONSEILLERS TECHNIQUES
+  if (p.includes('conseiller technique')) return 'CONSEILLER';
+
+  // 4. CHEFS DE CELLULE
+  if (p.includes('chef de cellule')) return 'CHEF_CELLULE';
+  if (p.includes('responsable suivi et evaluation') && d === 'CC26') return 'CHEF_CELLULE';
+
+  // 5. CHEFS DE DÉPARTEMENT / SERVICE / UNITÉ TECHNIQUE
   if (p.includes('chef departement') || p.includes('chef de departement')) return 'CHEF_DEPT';
   if (p.includes('chef de service') && !p.includes('chef de projet')) return 'CHEF_DEPT';
   if (p.includes('chef service') && !p.includes('chef de projet')) return 'CHEF_DEPT';
+  // Chef Unité Gestion Immos → IMMO ; Chef Unité Carto/SIG → SIG ; autres → CHEF_DEPT
+  if (p.includes('chef unite gestion des immo') || p.includes('chef unite gestion immo')) return 'IMMO';
+  if (p.includes('chef unite') && (p.includes('carto') || p.includes('sig') || p.includes('dessin') || p.includes('architecture'))) return 'SIG';
   if (p.includes('chef unite')) return 'CHEF_DEPT';
-  if (p.includes('chef uagl')) return 'RESP_LOG';
-  if (p.includes('chef de groupe logistique')) return 'RESP_LOG';
 
-  // 4. ASSISTANT CHEF DE PROJET (= Contrôleur projet)
+  // 6. LOGISTIQUE
+  if (p.includes('chef uagl') || p.includes('chef de groupe logistique')) return 'RESP_LOG';
+
+  // 7. CHEFS DE PROJET
   if (p.includes('assistant chef de projet')) return 'CONTROLEUR';
-
-  // 5. CHEFS DE PROJET
   if (p.includes('chef de projet')) return 'CHEF_PROJ';
 
-  // 6. EXPERTS
-  if (p.includes('expert')) return 'EXPERT';
+  // 8. EXPERTS
+  if (p.includes('expert suivi evaluation') || p.includes('expert en performances environnement') || p.includes('responsable suivi evaluation') || p.includes('responsable suivi et evaluation')) return 'EXPERT_SE';
+  if (p.includes('expert en gestion de projet') || p.includes('expert gestion de projet')) return 'EXPERT_PMO';
+  if (p.includes('expert')) return 'EXPERT_SE';
 
-  // 7. INGÉNIEURS / ÉTUDES
+  // 9. INGÉNIEURS — sous-types
+  if (p.includes('ingenieur travaux')) return 'INGENIEUR';
   if (p.includes('ingenieur')) return 'INGENIEUR';
-  if (p.includes('dessinateur')) return 'INGENIEUR';
-  if (p.includes('cartographe')) return 'INGENIEUR';
-  if (p.includes('geomaticien') || p.includes('geomaticienne')) return 'INGENIEUR';
 
-  // 8. CONTRÔLEURS (inclut Assistant Chef de Projet)
+  // 10. SIG / CARTOGRAPHIE / GÉOMATIQUE
+  if (p.includes('cartographe') || p.includes('geomaticien') || p.includes('geomaticienne')) return 'SIG';
+  if (p.includes('assistant carto') || p.includes('assistant topographe')) return 'SIG';
+
+  // 11. DESSINATEURS
+  if (p.includes('dessinateur') || p.includes('projeteur')) return 'DESSINATEUR';
+
+  // 12. CONTRÔLEURS TERRAIN
   if (p.includes('controleur')) return 'CONTROLEUR';
-  if (p.includes('assistant chef de projet')) return 'CONTROLEUR';
 
-  // 9. CHARGÉS
-  if (p.includes('charge') || p.includes('chargee') || p.includes('chagee')) return 'CHARGE';
+  // 13. HSE / SOCIAL / ENVIRONNEMENT
+  if (p.includes('charge en suivi social') || p.includes('chargee en suivi social') || p.includes('charge en suivi environnemental') || p.includes('chargee en suivi environnemental')) return 'HSE';
+  if (p.includes('experte hse') || p.includes('expert hse') || p.includes('expert esah') || p.includes('expert social') || p.includes('chargee genre') || p.includes('charge genre')) return 'HSE';
+  if (p.includes('charge') || p.includes('chargee') || p.includes('chagee')) return 'HSE';
 
-  // 10. FINANCE
-  if (p.includes('responsable audit')) return 'CTRL_FIN';
-  if (p.includes('comptable')) return 'CTRL_FIN';
+  // 14. FINANCES & MARCHÉS
+  if (p.includes('responsable administratif et financier') || p.includes('responsable adm') && p.includes('financier')) return 'RAF';
+  if (p.includes('comptable')) return 'COMPTABLE';
+  if (p.includes('responsable passation des marches') || p.includes('responsable passation')) return 'MARCHES';
+  if (p.includes('spm') || (p.includes('suivi et gestion des contrats'))) return 'SPM';
+  if (p.includes('responsable audit')) return 'AUDIT';
 
-  // 11. RESPONSABLE LOGISTIQUE / ADMIN
-  if (p.includes('responsable administratif et financier')) return 'RESP_LOG';
-  if (p.includes('responsable passation')) return 'RESP_LOG';
+  // 15. COMMUNICATION
+  if (p.includes('communication') || p.includes('chargee de communication')) return 'COMMUNICATION';
 
-  // 12. ASSISTANTS
-  if (p.includes('assistant') || p.includes('assistante')) return 'ASSISTANT';
-  if (p.includes('aide archiviste')) return 'ASSISTANT';
+  // 16. IMMOBILISATIONS
+  if (p.includes('assistant immo') || p.includes('assistante immo')) return 'IMMO';
 
-  // 13. SECRÉTAIRES
+  // 17. ASSISTANTS — sous-types selon le contexte
+  if (p.includes('assistant de direction') || p.includes('assistante de direction')) return 'ASSISTANT_DIR';
+  if (p.includes('assistant projet') || p.includes('assistante projet') || p.includes('assistant pm') || p.includes('assistant gestion de projet')) return 'ASSISTANT_PROJ';
+  if (p.includes('assistant administratif') || p.includes('assistante administratif') || p.includes('assistant et budget') || p.includes('coordonnateur administration')) return 'ASSISTANT_ADMIN';
+  if (p.includes('assistant') || p.includes('assistante')) return 'ASSISTANT_DIR';
+  if (p.includes('aide archiviste')) return 'SECRETAIRE';
+
+  // 18. SECRÉTAIRES
   if (p.includes('secretaire')) return 'SECRETAIRE';
 
-  // 14. CHAUFFEURS
+  // 19. CHAUFFEURS
   if (p.includes('chauffeur')) return 'CHAUFFEUR';
 
-  // FALLBACK sur fonction
+  // ── FALLBACK sur fonction ──────────────────────────────────────────────────
   if (f.includes('directeur') && !f.includes('rang')) return 'DIR_DPE';
   if (f.includes('chef de departement') || f.includes('chef departement')) return 'CHEF_DEPT';
   if (f.includes('assistant chef de projet')) return 'CONTROLEUR';
   if ((f.includes('chef de projet') && !f.includes('assistant')) || f.includes('chef de service')) return 'CHEF_PROJ';
   if (f.includes('ingenieur')) return 'INGENIEUR';
-  if (f.includes('expert')) return 'EXPERT';
+  if (f.includes('expert')) return 'EXPERT_SE';
   if (f.includes('controleur')) return 'CONTROLEUR';
-  if (f.includes('charge')) return 'CHARGE';
-  if (f.includes('comptable')) return 'CTRL_FIN';
-  if (f.includes('responsable')) return 'RESP_LOG';
-  if (f.includes('assistant') || f.includes('assistante')) return 'ASSISTANT';
+  if (f.includes('charge')) return 'HSE';
+  if (f.includes('comptable')) return 'COMPTABLE';
+  if (f.includes('responsable')) return 'RAF';
+  if (f.includes('assistant') || f.includes('assistante')) return 'ASSISTANT_DIR';
   if (f.includes('secretaire')) return 'SECRETAIRE';
   if (f.includes('chauffeur')) return 'CHAUFFEUR';
-  if (f.includes('dessinateur') || f.includes('cartographe') || f.includes('geomaticien') || f.includes('geomaticienne')) return 'INGENIEUR';
+  if (f.includes('dessinateur') || f.includes('cartographe') || f.includes('geomaticien') || f.includes('geomaticienne')) return 'SIG';
 
-  return 'ASSISTANT';
+  return 'ASSISTANT_DIR';
 }
 
 /** Extrait le département du poste (ex: "/ DPER" → "DEP_PER") */
@@ -384,7 +407,7 @@ const AVATAR_COLORS = [
   '#6366F1', '#F59E0B', '#EF4444', '#14B8A6', '#A855F7',
 ];
 
-/** Transforme un agent du fichier personnel en compte de test SIGEPP */
+/** Transforme un agent du fichier personnel en compte de test SIGEP */
 export function agentToTestUser(agent: typeof PERSONNEL_DPE[0], index: number): {
   id: string; nom: string; prenom: string; email: string; password: string;
   role: string; direction: string; departement?: string; cellule?: string;

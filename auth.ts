@@ -1,11 +1,10 @@
 /**
- * auth.ts — Configuration NextAuth v5 (Auth.js) SIGEPP-DPE
- * Flow : Utilisateur → Microsoft Entra ID / Google → Auth.js → Supabase PostgreSQL
+ * auth.ts — Configuration NextAuth v5 (Auth.js) SIGEP-DPE
+ * Flow : Utilisateur → Microsoft Entra ID → Auth.js → Supabase PostgreSQL
  *
  * Providers :
  *   1. Credentials  — email/password (comptes demo + domaines SENELEC)
  *   2. Microsoft Entra ID — SSO entreprise (Azure AD / M365)
- *   3. Google       — SSO Google Workspace
  *
  * Session strategy : JWT (pas de DB requise pour les sessions)
  * Supabase : stockage profils RBAC des utilisateurs SSO
@@ -13,13 +12,12 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id';
-import Google from 'next-auth/providers/google';
 import authConfig from './auth.config';
 import { findUser, TEST_USERS } from '@/lib/usersDb';
 import { getUserRoleFromSupabase, upsertSupabaseUser } from '@/lib/supabase';
 import type { RoleCode } from '@/lib/authTypes';
 
-const TRUSTED_DOMAINS = ['@dpe.sn', '@senelec.sn', '@enerticai.com'];
+const TRUSTED_DOMAINS = ['@dpe.sn', '@senelec.sn'];
 
 function isTrustedEmail(email: string): boolean {
   const e = email.toLowerCase();
@@ -28,7 +26,7 @@ function isTrustedEmail(email: string): boolean {
 
 /** Résout le profil RBAC pour un email :
  *  1. usersDb (comptes demo/officiels)
- *  2. Supabase sigepp_users (comptes SSO onboardés)
+ *  2. Supabase sigep_users (comptes SSO onboardés)
  *  3. Fallback domaine de confiance → INGENIEUR
  */
 async function resolveProfile(email: string) {
@@ -144,14 +142,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
 
-    // ── 3. Google Workspace ───────────────────────────────────────────────────
-    Google({
-      clientId:     process.env.GOOGLE_CLIENT_ID     ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-      authorization: {
-        params: { scope: 'openid profile email', prompt: 'select_account' },
-      },
-    }),
   ],
 
   session: { strategy: 'jwt' },

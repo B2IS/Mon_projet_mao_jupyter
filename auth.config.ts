@@ -7,6 +7,8 @@ import type { NextAuthConfig } from 'next-auth';
 import { canAccess } from '@/lib/authTypes';
 import type { RoleCode } from '@/lib/authTypes';
 
+// /api/* déclaré public ici : le middleware.ts a sa propre isPublicPath() qui
+// bloque les routes API non-auth. Chaque handler a requireApiAuth() en défense profonde.
 const PUBLIC_PREFIXES = ['/login', '/api/', '/_next/', '/favicon', '/icons/', '/images/'];
 
 function isPublicPath(pathname: string): boolean {
@@ -17,9 +19,13 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('[SIGEP] AUTH_SECRET must be set in production — JWT forgery risk.');
+}
+
 export default {
   providers: [], // Les providers OAuth/Credentials sont dans auth.ts
-  secret: process.env.AUTH_SECRET ?? 'sigepp-authjs-dev-secret-change-in-prod',
+  secret: process.env.AUTH_SECRET ?? 'sigep-authjs-dev-secret-change-in-prod',
   session: { strategy: 'jwt' as const },
   pages: { signIn: '/login' },
   callbacks: {

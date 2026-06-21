@@ -27,8 +27,8 @@ export async function runSuiviEvalAgent(
     { code: 'ICP-05', libelle: 'Postes HTA/BT installés', unite: 'unités', valeurCible: 0, frequence: 'Mensuel', source: 'Réception chantier' },
     { code: 'ICP-06', libelle: 'Délai moyen de paiement fournisseur', unite: 'jours', valeurCible: 45, frequence: 'Mensuel', source: 'Comptabilité' },
     { code: 'ICP-07', libelle: 'Nombre d\'incidents HSE', unite: 'incidents', valeurCible: 0, frequence: 'Mensuel', source: 'Rapport HSE terrain' },
-    { code: 'ICP-08', libelle: 'CPI (Indice performance coûts)', unite: 'ratio', valeurCible: 1.0, frequence: 'Mensuel', source: 'EVM SIGEPP-DPE' },
-    { code: 'ICP-09', libelle: 'SPI (Indice performance délais)', unite: 'ratio', valeurCible: 1.0, frequence: 'Mensuel', source: 'EVM SIGEPP-DPE' },
+    { code: 'ICP-08', libelle: 'CPI (Indice performance coûts)', unite: 'ratio', valeurCible: 1.0, frequence: 'Mensuel', source: 'EVM SIGEP-DPE' },
+    { code: 'ICP-09', libelle: 'SPI (Indice performance délais)', unite: 'ratio', valeurCible: 1.0, frequence: 'Mensuel', source: 'EVM SIGEP-DPE' },
     { code: 'ICP-10', libelle: 'Taux de résolution des anomalies terrain', unite: '%', valeurCible: 90, frequence: 'Mensuel', source: 'Suivi-évaluation' },
   ];
 

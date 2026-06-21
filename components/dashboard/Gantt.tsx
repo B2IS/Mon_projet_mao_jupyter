@@ -2,12 +2,13 @@
 
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
-  Plus, ChevronRight, ChevronDown, X, Flag, AlertTriangle,
+  Plus, ChevronRight, ChevronDown, ChevronLeft, X, Flag, AlertTriangle,
   Users, BarChart3, FileText, Download, Calendar, GanttChart,
   Wrench, Trash2, Edit3, Zap,
   CheckCircle2, Circle, Clock, ChevronUp, Bot, Shuffle, TriangleAlert, Info, Search,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 import {
   useProjectStore, DOMAINE_CFG,
   type TacheWBS, type Projet, type Ressource, type Baseline,
@@ -664,6 +665,7 @@ function ProgressPopup({ task, top, onSave, onClose }: {
    MAIN GANTT COMPONENT
 ══════════════════════════════════════════════════════════════════════════════ */
 export default function Gantt() {
+  const router = useRouter();
   const { user: ganttUser } = useAuth();
   const ganttReadOnly = isOperationalReadOnly(ganttUser);
   const store = readOnlyGuard(useProjectStore(), ganttReadOnly);
@@ -1121,13 +1123,16 @@ export default function Gantt() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F0F2F5', fontFamily: 'inherit' }}>
 
       {/* ── PAGE HEADER ── */}
-      <div style={{ padding: '12px 20px', background: `linear-gradient(135deg, ${NAVY} 0%, #2D1167 100%)`, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+      <div style={{ padding: '12px 20px', background: `linear-gradient(135deg, ${NAVY} 0%, #2D1167 100%)`, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+          <ChevronLeft size={13} /> Retour
+        </button>
         <GanttChart size={20} color="#C4B5FD" />
         <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing:'-.01em' }}>Planning Gantt</span>
 
         {/* Project selector */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ minWidth: 260, maxWidth: 360 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center', flex: '1 1 auto', minWidth: 0, justifyContent: 'flex-end' }}>
+          <div style={{ minWidth: 0, flex: '1 1 200px', maxWidth: 360 }}>
             <SearchableSelect
               value={selectedProjetId}
               onChange={v => { setSelectedProjetId(v); setCollapsedIds(new Set()); setSelectedId(null); }}

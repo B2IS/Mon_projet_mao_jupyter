@@ -40,6 +40,15 @@ const TITLES: Record<string, { labelKey: TranslationKey; subKey: TranslationKey 
   '/ged':               { labelKey: 'route.ged.label',               subKey: 'route.ged.sub' },
   '/agents-ia':         { labelKey: 'route.agentsIa.label',          subKey: 'route.agentsIa.sub' },
   '/dashboard-builder': { labelKey: 'route.dashboardBuilder.label',  subKey: 'route.dashboardBuilder.sub' },
+  '/springboard':       { labelKey: 'route.springboard.label',       subKey: 'route.springboard.sub' },
+  '/gestion-temps':     { labelKey: 'route.gestionTemps.label',      subKey: 'route.gestionTemps.sub' },
+  '/etudes':            { labelKey: 'route.etudes.label',            subKey: 'route.etudes.sub' },
+  '/recolement':        { labelKey: 'route.recolement.label',        subKey: 'route.recolement.sub' },
+  '/mise-en-service':   { labelKey: 'route.miseEnService.label',     subKey: 'route.miseEnService.sub' },
+  '/gestion-projet':    { labelKey: 'route.gestionProjet.label',     subKey: 'route.gestionProjet.sub' },
+  '/migration':         { labelKey: 'route.migration.label',         subKey: 'route.migration.sub' },
+  '/immobilisations':   { labelKey: 'route.immobilisations.label',   subKey: 'route.immobilisations.sub' },
+  '/structuration':     { labelKey: 'route.structuration.label',     subKey: 'route.structuration.sub' },
 };
 
 /* Tenant selector */
@@ -124,11 +133,11 @@ export default function Header() {
   const [alertesSeen, setAlertesSeen] = useState(false);
   const [parapheurSeen, setParapheurSeen] = useState(0);
   useEffect(() => {
-    try { const v = JSON.parse(localStorage.getItem('sigepp_badge_seen') || '{}'); setAlertesSeen(!!v.alertes); setParapheurSeen(Number(v.parapheur) || 0); } catch { /* ignore */ }
+    try { const v = JSON.parse(localStorage.getItem('sigep_badge_seen') || '{}'); setAlertesSeen(!!v.alertes); setParapheurSeen(Number(v.parapheur) || 0); } catch { /* ignore */ }
   }, []);
   const persistSeen = (patch: { alertes?: boolean; parapheur?: number }) => {
     const v = { alertes: alertesSeen, parapheur: parapheurSeen, ...patch };
-    try { localStorage.setItem('sigepp_badge_seen', JSON.stringify(v)); } catch { /* ignore */ }
+    try { localStorage.setItem('sigep_badge_seen', JSON.stringify(v)); } catch { /* ignore */ }
   };
   // Parapheur : nombre de dossiers réellement EN ATTENTE (créés via courrier/GED/etc.).
   const pendingParapheur = useParapheurStore(s => s.dossiers.filter(d => d.statut === 'en_attente').length);
@@ -141,18 +150,23 @@ export default function Header() {
     const willOpen = !showNotifs;
     setShowNotifs(willOpen);
     if (willOpen) {
+      const vw = window.innerWidth;
+      const panelW = Math.min(380, vw - 16);
       if (bellRef.current) {
         const rect = bellRef.current.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const panelW = Math.min(380, vw - 16);
         const preferredRight = vw - rect.right;
         const maxRight = vw - panelW - 8;
         const right = Math.min(Math.max(4, preferredRight), maxRight);
         setBellPos({ top: rect.bottom + 6, right, width: panelW });
+      } else {
+        // fallback: position near top-right
+        setBellPos({ top: 70, right: 8, width: panelW });
       }
       markAllInboxRead(user?.email);
       setAlertesSeen(true);
       persistSeen({ alertes: true });
+    } else {
+      setBellPos(null);
     }
   };
   // Clic parapheur → on note le niveau vu (la pastille ne revient que sur un nouveau dossier).
@@ -382,12 +396,15 @@ export default function Header() {
         </button>
 
         {/* Notification panel — position:fixed pour échapper au stacking context du header */}
-        {showNotifs && bellPos && (
+        {showNotifs && (
           <div
             ref={panelRef}
             style={{
-              position: 'fixed', top: bellPos.top, right: bellPos.right,
-              width: bellPos.width, maxHeight: 520, overflowY: 'auto',
+              position: 'fixed',
+              top: bellPos?.top ?? 70,
+              right: bellPos?.right ?? 8,
+              width: bellPos?.width ?? 380,
+              maxHeight: 520, overflowY: 'auto',
               background: '#FFF', borderRadius: 10,
               boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
               border: '1px solid #E5E7EB',

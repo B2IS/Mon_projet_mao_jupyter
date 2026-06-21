@@ -1,5 +1,5 @@
 /**
- * AIMultimodalChat.tsx — Chat IA multimodal pour SIGEPP-DPE
+ * AIMultimodalChat.tsx — Chat IA multimodal pour SIGEP-DPE
  * Support : texte, images, documents (PDF/Word/Excel), audio
  * Affichage riche : Markdown, tableaux, code, streaming
  */
@@ -13,7 +13,7 @@ import {
   ChevronDown, Settings, Loader2, X,
   BarChart3, FileSearch, ClipboardList, MessageSquare,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { sendMessage, streamMessage, SYSTEM_PROMPTS, generateReport } from '@/lib/ai/aiEngine';
 import { analyzeDocument } from '@/lib/docText';
 import type { AIMessage, AIAttachment, AIConversation, AIGenerationOptions, AIModel } from '@/lib/ai/aiEngine';
@@ -551,7 +551,7 @@ export default function AIMultimodalChat() {
               <Bot size={48} style={{ opacity: 0.3 }} />
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
-                  SIGEPP-IA Multimodal
+                  SIGEP-IA Multimodal
                 </div>
                 <div style={{ fontSize: 12, maxWidth: 400, lineHeight: 1.6 }}>
                   Envoyez un message, uploadez un document, ou demandez un rapport complet.

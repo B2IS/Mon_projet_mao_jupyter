@@ -91,6 +91,6 @@ export const useMeetingRoom = create<MeetingRoomState>()(
       refuser: (id, par, motif) => set(st => ({ reservations: st.reservations.map(r => r.id === id ? { ...r, statut: 'refusee', traitePar: par, motifRefus: motif } : r) })),
       annuler: (id) => set(st => ({ reservations: st.reservations.map(r => r.id === id ? { ...r, statut: 'annulee' } : r) })),
     }),
-    { name: 'sigepp-meeting-rooms' },
+    { name: 'sigep-meeting-rooms' },
   ),
 );

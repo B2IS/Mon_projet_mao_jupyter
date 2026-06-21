@@ -36,11 +36,13 @@ export default function Pointage() {
   const store = usePointage();
   const [selId, setSelId] = useState<string>('');
   const myEmail = (user?.email ?? '').toLowerCase();
-  // CIRCUIT OFFICIEL (cf. bulletin SENELEC, signataires ligne 17) :
-  // (1) ÉTABLISSEMENT par les agents SOUS le chef de projet, SAUF l'ingénieur ;
-  // (2) VALIDATION Chef de Projet ; (3) VALIDATION Chef de Département ;
-  // (4) TRAITEMENT FINAL Service des Salaires (via UAGL).
-  const canEtablir = isRole('ASSISTANT', 'CONTROLEUR', 'SECRETAIRE', 'CHAUFFEUR', 'ADMIN'); // ≠ ingénieur, ≠ chef de projet
+  // RÈGLE SENELEC — HEURES SUPPLÉMENTAIRES :
+  // Seuls les agents NON-CADRES accèdent à ce module (RBAC authTypes.ts ROLE_ROUTES).
+  // Les cadres (ingénieurs, chefs de projet, chefs de département) sont exclus de la
+  // navigation et ne peuvent pas atteindre cette page.
+  // CIRCUIT : (1) ÉTABLISSEMENT agent non-cadre ; (2) VALIDATION Chef de Projet ;
+  //           (3) VALIDATION Chef de Département ; (4) TRAITEMENT Service des Salaires (UAGL).
+  const canEtablir = isRole('ASSISTANT_DIR', 'CONTROLEUR', 'SECRETAIRE', 'CHAUFFEUR', 'ADMIN'); // agents non-cadres uniquement
   const canValiderCP = isRole('CHEF_PROJ', 'ADMIN');
   const canValiderDept = isRole('CHEF_DEPT', 'ADMIN');
   const isUAGL = isRole('RESP_LOG', 'ADMIN');

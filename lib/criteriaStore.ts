@@ -5,7 +5,7 @@
  *  • prioritization — critères d'arbitrage / priorisation des projets (portefeuille).
  *  • supplier       — critères de notation / scoring des fournisseurs.
  *
- * Persisté dans localStorage (clé `sigepp-criteria-config`) pour survivre aux
+ * Persisté dans localStorage (clé `sigep-criteria-config`) pour survivre aux
  * recompilations et être partagé par tous les modules (ProjetsDPE, Marchés, …).
  */
 
@@ -72,7 +72,7 @@ export const useCriteriaStore = create<CriteriaState>()(
       } as Pick<CriteriaState, CritereGroup>),
     }),
     {
-      name: 'sigepp-criteria-config',
+      name: 'sigep-criteria-config',
       partialize: (state) => ({ prioritization: state.prioritization, supplier: state.supplier }),
     }
   )

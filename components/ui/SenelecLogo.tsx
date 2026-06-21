@@ -11,7 +11,7 @@ export default function SenelecLogo({ size = 64, withText = false }: { size?: nu
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <img
         src="/images/logo-senelec.svg"
-        alt="Senelec"
+        alt=""
         width={size}
         height={size * 0.817}
         style={{ display: 'block', objectFit: 'contain' }}
@@ -27,7 +27,7 @@ export default function SenelecLogo({ size = 64, withText = false }: { size?: nu
             textTransform: 'uppercase',
           }}
         >
-          SIGEPP·DPE
+          SIGEP·DPE
         </span>
       )}
     </div>

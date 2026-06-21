@@ -1,6 +1,6 @@
 'use client';
 /**
- * rapportIA.ts — Génération de commentaires IA pour les rapports SIGEPP-DPE
+ * rapportIA.ts — Génération de commentaires IA pour les rapports SIGEP-DPE
  * Utilise kimiChat() (Kimi K2 / Docker / Ollama) avec contexte expert DPE.
  * Fallback sur templates riches si aucun LLM disponible.
  */
@@ -70,13 +70,13 @@ function fallbackTemplate(section: SectionRapport, ctx?: ContexteProjet | Contex
       return `Analyse financière du portefeuille : budget total ${(pf.budgetTotal/1000).toFixed(1)} Mrd FCFA, décaissements cumulés ${(pf.decaisseTotal/1000).toFixed(1)} Mrd FCFA. La performance budgétaire globale (CPI moyen ${pf.cpiMoyen?.toFixed(2)}) ${pf.cpiMoyen >= 1 ? 'est satisfaisante' : 'nécessite des mesures de maîtrise des coûts'}.`;
 
     case 'risques':
-      return `Les risques identifiés ont été évalués selon la matrice probabilité × impact DPE. ${p?.nbRisques ? `${p.nbRisques} risques sont ouverts` : 'Plusieurs risques sont suivis'}, dont les risques critiques font l'objet de plans d'action formalisés et de revues hebdomadaires. Le registre des risques est maintenu à jour dans SIGEPP-DPE et partagé avec les bailleurs de fonds à chaque comité de pilotage.`;
+      return `Les risques identifiés ont été évalués selon la matrice probabilité × impact DPE. ${p?.nbRisques ? `${p.nbRisques} risques sont ouverts` : 'Plusieurs risques sont suivis'}, dont les risques critiques font l'objet de plans d'action formalisés et de revues hebdomadaires. Le registre des risques est maintenu à jour dans SIGEP-DPE et partagé avec les bailleurs de fonds à chaque comité de pilotage.`;
 
     case 'planning':
       return `L'analyse du planning révèle un avancement physique ${p?.avancement !== undefined ? `de ${p.avancement}%` : ''} avec ${p?.spi !== undefined ? `un SPI de ${p.spi.toFixed(2)}` : 'des performances de délais à surveiller'}. Les phases critiques font l'objet d'une surveillance renforcée. ${p?.spi !== undefined && p.spi < 0.9 ? 'Un plan de rattrapage a été élaboré pour résorber l\'écart calendaire constaté.' : 'Le planning est tenu conformément aux jalons contractuels.'}`;
 
     case 'indicateurs':
-      return `Les indicateurs de performance calculés reflètent l'état réel du portefeuille à la date de production du rapport. Ils sont issus du moteur de formules SIGEPP-DPE et validés par les chefs de projet. Ces KPIs alimentent le tableau de bord de la direction et les reportings aux bailleurs de fonds.`;
+      return `Les indicateurs de performance calculés reflètent l'état réel du portefeuille à la date de production du rapport. Ils sont issus du moteur de formules SIGEP-DPE et validés par les chefs de projet. Ces KPIs alimentent le tableau de bord de la direction et les reportings aux bailleurs de fonds.`;
 
     case 'jalons':
       return `Le suivi des jalons contractuels constitue un indicateur clé de la performance projet. Les jalons franchis attestent de l'avancement conforme aux engagements pris. Les jalons en retard ont fait l'objet d'analyses de cause et de plans de reprise formalisés présentés au comité de pilotage.`;
@@ -88,7 +88,7 @@ function fallbackTemplate(section: SectionRapport, ctx?: ContexteProjet | Contex
       return `L'analyse des temps passés par l'équipe projet montre la répartition entre activités bureau (études, coordination, reporting) et activités terrain (supervision travaux, contrôles, réceptions). La détection des incohérences permet d'assurer la fiabilité des données d'imputation de temps.`;
 
     default:
-      return `Cette section présente les informations relatives à ${section} pour la période couverte par le rapport. Les données sont extraites de SIGEPP-DPE et validées par les responsables de domaine.`;
+      return `Cette section présente les informations relatives à ${section} pour la période couverte par le rapport. Les données sont extraites de SIGEP-DPE et validées par les responsables de domaine.`;
   }
 }
 

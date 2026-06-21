@@ -1,5 +1,5 @@
 /**
- * accessEngine.ts — Moteur d'Accès Intelligent SIGEPP-DPE
+ * accessEngine.ts — Moteur d'Accès Intelligent SIGEP-DPE
  * RBAC + ABAC + Organizational Hierarchy Security
  *
  * Principe : « Chaque utilisateur ne voit que son périmètre organisationnel
@@ -52,13 +52,16 @@ export interface ProjetMinimal {
 // 1. NIVEAU HIÉRARCHIQUE (0=DPE · 1=Direction · 2=Département/Cellule · 3=Agent)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const NIVEAU_0_ROLES: RoleCode[] = ['DIR_DPE', 'ADMIN', 'AUDIT', 'PMO'];
+const NIVEAU_0_ROLES: RoleCode[] = ['DIR_DPE', 'ADMIN', 'AUDIT', 'CHEF_CELLULE'];
+// Direction-level : voient leur direction et toutes ses unités
+const NIVEAU_1_ROLES: RoleCode[] = ['DIRECTEUR', 'COORDINATEUR'];
 // Départements ET chefs de cellule (CPBM, CPADERAU, CPAMACEL, CC26) = rang département.
 // Métiers transverses rattachés au niveau département : marchés, SIG, immo, contrôle travaux, finance.
-const NIVEAU_2_ROLES: RoleCode[] = ['CHEF_DEPT', 'CTRL_FIN', 'MARCHES', 'SIG', 'IMMO', 'CONTROLEUR_TRAVAUX', 'RESP_LOG'];
+const NIVEAU_2_ROLES: RoleCode[] = ['CHEF_DEPT', 'RAF', 'MARCHES', 'SIG', 'IMMO', 'CONTROLEUR', 'RESP_LOG'];
 
 export function getNiveauHierarchique(profile: UserOrgProfile): 0 | 1 | 2 | 3 {
   if (NIVEAU_0_ROLES.includes(profile.role)) return 0;
+  if (NIVEAU_1_ROLES.includes(profile.role)) return 1;
   if (NIVEAU_2_ROLES.includes(profile.role)) return 2;
   // Tous les autres (équipe projet, assistants, secrétaires, chauffeurs, experts) = agents.
   return 3;
@@ -68,7 +71,7 @@ export function getNiveauHierarchique(profile: UserOrgProfile): 0 | 1 | 2 | 3 {
 // 2. PÉRIMÈTRE DE VISIBILITÉ (RBAC + ABAC + Hiérarchie organisationnelle)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SUPER_ROLES: RoleCode[] = ['DIR_DPE', 'ADMIN', 'PMO', 'AUDIT'];
+const SUPER_ROLES: RoleCode[] = ['DIR_DPE', 'ADMIN', 'CHEF_CELLULE', 'AUDIT'];
 
 export function computeVisibilityScope(
   profile: UserOrgProfile,
@@ -174,9 +177,9 @@ export function canPerformAction(
     case 'CREER_PROJET':
       return niveau <= 2; // NIVEAU 0, 1, 2
     case 'VALIDER_MARCHE':
-      return niveau <= 1 || user.role === 'CTRL_FIN';
+      return niveau <= 1 || user.role === 'RAF';
     case 'MODIFIER_BUDGET':
-      return niveau <= 1 || user.role === 'CTRL_FIN';
+      return niveau <= 1 || user.role === 'RAF';
     case 'SUPPRIMER_PROJET':
       return niveau <= 1;
     case 'EXPORTER_DONNEES':

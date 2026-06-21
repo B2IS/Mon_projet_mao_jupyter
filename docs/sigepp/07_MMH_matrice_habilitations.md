@@ -1,6 +1,6 @@
-# SIGEPP — Annexe : Matrice Multi-dimensionnelle d'Habilitation (MMH)
+# SIGEP — Annexe : Matrice Multi-dimensionnelle d'Habilitation (MMH)
 
-> Annexe du cahier des charges SIGEPP. La MMH **remplace la matrice RBAC plate** : les accès sont
+> Annexe du cahier des charges SIGEP. La MMH **remplace la matrice RBAC plate** : les accès sont
 > calculés en combinant **6 dimensions**. Aucun accès n'est saisi manuellement.
 
 ## 1. Les 6 dimensions de l'habilitation

@@ -99,6 +99,6 @@ export const useAttachements = create<AttachementState>()(
       valider: (id, par) => set(s => ({ attachements: s.attachements.map(a => a.id === id ? { ...a, statut: 'valide', validePar: par, historique: [...a.historique, { etape: 'Validé (chef de projet)', par, date: new Date().toISOString() }] } : a) })),
       rejeter: (id, par, motif) => set(s => ({ attachements: s.attachements.map(a => a.id === id ? { ...a, statut: 'rejete', motifRejet: motif, historique: [...a.historique, { etape: 'Rejeté', par, date: new Date().toISOString() }] } : a) })),
     }),
-    { name: 'sigepp-attachements' },
+    { name: 'sigep-attachements' },
   ),
 );

@@ -11,7 +11,7 @@
  *  2. RAD — classer automatiquement le type de document
  *  3. ICR — extraire les champs structurés selon le type détecté
  */
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { analyserDocument, formaterPourIA, type ResultatLAD } from './ladRad';
 
 export type { ResultatLAD };

@@ -62,7 +62,7 @@ const CATALOGUE: { type: SectionType; label: string; desc: string; icon: React.R
   { type: 'risques',      label: 'Risques & QHSE',           desc: 'Risques ouverts, plans d\'action, criticité',  icon: <AlertTriangle size={16} />, color: RED     },
   { type: 'decisions',    label: 'Décisions & Arbitrages',   desc: 'Journal décisions, arbitrages, dates',         icon: <Users size={16} />,         color: PURPLE  },
   { type: 'annexes',      label: 'Annexes documentaires',    desc: 'Pièces jointes, références GED',               icon: <FileText size={16} />,      color: '#64748B' },
-  { type: 'indicateurs',  label: 'Indicateurs de performance', desc: 'KPIs du constructeur d\'indicateurs SIGEPP', icon: <Activity size={16} />,      color: '#0EA5E9' },
+  { type: 'indicateurs',  label: 'Indicateurs de performance', desc: 'KPIs du constructeur d\'indicateurs SIGEP', icon: <Activity size={16} />,      color: '#0EA5E9' },
   { type: 'temps',        label: 'Suivi des temps',          desc: 'Répartition bureau/terrain, présence équipe',  icon: <Clock size={16} />,         color: '#14B8A6' },
   { type: 'ressources',   label: 'Ressources humaines',      desc: 'Effectifs, compétences, mobilisation',         icon: <Users size={16} />,         color: '#A855F7' },
 ];
@@ -151,7 +151,7 @@ function generateAIText(domaine: Domaine | string, trim: Trimestre, year: number
       `• Les contrôles qualité et QHSE sont réalisés conformément au plan assurance qualité`,
       `• Aucun incident majeur de sécurité n'a été enregistré sur la période`,
       `• Les non-conformités identifiées ont été traitées selon les procédures de levée de réserves`,
-      `• La traçabilité documentaire (GED SIGEPP-DPE) est maintenue à jour`,
+      `• La traçabilité documentaire (GED SIGEP-DPE) est maintenue à jour`,
     ].join('\n');
   }
   return [
@@ -758,7 +758,7 @@ function IndicatorPickerModal({ section, indicators, onClose, onSave }: {
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>Sélectionner des indicateurs</div>
-            <div style={{ fontSize: 11, color: '#94A3B8' }}>Constructeur d'indicateurs SIGEPP-DPE · {sel.size} sélectionné(s)</div>
+            <div style={{ fontSize: 11, color: '#94A3B8' }}>Constructeur d'indicateurs SIGEP-DPE · {sel.size} sélectionné(s)</div>
           </div>
           <button onClick={onClose} style={{ border: 'none', background: '#F1F5F9', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}><X size={14} /></button>
         </div>
@@ -819,7 +819,7 @@ function ShareModal({ titreRapport, projet, onClose }: { titreRapport: string; p
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>Partager pour avis</div>
-            <div style={{ fontSize: 11, color: '#94A3B8' }}>Workflow de révision SIGEPP-DPE</div>
+            <div style={{ fontSize: 11, color: '#94A3B8' }}>Workflow de révision SIGEP-DPE</div>
           </div>
           <button onClick={onClose} style={{ border: 'none', background: '#F1F5F9', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}><X size={14} /></button>
         </div>
@@ -1002,7 +1002,7 @@ function RapportTrimestriel() {
                 </div>
                 <div style={{ textAlign: 'right', fontSize: 11, color: '#94A3B8' }}>
                   <div>Généré le {new Date().toLocaleDateString('fr-FR')}</div>
-                  <div>SIGEPP-DPE V1.0</div>
+                  <div>SIGEP-DPE V1.0</div>
                   <div style={{ color: RED, fontWeight: 700, marginTop: 4 }}>CONFIDENTIEL</div>
                 </div>
               </div>
@@ -1041,7 +1041,7 @@ function RapportTrimestriel() {
               );
             })}
             <div style={{ borderTop: '1px solid #E5E7EB', marginTop: 40, paddingTop: 14, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94A3B8' }}>
-              <span>SIGEPP-DPE · Direction Principale Équipement SENELEC</span>
+              <span>SIGEP-DPE · Direction Principale Équipement SENELEC</span>
               <span>Rapport {trim} {year} · Confidentiel</span>
             </div>
           </div>
@@ -1183,7 +1183,7 @@ export default function StudioRapports() {
       };
       const docSections: SectionDocx[] = sections.map(sec => ({
         titre: sec.label,
-        contenu: sec.aiText ?? `Section ${sec.label} — Données SIGEPP-DPE · Projet ${projet.code}`,
+        contenu: sec.aiText ?? `Section ${sec.label} — Données SIGEP-DPE · Projet ${projet.code}`,
         tableau: sec.type === 'synthese' ? {
           headers: ['Indicateur', 'Valeur', 'Planifié', 'Statut'],
           rows: [
@@ -1251,7 +1251,7 @@ export default function StudioRapports() {
               </button>
               <button onClick={() => setShowShareModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}><Share2 size={13} /> Partager</button>
               <button onClick={handleExportWord} disabled={exportingWord} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 7, border: '1px solid #E2E8F0', background: exportingWord ? '#F1F5F9' : '#fff', fontSize: 12.5, color: '#475569', cursor: exportingWord ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}><FileText size={13} /> {exportingWord ? 'Export…' : 'Export Word'}</button>
-              <button onClick={() => { const pw = window.open('', '_blank'); if (!pw) return; pw.document.write(`<html><head><title>${titreRapport}</title><style>@media print{body{margin:20mm}}body{font-family:Calibri,Arial,sans-serif;margin:40px;color:#1E293B;line-height:1.6}h1{color:#3D1A6B;border-bottom:3px solid #F47920;padding-bottom:12px;font-size:20px}h2{color:#3D1A6B;margin-top:28px;font-size:14px}p{font-size:12px;text-align:justify}table{border-collapse:collapse;width:100%;font-size:11px;margin:12px 0}th{background:#3D1A6B;color:#fff;padding:6px 10px}td{border:1px solid #E2E8F0;padding:5px 10px}</style></head><body><h1>${titreRapport}</h1><p style="color:#64748B;font-size:11px">Généré le ${new Date().toLocaleDateString('fr-FR')} · SIGEPP-DPE SENELEC${projet ? ` · Projet ${projet.code}` : ''}</p>${sections.map((s, i) => `<h2>${i+1}. ${s.label}</h2><p>${s.aiText ?? `Section ${s.label} — données SIGEPP-DPE.`}</p>`).join('')}<hr/><p style="color:#94A3B8;font-size:10px;text-align:center">CONFIDENTIEL · SIGEPP-DPE · Direction Principale Équipement SENELEC</p></body></html>`); pw.document.close(); setTimeout(() => pw.print(), 400); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Export PDF</button>
+              <button onClick={() => { const pw = window.open('', '_blank'); if (!pw) return; pw.document.write(`<html><head><title>${titreRapport}</title><style>@media print{body{margin:20mm}}body{font-family:Calibri,Arial,sans-serif;margin:40px;color:#1E293B;line-height:1.6}h1{color:#3D1A6B;border-bottom:3px solid #F47920;padding-bottom:12px;font-size:20px}h2{color:#3D1A6B;margin-top:28px;font-size:14px}p{font-size:12px;text-align:justify}table{border-collapse:collapse;width:100%;font-size:11px;margin:12px 0}th{background:#3D1A6B;color:#fff;padding:6px 10px}td{border:1px solid #E2E8F0;padding:5px 10px}</style></head><body><h1>${titreRapport}</h1><p style="color:#64748B;font-size:11px">Généré le ${new Date().toLocaleDateString('fr-FR')} · SIGEP-DPE SENELEC${projet ? ` · Projet ${projet.code}` : ''}</p>${sections.map((s, i) => `<h2>${i+1}. ${s.label}</h2><p>${s.aiText ?? `Section ${s.label} — données SIGEP-DPE.`}</p>`).join('')}<hr/><p style="color:#94A3B8;font-size:10px;text-align:center">CONFIDENTIEL · SIGEP-DPE · Direction Principale Équipement SENELEC</p></body></html>`); pw.document.close(); setTimeout(() => pw.print(), 400); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: 'none', background: ORANGE, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}><Download size={13} /> Export PDF</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingBottom: 12 }}>
@@ -1439,7 +1439,7 @@ export default function StudioRapports() {
     <div>
       <h1>${titreRapport}</h1>
       <div style="color:#64748B;font-size:12px">Direction Principale Équipement · SENELEC</div>
-      <div style="color:#94A3B8;font-size:11px;margin-top:4px">SIGEPP-DPE · Généré le ${new Date().toLocaleDateString('fr-FR')} · Confidentiel</div>
+      <div style="color:#94A3B8;font-size:11px;margin-top:4px">SIGEP-DPE · Généré le ${new Date().toLocaleDateString('fr-FR')} · Confidentiel</div>
     </div>
   </div>
   <div style="text-align:right;font-size:11px;color:#94A3B8">
@@ -1487,16 +1487,16 @@ export default function StudioRapports() {
   <tr style="background:#f8fafc"><td>SPI</td><td>${projet.spi.toFixed(3)}</td><td></td><td>${projet.spi>=1?'<span class="badge-ok">✅ Bon</span>':'<span class="badge-warn">⚠ Retard</span>'}</td></tr>
   <tr><td>Coût final estimé (EAC)</td><td>${eac.toLocaleString('fr-FR')}</td><td>${((eac/Math.max(projet.budget,1))*100).toFixed(1)}%</td><td>${eac<=projet.budget?'<span class="badge-ok">Dans budget</span>':'<span class="badge-err">Dépassement probable</span>'}</td></tr>
 </table>
-<div class="note">⚠ Rapport généré automatiquement par SIGEPP-DPE. Les données sont extraites en temps réel de la base de données de gestion de projets de la Direction Principale Équipement de SENELEC.</div>
+<div class="note">⚠ Rapport généré automatiquement par SIGEP-DPE. Les données sont extraites en temps réel de la base de données de gestion de projets de la Direction Principale Équipement de SENELEC.</div>
 
 ${sections.map((s,i) => {
   const cat = CATALOGUE.find(c => c.type === s.type);
   if (s.type === 'synthese' || s.type === 'planning' || s.type === 'finances') return '';
-  return `<h2>${['I','II','III','IV','V','VI','VII','VIII','IX','X'][i+2]}. ${s.label}</h2><p style="color:#64748B;font-style:italic">Section ${s.label} — Données issues du système SIGEPP-DPE.</p>`;
+  return `<h2>${['I','II','III','IV','V','VI','VII','VIII','IX','X'][i+2]}. ${s.label}</h2><p style="color:#64748B;font-style:italic">Section ${s.label} — Données issues du système SIGEP-DPE.</p>`;
 }).join('')}
 
 <div class="footer">
-  <span>SIGEPP-DPE · Direction Principale Équipement SENELEC · ${new Date().getFullYear()}</span>
+  <span>SIGEP-DPE · Direction Principale Équipement SENELEC · ${new Date().getFullYear()}</span>
   <span>Document CONFIDENTIEL · Usage interne uniquement</span>
 </div>
 </body></html>`);
@@ -1538,7 +1538,7 @@ ${sections.map((s,i) => {
               <div style={{ borderBottom: `4px solid ${NAVY}`, paddingBottom: 20, marginBottom: 32 }}>
                 <div style={{ fontSize: 24, fontWeight: 900, color: '#0F172A', marginBottom: 6 }}>{titreRapport}</div>
                 {projet && dcfg && <div style={{ fontSize: 13, color: '#64748B' }}>Projet : {projet.code} — {projet.nom} · {dcfg.label} {dcfg.emoji}</div>}
-                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>Généré le {new Date().toLocaleDateString('fr-FR')} · SIGEPP-DPE</div>
+                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>Généré le {new Date().toLocaleDateString('fr-FR')} · SIGEP-DPE</div>
               </div>
               {sections.map((sec, i) => {
                 const cat = CATALOGUE.find(c => c.type === sec.type);
@@ -1581,7 +1581,7 @@ ${sections.map((s,i) => {
               })}
               {sections.length === 0 && <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 14, padding: 40 }}>Aucune section sélectionnée</div>}
               <div style={{ borderTop: '1px solid #E2E8F0', marginTop: 40, paddingTop: 16, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#94A3B8' }}>
-                <span>SIGEPP-DPE · Senelec Direction Principale Équipement</span>
+                <span>SIGEP-DPE · Senelec Direction Principale Équipement</span>
                 <span>Page 1 / 1 · Confidentiel</span>
               </div>
             </div>

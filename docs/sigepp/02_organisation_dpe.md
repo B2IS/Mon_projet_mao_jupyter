@@ -1,4 +1,4 @@
-# SIGEPP — Étape 2 : Modèle organisationnel DPE détaillé
+# SIGEP — Étape 2 : Modèle organisationnel DPE détaillé
 
 > Référentiel **maître**. Source : organigramme officiel DPE (ND 005/2023) + effectif réel
 > (Fichier du personnel au 10/03/2026). Encodé dans `lib/dpeOrgStructure.ts` / `accessEngine.ts`.
@@ -78,7 +78,7 @@ Chaque utilisateur (`app_user`) :
 
 ## 5. Mapping postes réels → rôles RBAC (extrait — détaillé à l'Étape 3)
 
-| Poste réel (roster) | Rôle SIGEPP | Niveau |
+| Poste réel (roster) | Rôle SIGEP | Niveau |
 |---------------------|-------------|:------:|
 | Directeur Principal Équipement | `DIR_DPE` | 0 |
 | Chef de Cellule Suivi-Évaluation / CSE | `PMO` | 0 |

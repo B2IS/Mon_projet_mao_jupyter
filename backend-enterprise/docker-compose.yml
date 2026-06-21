@@ -1,33 +1,39 @@
-# SIGEPP-DPE — infra de développement (PostgreSQL + API NestJS).
-#   docker compose up -d db        # démarre PostgreSQL
-#   npm run prisma:migrate         # crée le schéma
-#   npm run prisma:seed            # référentiel org + RH
-#   psql "$DATABASE_URL" -f prisma/rls/enable_rls.sql   # active la RLS
-#   npm run start:dev              # API → http://localhost:4000/api (+ /graphql)
+# backend-enterprise/docker-compose.yml — Dev standalone NestJS (sans root compose)
+# Pour le déploiement intégré, utilisez docker-compose.yml à la racine.
+#
+# Usage dev rapide :
+#   docker compose up -d db
+#   npm run prisma:migrate
+#   npm run prisma:seed
+#   psql "$DATABASE_URL" -f prisma/rls/enable_rls.sql
+#   npm run start:dev    → http://localhost:4000/api (+/graphql)
+
 services:
   db:
-    image: postgres:16
+    image: postgres:16-alpine
+    container_name: sigep-postgres-dev
     environment:
-      POSTGRES_USER: sigepp
-      POSTGRES_PASSWORD: sigepp
-      POSTGRES_DB: sigepp
+      POSTGRES_USER:     sigep
+      POSTGRES_PASSWORD: sigep2026
+      POSTGRES_DB:       sigep_dpe
     ports: ['5432:5432']
-    volumes: ['sigepp_pg:/var/lib/postgresql/data']
+    volumes: ['sigep_pg_dev:/var/lib/postgresql/data']
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U sigepp']
+      test: ['CMD-SHELL', 'pg_isready -U sigep -d sigep_dpe']
       interval: 5s
       timeout: 3s
       retries: 10
 
   api:
     build: .
+    container_name: sigep-nestjs-dev
     depends_on:
       db: { condition: service_healthy }
     environment:
-      DATABASE_URL: postgresql://sigepp:sigepp@db:5432/sigepp?schema=public
+      DATABASE_URL: postgresql://sigep:sigep2026@db:5432/sigep_dpe?schema=public
       PORT: '4000'
     ports: ['4000:4000']
     command: sh -c "npx prisma migrate deploy && node dist/src/main.js"
 
 volumes:
-  sigepp_pg:
+  sigep_pg_dev:

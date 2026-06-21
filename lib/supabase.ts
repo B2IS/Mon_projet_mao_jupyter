@@ -1,6 +1,6 @@
 /**
- * supabase.ts — Client Supabase SIGEPP-DPE
- * Utilisé pour : persistance des sessions OAuth, table sigepp_users (rôles SSO)
+ * supabase.ts — Client Supabase SIGEP-DPE
+ * Utilisé pour : persistance des sessions OAuth, table sigep_users (rôles SSO)
  * Les comptes demo continuent à fonctionner via usersDb.ts en fallback.
  */
 import { createClient } from '@supabase/supabase-js';
@@ -21,7 +21,7 @@ export const supabaseAdmin = SUPABASE_URL && SUPABASE_SERVICE
   : null;
 
 // ─── Schéma Supabase attendu ───────────────────────────────────────────────
-// Table : sigepp_users
+// Table : sigep_users
 // Colonnes : email TEXT PK, role TEXT, direction TEXT, poste TEXT,
 //            departement TEXT, cellule TEXT, prenom TEXT, nom TEXT,
 //            initials TEXT, avatar_color TEXT, created_at TIMESTAMPTZ
@@ -46,7 +46,7 @@ export interface SupabaseUserRow {
 export async function getUserRoleFromSupabase(email: string): Promise<SupabaseUserRow | null> {
   if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
-    .from('sigepp_users')
+    .from('sigep_users')
     .select('*')
     .eq('email', email.toLowerCase())
     .single();
@@ -61,6 +61,6 @@ export async function getUserRoleFromSupabase(email: string): Promise<SupabaseUs
 export async function upsertSupabaseUser(user: SupabaseUserRow): Promise<void> {
   if (!supabaseAdmin) return;
   await supabaseAdmin
-    .from('sigepp_users')
+    .from('sigep_users')
     .upsert({ ...user, email: user.email.toLowerCase() }, { onConflict: 'email' });
 }

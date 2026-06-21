@@ -77,117 +77,15 @@ interface Rapport {
 /* ═══════════════════════════════════════════════════════════════════
    MOCK DATA — Données terrain DPE réalistes
 ═══════════════════════════════════════════════════════════════════ */
-const CHANTIERS: Chantier[] = [
-  {
-    id: 'CH-001', code: 'NGY-2026', localite: 'Ngayokhem', commune: 'Commune de Ngayokhem',
-    projet: 'DPE-RURAL-THI-01', projetNom: 'Électrification Rurale Thiès Est', domaine: 'distribution',
-    avancement: 67, avancementPlanifie: 72,
-    dernieresSaisie: '2026-05-24', statut: 'en_cours',
-    poteaux: { pose: 134, prevu: 200 }, lignes: { pose: 8.4, prevu: 12 },
-    postes: { pose: 2, prevu: 3 }, mw: { installe: 0.4, prevu: 0.6 },
-    compteurs: { pose: 312, prevu: 480 },
-    consoEstimee: 1.8, consoReelle: 1.6, efficacite: 11.2, conformiteDPE: 87,
-    coordGPS: '14.4821°N · -16.5190°E', cp: 'FALL Mamadou', region: 'Thiès',
-    syncStatut: 'synced',
-  },
-  {
-    id: 'CH-002', code: 'FND-2026', localite: 'Fandène', commune: 'Arrondissement de Fandène',
-    projet: 'DPE-RURAL-THI-01', projetNom: 'Électrification Rurale Thiès Est', domaine: 'distribution',
-    avancement: 82, avancementPlanifie: 78,
-    dernieresSaisie: '2026-05-23', statut: 'en_cours',
-    poteaux: { pose: 164, prevu: 200 }, lignes: { pose: 10.2, prevu: 12 },
-    postes: { pose: 3, prevu: 3 }, mw: { installe: 0.6, prevu: 0.6 },
-    compteurs: { pose: 396, prevu: 480 },
-    consoEstimee: 2.1, consoReelle: 2.0, efficacite: 9.5, conformiteDPE: 94,
-    coordGPS: '14.5341°N · -16.6742°E', cp: 'FALL Mamadou', region: 'Thiès',
-    syncStatut: 'synced',
-  },
-  {
-    id: 'CH-003', code: 'DJB-2026', localite: 'Diembéring', commune: 'Commune de Diembéring',
-    projet: 'DPE-RURAL-ZIG-02', projetNom: 'Électrification Casamance Sud', domaine: 'distribution',
-    avancement: 34, avancementPlanifie: 55,
-    dernieresSaisie: '2026-05-20', statut: 'en_retard',
-    poteaux: { pose: 68, prevu: 200 }, lignes: { pose: 3.8, prevu: 14 },
-    postes: { pose: 1, prevu: 4 }, mw: { installe: 0.2, prevu: 0.8 },
-    compteurs: { pose: 82, prevu: 320 },
-    consoEstimee: 3.2, consoReelle: 1.1, efficacite: 6.0, conformiteDPE: 58,
-    coordGPS: '12.3967°N · -16.7658°E', cp: 'DIOP Ousmane', region: 'Ziguinchor',
-    syncStatut: 'pending',
-  },
-  {
-    id: 'CH-004', code: 'CSK-2026', localite: 'Cap Skirring', commune: 'Commune de Cap Skirring',
-    projet: 'DPE-RURAL-ZIG-02', projetNom: 'Électrification Casamance Sud', domaine: 'distribution',
-    avancement: 51, avancementPlanifie: 62,
-    dernieresSaisie: '2026-05-22', statut: 'en_retard',
-    poteaux: { pose: 102, prevu: 200 }, lignes: { pose: 6.1, prevu: 12 },
-    postes: { pose: 2, prevu: 4 }, mw: { installe: 0.4, prevu: 0.8 },
-    compteurs: { pose: 195, prevu: 380 },
-    consoEstimee: 2.8, consoReelle: 1.5, efficacite: 7.2, conformiteDPE: 67,
-    coordGPS: '12.3894°N · -16.7395°E', cp: 'DIOP Ousmane', region: 'Ziguinchor',
-    syncStatut: 'offline',
-  },
-  {
-    id: 'CH-005', code: 'ELK-2026', localite: 'Élinkine', commune: 'Arrondissement de Diembéring',
-    projet: 'DPE-RURAL-ZIG-02', projetNom: 'Électrification Casamance Sud', domaine: 'distribution',
-    avancement: 100, avancementPlanifie: 100,
-    dernieresSaisie: '2026-05-10', statut: 'termine',
-    poteaux: { pose: 180, prevu: 180 }, lignes: { pose: 11, prevu: 11 },
-    postes: { pose: 3, prevu: 3 }, mw: { installe: 0.6, prevu: 0.6 },
-    compteurs: { pose: 340, prevu: 340 },
-    consoEstimee: 2.0, consoReelle: 1.9, efficacite: 12.1, conformiteDPE: 98,
-    coordGPS: '12.5018°N · -16.5742°E', cp: 'DIOP Ousmane', region: 'Ziguinchor',
-    syncStatut: 'synced',
-  },
-  {
-    id: 'CH-006', code: 'KBR-2026', localite: 'Kolda Brasserie', commune: 'Commune de Kolda',
-    projet: 'DPE-RURAL-KLD-03', projetNom: 'Électrification Kolda Nord', domaine: 'distribution',
-    avancement: 22, avancementPlanifie: 40,
-    dernieresSaisie: '2026-05-15', statut: 'bloque',
-    poteaux: { pose: 44, prevu: 200 }, lignes: { pose: 2.2, prevu: 15 },
-    postes: { pose: 0, prevu: 5 }, mw: { installe: 0.0, prevu: 1.0 },
-    compteurs: { pose: 53, prevu: 400 },
-    consoEstimee: 4.0, consoReelle: 0.5, efficacite: 4.0, conformiteDPE: 38,
-    coordGPS: '12.8922°N · -14.9417°E', cp: 'SY Aminata', region: 'Kolda',
-    syncStatut: 'offline',
-  },
-];
+const CHANTIERS: Chantier[] = [];
 
-const MISSIONS: Mission[] = [
-  { id: 'M-001', chantier: 'NGY-2026', localite: 'Ngayokhem', agent: 'DIOP Alioune',       type: 'avancement',    statut: 'valide',       dateDebut: '2026-05-24', dateFin: '2026-05-24', photos: 5,  avancement: 69, commentaire: 'Pose poteaux lot A terminée',            device: 'Samsung Tab A8'  },
-  { id: 'M-002', chantier: 'FND-2026', localite: 'Fandène',   agent: 'FALL Mamadou',        type: 'avancement',    statut: 'attente_val',  dateDebut: '2026-05-24', dateFin: '2026-05-24', photos: 3,  avancement: 85, commentaire: 'Tirages câbles BT finalisés',            device: 'iPad Air'        },
-  { id: 'M-003', chantier: 'DJB-2026', localite: 'Diembéring',agent: 'NDIAYE Khady',        type: 'incident_sec',  statut: 'non_conforme', dateDebut: '2026-05-23', dateFin: '2026-05-23', photos: 7,  avancement: 34, commentaire: 'Câble HTA endommagé, zone marécageuse', device: 'Samsung Tab A8'  },
-  { id: 'M-004', chantier: 'CSK-2026', localite: 'Cap Skirring',agent: 'SARR Ibrahima',     type: 'constat',       statut: 'attente_val',  dateDebut: '2026-05-23', dateFin: '2026-05-23', photos: 4,  avancement: 53, commentaire: 'Zone inondée, accès difficile',          device: 'Huawei MatePad'  },
-  { id: 'M-005', chantier: 'KBR-2026', localite: 'Kolda Brasserie', agent: 'BA Fatou',      type: 'reception',     statut: 'attente_val',  dateDebut: '2026-05-24', dateFin: '2026-05-24', photos: 6,  avancement: 24, commentaire: 'Réception partielle lot B',             device: 'iPad Mini'       },
-  { id: 'M-006', chantier: 'NGY-2026', localite: 'Ngayokhem', agent: 'DIOP Alioune',        type: 'mesure_dpe',    statut: 'en_cours',     dateDebut: '2026-05-25', dateFin: '2026-05-25', photos: 0,  avancement: 67, commentaire: 'Relevés conso en cours',                device: 'Samsung Tab A8'  },
-  { id: 'M-007', chantier: 'ELK-2026', localite: 'Élinkine',  agent: 'THIAM Ndeye',         type: 'reception',     statut: 'valide',       dateDebut: '2026-05-10', dateFin: '2026-05-10', photos: 12, avancement: 100, commentaire: 'Réception définitive - tous ouvrages conformes', device: 'iPad Air' },
-  { id: 'M-008', chantier: 'DJB-2026', localite: 'Diembéring',agent: 'NDIAYE Khady',        type: 'avancement',    statut: 'planifie',     dateDebut: '2026-05-26', dateFin: '2026-05-26', photos: 0,  avancement: 34, commentaire: '',                                       device: 'Samsung Tab A8'  },
-];
+const MISSIONS: Mission[] = [];
 
-const NON_CONFORMITES: NonConformite[] = [
-  { id: 'NC-001', chantier: 'DJB-2026', localite: 'Diembéring', date: '2026-05-21', type: 'Technique',      gravite: 'modere',   description: 'Câble HTA endommagé lors du déroulage, 40m à reprendre',       statut: 'en_cours',  agent: 'NDIAYE Khady',   delaiTraitement: 5,  actionCorrective: 'Commande câble de remplacement' },
-  { id: 'NC-002', chantier: 'KBR-2026', localite: 'Kolda',       date: '2026-05-19', type: 'Logistique',     gravite: 'bloquant', description: 'Fournisseur poteaux BA 10m : livraison reportée au 10 juin',     statut: 'ouverte',   agent: 'BA Fatou',       delaiTraitement: 22, actionCorrective: undefined },
-  { id: 'NC-003', chantier: 'CSK-2026', localite: 'Cap Skirring', date: '2026-05-18', type: 'Sécurité',       gravite: 'grave',    description: "Chute d'un ouvrier lors de pose poteau — arrêt de travail 5j",  statut: 'ouverte',   agent: 'SARR Ibrahima',  delaiTraitement: 7,  actionCorrective: undefined },
-  { id: 'NC-004', chantier: 'FND-2026', localite: 'Fandène',     date: '2026-05-15', type: 'Environnemental', gravite: 'faible',   description: 'Zone de protection classée détectée à 200m du tracé',           statut: 'cloturee',  agent: 'FALL Mamadou',   delaiTraitement: 3,  actionCorrective: 'Consultation DDI effectuée, déviation validée' },
-  { id: 'NC-005', chantier: 'DJB-2026', localite: 'Diembéring', date: '2026-05-23', type: 'Qualité',         gravite: 'modere',   description: 'Profondeur de fouilles insuffisante — 3 poteaux à reprendre',    statut: 'en_cours',  agent: 'NDIAYE Khady',   delaiTraitement: 4,  actionCorrective: 'Reprise fouilles en cours' },
-];
+const NON_CONFORMITES: NonConformite[] = [];
 
-const RAPPORTS: Rapport[] = [
-  { id: 'R-001', chantier: 'NGY-2026', localite: 'Ngayokhem',     date: '2026-05-24', statut: 'Validé',        agent: 'DIOP A.', avancement: 69  },
-  { id: 'R-002', chantier: 'FND-2026', localite: 'Fandène',       date: '2026-05-24', statut: 'En validation', agent: 'FALL M.', avancement: 85  },
-  { id: 'R-003', chantier: 'DJB-2026', localite: 'Diembéring',    date: '2026-05-23', statut: 'Rejeté',        agent: 'NDIAYE K.', avancement: 34 },
-  { id: 'R-004', chantier: 'CSK-2026', localite: 'Cap Skirring',  date: '2026-05-23', statut: 'En validation', agent: 'SARR I.', avancement: 53  },
-  { id: 'R-005', chantier: 'NGY-2026', localite: 'Ngayokhem',     date: '2026-05-21', statut: 'Validé',        agent: 'DIOP A.', avancement: 62  },
-  { id: 'R-006', chantier: 'KBR-2026', localite: 'Kolda Brasserie', date: '2026-05-20', statut: 'En validation', agent: 'BA F.', avancement: 22 },
-  { id: 'R-007', chantier: 'ELK-2026', localite: 'Élinkine',      date: '2026-05-10', statut: 'Validé',        agent: 'THIAM N.', avancement: 100 },
-];
+const RAPPORTS: Rapport[] = [];
 
-const SYNC_QUEUE: SyncEntry[] = [
-  { id: 'SYNC-001', chantier: 'NGY-2026', localite: 'Ngayokhem',      agent: 'DIOP Alioune',  type: 'Rapport Journalier',    device: 'Samsung Tab A8',  recu: '07:42', avancement: 69, photos: 5, size: '4.2 MB' },
-  { id: 'SYNC-002', chantier: 'FND-2026', localite: 'Fandène',        agent: 'FALL Mamadou',  type: 'Rapport Journalier',    device: 'iPad Air',        recu: '08:11', avancement: 85, photos: 3, size: '2.8 MB' },
-  { id: 'SYNC-003', chantier: 'DJB-2026', localite: 'Diembéring',     agent: 'NDIAYE Khady',  type: 'Incident Sécurité',     device: 'Samsung Tab A8',  recu: '09:05', avancement: 34, photos: 7, size: '8.1 MB' },
-  { id: 'SYNC-004', chantier: 'CSK-2026', localite: 'Cap Skirring',   agent: 'SARR Ibrahima', type: 'Rapport Hebdomadaire',  device: 'Huawei MatePad',  recu: '09:33', avancement: 53, photos: 4, size: '3.5 MB' },
-  { id: 'SYNC-005', chantier: 'KBR-2026', localite: 'Kolda Brasserie',agent: 'BA Fatou',      type: 'Réception Partielle',   device: 'iPad Mini',       recu: '18:20', avancement: 24, photos: 6, size: '5.7 MB' },
-];
+const SYNC_QUEUE: SyncEntry[] = [];
 
 const CHECKLIST_ITEMS = [
   'EPI portés par tous les ouvriers',
@@ -499,8 +397,8 @@ export default function Terrain() {
       mwPrevu: active.reduce((s, c) => s + c.mw.prevu, 0),
       compteurs: active.reduce((s, c) => s + c.compteurs.pose, 0),
       compteursPrevu: active.reduce((s, c) => s + c.compteurs.prevu, 0),
-      conformiteMoy: Math.round(active.reduce((s, c) => s + c.conformiteDPE, 0) / active.length),
-      efficaciteMoy: (active.reduce((s, c) => s + c.efficacite, 0) / active.length).toFixed(1),
+      conformiteMoy: active.length ? Math.round(active.reduce((s, c) => s + c.conformiteDPE, 0) / active.length) : 0,
+      efficaciteMoy: active.length ? (active.reduce((s, c) => s + c.efficacite, 0) / active.length).toFixed(1) : '0.0',
       consoEco: active.reduce((s, c) => s + (c.consoEstimee - c.consoReelle), 0).toFixed(1),
       synced: CHANTIERS.filter(c => c.syncStatut === 'synced').length,
       pending: CHANTIERS.filter(c => c.syncStatut === 'pending').length,

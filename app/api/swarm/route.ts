@@ -10,18 +10,42 @@
  */
 
 import { NextRequest } from 'next/server';
-import { runSwarm }    from '@/lib/ai/swarmOrchestrator';
+import { runSwarm }       from '@/lib/ai/swarmOrchestrator';
 import type { SwarmRequest, SSEEvent } from '@/lib/ai/types';
+import { requireApiAuth, checkRateLimit, rateLimitResponse, getClientIp } from '@/lib/apiAuth';
+
+// ── Rate limit swarm : 5 req / 10 min par IP (pipeline lourd) ────────────────
+const RL_SWARM = { max: 5, windowMs: 10 * 60 * 1000 };
 
 export const runtime = 'nodejs';     // streams require node runtime
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`swarm:${ip}`, RL_SWARM);
+  if (!rl.allowed) return new Response(JSON.stringify({ error: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.resetAt - Date.now()) / 1000)}s.` }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } });
+
+  // Auth guard — swarm réservé aux rôles métier avec accès portefeuille
+  const guard = await requireApiAuth(req, [
+    'ADMIN', 'DIR_DPE', 'DIRECTEUR', 'CHEF_CELLULE', 'COORDINATEUR',
+    'EXPERT_PMO', 'EXPERT_SE', 'CHEF_PROJ', 'CHEF_DEPT',
+    'RAF', 'AUDIT', 'CONSEILLER',
+  ]);
+  if (!guard.ok) return guard.response;
+
+  // Limite taille body (fichiers inclus, max 10 Mo)
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (contentLength > 10 * 1024 * 1024) {
+    return new Response(JSON.stringify({ error: 'Corps trop volumineux (max 10 Mo).' }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   let body: SwarmRequest;
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+    return new Response(JSON.stringify({ error: 'JSON invalide.' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -80,8 +104,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   });
 }
 
-/** Simple GET probe for health-check */
-export async function GET(): Promise<Response> {
+/** GET /api/swarm — health check (authentification requise) */
+export async function GET(req: NextRequest): Promise<Response> {
+  const guard = await requireApiAuth(req);
+  if (!guard.ok) return guard.response;
   return new Response(JSON.stringify({ status: 'ok', service: 'swarm-orchestrator' }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },

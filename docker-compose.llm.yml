@@ -1,36 +1,46 @@
 ###############################################################################
-# docker-compose.llm.yml — Serveur LLM local SIGEPP-DPE
+# docker-compose.llm.yml — Serveur LLM local SIGEP-DPE
 #
-# Usage :
-#   1. Téléchargez le modèle GGUF :
-#      huggingface-cli download unsloth/Kimi-K2.6-GGUF Kimi-K2.6-Q4_K_M.gguf \
-#        --local-dir ./models/kimi
+# Démarrage rapide :
+#   ./scripts/kimi-setup.sh          # télécharge le modèle + lance Docker
 #
-#   2. Lancez le serveur :
-#      docker compose -f docker-compose.llm.yml up -d
+# Démarrage manuel :
+#   # GPU (NVIDIA) — recommandé
+#   docker compose -f docker-compose.llm.yml up -d
 #
-#   3. Testez :
-#      curl http://localhost:8080/v1/models
+#   # CPU uniquement (sans GPU)
+#   docker compose -f docker-compose.llm.yml --profile cpu up -d kimi-llm-cpu
 #
-# Variables d'environnement (.env) :
-#   KIMI_MODEL_FILE   = nom du fichier GGUF (défaut: Kimi-K2.6-Q4_K_M.gguf)
-#   KIMI_CTX_SIZE     = taille contexte tokens (défaut: 32768)
-#   KIMI_N_GPU_LAYERS = couches GPU (défaut: 99 = tout sur GPU si VRAM suffisante)
-#   KIMI_PARALLEL     = requêtes parallèles (défaut: 4)
+# Test :
+#   curl http://localhost:8080/v1/models
+#   curl http://localhost:8080/v1/chat/completions \
+#     -H "Content-Type: application/json" \
+#     -d '{"model":"kimi-k2","messages":[{"role":"user","content":"Bonjour"}]}'
+#
+# Variables .env (racine du projet) :
+#   DOCKER_LLM_PORT     = port exposé (défaut: 8080)
+#   KIMI_MODEL_FILE     = fichier GGUF GPU (défaut: Kimi-K2-Instruct-Q4_K_M.gguf)
+#   KIMI_CPU_MODEL      = fichier GGUF CPU (défaut: Kimi-K2-Instruct-IQ2_M.gguf)
+#   KIMI_CTX_SIZE       = taille contexte (défaut: 32768)
+#   KIMI_N_GPU_LAYERS   = couches GPU — 99=tout GPU, 0=CPU seul (défaut: 99)
+#   KIMI_PARALLEL       = requêtes simultanées (défaut: 4)
+#   KIMI_THREADS        = threads CPU (défaut: 8)
 ###############################################################################
 
 services:
 
-  # ── Serveur LLM principal (Kimi K2.6 GGUF via llama.cpp) ─────────────────
+  # ── Serveur LLM GPU (Kimi K2 GGUF via llama.cpp) ─────────────────────────
   kimi-llm:
-    image: ghcr.io/ggerganov/llama.cpp:server
-    container_name: sigepp-kimi-llm
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    container_name: sigep-kimi-llm
     ports:
-      - "8080:8080"
+      - "${DOCKER_LLM_PORT:-8080}:8080"
     volumes:
       - ./models/kimi:/models:ro
+    environment:
+      - LLAMA_CUDA_DMMV_X=32
     command: >
-      --model /models/${KIMI_MODEL_FILE:-Kimi-K2.6-Q4_K_M.gguf}
+      --model /models/${KIMI_MODEL_FILE:-Kimi-K2-Instruct-Q4_K_M.gguf}
       --ctx-size ${KIMI_CTX_SIZE:-32768}
       --n-gpu-layers ${KIMI_N_GPU_LAYERS:-99}
       --port 8080
@@ -38,15 +48,18 @@ services:
       --parallel ${KIMI_PARALLEL:-4}
       --threads ${KIMI_THREADS:-8}
       --batch-size 512
+      --ubatch-size 512
       --chat-template chatml
+      --alias kimi-k2
+      --metrics
       --log-disable
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     deploy:
       resources:
         reservations:
@@ -55,35 +68,44 @@ services:
               count: all
               capabilities: [gpu]
 
-  # ── Fallback CPU-only (sans GPU, modèle plus petit) ───────────────────────
+  # ── Serveur LLM CPU-only (sans GPU, modèle compressé) ────────────────────
   kimi-llm-cpu:
     image: ghcr.io/ggerganov/llama.cpp:server
-    container_name: sigepp-kimi-llm-cpu
-    profiles: ["cpu"]          # activé seulement avec --profile cpu
+    container_name: sigep-kimi-llm-cpu
+    profiles: ["cpu"]
     ports:
-      - "8081:8080"
+      - "${DOCKER_LLM_PORT:-8080}:8080"
     volumes:
       - ./models/kimi:/models:ro
     command: >
-      --model /models/${KIMI_CPU_MODEL:-Kimi-K2.6-IQ2_M.gguf}
-      --ctx-size 8192
+      --model /models/${KIMI_CPU_MODEL:-Kimi-K2-Instruct-IQ2_M.gguf}
+      --ctx-size ${KIMI_CTX_SIZE:-8192}
       --n-gpu-layers 0
       --port 8080
       --host 0.0.0.0
       --parallel 2
-      --threads 12
+      --threads ${KIMI_THREADS:-12}
+      --chat-template chatml
+      --alias kimi-k2
+      --log-disable
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
 
-  # ── Parseur de documents multi-formats (Python FastAPI) ──────────────────────
+  # ── Parseur de documents multi-formats (Python FastAPI) ──────────────────
   document-parser:
     build:
       context: ./agent-tools
       dockerfile: Dockerfile
-    container_name: sigepp-doc-parser
+    container_name: sigep-doc-parser
     ports:
       - "8090:8090"
     volumes:
-      - ./ged_documents:/app/ged_storage   # documents uploadés accessibles en lecture
+      - ./ged_documents:/app/ged_storage:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8090/health"]
@@ -94,4 +116,4 @@ services:
 
 networks:
   default:
-    name: sigepp-llm-network
+    name: sigep-llm-network

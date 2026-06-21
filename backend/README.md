@@ -1,4 +1,4 @@
-# SIGEPP-DPE — Backend OCR / Migration multi-agents (Python)
+# SIGEP-DPE — Backend OCR / Migration multi-agents (Python)
 
 Service Python du moteur de migration intelligente : OCR / extraction de texte
 (pdfplumber), analyse multi-agents et assemblage des projets migrés.

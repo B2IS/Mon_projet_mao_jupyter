@@ -1,8 +1,8 @@
 /**
- * sigeppApi.ts — Client typé du backend SIGEPP-DPE Enterprise (NestJS).
+ * sigepApi.ts — Client typé du backend SIGEP-DPE Enterprise (NestJS).
  * -----------------------------------------------------------------------------
  * Pont Phase 8 : branche progressivement les écrans Next.js sur l'API org-scopée.
- * - Base URL via NEXT_PUBLIC_SIGEPP_API (def. http://localhost:4000/api).
+ * - Base URL via NEXT_PUBLIC_SIGEP_API (def. http://localhost:4000/api).
  * - `apiEnabled()` = drapeau : tant qu'aucune base n'est configurée, les écrans
  *   gardent leurs données locales (aucune régression). On bascule écran par écran.
  * - L'identité (x-user-id) est injectée en dev ; en prod c'est le JWT Keycloak.
@@ -11,10 +11,17 @@
  * RLS) : le client n'a aucune logique de filtrage — il reçoit déjà le périmètre.
  */
 
-const BASE = process.env.NEXT_PUBLIC_SIGEPP_API ?? 'http://localhost:4000/api';
+const BASE = process.env.NEXT_PUBLIC_SIGEP_API ?? 'http://localhost:4000/api';
 
 export function apiEnabled(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SIGEPP_API);
+  return Boolean(process.env.NEXT_PUBLIC_SIGEP_API);
+}
+
+export function apiStatus(): { connected: boolean; reason: string } {
+  if (process.env.NEXT_PUBLIC_SIGEP_API) {
+    return { connected: true, reason: `NestJS branché sur ${BASE}` };
+  }
+  return { connected: false, reason: 'NEXT_PUBLIC_SIGEP_API non défini — données locales (stores Zustand)' };
 }
 
 async function req<T>(path: string, opts: { method?: string; body?: unknown; userId?: string } = {}): Promise<T> {
@@ -28,7 +35,7 @@ async function req<T>(path: string, opts: { method?: string; body?: unknown; use
     body: opts.body ? JSON.stringify(opts.body) : undefined,
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(`SIGEPP API ${res.status} ${res.statusText} @ ${path}`);
+  if (!res.ok) throw new Error(`SIGEP API ${res.status} ${res.statusText} @ ${path}`);
   return res.json() as Promise<T>;
 }
 
@@ -43,7 +50,7 @@ export interface ApiEVM { pv: number; ev: number; ac: number; bac: number; cpi: 
 export interface ApiAttachement { id: string; numero: number; entreprise?: string; statut: string; montant: number; orgPath: string }
 
 // ── Endpoints REST org-scopés ─────────────────────────────────────────────────
-export const sigeppApi = {
+export const sigepApi = {
   base: BASE,
   orgTree: (userId?: string) => req<ApiOrgUnit[]>('/org/tree', { userId }),
   myScope: (userId?: string) => req<ApiScope>('/org/me/scope', { userId }),
@@ -64,7 +71,7 @@ export const sigeppApi = {
 };
 
 // ── GraphQL (BFF org-aware) ───────────────────────────────────────────────────
-export async function sigeppGraphql<T>(query: string, variables?: Record<string, unknown>, userId?: string): Promise<T> {
+export async function sigepGraphql<T>(query: string, variables?: Record<string, unknown>, userId?: string): Promise<T> {
   const res = await fetch(`${BASE.replace(/\/api$/, '')}/graphql`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(userId ? { 'x-user-id': userId } : {}) },

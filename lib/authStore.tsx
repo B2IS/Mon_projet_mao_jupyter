@@ -1,13 +1,13 @@
 'use client';
 /**
- * authStore.tsx — Système RBAC SIGEPP-DPE SENELEC
+ * authStore.tsx — Système RBAC SIGEP-DPE SENELEC
  * Types/constantes RBAC purs → lib/authTypes.ts (importable middleware).
  * Ce fichier = React context + fonctions avec dépendances runtime.
  *
  * Auth.js v5 (next-auth) est utilisé pour :
  *   - SSO Microsoft Entra ID / Google
  *   - Credentials email/password (via signIn('credentials', ...))
- * L'ancien JWT httpOnly (sigepp_session) reste actif en fallback de transition.
+ * L'ancien JWT httpOnly (sigep_session) reste actif en fallback de transition.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -102,13 +102,21 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const LS_KEY = 'sigepp_dpe_user';
+const LS_KEY = 'sigep_dpe_user';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<TestUser | null>(null);
   const { data: session, status } = useSession();
 
-  // ── Hydratation : NextAuth session (prioritaire) → legacy JWT → localStorage ──
+  // ── Cache d'affichage : lecture localStorage au montage ──────────────────────
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(LS_KEY);
+      if (cached) setUser(JSON.parse(cached) as TestUser);
+    } catch { /* ignore */ }
+  }, []); // montage uniquement
+
+  // ── Revalidation serveur : NextAuth session (prioritaire) → legacy JWT cookie ──
   useEffect(() => {
     if (status === 'loading') return;
 
@@ -134,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 2. Fallback : ancien JWT via /api/auth/me (transition)
+    // 2. Fallback : ancien JWT via /api/auth/me (cookie httpOnly sigep_session)
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -142,17 +150,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(data.user);
           localStorage.setItem(LS_KEY, JSON.stringify(data.user));
         } else {
-          try {
-            const stored = localStorage.getItem(LS_KEY);
-            if (stored) setUser(JSON.parse(stored));
-          } catch { /* ignore */ }
+          // Pas de session valide côté serveur → effacer l'état local
+          setUser(null);
+          localStorage.removeItem(LS_KEY);
         }
       })
       .catch(() => {
-        try {
-          const stored = localStorage.getItem(LS_KEY);
-          if (stored) setUser(JSON.parse(stored));
-        } catch { /* ignore */ }
+        // Erreur réseau transitoire → ne pas effacer le cache (évite logout brutal)
       });
   }, [status, session]);
 
@@ -309,7 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const accepted = sectionId === 'portefeuille' ? ['portefeuille', 'mes_projets'] : [sectionId];
     if (!accepted.some(s => allowedSections.includes(s))) return false;
     // ABAC : l'assistante de DIRECTION (≠ assistant projet) n'a NI Exécution NI Projets.
-    if (user.role === 'ASSISTANT' && !isAssistantProjet(user)
+    if (user.role === 'ASSISTANT_DIR' && !isAssistantProjet(user)
         && (sectionId === 'execution' || sectionId === 'portefeuille' || sectionId === 'mes_projets')) return false;
     // Affinage métier par direction (intersection si une restriction existe).
     const dirAllowed = DIRECTION_SECTIONS[normalizeDirectionCode(user.direction)];
@@ -321,7 +325,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return true; // demo mode: show all
     // ABAC : le détail projet (gestion/WBS/tâches/terrain/Gantt) n'est visible que pour
     // l'assistant CHEF DE PROJET ; l'assistante de DIRECTION reste sur l'admin (GED, courriers…).
-    if (user.role === 'ASSISTANT' && ASSISTANT_DETAIL_ROUTES.includes(href) && !isAssistantProjet(user)) return false;
+    if (user.role === 'ASSISTANT_DIR' && ASSISTANT_DETAIL_ROUTES.includes(href) && !isAssistantProjet(user)) return false;
     return canAccessNavItem(user.role, href);
   }, [user]);
 

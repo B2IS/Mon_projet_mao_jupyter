@@ -110,8 +110,10 @@ export const PROJETS: ProjetDPE[] = [
     description: 'Construction centrale photovoltaïque 60 MWc avec stockage 20 MWh à Malicounda — IPP Production propre.',
     objectif: 'Renforcer capacité de production renouvelable et réduire dépendance thermique.',
     bailleurs: [
-      { code: 'MCA', nom: 'MCA-Sénégal II', montant: 25000000, devise: 'USD', tauxChange: 610, montantFCFA: 15_250_000_000, pourcentage: 68 },
-      { code: 'SENELEC', nom: 'SENELEC', montant: 7_250_000_000, devise: 'FCFA', montantFCFA: 7_250_000_000, pourcentage: 32 },
+      { code: 'PROPARCO', nom: 'Proparco (AFD Groupe)', montant: 17000000, devise: 'EUR', tauxChange: 655.957, montantFCFA: 11_151_269_000, pourcentage: 49.6 },
+      { code: 'FVC', nom: 'Fonds Vert pour le Climat (FVC)', montant: 6000000, devise: 'USD', tauxChange: 610, montantFCFA: 3_660_000_000, pourcentage: 16.3 },
+      { code: 'BAD', nom: 'Banque Africaine de Développement (BAD)', montant: 3000000, devise: 'USD', tauxChange: 610, montantFCFA: 1_830_000_000, pourcentage: 8.1 },
+      { code: 'SENELEC', nom: 'SENELEC (Fonds Propres)', montant: 5_858_731_000, devise: 'FCFA', montantFCFA: 5_858_731_000, pourcentage: 26.0 },
     ],
     phases: [
       { code: 'etudes_aps', label: 'Études APS', dateDebut: '01/06/2022', dateFin: '31/07/2022', avancement: 100, statut: 'termine', budgetPrevu: 150_000_000, budgetEngage: 148_000_000, budgetDecaisse: 148_000_000 },

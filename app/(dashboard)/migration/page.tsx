@@ -62,27 +62,27 @@ interface AgentUI {
   status: 'idle'|'running'|'done'|'error'; summary?: string; durationMs?: number;
 }
 const AGENTS: AgentUI[] = [
-  // Phase 1 — 9 agents
-  { id:'business_analyst',label:'Business Analyst', icon:ClipboardList, color:'#7C3AED', phase:1, status:'idle' },
-  { id:'planificateur',   label:'Planificateur',    icon:BarChart3,     color:'#2563EB', phase:1, status:'idle' },
-  { id:'financier',       label:'Financier',        icon:TrendingUp,    color:'#059669', phase:1, status:'idle' },
-  { id:'risques',         label:'Risk Analyst',     icon:Shield,        color:'#DC2626', phase:1, status:'idle' },
-  { id:'qhse',            label:'QHSE',             icon:AlertTriangle, color:'#D97706', phase:1, status:'idle' },
-  { id:'sig',             label:'SIG / Géospatial', icon:Map,           color:'#B45309', phase:1, status:'idle' },
-  { id:'bordereaux',      label:'BPU / Bordereaux', icon:FileCode,      color:'#0F766E', phase:1, status:'idle' },
-  { id:'programmes',      label:'Programmes',       icon:Sparkles,      color:'#6D28D9', phase:1, status:'idle' },
-  { id:'erp',             label:'ERP / Imputation', icon:Cpu,           color:'#1D4ED8', phase:1, status:'idle' },
-  // Phase 2 — 5 agents
-  { id:'ressources',      label:'Ressources',       icon:Users,         color:'#0891B2', phase:2, status:'idle' },
-  { id:'suivi_eval',      label:'Suivi-Éval',       icon:Activity,      color:'#9333EA', phase:2, status:'idle' },
-  { id:'marches',         label:'Marchés',          icon:ShoppingCart,  color:'#16A34A', phase:2, status:'idle' },
-  { id:'fournisseurs',    label:'Fournisseurs',     icon:Building2,     color:'#0369A1', phase:2, status:'idle' },
-  { id:'reception',       label:'Réception Travaux',icon:CheckCircle,   color:'#15803D', phase:2, status:'idle' },
-  // Phase 3 — 4 agents
-  { id:'reporting',       label:'Reporting T1–T4',  icon:FilePlus,      color:'#92400E', phase:3, status:'idle' },
-  { id:'courriers',       label:'Courriers / ODS',  icon:Archive,       color:'#4338CA', phase:3, status:'idle' },
-  { id:'documentaire',    label:'GED Doc',          icon:FolderOpen,    color:'#64748B', phase:3, status:'idle' },
-  { id:'chef_projet',     label:'Chef Projet',      icon:Zap,           color:'#1E40AF', phase:3, status:'idle' },
+  // Phase 1 — 9 agents (Reconstruction initiale)
+  { id:'business_analyst',label:'Identification Projet',    icon:ClipboardList, color:'#7C3AED', phase:1, status:'idle' },
+  { id:'planificateur',   label:'WBS & Planning',           icon:BarChart3,     color:'#2563EB', phase:1, status:'idle' },
+  { id:'financier',       label:'Budget & Finances',        icon:TrendingUp,    color:'#059669', phase:1, status:'idle' },
+  { id:'risques',         label:'Registre Risques',         icon:Shield,        color:'#DC2626', phase:1, status:'idle' },
+  { id:'qhse',            label:'QHSE / PGES',              icon:AlertTriangle, color:'#D97706', phase:1, status:'idle' },
+  { id:'sig',             label:'Géo-Référencement SIG',    icon:Map,           color:'#B45309', phase:1, status:'idle' },
+  { id:'bordereaux',      label:'DQE / Bordereaux',         icon:FileCode,      color:'#0F766E', phase:1, status:'idle' },
+  { id:'programmes',      label:'Programme & Bailleur',     icon:Sparkles,      color:'#6D28D9', phase:1, status:'idle' },
+  { id:'erp',             label:'Immobilisations & Actifs', icon:Cpu,           color:'#1D4ED8', phase:1, status:'idle' },
+  // Phase 2 — 5 agents (Patrimoine & Exécution)
+  { id:'ressources',      label:'Ressources Projet',        icon:Users,         color:'#0891B2', phase:2, status:'idle' },
+  { id:'suivi_eval',      label:'Situation Réelle',         icon:Activity,      color:'#9333EA', phase:2, status:'idle' },
+  { id:'marches',         label:'Marchés & Contrats',       icon:ShoppingCart,  color:'#16A34A', phase:2, status:'idle' },
+  { id:'fournisseurs',    label:'Entreprises Titulaires',   icon:Building2,     color:'#0369A1', phase:2, status:'idle' },
+  { id:'reception',       label:'Réception & MES',          icon:CheckCircle,   color:'#15803D', phase:2, status:'idle' },
+  // Phase 3 — 4 agents (GED · Réconciliation · Synthèse)
+  { id:'reporting',       label:'KPI & Dashboards',         icon:FilePlus,      color:'#92400E', phase:3, status:'idle' },
+  { id:'courriers',       label:'GED Contextualisée',       icon:FolderOpen,    color:'#4338CA', phase:3, status:'idle' },
+  { id:'documentaire',    label:'Réconciliation Qualité',   icon:Archive,       color:'#64748B', phase:3, status:'idle' },
+  { id:'chef_projet',     label:'Synthèse & Auto-évaluation',icon:Zap,          color:'#1E40AF', phase:3, status:'idle' },
 ];
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
@@ -113,7 +113,7 @@ function Stepper({ current }: { current: Step }) {
     { id:'swarm',    label:'Analyse IA', icon:Brain },
     { id:'preview',  label:'Aperçu',     icon:Eye },
     { id:'validate', label:'Validation', icon:CheckCircle },
-    { id:'done',     label:'SIGEPP',     icon:Rocket },
+    { id:'done',     label:'SIGEP',     icon:Rocket },
   ];
   const ci = steps.findIndex(s => s.id === current);
   return (
@@ -273,7 +273,7 @@ export default function MigrationPage() {
   const [budget,     setBudget]   = useState('500');
   const [bailleur,   setBailleur] = useState('IDA / Banque Mondiale');
   const [programme,  setProg]     = useState('PASER / PSES');
-  const [kimiKey,    setKimi]     = useState(() => typeof window!=='undefined'?(localStorage.getItem('sigepp_kimi_key')||''):'');
+  const [kimiKey,    setKimi]     = useState(() => typeof window!=='undefined'?(localStorage.getItem('sigep_kimi_key')||''):'');
   const [showKey,    setShowKey]  = useState(false);
   const [formOpen,   setFormOpen] = useState(true);
   const [createdId,  setCreated]  = useState('');
@@ -308,7 +308,7 @@ export default function MigrationPage() {
     if (running) return;
     setRunning(true); setErrMsg(''); setLogs([]); setCtx(null); setPhase(0);
     setAgents(AGENTS.map(a => ({ ...a, status:'idle', summary:undefined, durationMs:undefined })));
-    if (kimiKey) localStorage.setItem('sigepp_kimi_key', kimiKey);
+    if (kimiKey) localStorage.setItem('sigep_kimi_key', kimiKey);
     let finalCtx: SwarmContext|null = null;
     try {
       // ── Phase pré-swarm : extraction contenu documents ─────────────────────
@@ -324,7 +324,7 @@ export default function MigrationPage() {
       }
 
       const resp = await fetch('/api/swarm', {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
+        method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ files: swarmFiles,
           projectOverrides:{ nomProjet:nomProjet||undefined, codeProjet:codeProjet||undefined,
             typeProjet:typeProjet||undefined, dateDebut:dateDebut||undefined,
@@ -453,7 +453,7 @@ export default function MigrationPage() {
             </div>
             <div>
               <h1 style={{ fontSize:20, fontWeight:900, color:T.text, margin:0, letterSpacing:'-.02em' }}>Migration intelligente</h1>
-              <p  style={{ fontSize:12, color:T.muted, margin:0 }}>18 agents IA · Oracle PPM · Formats universels · Planning · Géospatial · Vision IA</p>
+              <p  style={{ fontSize:12, color:T.muted, margin:0 }}>18 agents IA · SIGEP-DPE · Reconstruction patrimoniale · Géospatial · Vision IA</p>
             </div>
           </div>
         </div>
@@ -487,11 +487,11 @@ export default function MigrationPage() {
                 {[
                   {l:'PDF · PDF scanné · Word · Excel', c:'#DC2626'},
                   {l:'DXF · DWG — Plans DAO', c:'#7C3AED'},
-                  {l:'KML · SHP — SIG / Géo', c:'#D97706'},
-                  {l:'SCD · CID — Supervision réseau', c:'#0F766E'},
-                  {l:'XER · MPP — Planification projet', c:'#1D4ED8'},
-                  {l:'Images scannées — PNG · JPG · TIFF', c:'#B45309'},
-                  {l:'ZIP · RAR — Archives', c:'#64748B'},
+                  {l:'KML · SHP · GeoJSON — SIG / Géo', c:'#D97706'},
+                  {l:'APS · APD · DAO — Études Techniques', c:'#0F766E'},
+                  {l:'XER · MPP — Planning Primavera / MS Project', c:'#1D4ED8'},
+                  {l:'PV Réception · PV MES · DOE — Réalisation', c:'#B45309'},
+                  {l:'ZIP · RAR — Dossiers complets projet', c:'#64748B'},
                 ].map(({l,c}) => (
                   <span key={l} style={{ fontSize:10.5, fontWeight:600, padding:'3px 10px', borderRadius:20, background:`${c}12`, color:c, border:`1px solid ${c}28` }}>{l}</span>
                 ))}
@@ -507,13 +507,13 @@ export default function MigrationPage() {
               /* ── Écran vide ── */
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
                 {[
-                  { icon:FileText, color:'#DC2626', t:'PDF & Documents', s:'PDF texte ou scanné, Word, PV, rapports' },
-                  { icon:FileCode, color:'#7C3AED', t:'Plans DAO', s:'DXF, DWG — Postes HTB, schémas unifilaires' },
-                  { icon:Map,      color:'#D97706', t:'Données SIG', s:'KML, KMZ, Shapefile — Tracés lignes, pylônes' },
-                  { icon:Cpu,      color:'#0F766E', t:'Config SCADA', s:'SCD, CID, ICD — CEI 61850 IED & protections' },
-                  { icon:Calendar, color:'#1D4ED8', t:'Plannings', s:'XER, MPP, XML — Planification projets' },
-                  { icon:BarChart3,color:'#059669', t:'Budgets & BOQ', s:'Excel, CSV — États financiers, décomptes' },
-                  { icon:Archive,  color:'#64748B', t:'Archives', s:'ZIP, RAR — Dossiers complets de projet' },
+                  { icon:FileText, color:'#DC2626', t:'APS · APD · DAO · DOE', s:'Études, cahier des charges, notes techniques, rapports' },
+                  { icon:FileText, color:'#2563EB', t:'Contrats · Marchés · PV', s:'Marchés, avenants, décomptes, PV réception, PV MES' },
+                  { icon:FileCode, color:'#7C3AED', t:'Plans DAO', s:'DXF, DWG — Postes HTB/HTA, schémas unifilaires' },
+                  { icon:Map,      color:'#D97706', t:'Données SIG', s:'KML, KMZ, Shapefile, GeoJSON — Tracés, emprises, ouvrages' },
+                  { icon:Calendar, color:'#1D4ED8', t:'Plannings', s:'XER (Primavera), MPP (MS Project) — Gantt, jalons' },
+                  { icon:BarChart3,color:'#059669', t:'Budgets & DQE', s:'Excel, CSV — Budgets, DQE, BPU, situations de paiement' },
+                  { icon:Archive,  color:'#64748B', t:'Archives GED', s:'ZIP, RAR — Dossiers complets, GED projet' },
                 ].map(({ icon:Icon, color, t, s }) => (
                   <div key={t} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'16px', boxShadow:T.shadow, cursor:'pointer' }}
                     onClick={()=>fileRef.current?.click()}>
@@ -671,7 +671,7 @@ export default function MigrationPage() {
 
             {/* Pipeline */}
             <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-              <Section title="Pipeline 18 agents IA · Oracle PPM" icon={Brain} color={T.violet}
+              <Section title="Pipeline 18 agents IA · SIGEP-DPE" icon={Brain} color={T.violet}
                 right={
                   extracting ? (
                     <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12.5, color:'#0891B2', fontWeight:600 }}>
@@ -782,7 +782,7 @@ export default function MigrationPage() {
                   <div style={{ width:10, height:10, borderRadius:'50%', background:'#28C840' }} />
                 </div>
                 <span style={{ fontSize:11, fontFamily:'monospace', color:'#475569', marginLeft:4 }}>
-                  SIGEPP SWARM · {running?'● LIVE':ctx?'✓ DONE':'⏳ READY'}
+                  SIGEP SWARM · {running?'● LIVE':ctx?'✓ DONE':'⏳ READY'}
                 </span>
               </div>
               <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', fontFamily:'monospace', fontSize:10.5, lineHeight:1.7, maxHeight:520 }}>
@@ -943,7 +943,7 @@ export default function MigrationPage() {
                   boxShadow:chef?.projetValide?`0 4px 14px ${T.violet}40`:'none',
                 }}>
                   <CheckCircle size={16}/>
-                  {chef?.projetValide?'Valider et créer dans SIGEPP':`Corriger ${chef?.anomalies.length??0} anomalie(s)`}
+                  {chef?.projetValide?'Valider et créer dans SIGEP':`Corriger ${chef?.anomalies.length??0} anomalie(s)`}
                   <ChevronRight size={16}/>
                 </button>
               </div>
@@ -958,9 +958,9 @@ export default function MigrationPage() {
               <div style={{ width:64, height:64, borderRadius:18, background:`linear-gradient(135deg,${T.success}22,${T.success}44)`, margin:'0 auto 18px', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <CheckCircle size={30} color={T.success} />
               </div>
-              <div style={{ fontSize:20, fontWeight:900, color:T.text, marginBottom:8 }}>Prêt pour l&apos;import SIGEPP</div>
+              <div style={{ fontSize:20, fontWeight:900, color:T.text, marginBottom:8 }}>Prêt pour l&apos;import SIGEP</div>
               <div style={{ fontSize:13, color:T.muted, marginBottom:28, lineHeight:1.7 }}>
-                Le projet sera créé avec le WBS complet, les jalons,<br/>les risques et les données financières générés par les 18 agents Oracle PPM.
+                La fiche projet, la structure patrimoniale, le WBS, les jalons, les risques,<br/>les immobilisations et les couches SIG ont été reconstruits automatiquement.
               </div>
 
               <div style={{ background:T.bg, borderRadius:12, padding:'16px 20px', marginBottom:26, textAlign:'left' }}>
@@ -991,7 +991,7 @@ export default function MigrationPage() {
                   color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8,
                   boxShadow:`0 4px 14px ${T.success}40`, fontFamily:'inherit',
                 }}>
-                  <Rocket size={16}/> Créer dans SIGEPP-DPE
+                  <Rocket size={16}/> Créer dans SIGEP-DPE
                 </button>
               </div>
             </div>
@@ -1024,13 +1024,13 @@ export default function MigrationPage() {
           }[ragVal];
 
           const fields = [
-            { l:'WBS + Jalons',        ok:(planif?.taches.length??0)>0,       n:`${planif?.taches.length??0} tâches · ${planif?.jalons.length??0} jalons`,         href:'/gantt' },
-            { l:'Budget & BOQ',        ok:(financ?.budgetTotal??0)>0,          n:`${financ?.budgetTotal??0} MFCFA · ${financ?.lots?.length??0} lots BOQ`,           href:'/budget' },
-            { l:'Registre risques',    ok:(risques?.risques.length??0)>0,      n:`${risques?.risques.length??0} risques · ${nRed} critiques`,                       href:'/cockpit' },
-            { l:'Plan PGES/HSE',       ok:(qhse?.planPGES.length??0)>0,        n:`${qhse?.planPGES.length??0} mesures · Niveau ${qhse?.niveauRisqueHSE??'—'}`,      href:'/cockpit' },
-            { l:'Lots marchés',        ok:(marches?.lotsIdentifies.length??0)>0,n:`${marches?.lotsIdentifies.length??0} lots · ${marches?.totalMarchesPrevu??0} MFCFA`,href:'/portefeuille' },
-            { l:'KPIs Suivi-Éval',     ok:(suivi?.icps.length??0)>0,           n:`${suivi?.icps.length??0} indicateurs · ${suivi?.alerteSeuils?.length??0} seuils RAG`, href:'/analytique' },
-            { l:'GED arborescence',    ok:(ged?.gedFolders.length??0)>0,       n:`${ged?.gedFolders.length??0} dossiers indexés`,                                   href:'/ged' },
+            { l:'WBS & Planning',           ok:(planif?.taches.length??0)>0,        n:`${planif?.taches.length??0} tâches · ${planif?.jalons.length??0} jalons`,          href:'/gantt' },
+            { l:'Budget & Finances',        ok:(financ?.budgetTotal??0)>0,           n:`${financ?.budgetTotal??0} MFCFA · ${financ?.lots?.length??0} lots DQE/BOQ`,        href:'/budget' },
+            { l:'Registre Risques',         ok:(risques?.risques.length??0)>0,       n:`${risques?.risques.length??0} risques · ${nRed} critiques`,                        href:'/cockpit-projet' },
+            { l:'Plan QHSE / PGES',         ok:(qhse?.planPGES.length??0)>0,         n:`${qhse?.planPGES.length??0} mesures · Niveau ${qhse?.niveauRisqueHSE??'—'}`,       href:'/cockpit-projet' },
+            { l:'Marchés & Contrats',       ok:(marches?.lotsIdentifies.length??0)>0, n:`${marches?.lotsIdentifies.length??0} lots · ${marches?.totalMarchesPrevu??0} MFCFA`, href:'/portefeuille' },
+            { l:'KPI & Suivi-Évaluation',   ok:(suivi?.icps.length??0)>0,            n:`${suivi?.icps.length??0} indicateurs · ${suivi?.alerteSeuils?.length??0} seuils RAG`, href:'/analytique' },
+            { l:'GED Contextualisée',        ok:(ged?.gedFolders.length??0)>0,        n:`${ged?.gedFolders.length??0} dossiers indexés`,                                    href:'/ged' },
           ];
           const nbOk = fields.filter(f=>f.ok).length;
 
@@ -1043,7 +1043,7 @@ export default function MigrationPage() {
                   <div style={{ width:64, height:64, borderRadius:18, background:ragCfg.bg, border:`2px solid ${ragCfg.border}`, margin:'0 auto 14px', display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <Rocket size={28} color={ragCfg.color} />
                   </div>
-                  <div style={{ fontSize:20, fontWeight:900, color:ragCfg.color, marginBottom:4 }}>Projet créé dans SIGEPP</div>
+                  <div style={{ fontSize:20, fontWeight:900, color:ragCfg.color, marginBottom:4 }}>Projet créé dans SIGEP</div>
                   <div style={{ fontSize:14, color:'#1E293B', fontWeight:700, marginBottom:2 }}>{pc.nomProjet}</div>
                   <div style={{ fontSize:11.5, color:T.muted, marginBottom:12 }}>
                     {pc.codeProjet} · {agents.filter(a=>a.status==='done').length}/18 agents · Score {ctx.results.chefProjet?.data.scoreSynthese??0}/100
@@ -1082,7 +1082,7 @@ export default function MigrationPage() {
                     <FolderOpen size={13}/> Portefeuille
                   </button>
                   {createdId && (
-                    <button onClick={()=>router.push('/cockpit')} style={{ padding:'9px 20px', borderRadius:9, background:`linear-gradient(135deg,${T.purple},${T.violet})`, color:'#fff', border:'none', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', boxShadow:`0 4px 12px ${T.violet}40` }}>
+                    <button onClick={()=>router.push('/cockpit-projet')} style={{ padding:'9px 20px', borderRadius:9, background:`linear-gradient(135deg,${T.purple},${T.violet})`, color:'#fff', border:'none', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', boxShadow:`0 4px 12px ${T.violet}40` }}>
                       <Rocket size={13}/> Cockpit projet
                     </button>
                   )}

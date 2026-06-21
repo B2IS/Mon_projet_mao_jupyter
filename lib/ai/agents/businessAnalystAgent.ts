@@ -52,7 +52,7 @@ export async function runBusinessAnalystAgent(
     'Respect des normes techniques SENELEC DPE (PNT, NF C15-100)',
     'Délai d\'exécution respecté (cf. planning WBS)',
     `Budget maîtrisé ≤ ${budgetMFCFA.toFixed(0)} MFCFA`,
-    'Documentation conforme GED SIGEPP-DPE (plans, PV, décomptes)',
+    'Documentation conforme GED SIGEP-DPE (plans, PV, décomptes)',
     'Rapports mensuels d\'avancement transmis au PMO',
     'Réception provisoire puis définitive selon CCAP',
   ];

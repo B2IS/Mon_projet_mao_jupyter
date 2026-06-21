@@ -1,15 +1,16 @@
 /**
- * GET /api/openapi — Spécification OpenAPI 3.0 de SIGEPP-DPE
+ * GET /api/openapi — Spécification OpenAPI 3.0 de SIGEP-DPE
  * Sert le JSON utilisé par Swagger UI sur /docs
  */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireApiAuth } from '@/lib/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
 const spec = {
   openapi: '3.0.3',
   info: {
-    title: 'SIGEPP-DPE — API REST',
+    title: 'SIGEP-DPE — API REST',
     description:
       'Système Intégré de Gestion, Évaluation et Pilotage de Projets — Direction Principale Équipement SENELEC.\n\n' +
       '**Architecture souveraine** : déployable on-premise, aucune dépendance cloud obligatoire.\n\n' +
@@ -257,7 +258,7 @@ const spec = {
       get: {
         tags: ['Infrastructure'],
         summary: 'Spécification OpenAPI 3.0 (ce document)',
-        description: 'Retourne la spécification OpenAPI 3.0 de l\'API SIGEPP-DPE en JSON.',
+        description: 'Retourne la spécification OpenAPI 3.0 de l\'API SIGEP-DPE en JSON.',
         responses: {
           200: {
             description: 'Spécification OpenAPI 3.0',
@@ -309,11 +310,16 @@ const spec = {
   },
 };
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = await requireApiAuth(req);
+  if (!guard.ok) return guard.response;
+
   return NextResponse.json(spec, {
     headers: {
-      'Cache-Control': 'public, max-age=3600',
-      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'private, no-store',
+      'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production'
+        ? (process.env.NEXTAUTH_URL ?? 'https://sigep-dpe.vercel.app')
+        : 'http://localhost:3000',
     },
   });
 }

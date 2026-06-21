@@ -22,6 +22,6 @@ export const useStructurationStore = create<StructurationState>()(
       remove: (code) => set(st => { const m = { ...st.byProjet }; delete m[code]; return { byProjet: m }; }),
       valider: (code) => set(st => st.byProjet[code] ? { byProjet: { ...st.byProjet, [code]: { ...st.byProjet[code], valide: true } } } : st),
     }),
-    { name: 'sigepp-structuration-v1' },
+    { name: 'sigep-structuration-v1' },
   ),
 );

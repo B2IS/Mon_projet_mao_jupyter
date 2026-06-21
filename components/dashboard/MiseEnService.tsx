@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Zap, CheckCircle2, Clock, FileText, Map, Building2,
   Plus, Search, ChevronRight, Calendar, ArrowRight,
@@ -150,10 +150,10 @@ export default function MiseEnService() {
             { label: 'Validation ouvrages', color: '#7C3AED', bg: '#F5F3FF' },
             { label: 'PV Mise en Service', color: '#059669', bg: '#F0FDF4' },
           ].map((step, i) => (
-            <>
-              <span key={step.label} style={{ fontSize: 11, fontWeight: 800, color: step.color, background: step.bg, padding: '3px 10px', borderRadius: 6 }}>{step.label}</span>
-              {i < 2 && <ArrowRight key={`arrow-${i}`} size={14} style={{ color: C.slate }} />}
-            </>
+            <React.Fragment key={step.label}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: step.color, background: step.bg, padding: '3px 10px', borderRadius: 6 }}>{step.label}</span>
+              {i < 2 && <ArrowRight size={14} style={{ color: C.slate }} />}
+            </React.Fragment>
           ))}
           <ArrowRight size={14} style={{ color: C.slate }} />
           <span style={{ fontSize: 11, fontWeight: 800, color: C.teal, background: '#F0FDFA', padding: '3px 10px', borderRadius: 6, border: '1px solid #99F6E4' }}>

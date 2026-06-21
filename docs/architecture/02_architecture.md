@@ -1,4 +1,4 @@
-# SIGEPP-DPE — Architecture Enterprise (Blueprint exploitable)
+# SIGEP-DPE — Architecture Enterprise (Blueprint exploitable)
 
 > Système Intégré de Gouvernance, d'Exécution et de Pilotage des Projets — DPE/SENELEC.
 > Niveau cible : Oracle Primavera P6 / Oracle Unifier / SAP PPM / MS Project Enterprise.
@@ -12,7 +12,7 @@
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │  FRONTEND  React + TypeScript + Material UI + AG Grid Enterprise     │
-│  (l'app SIGEPP-DPE actuelle = client de référence des écrans/UX)     │
+│  (l'app SIGEP-DPE actuelle = client de référence des écrans/UX)     │
 └───────────────┬────────────────────────────────────────────────────┘
                 │ REST + GraphQL (BFF)
 ┌───────────────▼────────────────────────────────────────────────────┐
@@ -62,7 +62,7 @@ Audit : table `audit_log` **append-only** (UPDATE/DELETE révoqués) = journalis
 
 ## 3. Modules (16) ↔ écrans existants
 
-| # | Module (prompt) | Écran SIGEPP-DPE |
+| # | Module (prompt) | Écran SIGEP-DPE |
 |---|-----------------|------------------|
 | 1 | Cockpit Exécutif | `/tableau-de-bord` |
 | 2 | Gouvernance Portefeuille | `/portefeuille` |

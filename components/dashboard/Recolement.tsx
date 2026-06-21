@@ -52,30 +52,7 @@ interface DossierRecolement {
   lignes: LigneRecolement[];
 }
 
-const DOSSIERS: DossierRecolement[] = [
-  {
-    id: 'REC-001', projet: 'Extension réseau HTA Thiès Nord',
-    domaine: 'Distribution', localite: 'Thiès', region: 'Thiès',
-    entreprise: 'ELEC-BTP Sénégal', dateReception: '2025-05-20',
-    tauxConformite: 94, statut: 'EN_COURS',
-    lignes: [
-      { id: 'L01', reference: 'TR-001', designation: 'Transformateur 630 kVA', ouvrage: 'Poste HTA Thiès Nord', localite: 'Thiès', qtePlanned: 3, qteDesigned: 3, qteBuilt: 3, unite: 'u', ecart: 'CONFORME', hasSIG: true, photos: 12 },
-      { id: 'L02', reference: 'CD-001', designation: 'Câble HTA 3x95 mm²', ouvrage: 'Réseau HTA Thiès Nord', localite: 'Thiès', qtePlanned: 4200, qteDesigned: 4350, qteBuilt: 4280, unite: 'm', ecart: 'ECART_MINEUR', hasSIG: true, photos: 8, note: 'Déviation due à obstacle foncier — validé.' },
-      { id: 'L03', reference: 'PO-001', designation: 'Poteau béton 9m', ouvrage: 'Réseau HTA Thiès Nord', localite: 'Thiès', qtePlanned: 142, qteDesigned: 145, qteBuilt: 140, unite: 'u', ecart: 'ECART_MINEUR', hasSIG: true, photos: 6 },
-      { id: 'L04', reference: 'DIS-001', designation: 'Disjoncteur 24 kV', ouvrage: 'Poste HTA Thiès Nord', localite: 'Thiès', qtePlanned: 6, qteDesigned: 6, qteBuilt: 4, unite: 'u', ecart: 'MANQUANT', hasSIG: false, photos: 2, note: 'Livraison partielle — en attente lot 2.' },
-    ],
-  },
-  {
-    id: 'REC-002', projet: 'Programme HTB Backbone Kaolack',
-    domaine: 'Transport', localite: 'Kaolack', region: 'Kaolack',
-    entreprise: 'NEXANS Africa', dateReception: '2025-03-10',
-    tauxConformite: 100, statut: 'VALIDE',
-    lignes: [
-      { id: 'L05', reference: 'LG-001', designation: 'Ligne HTB 225 kV simple terne', ouvrage: 'Ligne Tobène–Kaolack', localite: 'Kaolack', qtePlanned: 120, qteDesigned: 120, qteBuilt: 120, unite: 'km', ecart: 'CONFORME', hasSIG: true, photos: 45 },
-      { id: 'L06', reference: 'PYL-001', designation: 'Pylône métal 3KA', ouvrage: 'Ligne Tobène–Kaolack', localite: 'Mbour', qtePlanned: 360, qteDesigned: 360, qteBuilt: 360, unite: 'u', ecart: 'CONFORME', hasSIG: true, photos: 18 },
-    ],
-  },
-];
+const DOSSIERS: DossierRecolement[] = [];
 
 const ECART_CONFIG: Record<EcartType, { label: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
   CONFORME:     { label: 'Conforme',     color: '#059669', bg: '#F0FDF4', icon: CheckCircle2 },

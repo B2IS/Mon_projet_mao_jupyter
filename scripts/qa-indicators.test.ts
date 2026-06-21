@@ -1,5 +1,5 @@
 /**
- * qa-indicators.test.ts — Tests QA du moteur d'indicateurs SIGEPP-DPE
+ * qa-indicators.test.ts — Tests QA du moteur d'indicateurs SIGEP-DPE
  * Vérifie « voir les données → sélectionner → calculer » avec données fictives,
  * aligné sur les indicateurs du Rapport Trimestriel global DPE (T1 2026).
  * Exécution : npx tsx scripts/qa-indicators.test.ts
@@ -45,7 +45,7 @@ const CASES: Case[] = [
 ];
 
 let pass = 0, fail = 0;
-console.log('\n═══ QA — Moteur d\'indicateurs SIGEPP-DPE (données fictives) ═══\n');
+console.log('\n═══ QA — Moteur d\'indicateurs SIGEP-DPE (données fictives) ═══\n');
 for (const c of CASES) {
   const r = evaluateFormula(c.formula, c.projets);
   const tol = c.tol ?? 0.0001;

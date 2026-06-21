@@ -112,101 +112,13 @@ interface DemandeEmprunt {
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const VEHICULES: Vehicule[] = [
-  {
-    id: 'V01', immatriculation: 'SN-0234-DA', marque: 'Toyota', modele: 'Land Cruiser 200',
-    annee: 2021, couleur: 'Blanc', statut: 'Disponible',
-    kmTotal: 87430, kmCeMois: 1840, prochainEntretienKm: 90000,
-    assuranceExpiration: '31/08/2026', assuranceJoursRestants: 98,
-    visiteExpirationDate: '15/06/2026', visiteJoursRestants: 21,
-    chauffeurAssigne: 'Modou FALL', direction: 'DER', carburant: 'Diesel',
-  },
-  {
-    id: 'V02', immatriculation: 'SN-4521-DK', marque: 'Nissan', modele: 'Patrol Y62',
-    annee: 2020, couleur: 'Argent', statut: 'En mission',
-    kmTotal: 112680, kmCeMois: 2340, prochainEntretienKm: 115000,
-    assuranceExpiration: '28/05/2026', assuranceJoursRestants: 3,
-    visiteExpirationDate: '30/07/2026', visiteJoursRestants: 66,
-    chauffeurAssigne: 'Ibra DIOP', direction: 'DER', carburant: 'Diesel',
-  },
-  {
-    id: 'V03', immatriculation: 'SN-7892-DK', marque: 'Mitsubishi', modele: 'L200 Triton',
-    annee: 2022, couleur: 'Blanc', statut: 'En mission',
-    kmTotal: 54210, kmCeMois: 3120, prochainEntretienKm: 60000,
-    assuranceExpiration: '30/11/2026', assuranceJoursRestants: 189,
-    visiteExpirationDate: '15/09/2026', visiteJoursRestants: 113,
-    chauffeurAssigne: 'Alassane SARR', direction: 'DER', carburant: 'Diesel',
-  },
-  {
-    id: 'V04', immatriculation: 'SN-1103-TH', marque: 'Toyota', modele: 'Hilux Revo',
-    annee: 2023, couleur: 'Blanc', statut: 'Disponible',
-    kmTotal: 28960, kmCeMois: 980, prochainEntretienKm: 30000,
-    assuranceExpiration: '31/10/2026', assuranceJoursRestants: 159,
-    visiteExpirationDate: '20/12/2026', visiteJoursRestants: 209,
-    chauffeurAssigne: 'Mamadou WADE', direction: 'DER', carburant: 'Diesel',
-  },
-  {
-    id: 'V05', immatriculation: 'SN-5567-ZG', marque: 'Land Rover', modele: 'Defender 110',
-    annee: 2022, couleur: 'Blanc', statut: 'En maintenance',
-    kmTotal: 68420, kmCeMois: 0, prochainEntretienKm: 70000,
-    assuranceExpiration: '31/07/2026', assuranceJoursRestants: 67,
-    visiteExpirationDate: '10/08/2026', visiteJoursRestants: 77,
-    chauffeurAssigne: null, direction: 'DER', carburant: 'Diesel',
-  },
-  {
-    id: 'V06', immatriculation: 'SN-2231-DK', marque: 'Toyota', modele: 'Land Cruiser 70',
-    annee: 2019, couleur: 'Blanc', statut: 'Disponible',
-    kmTotal: 143800, kmCeMois: 1560, prochainEntretienKm: 145000,
-    assuranceExpiration: '15/06/2026', assuranceJoursRestants: 21,
-    visiteExpirationDate: '30/06/2026', visiteJoursRestants: 36,
-    chauffeurAssigne: 'Oumar NDIAYE', direction: 'DPE', carburant: 'Diesel',
-  },
-  {
-    id: 'V07', immatriculation: 'SN-8834-KL', marque: 'Ford', modele: 'Ranger Wildtrak',
-    annee: 2021, couleur: 'Gris', statut: 'Disponible',
-    kmTotal: 72140, kmCeMois: 1240, prochainEntretienKm: 75000,
-    assuranceExpiration: '30/09/2026', assuranceJoursRestants: 128,
-    visiteExpirationDate: '15/10/2026', visiteJoursRestants: 143,
-    chauffeurAssigne: 'Cheikh BA', direction: 'DPE', carburant: 'Diesel',
-  },
-  {
-    id: 'V08', immatriculation: 'SN-3312-DK', marque: 'Toyota', modele: 'Land Cruiser 200',
-    annee: 2018, couleur: 'Blanc', statut: 'Hors service',
-    kmTotal: 198400, kmCeMois: 0, prochainEntretienKm: 200000,
-    assuranceExpiration: '31/03/2026', assuranceJoursRestants: -55,
-    visiteExpirationDate: '28/02/2026', visiteJoursRestants: -86,
-    chauffeurAssigne: null, direction: 'DER', carburant: 'Diesel',
-  },
-];
+const VEHICULES: Vehicule[] = [];
 
-const MISSIONS_CARNET: MissionCarnet[] = [
-  { id: 'MC-001', vehiculeId: 'V01', date: '23/05/2026', chauffeur: 'Modou FALL', destination: 'Saint-Louis', kmDepart: 85920, kmArrivee: 86360, consommation: 71, odmRef: 'ODM-DER-2026-040' },
-  { id: 'MC-002', vehiculeId: 'V01', date: '20/05/2026', chauffeur: 'Modou FALL', destination: 'Thiès', kmDepart: 85780, kmArrivee: 85920, consommation: 23, odmRef: 'ODM-DER-2026-038' },
-  { id: 'MC-003', vehiculeId: 'V01', date: '18/05/2026', chauffeur: 'Modou FALL', destination: 'Kaolack', kmDepart: 85530, kmArrivee: 85780, consommation: 42, odmRef: 'ODM-DER-2026-037' },
-  { id: 'MC-004', vehiculeId: 'V02', date: '24/05/2026', chauffeur: 'Ibra DIOP', destination: 'Ziguinchor', kmDepart: 110200, kmArrivee: 110740, consommation: 95, odmRef: 'ODM-DER-2026-041' },
-  { id: 'MC-005', vehiculeId: 'V03', date: '26/05/2026', chauffeur: 'Alassane SARR', destination: 'Ziguinchor', kmDepart: 51850, kmArrivee: 52640, consommation: 130, odmRef: 'ODM-DER-2026-042' },
-  { id: 'MC-006', vehiculeId: 'V04', date: '22/05/2026', chauffeur: 'Mamadou WADE', destination: 'Rufisque', kmDepart: 28480, kmArrivee: 28535, consommation: 10, odmRef: 'ODM-DER-2026-039' },
-  { id: 'MC-007', vehiculeId: 'V06', date: '21/05/2026', chauffeur: 'Oumar NDIAYE', destination: 'Kolda', kmDepart: 142380, kmArrivee: 143130, consommation: 130, odmRef: 'ODM-DER-2026-036' },
-  { id: 'MC-008', vehiculeId: 'V07', date: '19/05/2026', chauffeur: 'Cheikh BA', destination: 'Mbour', kmDepart: 71660, kmArrivee: 71900, consommation: 40, odmRef: 'ODM-DER-2026-035' },
-];
+const MISSIONS_CARNET: MissionCarnet[] = [];
 
-const ALERTES_VEHICULE: AlerteVehicule[] = [
-  { id: 'AL-01', vehiculeId: 'V02', type: 'Assurance', description: 'Assurance Nissan Patrol SN-4521-DK expirée dans 3 jours', echeance: '28/05/2026', joursRestants: 3, statut: 'Critique' },
-  { id: 'AL-02', vehiculeId: 'V08', type: 'Assurance', description: 'Assurance Toyota LC SN-3312-DK expirée depuis 55 jours', echeance: '31/03/2026', joursRestants: -55, statut: 'Critique' },
-  { id: 'AL-03', vehiculeId: 'V08', type: 'Visite technique', description: 'Visite technique SN-3312-DK expirée depuis 86 jours', echeance: '28/02/2026', joursRestants: -86, statut: 'Critique' },
-  { id: 'AL-04', vehiculeId: 'V01', type: 'Visite technique', description: 'Visite technique Toyota LC 200 SN-0234-DA dans 21 jours', echeance: '15/06/2026', joursRestants: 21, statut: 'Attention' },
-  { id: 'AL-05', vehiculeId: 'V06', type: 'Assurance', description: 'Assurance Toyota LC 70 SN-2231-DK dans 21 jours', echeance: '15/06/2026', joursRestants: 21, statut: 'Attention' },
-  { id: 'AL-06', vehiculeId: 'V06', type: 'Visite technique', description: 'Visite technique SN-2231-DK à renouveler', echeance: '30/06/2026', joursRestants: 36, statut: 'Attention' },
-  { id: 'AL-07', vehiculeId: 'V01', type: 'Entretien', description: 'Entretien programmé à 90 000 km — 2 570 km restants', echeance: 'À 90 000 km', joursRestants: 30, statut: 'Attention' },
-  { id: 'AL-08', vehiculeId: 'V03', type: 'Entretien', description: 'Entretien programmé à 60 000 km — 5 790 km restants', echeance: 'À 60 000 km', joursRestants: 45, statut: 'OK' },
-];
+const ALERTES_VEHICULE: AlerteVehicule[] = [];
 
-const MAINTENANCES: MaintenanceHisto[] = [
-  { id: 'MH-01', vehiculeId: 'V05', date: '20/05/2026', type: 'Réparation moteur', prestataire: 'Garage TOTAL Dakar', km: 68420, cout: 1850000, description: 'Remplacement joint de culasse + vidange complète' },
-  { id: 'MH-02', vehiculeId: 'V01', date: '15/03/2026', type: 'Entretien 85 000 km', prestataire: 'Concessionnaire Toyota', km: 85000, cout: 420000, description: 'Vidange, filtres air/gasoil, bougies de préchauffage' },
-  { id: 'MH-03', vehiculeId: 'V04', date: '02/04/2026', type: 'Entretien 25 000 km', prestataire: 'Concessionnaire Toyota', km: 25000, cout: 280000, description: 'Vidange huile, filtre huile, vérification plaquettes' },
-  { id: 'MH-04', vehiculeId: 'V07', date: '10/05/2026', type: 'Remplacement pneus', prestataire: 'CFAO Dakar', km: 71200, cout: 680000, description: '4 pneus Michelin BF Goodrich + équilibrage' },
-];
+const MAINTENANCES: MaintenanceHisto[] = [];
 
 const STATS_MENSUELLES: StatMensuelle[] = [
   { mois: 'Jan', tauxDisponible: 68, tauxMission: 22, tauxMaintenance: 10 },

@@ -157,7 +157,7 @@ export default function MatriceLivrables() {
   const store = useProjectStore();
   const { user } = useAuth();
   const auteur = user ? `${user.prenom ?? ''} ${user.nom ?? ''}`.trim() : 'Inconnu';
-  const canEdit = user && ['ADMIN', 'CHEF_PROJ', 'PMO', 'CHEF_DEPT', 'INGENIEUR', 'CONTROLEUR'].includes(user.role);
+  const canEdit = user && ['ADMIN', 'CHEF_PROJ', 'CHEF_CELLULE', 'CHEF_DEPT', 'INGENIEUR', 'CONTROLEUR'].includes(user.role);
 
   // ── Filtres ────────────────────────────────────────────────────────────────
   const [filterProjet, setFilterProjet] = useState('');

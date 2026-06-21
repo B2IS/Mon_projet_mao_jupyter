@@ -6,27 +6,38 @@
  *   2. clientKey dans le body — clé personnelle saisie par l'utilisateur dans l'UI
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/jwt';
-import { SESSION_COOKIE } from '@/lib/authTypes';
+import { requireApiAuth, checkRateLimit, rateLimitResponse, getClientIp } from '@/lib/apiAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const GROQ_BASE = 'https://api.groq.com/openai/v1';
 
-/** GET /api/ai/groq — indique si le provider Groq est disponible */
-export async function GET() {
+// ── Rate limit : 20 req / 5 min par IP ──────────────────────────────────────
+const RL_GROQ = { max: 20, windowMs: 5 * 60 * 1000 };
+const GROQ_TIMEOUT_MS = 30_000;
+
+/** GET /api/ai/groq — indique si le provider Groq est disponible (authentification requise) */
+export async function GET(req: NextRequest) {
+  const guard = await requireApiAuth(req);
+  if (!guard.ok) return guard.response;
   const hasEnvKey = !!(process.env.GROQ_API_KEY);
   return NextResponse.json({ available: hasEnvKey });
 }
 
 /** POST /api/ai/groq — proxy vers Groq Chat Completions */
 export async function POST(req: NextRequest) {
-  // Vérification session (cookie legacy JWT ou clientKey valide)
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
-  const hasSession = sessionToken ? !!(await verifyToken(sessionToken)) : false;
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`groq:${ip}`, RL_GROQ);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
+
+  const guard = await requireApiAuth(req);
+  if (!guard.ok) return guard.response;
+
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (contentLength > 16 * 1024) {
+    return NextResponse.json({ error: 'Corps de requête trop volumineux (max 16 Ko).' }, { status: 413 });
+  }
 
   let body: {
     messages?: { role: string; content: string }[];
@@ -43,32 +54,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 });
   }
 
+  // clientKey personnel autorisé uniquement si clé serveur absente — jamais comme bypass d'auth
   const clientKey = body.clientKey?.startsWith('gsk_') ? body.clientKey : null;
-  // Exiger session OU clé personnelle valide
-  if (!hasSession && !clientKey) {
-    return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 });
-  }
-
   const apiKey = process.env.GROQ_API_KEY || clientKey;
 
   if (!apiKey) {
     return NextResponse.json({ error: 'Groq non configuré.' }, { status: 503 });
   }
 
-  const upstream = await fetch(`${GROQ_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: body.model ?? 'llama-3.1-8b-instant',
-      messages: body.messages ?? [],
-      stream: body.stream ?? false,
-      temperature: body.temperature ?? 0.4,
-      max_tokens: body.max_tokens ?? 2048,
-    }),
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GROQ_TIMEOUT_MS);
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${GROQ_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: body.model ?? 'llama-3.1-8b-instant',
+        messages: body.messages ?? [],
+        stream: body.stream ?? false,
+        temperature: body.temperature ?? 0.4,
+        max_tokens: body.max_tokens ?? 2048,
+      }),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    const msg = e instanceof Error && e.name === 'AbortError' ? 'Délai dépassé (30s)' : 'Connexion Groq impossible';
+    return NextResponse.json({ error: msg }, { status: 504 });
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => '');

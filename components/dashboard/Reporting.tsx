@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   FileText, Download, Eye, RefreshCw, CheckCircle, Clock, BarChart2,
   TrendingUp, Send, Plus, Calendar, Globe, ChevronDown, Printer, AlertTriangle, Users,
   Sparkles, Edit3, MessageSquare, X, ChevronRight, RotateCcw, Copy, Wand2,
 } from 'lucide-react';
 import { useProjectStore, DOMAINE_CFG } from '@/lib/projectStore';
+import { useAuth } from '@/lib/authStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -75,23 +76,9 @@ const TYPES_RAPPORT: RapportType[] = [
   },
 ];
 
-const RAPPORTS_RECENTS: RapportRecent[] = [
-  { id: 'R001', nom: 'Synthèse Portefeuille DPE — Avril 2026', type: 'Trimestriel DPE', periode: 'Avril 2026', generePar: 'Maodo Sène', date: '30/04/2026 08:15', taille: '2.4 Mo', format: 'PDF', color: 'var(--navy)' },
-  { id: 'R002', nom: 'Rapport Financier BM — IFR Q1 2026', type: 'Bailleur BM', periode: 'T1 2026', generePar: 'Aliou Dieng', date: '30/04/2026 09:00', taille: '3.1 Mo', format: 'Word', color: '#2563EB' },
-  { id: 'R003', nom: 'Avancement Travaux — S20 2026', type: 'Mensuel CP', periode: 'Semaine 20', generePar: 'Aïssatou Ndiaye', date: '17/05/2026 07:00', taille: '4.7 Mo', format: 'PDF', color: 'var(--orange)' },
-  { id: 'R004', nom: 'EVM Consolidé Mai 2026', type: 'Rapport EVM', periode: 'Mai 2026', generePar: 'Maodo Sène', date: '16/05/2026 10:30', taille: '1.2 Mo', format: 'Excel', color: '#7C3AED' },
-  { id: 'R005', nom: 'Rapport SIG — Localités MES Mai', type: 'SIG Patrimonial', periode: 'Mai 2026', generePar: 'Fatou Diaw', date: '15/05/2026 14:00', taille: '8.3 Mo', format: 'PDF', color: '#0891B2' },
-  { id: 'R006', nom: 'Risques Portefeuille — S19 2026', type: 'Rapport Risques', periode: 'Semaine 19', generePar: 'Maodo Sène', date: '10/05/2026 08:45', taille: '0.9 Mo', format: 'PDF', color: 'var(--red)' },
-  { id: 'R007', nom: 'Rapport Bailleur AFD — PADERAU Mai', type: 'Bailleur AFD', periode: 'Mai 2026', generePar: 'Moussa Sarr', date: '05/05/2026 11:00', taille: '2.8 Mo', format: 'Word', color: '#16A34A' },
-  { id: 'R008', nom: 'Rapport Mensuel CP — DER Avril', type: 'Mensuel CP', periode: 'Avril 2026', generePar: 'Ibrahima Sow', date: '01/05/2026 07:30', taille: '1.8 Mo', format: 'PDF', color: 'var(--orange)' },
-];
+const RAPPORTS_RECENTS: RapportRecent[] = [];
 
-const RAPPORTS_PLANIFIES: RapportPlanifie[] = [
-  { id: 'P001', label: 'Rapport Mensuel Portefeuille', frequence: 'Le 1er de chaque mois à 07h00', prochaine: '01/06/2026 07:00', destinataires: ['dg@senelec.sn', 'dpe@senelec.sn'], actif: true, color: 'var(--navy)' },
-  { id: 'P002', label: 'Avancement Travaux Hebdo', frequence: 'Chaque lundi à 07h00', prochaine: '27/05/2026 07:00', destinataires: ['dep@senelec.sn', 'der@senelec.sn'], actif: true, color: 'var(--orange)' },
-  { id: 'P003', label: 'EVM Mensuel Consolidé', frequence: 'Le 1er de chaque mois à 09h00', prochaine: '01/06/2026 09:00', destinataires: ['dg@senelec.sn', 'daf@senelec.sn'], actif: true, color: '#7C3AED' },
-  { id: 'P004', label: 'Rapport Risques Hebdomadaire', frequence: 'Chaque vendredi à 17h00', prochaine: '24/05/2026 17:00', destinataires: ['comite-risques@senelec.sn'], actif: false, color: 'var(--red)' },
-];
+const RAPPORTS_PLANIFIES: RapportPlanifie[] = [];
 
 const EXPORTS_TB = [
   { label: 'Portefeuille PDF', icon: <BarChart2 size={12} />, color: 'var(--navy)' },
@@ -101,11 +88,64 @@ const EXPORTS_TB = [
   { label: 'Terrain Excel', icon: <Users size={12} />, color: 'var(--orange)' },
 ];
 
+const RAPPORTS_PAR_ROLE: Record<string, TypeRapport[]> = {
+  ADMIN:          ['mensuel_cp', 'trimestriel_dpe', 'bailleur_bm', 'bailleur_afd', 'bailleur_bad', 'evm', 'sig', 'risques', 'uagl'],
+  AUDIT:          ['mensuel_cp', 'trimestriel_dpe', 'bailleur_bm', 'bailleur_afd', 'bailleur_bad', 'evm', 'sig', 'risques', 'uagl'],
+  DIR_DPE:        ['trimestriel_dpe', 'bailleur_bm', 'bailleur_afd', 'bailleur_bad', 'evm', 'sig', 'risques'],
+  DIRECTEUR:      ['trimestriel_dpe', 'mensuel_cp', 'bailleur_bm', 'bailleur_afd', 'bailleur_bad', 'evm', 'sig', 'risques'],
+  COORDINATEUR:   ['trimestriel_dpe', 'bailleur_bm', 'bailleur_afd', 'bailleur_bad', 'evm', 'risques'],
+  CHEF_DEPT:      ['trimestriel_dpe', 'mensuel_cp', 'evm', 'risques'],
+  CHEF_CELLULE:   ['trimestriel_dpe', 'mensuel_cp', 'evm', 'risques'],
+  CHEF_PROJ:      ['mensuel_cp', 'evm', 'risques'],
+  CONSEILLER:     ['mensuel_cp', 'evm', 'risques'],
+  EXPERT_SE:      ['trimestriel_dpe', 'mensuel_cp', 'evm', 'sig', 'risques', 'uagl'],
+  EXPERT_PMO:     ['trimestriel_dpe', 'mensuel_cp', 'bailleur_bm', 'bailleur_afd', 'bailleur_bad', 'evm', 'risques'],
+  // RAF gère les finances bailleurs — accès complet rapports bailleurs
+  RAF:            ['trimestriel_dpe', 'bailleur_bm', 'bailleur_afd', 'bailleur_bad', 'evm', 'risques'],
+  // COMPTABLE : suivi EVM uniquement — mensuel_cp = rapport Chef de Projet, pas comptable
+  COMPTABLE:      ['evm'],
+  // MARCHES : suivi marchés/contrats — pas uagl (électrification rurale)
+  MARCHES:        ['mensuel_cp', 'risques'],
+  // SPM : suivi marchés/contrats — pas uagl
+  SPM:            ['mensuel_cp', 'risques'],
+  SIG:            ['sig'],
+  IMMO:           ['sig', 'risques'],
+  HSE:            ['risques'],
+  // UAGL : rapport logistique uniquement — PAS de CPI/SPI/EVM
+  RESP_LOG:       ['uagl'],
+  CHAUFFEUR:      [],
+  // ASSISTANT_ADMIN n'a pas accès à /reporting — entrée supprimée
+};
+const DEFAULT_RAPPORTS: TypeRapport[] = ['mensuel_cp', 'risques'];
+
 /* ═══════════════════════════════════════════════════════════════════
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════════════════ */
 export default function Reporting() {
   const store = useProjectStore();
+  const { user } = useAuth();
+
+  const typesDisponibles = useMemo(() => {
+    const ids = RAPPORTS_PAR_ROLE[user?.role ?? ''] ?? DEFAULT_RAPPORTS;
+    return TYPES_RAPPORT.filter(t => ids.includes(t.id));
+  }, [user?.role]);
+
+  const canSeeBailleurs  = ['DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CHEF_CELLULE', 'RAF', 'ADMIN', 'AUDIT'].includes(user?.role ?? '');
+  const canSeePlanifies  = ['DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'CHEF_PROJ', 'EXPERT_PMO', 'RAF', 'ADMIN', 'AUDIT'].includes(user?.role ?? '');
+  const canSeeComsp      = ['DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'CHEF_PROJ', 'EXPERT_SE', 'EXPERT_PMO', 'CONSEILLER', 'ADMIN', 'AUDIT'].includes(user?.role ?? '');
+  const canSeeRaci       = ['DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'CHEF_PROJ', 'RAF', 'MARCHES', 'SPM', 'EXPERT_PMO', 'ADMIN', 'AUDIT'].includes(user?.role ?? '');
+
+  // Filtre les rapports récents aux types accessibles au rôle courant
+  const RECENT_TYPE_MAP: Record<string, TypeRapport> = {
+    'Trimestriel DPE': 'trimestriel_dpe', 'Bailleur BM': 'bailleur_bm',
+    'Mensuel CP': 'mensuel_cp', 'Rapport EVM': 'evm', 'SIG Patrimonial': 'sig',
+    'Rapport Risques': 'risques', 'Bailleur AFD': 'bailleur_afd', 'Rapport UAGL': 'uagl',
+  };
+  const rapportsRecentsFiltrés = useMemo(() => {
+    const typeIds = typesDisponibles.map(t => t.id);
+    return RAPPORTS_RECENTS.filter(r => { const id = RECENT_TYPE_MAP[r.type]; return !id || typeIds.includes(id); });
+  }, [typesDisponibles]);
+
   const [tab, setTab] = useState<'generateur' | 'recents' | 'planifies' | 'bailleurs' | 'comsp' | 'raci'>('generateur');
   const [selectedType, setSelectedType] = useState<TypeRapport>('mensuel_cp');
   const [selectedPeriode, setSelectedPeriode] = useState('Mai 2026');
@@ -126,11 +166,18 @@ export default function Reporting() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [showAIStudio, setShowAIStudio] = useState(false);
+
+  // Réinitialise le rapport généré et le studio IA lors du changement d'onglet
+  useEffect(() => {
+    setGenerated(false); setGenerating(false); setGenProgress(0);
+    setShowPreview(false); setShowAIStudio(false);
+    setEditingId(null); setEditText(''); setActiveToggle({});
+  }, [tab]);
   interface AIMsg { role: 'user' | 'ai'; text: string; ts: Date; affectedSection?: string }
   const [aiMessages, setAiMessages] = useState<AIMsg[]>([
     {
       role: 'ai',
-      text: '👋 Bonjour ! Je suis votre **Assistant Rédaction IA SIGEPP-DPE**.\n\nUne fois le rapport généré, je peux :\n• **Reformuler** n\'importe quelle section\n• **Développer** un point avec plus de détails\n• **Traduire** le contenu FR ↔ EN\n• **Synthétiser** en mode exécutif\n• **Ajouter** une analyse de risques ou des recommandations\n• **Adapter le ton** (formel, technique, stratégique)\n\nDites-moi simplement ce que vous souhaitez améliorer !',
+      text: '👋 Bonjour ! Je suis votre **Assistant Rédaction IA SIGEP-DPE**.\n\nUne fois le rapport généré, je peux :\n• **Reformuler** n\'importe quelle section\n• **Développer** un point avec plus de détails\n• **Traduire** le contenu FR ↔ EN\n• **Synthétiser** en mode exécutif\n• **Ajouter** une analyse de risques ou des recommandations\n• **Adapter le ton** (formel, technique, stratégique)\n\nDites-moi simplement ce que vous souhaitez améliorer !',
       ts: new Date(),
     }
   ]);
@@ -142,7 +189,16 @@ export default function Reporting() {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [aiMessages]);
 
-  const typeInfo = TYPES_RAPPORT.find(t => t.id === selectedType)!;
+  // Réinitialise le type sélectionné si le rôle change et que le type actuel n'est plus disponible
+  useEffect(() => {
+    if (!typesDisponibles.find(t => t.id === selectedType)) {
+      setSelectedType(typesDisponibles[0]?.id ?? 'mensuel_cp');
+      setGenerated(false);
+      setGenProgress(0);
+    }
+  }, [typesDisponibles, selectedType]);
+
+  const typeInfo = TYPES_RAPPORT.find(t => t.id === selectedType) ?? TYPES_RAPPORT[0];
 
   function buildSections(): ReportSection[] {
     const projets = store.projets;
@@ -319,7 +375,7 @@ export default function Reporting() {
     const rowsHtml = projets.map(p => `
       <tr>
         <td style="font-weight:700;color:#0E3460">${p.code}</td>
-        <td>${p.nom.substring(0,40)}</td>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.nom}">${p.nom.substring(0,60)}</td>
         <td style="font-size:10px">${DOMAINE_CFG[p.domaine].label}</td>
         <td style="text-align:center;font-weight:700;color:${p.avancement>=p.avancementPlanifie?'#16A34A':'#F59E0B'}">${p.avancement}%</td>
         <td style="text-align:right">${p.budget.toLocaleString('fr-FR')}</td>
@@ -354,7 +410,7 @@ export default function Reporting() {
         sections: [
           { h: 'Executive Summary', p: `This Intermediate Financial Report covers the period ending ${selectedPeriode} for the PADAES Phase II project financed by the World Bank (Credit No. SENELEC-BM-2024-001, USD 22 million). The project demonstrates satisfactory progress with a Disbursement Rate of ${tauxDecaiss}% against the planned target of 45% at this stage. Overall Project Implementation Progress is rated Moderately Satisfactory (MS). The achievement of agreed milestones remains on track with minor delays in procurement activities.` },
           { h: '1. Financial Performance', p: `Total project expenditure for the period amounts to ${(totalDecaisse*0.3).toFixed(0)} MFCFA (USD ${((totalDecaisse*0.3)/600).toFixed(2)} million equivalent). Cumulative disbursements reach ${tauxDecaiss}% of total credit allocation. Budget variance is within the acceptable ±10% threshold defined in the Financing Agreement. Procurement of major contracts (civil works, equipment supply) is 78% complete with no significant delays in payment processing.` },
-          { h: '2. Fiduciary Compliance', p: `Financial management capacity remains Satisfactory. All transactions have been processed through the designated Project Account and are fully documented in the project financial management system (SIGEPP-DPE). Internal audit findings from the last quarter have been addressed. The external auditor's report for FY2025 received an unqualified opinion. All WB procurement thresholds and prior-review requirements have been respected.` },
+          { h: '2. Fiduciary Compliance', p: `Financial management capacity remains Satisfactory. All transactions have been processed through the designated Project Account and are fully documented in the project financial management system (SIGEP-DPE). Internal audit findings from the last quarter have been addressed. The external auditor's report for FY2025 received an unqualified opinion. All WB procurement thresholds and prior-review requirements have been respected.` },
           { h: '3. Environmental & Social Safeguards', p: `ESMP implementation is rated Satisfactory with no Category A incidents reported. Community consultation processes have been completed in all 24 project localities. Grievance redress mechanisms have received and resolved 12 complaints during the period. Resettlement action plans (RAP) are fully implemented in Ziguinchor and Kaolack sub-projects. Gender mainstreaming activities are on track with 34% women participation in community engagement events.` },
         ]
       },
@@ -493,7 +549,7 @@ export default function Reporting() {
       <div class="page">
         <div class="header-bar"></div>
         <div style="margin-bottom:14px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:46px;width:auto;display:block" /></div>
-        <div class="logo-line">SENELEC · SIGEPP-DPE · Direction Principale Équipement</div>
+        <div class="logo-line">SENELEC · SIGEP-DPE · Direction Principale Équipement</div>
         <h1>${analyseContent.titre}</h1>
         <div class="meta">
           <span>Période : <strong>${selectedPeriode}</strong></span>
@@ -601,8 +657,8 @@ export default function Reporting() {
           </tr></tfoot>
         </table>
         <div class="footer">
-          <span>CONFIDENTIEL — Usage interne SENELEC · SIGEPP-DPE uniquement</span>
-          <span>Document généré par SIGEPP-DPE · ${new Date().toLocaleDateString('fr-FR')} · Page 1/${typeInfo.pages}</span>
+          <span>CONFIDENTIEL — Usage interne SENELEC · SIGEP-DPE uniquement</span>
+          <span>Document généré par SIGEP-DPE · ${new Date().toLocaleDateString('fr-FR')} · Page 1/${typeInfo.pages}</span>
         </div>
       </div>
     </body></html>`);
@@ -626,7 +682,7 @@ export default function Reporting() {
         <div className="kpi-card navy">
           <div className="kpi-label">Projets dans le portefeuille</div>
           <div className="kpi-value">{store.projets.length}</div>
-          <div className="kpi-sub">données réelles SIGEPP-DPE</div>
+          <div className="kpi-sub">données réelles SIGEP-DPE</div>
         </div>
         <div className="kpi-card amber">
           <div className="kpi-label">Avancement moyen</div>
@@ -656,11 +712,11 @@ export default function Reporting() {
         <div className="tabs">
           {([
             { key: 'generateur', label: 'Générateur', icon: <Plus size={11} /> },
-            { key: 'recents', label: `Rapports récents (${RAPPORTS_RECENTS.length})`, icon: <Clock size={11} /> },
-            { key: 'planifies', label: `Planification (${RAPPORTS_PLANIFIES.length})`, icon: <Calendar size={11} /> },
-            { key: 'bailleurs', label: 'Formats Bailleurs', icon: <Globe size={11} /> },
-            { key: 'comsp', label: '🏛️ Rapport COMSP', icon: null },
-            { key: 'raci',  label: '🗂️ Matrice RACI',  icon: null },
+            { key: 'recents', label: `Rapports récents (${rapportsRecentsFiltrés.length})`, icon: <Clock size={11} /> },
+            ...(canSeePlanifies  ? [{ key: 'planifies' as typeof tab, label: `Planification (${RAPPORTS_PLANIFIES.length})`, icon: <Calendar size={11} /> }] : []),
+            ...(canSeeBailleurs  ? [{ key: 'bailleurs' as typeof tab, label: 'Formats Bailleurs', icon: <Globe size={11} /> }] : []),
+            ...(canSeeComsp      ? [{ key: 'comsp'     as typeof tab, label: '🏛️ Rapport COMSP', icon: null }] : []),
+            ...(canSeeRaci       ? [{ key: 'raci'      as typeof tab, label: '🗂️ Matrice RACI',  icon: null }] : []),
           ] as { key: typeof tab; label: string; icon: React.ReactNode }[]).map(t => (
             <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
               {t.icon} {t.label}
@@ -668,21 +724,25 @@ export default function Reporting() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {EXPORTS_TB.map((e, i) => (
-            <button
-              key={e.label}
-              onClick={() => {
-                const types: TypeRapport[] = ['trimestriel_dpe', 'evm', 'mensuel_cp', 'risques', 'uagl'];
-                setSelectedType(types[i] ?? 'trimestriel_dpe');
-                setTab('generateur');
-                setSelectedFormat(i === 1 || i === 4 ? 'Excel' : 'PDF');
-              }}
-              className="btn btn-ghost btn-sm"
-              style={{ color: e.color, borderColor: e.color + '44', fontSize: 10 }}
-            >
-              {e.icon} {e.label}
-            </button>
-          ))}
+          {EXPORTS_TB.map((e, i) => {
+            const types: TypeRapport[] = ['trimestriel_dpe', 'evm', 'mensuel_cp', 'risques', 'uagl'];
+            const targetType = types[i] ?? 'mensuel_cp';
+            if (!typesDisponibles.find(t => t.id === targetType)) return null;
+            return (
+              <button
+                key={e.label}
+                onClick={() => {
+                  setSelectedType(targetType);
+                  setTab('generateur');
+                  setSelectedFormat(i === 1 || i === 4 ? 'Excel' : 'PDF');
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ color: e.color, borderColor: e.color + '44', fontSize: 10 }}
+              >
+                {e.icon} {e.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -693,10 +753,10 @@ export default function Reporting() {
           <div className="card">
             <div className="card-header">
               <span className="card-title">Type de Rapport</span>
-              <span style={{ fontSize: 10, color: 'var(--muted)' }}>{TYPES_RAPPORT.length} modèles disponibles</span>
+              <span style={{ fontSize: 10, color: 'var(--muted)' }}>{typesDisponibles.length} modèle{typesDisponibles.length > 1 ? 's' : ''} disponible{typesDisponibles.length > 1 ? 's' : ''} · profil {user?.role ?? '—'}</span>
             </div>
             <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 10 }}>
-              {TYPES_RAPPORT.map(t => (
+              {typesDisponibles.map(t => (
                 <button
                   key={t.id}
                   onClick={() => { setSelectedType(t.id); setSelectedFormat(t.formats[0]); setGenerated(false); setGenProgress(0); }}
@@ -717,7 +777,7 @@ export default function Reporting() {
                     </div>
                     {selectedType === t.id && <CheckCircle size={14} style={{ color: t.color, flexShrink: 0 }} />}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.4 }}>{t.description}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{t.description}</div>
                   <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 5 }}>
                     {t.pages} pages · {t.formats.join(' · ')}
                   </div>
@@ -1085,7 +1145,7 @@ export default function Reporting() {
                 </tr>
               </thead>
               <tbody>
-                {RAPPORTS_RECENTS.map((r, i) => (
+                {rapportsRecentsFiltrés.map((r, i) => (
                   <tr key={r.id} style={{ background: i % 2 === 0 ? 'transparent' : 'var(--bg)' }}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1134,7 +1194,7 @@ export default function Reporting() {
                           </style></head><body>
                             <div class="bar"></div>
                             <div style="margin-bottom:14px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:46px;width:auto;display:block" /></div>
-                            <div class="logo">SENELEC · SIGEPP-DPE · Direction Principale Équipement</div>
+                            <div class="logo">SENELEC · SIGEP-DPE · Direction Principale Équipement</div>
                             <h1>${r.nom}</h1>
                             <div class="meta">Période : <strong>${r.periode}</strong> · Généré par <strong>${r.generePar}</strong> · ${r.date} · Format : ${r.format}</div>
                             <table><thead><tr><th>Code</th><th>Indicateur</th><th>Valeur</th><th>Statut</th></tr></thead>
@@ -1145,8 +1205,8 @@ export default function Reporting() {
                             </tbody>
                             </table>
                             <div class="footer">
-                              <span>CONFIDENTIEL — Usage interne SENELEC · SIGEPP-DPE uniquement</span>
-                              <span>Document généré par SIGEPP-DPE · ${new Date().toLocaleDateString('fr-FR')}</span>
+                              <span>CONFIDENTIEL — Usage interne SENELEC · SIGEP-DPE uniquement</span>
+                              <span>Document généré par SIGEP-DPE · ${new Date().toLocaleDateString('fr-FR')}</span>
                             </div>
                           </body></html>`);
                           pw.document.close(); setTimeout(() => pw.print(), 500);
@@ -1276,7 +1336,7 @@ export default function Reporting() {
                   </div>
                   <Globe size={20} style={{ color: b.color, opacity: 0.4 }} />
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--muted)' }}>{b.desc}</div>
+                <div style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{b.desc}</div>
                 <div style={{ fontSize: 10, color: 'var(--navy)', fontWeight: 600, background: 'var(--bg)', borderRadius: 6, padding: '6px 10px' }}>{b.convention}</div>
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rapports requis</div>
@@ -1651,7 +1711,7 @@ export default function Reporting() {
             actions: [
               { ref: 'COMSP-2026-01', libelle: 'Accélérer décomptes PAUE2 — Thiès', resp: 'RAF DPE', statut: 'Réalisé', color: GREEN },
               { ref: 'COMSP-2026-02', libelle: 'Finaliser DAF programme AEI', resp: 'DER', statut: 'En cours', color: AMBER },
-              { ref: 'COMSP-2026-03', libelle: 'Mise à jour arborescence GED', resp: 'PMO', statut: 'En cours', color: AMBER },
+              { ref: 'COMSP-2026-03', libelle: 'Mise à jour arborescence GED', resp: 'CHEF_CELLULE', statut: 'En cours', color: AMBER },
             ],
           },
           {
@@ -1671,7 +1731,7 @@ export default function Reporting() {
             <div style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #2563EB 100%)`, borderRadius: 14, padding: '22px 28px', color: '#fff' }}>
               <div style={{ fontSize: 10, opacity: 0.6, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>SENELEC — Direction du Patrimoine et de l'Équipement</div>
               <div style={{ fontSize: 20, fontWeight: 900 }}>Rapport COMSP — Compte Rendu Mensuel</div>
-              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Portefeuille Projets DPE · {today} · PMO SIGEPP-DPE v3.0</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Portefeuille Projets DPE · {today} · PMO SIGEP-DPE v3.0</div>
               <div style={{ marginTop: 14, display: 'flex', gap: 28 }}>
                 {[
                   { label: 'Projets', val: projets.length },

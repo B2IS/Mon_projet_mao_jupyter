@@ -68,9 +68,9 @@ interface NotificationState {
 }
 
 let notificationIdCounter = 0;
-const INBOX_KEY = 'sigepp_inbox_v1';
-const EMAIL_KEY = 'sigepp_email_outbox_v1';
-const DISMISSED_KEY = 'sigepp_dismissed_alertes_v1';
+const INBOX_KEY = 'sigep_inbox_v1';
+const EMAIL_KEY = 'sigep_email_outbox_v1';
+const DISMISSED_KEY = 'sigep_dismissed_alertes_v1';
 
 function loadDismissed(): string[] {
   if (typeof window === 'undefined') return [];

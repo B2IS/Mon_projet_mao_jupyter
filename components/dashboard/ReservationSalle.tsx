@@ -6,29 +6,11 @@
  * qui valident / refusent. Détection des conflits de créneaux.
  */
 import { useMemo, useState } from 'react';
-import { useMeetingRoom, DESTINATAIRES, type Reservation } from '@/lib/meetingRoomStore';
-import { useAuth, DEMO_ACCOUNTS, type RoleCode } from '@/lib/authStore';
-import { PERSONNEL_DPE } from '@/lib/dpePersonnel';
+import { useMeetingRoom, type Reservation } from '@/lib/meetingRoomStore';
+import { useAuth } from '@/lib/authStore';
 import { useNotificationStore } from '@/lib/notificationStore';
-import SearchableSelect from '@/components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 
-/** Destinataires réels (nom + e-mail) d'une catégorie de demande. */
-function recipientsFor(dest: string): { nom: string; email: string }[] {
-  const byRole = (...roles: RoleCode[]) =>
-    DEMO_ACCOUNTS.filter(a => roles.includes(a.role)).map(a => ({ nom: `${a.prenom} ${a.nom}`, email: a.email }));
-  const byPoste = (re: RegExp) =>
-    PERSONNEL_DPE.filter(p => re.test(p.poste || p.fonction || ''))
-      .slice(0, 8)
-      .map(p => ({ nom: `${p.prenom} ${p.nom}`, email: `${p.prenom}.${p.nom}`.toLowerCase().replace(/\s+/g, '') + '@senelec.sn' }));
-  let list: { nom: string; email: string }[] = [];
-  if (/uagl/i.test(dest)) list = [...byRole('RESP_LOG'), ...byPoste(/uagl/i)];
-  else if (/assistant/i.test(dest)) list = [...byRole('ASSISTANT'), ...byPoste(/assistant/i)];
-  else if (/secr[ée]tar/i.test(dest)) list = [...byRole('SECRETAIRE'), ...byPoste(/secr[ée]tair/i)];
-  // dédoublonnage par e-mail
-  const seen = new Set<string>();
-  return list.filter(r => r.email && !seen.has(r.email) && seen.add(r.email));
-}
 import { CalendarDays, Plus, Check, X, Clock, Users, MapPin, DoorOpen } from 'lucide-react';
 
 const NAVY = '#1B4F8A';
@@ -47,7 +29,7 @@ export default function ReservationSalle() {
   const [tab, setTab] = useState<'demande' | 'mes' | 'validation' | 'salles'>('demande');
 
   // Les valideurs : assistantes de direction, secrétaires, UAGL (RESP_LOG), admin/PMO.
-  const isValideur = isRole('ASSISTANT', 'SECRETAIRE', 'RESP_LOG', 'ADMIN', 'PMO', 'CHEF_DEPT', 'DIR_DPE');
+  const isValideur = isRole('ASSISTANT_DIR', 'SECRETAIRE', 'RESP_LOG', 'ADMIN', 'CHEF_CELLULE', 'CHEF_DEPT', 'DIR_DPE');
 
   // Form
   const [salleId, setSalleId] = useState(store.salles[0]?.id ?? '');
@@ -56,8 +38,7 @@ export default function ReservationSalle() {
   const [hd, setHd] = useState('09:00');
   const [hf, setHf] = useState('10:00');
   const [participants, setParticipants] = useState(6);
-  const [destinataire, setDestinataire] = useState(DESTINATAIRES[0]);
-  const [destinataireEmail, setDestinataireEmail] = useState(''); // e-mail précis du valideur (optionnel)
+  const [destinataireEmail, setDestinataireEmail] = useState('');
 
   const myEmail = (user?.email ?? '').toLowerCase();
   const mesReservations = useMemo(() => store.reservations.filter(r => r.demandeurEmail === myEmail), [store.reservations, myEmail]);
@@ -68,28 +49,24 @@ export default function ReservationSalle() {
     const res = store.demander({
       salleId, objet: objet.trim(), date, heureDebut: hd, heureFin: hf,
       demandeur: user ? `${user.prenom} ${user.nom}` : 'Utilisateur', demandeurEmail: myEmail,
-      participants, destinataire,
+      participants, destinataire: destinataireEmail.trim(),
     });
     if (!res.ok) {
       const c = res.conflit!;
       toast.error(`Conflit : la salle est déjà réservée de ${c.heureDebut} à ${c.heureFin} (${c.objet}).`);
       return;
     }
-    // Notifier RÉELLEMENT chaque destinataire (in-app + e-mail simulé).
-    // + l'e-mail précis saisi (la personne à qui on adresse la demande), si fourni.
     const emailTrim = destinataireEmail.trim().toLowerCase();
-    const recipients = [...recipientsFor(destinataire)];
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim) && !recipients.some(r => r.email.toLowerCase() === emailTrim)) {
-      recipients.unshift({ nom: emailTrim, email: emailTrim });
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      notifyUser({
+        recipientEmail: emailTrim,
+        title: `Demande de réservation — ${salleNom(salleId)}`,
+        message: `${user ? user.prenom + ' ' + user.nom : 'Un agent'} demande la salle « ${salleNom(salleId)} » le ${date} de ${hd} à ${hf} (${participants} participants) — objet : ${objet}. À valider.`,
+        type: 'info', link: '/reservation-salle', source: 'Réservation salle', sendMail: true,
+      });
     }
-    recipients.forEach(r => notifyUser({
-      recipientEmail: r.email,
-      title: `Demande de réservation — ${salleNom(salleId)}`,
-      message: `${user ? user.prenom + ' ' + user.nom : 'Un agent'} demande la salle « ${salleNom(salleId)} » le ${date} de ${hd} à ${hf} (${participants} participants) — objet : ${objet}. À valider.`,
-      type: 'info', link: '/reservation-salle', source: 'Réservation salle', sendMail: true,
-    }));
-    notify({ type: 'success', title: 'Réservation salle', message: `Demande « ${objet} » adressée à ${recipients.length} destinataire(s) — ${destinataire}.`, duration: 4500 });
-    toast.success(recipients.length ? `Demande envoyée à ${recipients.map(r => r.nom).join(', ')}.` : `Demande enregistrée (aucun destinataire ${destinataire} trouvé).`);
+    notify({ type: 'success', title: 'Réservation salle', message: `Demande « ${objet} » enregistrée${emailTrim ? ` — notifié à ${emailTrim}` : ''}.`, duration: 4500 });
+    toast.success(`Demande envoyée${emailTrim ? ` à ${emailTrim}` : ''}.`);
     setObjet(''); setTab('mes');
   };
 
@@ -127,32 +104,11 @@ export default function ReservationSalle() {
             <Field label="Participants"><input type="number" min={1} value={participants} onChange={e => setParticipants(Math.max(1, Number(e.target.value)))} style={inp} /></Field>
             <Field label="Heure début"><input type="time" value={hd} onChange={e => setHd(e.target.value)} style={inp} /></Field>
             <Field label="Heure fin"><input type="time" value={hf} onChange={e => setHf(e.target.value)} style={inp} /></Field>
-            <Field label="Adresser la demande à">
-              <SearchableSelect value={destinataire} onChange={setDestinataire}
-                options={DESTINATAIRES as unknown as string[]} searchPlaceholder="Rechercher un destinataire…" />
-            </Field>
-            <Field label="E-mail du destinataire (optionnel)">
+            <Field label="E-mail du destinataire">
               <input type="email" value={destinataireEmail} onChange={e => setDestinataireEmail(e.target.value)}
                 placeholder="ex : assistante.dir@senelec.sn" style={inp} />
             </Field>
           </div>
-          {/* Destinataires réels (notifiés in-app + e-mail) */}
-          {(() => {
-            const emailTrim = destinataireEmail.trim().toLowerCase();
-            const rec = [...recipientsFor(destinataire)];
-            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim) && !rec.some(r => r.email.toLowerCase() === emailTrim)) {
-              rec.unshift({ nom: emailTrim, email: emailTrim });
-            }
-            return (
-              <div style={{ marginTop: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
-                <div style={{ fontWeight: 700, color: '#334155', marginBottom: 4 }}>📧 Sera notifié à ({rec.length}) :</div>
-                {rec.length === 0 ? <span style={{ color: '#94A3B8' }}>Aucun destinataire référencé pour « {destinataire} ».</span>
-                  : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {rec.map(r => <span key={r.email} style={{ background: '#EFF6FF', color: '#1D4ED8', borderRadius: 6, padding: '2px 8px' }}>{r.nom} · {r.email}</span>)}
-                    </div>}
-              </div>
-            );
-          })()}
           <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={submit} style={btnPrimary}><Plus size={15} /> Envoyer la demande</button>
           </div>

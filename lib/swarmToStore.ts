@@ -428,7 +428,7 @@ export function swarmContextToProjetPatch(
     composanteProgramme: programmes?.composante ?? '',
     objectifsProgramme: programmes?.objetifsProgramme ?? [],
 
-    // ERP — codes imputation Oracle
+    // Immobilisations & actifs patrimoniaux
     codeImputation: erp?.codeImputation ?? '',
     codeBIT: erp?.codeBIT ?? '',
     codesCPF: erp?.codesCPF ?? [],

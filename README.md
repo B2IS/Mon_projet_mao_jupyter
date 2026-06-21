@@ -1,9 +1,9 @@
-# SIGEPP-DPE
+# SIGEP-DPE
 
 Plateforme intégrée de gouvernance, d'exécution et de pilotage des projets d'équipement pour la Direction Principale Équipement (DPE) — SENELEC. Couvre l'ensemble du cycle de vie des projets d'investissement : planification, EVM, marchés publics, contrôle terrain, gestion des actifs, analyse IA de dossiers, et reporting exécutif.
 
-**Production :** https://sigeppdpe.vercel.app  
-**Repo :** https://github.com/B2IS/Mon_projet_mao_jupyter (`master` = prod · `sigepp-deploy` = dev)
+**Production :** https://sigepdpe.vercel.app  
+**Repo :** https://github.com/B2IS/Mon_projet_mao_jupyter (`master` = prod · `sigep-deploy` = dev)
 
 ---
 
@@ -199,7 +199,7 @@ Le texte est pré-extrait à l'upload et stocké dans `doc.extractedText`. La re
 ```bash
 git clone https://github.com/B2IS/Mon_projet_mao_jupyter
 cd Mon_projet_mao_jupyter
-git checkout sigepp-deploy
+git checkout sigep-deploy
 
 npm install
 echo "NEXT_PUBLIC_GROQ_API_KEY=gsk_..." > .env.local
@@ -259,9 +259,9 @@ Tout fichier > 100 MB doit être dans `.gitignore` avant le premier commit. En c
 
 ## Déploiement Vercel
 
-- Projet : `bis-s-projects/sigepp_dpe`
+- Projet : `bis-s-projects/sigep_dpe`
 - Team : `team_6ChblNDD4gNQ8J9jpAYGjU6k`
-- Alias : `sigeppdpe.vercel.app`
+- Alias : `sigepdpe.vercel.app`
 - Branche déclenchante : `master`
 
 Le push sur `master` déclenche automatiquement un build. Ne pas lancer `npx vercel --prod` en parallèle d'un push GitHub — les builds se mettent en file et se bloquent. En cas de file bloquée, annuler via l'API Vercel (`PATCH /v12/deployments/:id/cancel`) avant de retrigger.

@@ -65,8 +65,11 @@ export default function Alertes() {
   const markAllInboxRead = useNotificationStore(s => s.markAllInboxRead);
   const removeInbox = useNotificationStore(s => s.removeInbox);
 
+  const isSupport = user?.role === 'RESP_LOG' || user?.role === 'CHAUFFEUR';
+
   const dismissed = useMemo(() => new Set(dismissedAlertes), [dismissedAlertes]);
-  const liveAlertes = useMemo(() => computeLiveAlertes(projets), [projets]);
+  // Profils support (UAGL, Chauffeur) : pas d'alertes portefeuille projet — leur espace est logistique
+  const liveAlertes = useMemo(() => isSupport ? [] : computeLiveAlertes(projets), [projets, isSupport]);
   const activeAlertes = useMemo(() => liveAlertes.filter(a => !dismissed.has(a.id)), [liveAlertes, dismissed]);
   const myInbox = useMemo(() => selectInboxFor(inbox, user?.email), [inbox, user?.email]);
   const unreadInbox = myInbox.filter(n => !n.read).length;
@@ -108,7 +111,10 @@ export default function Alertes() {
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.1 }}>Alertes &amp; Notifications</h1>
             <div style={{ fontSize: 12.5, color: C.slate, marginTop: 2 }}>
-              Alertes portefeuille recalculées en continu depuis l'état réel des projets · {activeAlertes.length} active{activeAlertes.length > 1 ? 's' : ''}
+              {isSupport
+                ? `Vos notifications de ${user?.role === 'CHAUFFEUR' ? 'mission' : 'périmètre UAGL'} · ${myInbox.length} message${myInbox.length > 1 ? 's' : ''}`
+                : `Alertes portefeuille recalculées en continu · ${activeAlertes.length} active${activeAlertes.length > 1 ? 's' : ''}`
+              }
             </div>
           </div>
         </div>

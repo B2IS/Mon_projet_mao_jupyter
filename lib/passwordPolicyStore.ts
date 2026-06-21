@@ -1,5 +1,5 @@
 /**
- * passwordPolicyStore.ts — Politique de mot de passe CONFIGURABLE SIGEPP-DPE
+ * passwordPolicyStore.ts — Politique de mot de passe CONFIGURABLE SIGEP-DPE
  * -----------------------------------------------------------------------------
  * Règles de sécurité d'accès (configurables par l'administrateur, sans recompiler) :
  *   • Longueur minimale (défaut : 8 caractères) + complexité optionnelle ;
@@ -233,6 +233,6 @@ export const usePasswordPolicyStore = create<PasswordPolicyState>()(
         }));
       },
     }),
-    { name: 'sigepp-password-policy' }
+    { name: 'sigep-password-policy' }
   )
 );

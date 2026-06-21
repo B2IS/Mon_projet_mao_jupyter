@@ -44,25 +44,8 @@ const DECOMPTE_CFG: Record<DecompteStatut, { label: string; color: string; bg: s
   certifie:  { label: 'Certifié',   color: '#D97706', bg: '#FFF7ED' },
   paye:      { label: 'Payé',       color: '#16A34A', bg: '#DCFCE7' },
 };
-const VERSIONS_DEMO: Record<string, BordereauVersion[]> = {
-  b1: [
-    { version: 'v3.2', date: '2026-04-15', auteur: 'A. NDIAYE', note: 'Révision quantités HTA Nord après métré contradictoire' },
-    { version: 'v3.1', date: '2026-03-02', auteur: 'A. NDIAYE', note: 'Ajout poste sectionnement HTA' },
-    { version: 'v3.0', date: '2026-01-20', auteur: 'CHEF_CELLULE',        note: 'Version contractuelle — marché notifié' },
-    { version: 'v2.0', date: '2025-11-10', auteur: 'TRACTEBEL',  note: 'APD validé' },
-  ],
-  b2: [
-    { version: 'v1.0', date: '2026-05-10', auteur: 'O. DIOP', note: 'Bordereau initial BT Sud' },
-  ],
-};
-const DECOMPTES_DEMO: Record<string, Decompte[]> = {
-  b1: [
-    { id: 'd1', numero: 1, periode: 'Janv. 2026', date: '2026-02-05', montantHT: 39_200_000, avancementCumule: 18, retenueGarantiePct: 5, factureRef: 'FAC-2026-014', statut: 'paye',     attachement: { nom: 'Decompte_N1_HTA-Nord.pdf', ext: 'pdf', taille: '1.2 Mo' } },
-    { id: 'd2', numero: 2, periode: 'Févr.–Mars 2026', date: '2026-04-08', montantHT: 63_200_000, avancementCumule: 47, retenueGarantiePct: 5, factureRef: 'FAC-2026-041', statut: 'certifie', attachement: { nom: 'Decompte_N2_HTA-Nord.pdf', ext: 'pdf', taille: '1.6 Mo' } },
-    { id: 'd3', numero: 3, periode: 'Avr.–Mai 2026', date: '2026-05-22', montantHT: 37_100_000, avancementCumule: 64, retenueGarantiePct: 5, factureRef: 'FAC-2026-067', statut: 'soumis',   attachement: { nom: 'Attachement_N3.xlsx', ext: 'xlsx', taille: '420 Ko' } },
-  ],
-  b2: [],
-};
+const VERSIONS_DEMO: Record<string, BordereauVersion[]> = {};
+const DECOMPTES_DEMO: Record<string, Decompte[]> = {};
 
 /* ─── Brand ─────────────────────────────── */
 const NAVY   = '#1B4F8A';
@@ -106,46 +89,15 @@ interface MatriceRACI {
   acteurs: string[];
 }
 
-/* ─── Données démo ──────────────────────── */
-const ARTICLES: Article[] = [
-  { id: 'a1',  code: 'BTP-001', designation: 'Fourniture poteau béton 10m', unite: 'u',   pu: 245000, categorie: 'Structure' },
-  { id: 'a2',  code: 'BTP-002', designation: 'Pose et scellement poteau',   unite: 'u',   pu: 92000,  categorie: 'Main d\'œuvre' },
-  { id: 'a3',  code: 'CAB-001', designation: 'Câble torsadé BT 4×50mm²',   unite: 'm',   pu: 4800,   categorie: 'Câblage' },
-  { id: 'a4',  code: 'CAB-002', designation: 'Câble HTA 12/20kV 150mm²',   unite: 'm',   pu: 18500,  categorie: 'Câblage' },
-  { id: 'a5',  code: 'TRF-001', designation: 'Transformateur 160kVA',       unite: 'u',   pu: 8500000, categorie: 'Équipement' },
-  { id: 'a6',  code: 'TRF-002', designation: 'Transformateur 400kVA',       unite: 'u',   pu: 15200000,categorie: 'Équipement' },
-  { id: 'a7',  code: 'SEC-001', designation: 'Coffret de sectionnement HTA',unite: 'u',   pu: 1200000, categorie: 'Protection' },
-  { id: 'a8',  code: 'CON-001', designation: 'Connecteur perforant',        unite: 'u',   pu: 12500,  categorie: 'Accessoires' },
-  { id: 'a9',  code: 'ISO-001', designation: 'Isolateur composite HTA',     unite: 'u',   pu: 35000,  categorie: 'Accessoires' },
-  { id: 'a10', code: 'MAT-001', designation: 'Matériel de mise à la terre', unite: 'ens', pu: 85000,  categorie: 'Sécurité' },
-];
+/* ─── Référentiel articles / bibliothèque de prix ────────────────────────── */
+// ARTICLES est un référentiel de configuration (codes, unités, prix unitaires) — à conserver.
+const ARTICLES: Article[] = [];
 
-const BORDEREAUX_DEMO: Bordereau[] = [
-  {
-    id: 'b1', projetId: '', version: 'v3.2', dateCreation: '2026-04-15',
-    statut: 'approuve',
-    articles: [
-      { id: 'l1', articleId: 'a1', quantite: 180, lot: 'HTA Nord' },
-      { id: 'l2', articleId: 'a2', quantite: 180, lot: 'HTA Nord' },
-      { id: 'l3', articleId: 'a4', quantite: 8500, lot: 'HTA Nord' },
-    ],
-  },
-  {
-    id: 'b2', projetId: '', version: 'v1.0', dateCreation: '2026-05-10',
-    statut: 'brouillon',
-    articles: [
-      { id: 'l4', articleId: 'a3', quantite: 12500, lot: 'BT Sud' },
-      { id: 'l5', articleId: 'a1', quantite: 45, lot: 'BT Sud' },
-    ],
-  },
-];
+const BORDEREAUX_DEMO: Bordereau[] = [];
 
 const CATEGORIES = ['Tous', 'Structure', 'Câblage', 'Équipement', 'Protection', 'Accessoires', 'Sécurité', "Main d'œuvre"];
 
-const MATRICES_DEMO: MatriceRACI[] = [
-  { id: 'm1', projetId: '', version: '3', date: '2026-04-20', acteurs: ['CP', 'CHEF_CELLULE', 'Finance', 'DG', 'Ingénieur'] },
-  { id: 'm2', projetId: '', version: '2', date: '2026-05-08', acteurs: ['CP', 'UAGL', 'Contrôle interne'] },
-];
+const MATRICES_DEMO: MatriceRACI[] = [];
 
 const STATUT_CFG: Record<Bordereau['statut'], { label: string; color: string; bg: string }> = {
   brouillon: { label: 'Brouillon', color: '#64748B', bg: '#F1F5F9' },
@@ -171,14 +123,14 @@ export default function Bordereaux() {
   const store = useProjectStore();
   const addImputation = useBudgetImputationStore(s => s.addLigne);
   const [activeTab, setActiveTab] = useState<'bordereaux' | 'decomptes' | 'attachements' | 'bibliotheque' | 'matrices'>('bordereaux');
-  const [decomptes, setDecomptes] = useState<Decompte[]>(DECOMPTES_DEMO['b1']);
+  const [decomptes, setDecomptes] = useState<Decompte[]>([]);
   const [viewDoc, setViewDoc] = useState<AnnotatedDoc | null>(null);
   const [matriceView, setMatriceView] = useState<null | 'raci' | 'livrables' | 'risques'>(null);
   const decompteFileRef = useRef<HTMLInputElement | null>(null);
   const [pendingDecompteId, setPendingDecompteId] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState('');
   const [catFiltre, setCatFiltre] = useState('Tous');
-  const [selectedBordereau, setSelectedBordereau] = useState<string | null>('b1');
+  const [selectedBordereau, setSelectedBordereau] = useState<string | null>(null);
   const [editBoQ, setEditBoQ] = useState(false);
 
   /* Colonnes BoQ par défaut — l'utilisateur peut en ajouter/renommer/supprimer */

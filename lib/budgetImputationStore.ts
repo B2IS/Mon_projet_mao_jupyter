@@ -77,6 +77,6 @@ export const useBudgetImputationStore = create<BudgetImputationStore>()(
           return { lignes: arr };
         }),
     }),
-    { name: 'sigepp-budget-imputations' }
+    { name: 'sigep-budget-imputations' }
   )
 );

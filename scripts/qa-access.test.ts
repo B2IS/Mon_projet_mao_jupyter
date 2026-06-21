@@ -1,5 +1,5 @@
 /**
- * qa-access.test.ts — Tests QA de la logique d'accès organisationnel SIGEPP-DPE
+ * qa-access.test.ts — Tests QA de la logique d'accès organisationnel SIGEP-DPE
  * Vérifie « chaque utilisateur ne voit que son périmètre » (ND 005/2023).
  * Exécution : npx tsx scripts/qa-access.test.ts
  */
@@ -31,7 +31,7 @@ const CASES: Case[] = [
   { label: 'DIR_DPE (EM_DPE) — voit tout',
     user: { role: 'DIR_DPE', direction: 'EM_DPE' }, expectNiveau: 0, expect: ALL },
   { label: 'PMO (CSE) — voit tout',
-    user: { role: 'PMO', direction: 'CSE', cellule: 'CSE' }, expectNiveau: 0, expect: ALL },
+    user: { role: 'CHEF_CELLULE', direction: 'CSE', cellule: 'CSE' }, expectNiveau: 0, expect: ALL },
   { label: 'ADMIN — voit tout',
     user: { role: 'ADMIN', direction: 'EM_DPE' }, expectNiveau: 0, expect: ALL },
   { label: 'Chef Dept DPD — UNIQUEMENT distribution (jamais transport)',
@@ -65,7 +65,7 @@ const CASES: Case[] = [
     user: { role: 'CHEF_DEPT', direction: 'DGC' },
     expectNiveau: 1, expect: ['F-GC-1', 'F-GC-2'] },
   { label: 'Chargé CPBM-UE — projets bailleurs BM/UE (par programme PADAES/BEST)',
-    user: { role: 'CHARGE', direction: 'CPBM_UE' },
+    user: { role: 'HSE', direction: 'CPBM_UE' },
     expectNiveau: 2, expect: ['F-TRANS-1', 'F-TRANS-2', 'F-DIST-1', 'F-COMM-1', 'F-GC-1'] },
   { label: 'Coordo CC26 — uniquement projets Compact/MCA',
     user: { role: 'CHEF_DEPT', direction: 'CC26' },
@@ -86,7 +86,7 @@ function sameSet(a: string[], b: string[]): boolean {
 }
 
 let pass = 0, fail = 0;
-console.log('\n═══ QA — Visibilité organisationnelle SIGEPP-DPE ═══\n');
+console.log('\n═══ QA — Visibilité organisationnelle SIGEP-DPE ═══\n');
 for (const c of CASES) {
   const niveau = getNiveauHierarchique(c.user);
   const got = visibleFor(c.user).sort();

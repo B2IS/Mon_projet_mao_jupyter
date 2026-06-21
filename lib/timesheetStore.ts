@@ -1,5 +1,5 @@
 /**
- * timesheetStore.ts — Gestion des Heures & Temps Payés SIGEPP-DPE
+ * timesheetStore.ts — Gestion des Heures & Temps Payés SIGEP-DPE
  * -----------------------------------------------------------------
  * Saisie d'heures par ressource / projet / période avec :
  *  • Répartition multi-projets (si une ressource travaille sur N projets)
@@ -256,7 +256,7 @@ export const useTimesheetStore = create<TimesheetState>()(
       },
     }),
     {
-      name: 'sigepp-timesheet',
+      name: 'sigep-timesheet',
       partialize: (state) => ({ entries: state.entries }),
     }
   )

@@ -1,4 +1,4 @@
-# SIGEPP — Étape 5 : Module Portefeuille
+# SIGEP — Étape 5 : Module Portefeuille
 
 > Évolution Enterprise du module **Portefeuille** existant (`app/(dashboard)/portefeuille/` +
 > `components/dashboard/Portefeuille.tsx`, V1). Objet : faire du portefeuille la **plateforme unique**
@@ -85,10 +85,10 @@ GraphQL: portefeuille, eps, sante (résolveurs appliquant can_see_path)
 
 ## 10. Évolution depuis la V1 (incrémental, sans repartir de zéro)
 
-| Existant V1 | Ajout SIGEPP |
+| Existant V1 | Ajout SIGEP |
 |-------------|--------------|
 | Page `/portefeuille`, listes, arbitrages rapides, scoring configurable | **EPS** structuré, **comité & décisions historisées**, **scorecard santé** feux, **arbitrages scénarisés** sous enveloppe, **carte PostGIS**, **APIs + GraphQL** org-scopés, **audit append-only** |
 
 ➡️ **Implémentation** : reprendre `Portefeuille.tsx` (V1) → ajouter onglets *EPS / Priorisation /
-Arbitrages / Comité* + brancher sur l'API `backend-enterprise` (client `lib/api/sigeppApi.ts`).
+Arbitrages / Comité* + brancher sur l'API `backend-enterprise` (client `lib/api/sigepApi.ts`).
 Prochaine étape de génération (Étape 6+ : module suivant — Programmes, puis Projets, etc.).

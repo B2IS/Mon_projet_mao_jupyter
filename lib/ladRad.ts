@@ -1,5 +1,5 @@
 /**
- * ladRad.ts — Pipeline LAD (Lecture Automatique de Documents) pour SIGEPP-DPE
+ * ladRad.ts — Pipeline LAD (Lecture Automatique de Documents) pour SIGEP-DPE
  *
  * LAD = RAD + OCR + ICR, applicable à tout type de projet DPE
  * (Transport, Distribution, Production, Commercial, Génie Civil, etc.)

@@ -45,13 +45,13 @@ function buildSystemPrompt(projets: ReturnType<typeof useProjectStore>['projets'
     `- ${p.code} | SPI:${p.spi.toFixed(2)} | CPI:${p.cpi.toFixed(2)} | ${p.nom.slice(0, 40)} | Chef:${p.chefProjet}`
   ).join('\n');
 
-  return `Tu es le **Copilot IA officiel de SIGEPP-DPE** — la plateforme de gouvernance de projets de SENELEC (Direction Principale Équipement, Sénégal).
+  return `Tu es le **Copilot IA officiel de SIGEP-DPE** — la plateforme de gouvernance de projets de SENELEC (Direction Principale Équipement, Sénégal).
 
 ## Ton rôle
 Expert sénior en gestion de projets d'infrastructure électrique. Tu analyses le portefeuille en temps réel, fournis des recommandations stratégiques et opérationnelles précises, assistes dans la prise de décision et la rédaction de documents officiels SENELEC.
 
 ## Utilisateur connecté
-Nom: ${userName} | Plateforme: SIGEPP-DPE | Organisation: SENELEC DPE
+Nom: ${userName} | Plateforme: SIGEP-DPE | Organisation: SENELEC DPE
 
 ## DONNÉES PORTEFEUILLE TEMPS RÉEL (${new Date().toLocaleDateString('fr-FR')})
 - Total projets: ${total} | Actifs: ${actifs.length}
@@ -231,7 +231,7 @@ export default function Copilot() {
         id: 'welcome',
         role: 'assistant',
         ts: new Date(),
-        content: `Bonjour **${userName}** — Copilot DPE connecté au portefeuille en temps réel.\n\n## Tableau de bord synthétique\n| Indicateur | Valeur |\n|---|---|\n| Projets au portefeuille | **${p.length}** |\n| Budget total | **${tb.toLocaleString('fr-FR')} MFCFA** |\n| Taux de décaissement | **${decPct}%** |\n| CPI moyen | **${avgCpi}** |\n| SPI moyen | **${avgSpi}** |\n| Projets en alerte | **${alertes}** 🔴 |\n\nPosez-moi une question précise sur vos projets, le budget, les risques ou la planification — je travaille sur vos **données réelles SIGEPP-DPE**.`,
+        content: `Bonjour **${userName}** — Copilot DPE connecté au portefeuille en temps réel.\n\n## Tableau de bord synthétique\n| Indicateur | Valeur |\n|---|---|\n| Projets au portefeuille | **${p.length}** |\n| Budget total | **${tb.toLocaleString('fr-FR')} MFCFA** |\n| Taux de décaissement | **${decPct}%** |\n| CPI moyen | **${avgCpi}** |\n| SPI moyen | **${avgSpi}** |\n| Projets en alerte | **${alertes}** 🔴 |\n\nPosez-moi une question précise sur vos projets, le budget, les risques ou la planification — je travaille sur vos **données réelles SIGEP-DPE**.`,
       }]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,7 +306,7 @@ export default function Copilot() {
         .replace(/\n/g, '<br/>');
       return `<div style="margin-bottom:14px;display:flex;gap:10px;flex-direction:${m.role === 'user' ? 'row-reverse' : 'row'};align-items:flex-start"><div style="width:26px;height:26px;border-radius:6px;flex-shrink:0;background:${m.role === 'user' ? NAVY : '#EFF6FF'};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${m.role === 'user' ? '#fff' : NAVY}">${m.role === 'user' ? 'V' : 'IA'}</div><div style="max-width:82%;padding:9px 13px;border-radius:${m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px'};background:${m.role === 'user' ? NAVY : '#F8FAFC'};border:1px solid ${m.role === 'user' ? 'transparent' : BORDER};font-size:11px;color:${m.role === 'user' ? '#fff' : '#1E293B'};line-height:1.65">${html}<div style="font-size:8px;margin-top:5px;opacity:0.45">${m.ts.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div></div></div>`;
     }).join('');
-    pw.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Copilot DPE</title><style>body{font-family:'Segoe UI',Arial,sans-serif;padding:32px 40px;color:#1E293B;font-size:11px;max-width:760px;margin:0 auto}strong{color:${NAVY};font-weight:700}.bar{height:4px;background:${ORANGE};margin-bottom:20px}h1{font-size:16px;font-weight:800;color:#0F172A;margin:0 0 4px}.meta{font-size:9px;color:#64748B;margin-bottom:24px}.footer{margin-top:32px;padding-top:12px;border-top:1px solid ${BORDER};font-size:8px;color:#94A3B8;text-align:center}</style></head><body><div class="bar"></div><div style="margin-bottom:10px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:38px;width:auto;display:block"/></div><h1>Conversation Copilot DPE — SIGEPP</h1><div class="meta">Exportée le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · ${messages.length} messages · Modèle: ${GROQ_MODELS[model]}</div>${rows}<div class="footer">CONFIDENTIEL — Usage interne SENELEC DPE · Généré par SIGEPP-DPE Copilot IA</div></body></html>`);
+    pw.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Copilot DPE</title><style>body{font-family:'Segoe UI',Arial,sans-serif;padding:32px 40px;color:#1E293B;font-size:11px;max-width:760px;margin:0 auto}strong{color:${NAVY};font-weight:700}.bar{height:4px;background:${ORANGE};margin-bottom:20px}h1{font-size:16px;font-weight:800;color:#0F172A;margin:0 0 4px}.meta{font-size:9px;color:#64748B;margin-bottom:24px}.footer{margin-top:32px;padding-top:12px;border-top:1px solid ${BORDER};font-size:8px;color:#94A3B8;text-align:center}</style></head><body><div class="bar"></div><div style="margin-bottom:10px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:38px;width:auto;display:block"/></div><h1>Conversation Copilot DPE — SIGEP</h1><div class="meta">Exportée le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · ${messages.length} messages · Modèle: ${GROQ_MODELS[model]}</div>${rows}<div class="footer">CONFIDENTIEL — Usage interne SENELEC DPE · Généré par SIGEP-DPE Copilot IA</div></body></html>`);
     pw.document.close();
     setTimeout(() => pw.print(), 500);
   };
@@ -370,7 +370,7 @@ export default function Copilot() {
             <Bot size={18} color="#fff" />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800, fontSize: 14, color: NAVY }}>Copilot DPE · SIGEPP</div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: NAVY }}>Copilot DPE · SIGEP</div>
             <div style={{ fontSize: 10, color: '#94A3B8' }}>
               {keyOk === false ? '⚠ Clé Groq non configurée' : keyOk === true ? `🟢 Connecté · ${store.projets.length} projets chargés · Groq ${GROQ_MODELS[model]}` : '…'}
             </div>

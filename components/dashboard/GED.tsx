@@ -19,7 +19,7 @@ import toast from 'react-hot-toast';
 /** Journalise une action GED dans le journal d'audit (CCF ADM-03 · GED-03). */
 function gedAudit(action: string, objet: string, detail?: string, type: AuditType = 'document'): void {
   try {
-    const u = JSON.parse(localStorage.getItem('sigepp_dpe_user') || 'null');
+    const u = JSON.parse(localStorage.getItem('sigep_dpe_user') || 'null');
     logAudit({ utilisateur: u ? `${u.prenom} ${u.nom}` : 'Système', email: u?.email, role: u?.role,
       action, objet, type, detail, direction: u?.direction });
   } catch { /* noop */ }
@@ -44,6 +44,8 @@ interface Document {
   sousCat: string;
   statut: StatutValidation;
   tags: string[];
+  /** Direction DPE propriétaire du document (scoping RBAC). */
+  direction?: string;
   /** URL (objet blob) du fichier réellement téléversé — permet la visualisation. */
   fileUrl?: string;
   /** Extension réelle du fichier téléversé (pdf, png, docx…). */
@@ -95,22 +97,12 @@ const TYPE_TO_CAT: Record<string, { categorie: string; sousCat: string }> = {
   Attachement: { categorie: 'Finance', sousCat: 'Attachements' },
   'PV Réception': { categorie: 'Marchés', sousCat: 'PV réception' },
   'Ordre de mission': { categorie: 'Correspondances', sousCat: 'ODM' },
+  'Leçon apprise': { categorie: 'Leçons apprises', sousCat: 'Bonnes pratiques' },
+  'Retour expérience': { categorie: 'Leçons apprises', sousCat: 'Difficultés rencontrées' },
+  'Recommandation': { categorie: 'Leçons apprises', sousCat: 'Recommandations' },
 };
 
-const DOCUMENTS: Document[] = [
-  { id: 'd1',  nom: 'APD-PUDC-Phase3-Electrification.pdf',       type: 'PDF',   taille: '8.4 Mo',  auteur: 'BEI Consult',        date: '20/05/2026', version: 'v3.1', projet: 'PUDC Phase III',  categorie: 'Études',          sousCat: 'APD',             statut: 'Publié',     tags: ['APD','HTA','rural'] },
-  { id: 'd2',  nom: 'Marche-Travaux-Lot2-SAER.docx',             type: 'Word',  taille: '1.2 Mo',  auteur: 'Juriste DPE',        date: '18/05/2026', version: 'v1.0', projet: 'PUDC Phase II',   categorie: 'Marchés',         sousCat: 'Marchés',         statut: 'Publié',     tags: ['marché','travaux'] },
-  { id: 'd3',  nom: 'FMR-Q1-2026-AFD-PERAL.xlsx',                type: 'Excel', taille: '345 Ko',  auteur: 'RAF DPE',            date: '15/05/2026', version: 'v2.0', projet: 'PERAL St-Louis',  categorie: 'Finance',         sousCat: 'Rapports FMR',    statut: 'En révision',tags: ['FMR','AFD','finance'] },
-  { id: 'd4',  nom: 'Rapport-Mensuel-Avancement-Mai26.pdf',      type: 'PDF',   taille: '2.1 Mo',  auteur: 'CP PUDC',            date: '24/05/2026', version: 'v1.0', projet: 'PUDC Phase III',  categorie: 'Rapports',        sousCat: 'Mensuels',        statut: 'Soumis',     tags: ['rapport','mensuel'] },
-  { id: 'd5',  nom: 'Plan-Reseau-BT-Kolda-Zone3.jpg',            type: 'Image', taille: '4.7 Mo',  auteur: 'Topographe SENELEC', date: '10/05/2026', version: 'v1.2', projet: 'PUDC Phase III',  categorie: 'Cartographie',    sousCat: 'Plans',           statut: 'Publié',     tags: ['plan','BT','Kolda'] },
-  { id: 'd6',  nom: 'DAO-Fourniture-Transformateurs-HTA.pdf',    type: 'PDF',   taille: '5.6 Mo',  auteur: 'DAF SENELEC',        date: '05/05/2026', version: 'v4.0', projet: 'PERACOD II',      categorie: 'Marchés',         sousCat: 'DAO',             statut: 'Publié',     tags: ['DAO','HTA','transformateur'] },
-  { id: 'd7',  nom: 'Avenant-1-GTSEN-HTA-Tambacounda.docx',       type: 'Word',  taille: '890 Ko',  auteur: 'Juriste DPE',        date: '03/05/2026', version: 'v1.0', projet: 'PUDC Phase II',   categorie: 'Marchés',         sousCat: 'Avenants',        statut: 'En attente', tags: ['avenant','HTA'] },
-  { id: 'd8',  nom: 'PV-Reception-Provisoire-Lot1.pdf',          type: 'PDF',   taille: '1.5 Mo',  auteur: 'Comité Réception',   date: '01/05/2026', version: 'v1.0', projet: 'PERAL St-Louis',  categorie: 'Marchés',         sousCat: 'PV réception',    statut: 'Publié',     tags: ['PV','réception'] },
-  { id: 'd9',  nom: 'Shapefile-Reseau-HTA-Dakar.zip',             type: 'SHP',   taille: '12.3 Mo', auteur: 'GIS SENELEC',        date: '28/04/2026', version: 'v2.3', projet: 'PUDC Phase III',  categorie: 'Cartographie',    sousCat: 'Shapefiles',      statut: 'Publié',     tags: ['SIG','HTA','Dakar'] },
-  { id: 'd10', nom: 'ANO-BM-031-Transmission.pdf',               type: 'PDF',   taille: '220 Ko',  auteur: 'UAGL Aïssatou',      date: '10/05/2026', version: 'v1.0', projet: 'PUDC Phase III',  categorie: 'Correspondances', sousCat: 'ANOs',            statut: 'Publié',     tags: ['ANO','Banque Mondiale'] },
-  { id: 'd11', nom: 'Facture-GTSEN-Situation7.xlsx',              type: 'Excel', taille: '156 Ko',  auteur: 'RAF DPE',            date: '22/05/2026', version: 'v1.0', projet: 'PUDC Phase II',   categorie: 'Finance',         sousCat: 'Factures',        statut: 'En attente', tags: ['facture','GTSEN'] },
-  { id: 'd12', nom: 'Note-Technique-Equipements-HTA.docx',       type: 'Word',  taille: '670 Ko',  auteur: 'Ingénieur DPE',      date: '17/05/2026', version: 'v1.1', projet: 'PERACOD II',      categorie: 'Études',          sousCat: 'Études spéciales', statut: 'Soumis',    tags: ['note','HTA','technique'] },
-];
+const DOCUMENTS: Document[] = [];
 
 interface Version {
   v: string;
@@ -120,21 +112,7 @@ interface Version {
   taille: string;
 }
 
-const VERSIONS_MAP: Record<string, Version[]> = {
-  d1: [
-    { v: 'v3.1', date: '20/05/2026', auteur: 'BEI Consult', note: 'Corrections suite révision AFD', taille: '8.4 Mo' },
-    { v: 'v3.0', date: '10/04/2026', auteur: 'BEI Consult', note: 'Mise à jour tracé HTA Zone Nord', taille: '8.1 Mo' },
-    { v: 'v2.0', date: '15/02/2026', auteur: 'BEI Consult', note: 'Intégration commentaires DER', taille: '7.8 Mo' },
-    { v: 'v1.0', date: '01/12/2025', auteur: 'Bureau Études', note: 'Première version APD', taille: '6.2 Mo' },
-  ],
-  d4: [
-    { v: 'v1.0', date: '24/05/2026', auteur: 'CP PUDC', note: 'Rapport mensuel initial', taille: '2.1 Mo' },
-  ],
-  d3: [
-    { v: 'v2.0', date: '15/05/2026', auteur: 'RAF DPE', note: 'Intégration avances DPE', taille: '345 Ko' },
-    { v: 'v1.0', date: '01/04/2026', auteur: 'RAF DPE', note: 'Rapport FMR initial Q1', taille: '290 Ko' },
-  ],
-};
+const VERSIONS_MAP: Record<string, Version[]> = {};
 
 type WFStatut = 'En attente' | 'Soumis' | 'En révision' | 'Approuvé' | 'Publié' | 'Rejeté';
 
@@ -149,35 +127,40 @@ interface TreeNode {
 
 const TREE: TreeNode[] = [
   { label: 'Études', icon: '📐', cat: 'Études', children: [
-    { label: 'APS', count: 3, sousCat: 'APS' },
-    { label: 'APD', count: 5, sousCat: 'APD' },
-    { label: 'Études spéciales', count: 4, sousCat: 'Études spéciales' },
+    { label: 'APS', count: 0, sousCat: 'APS' },
+    { label: 'APD', count: 0, sousCat: 'APD' },
+    { label: 'Études spéciales', count: 0, sousCat: 'Études spéciales' },
   ]},
   { label: 'Marchés & Contrats', icon: '📋', cat: 'Marchés', children: [
-    { label: 'DAO', count: 6, sousCat: 'DAO' },
-    { label: 'Marchés', count: 12, sousCat: 'Marchés' },
-    { label: 'Avenants', count: 4, sousCat: 'Avenants' },
-    { label: 'PV réception', count: 8, sousCat: 'PV réception' },
+    { label: 'DAO', count: 0, sousCat: 'DAO' },
+    { label: 'Marchés', count: 0, sousCat: 'Marchés' },
+    { label: 'Avenants', count: 0, sousCat: 'Avenants' },
+    { label: 'PV réception', count: 0, sousCat: 'PV réception' },
   ]},
   { label: 'Finance', icon: '💰', cat: 'Finance', children: [
-    { label: 'Factures', count: 18, sousCat: 'Factures' },
-    { label: 'Décaissements', count: 9, sousCat: 'Décaissements' },
-    { label: 'Rapports FMR', count: 7, sousCat: 'Rapports FMR' },
+    { label: 'Factures', count: 0, sousCat: 'Factures' },
+    { label: 'Décaissements', count: 0, sousCat: 'Décaissements' },
+    { label: 'Rapports FMR', count: 0, sousCat: 'Rapports FMR' },
   ]},
   { label: 'Rapports', icon: '📊', cat: 'Rapports', children: [
-    { label: 'Mensuels', count: 24, sousCat: 'Mensuels' },
-    { label: 'Trimestriels', count: 8, sousCat: 'Trimestriels' },
-    { label: 'Annuels', count: 3, sousCat: 'Annuels' },
+    { label: 'Mensuels', count: 0, sousCat: 'Mensuels' },
+    { label: 'Trimestriels', count: 0, sousCat: 'Trimestriels' },
+    { label: 'Annuels', count: 0, sousCat: 'Annuels' },
   ]},
   { label: 'Correspondances', icon: '✉️', cat: 'Correspondances', children: [
-    { label: 'Courriers IN', count: 47, sousCat: 'Courriers IN' },
-    { label: 'Courriers OUT', count: 38, sousCat: 'Courriers OUT' },
-    { label: 'ANOs', count: 15, sousCat: 'ANOs' },
+    { label: 'Courriers IN', count: 0, sousCat: 'Courriers IN' },
+    { label: 'Courriers OUT', count: 0, sousCat: 'Courriers OUT' },
+    { label: 'ANOs', count: 0, sousCat: 'ANOs' },
   ]},
   { label: 'Cartographie', icon: '🗺️', cat: 'Cartographie', children: [
-    { label: 'Shapefiles', count: 6, sousCat: 'Shapefiles' },
-    { label: 'Plans', count: 22, sousCat: 'Plans' },
-    { label: 'As-built', count: 11, sousCat: 'As-built' },
+    { label: 'Shapefiles', count: 0, sousCat: 'Shapefiles' },
+    { label: 'Plans', count: 0, sousCat: 'Plans' },
+    { label: 'As-built', count: 0, sousCat: 'As-built' },
+  ]},
+  { label: 'Leçons apprises', icon: '💡', cat: 'Leçons apprises', children: [
+    { label: 'Bonnes pratiques', count: 0, sousCat: 'Bonnes pratiques' },
+    { label: 'Difficultés rencontrées', count: 0, sousCat: 'Difficultés rencontrées' },
+    { label: 'Recommandations', count: 0, sousCat: 'Recommandations' },
   ]},
 ];
 
@@ -208,7 +191,7 @@ function formatTaille(bytes: number): string {
   return `${bytes} o`;
 }
 
-function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Document) => void }) {
+function UploadModal({ onClose, onAdd, userDirection }: { onClose: () => void; onAdd: (doc: Document) => void; userDirection?: string }) {
   const projetsStore = useProjectStore();
   const [titre, setTitre] = useState('');
   const [type, setType] = useState('');
@@ -241,6 +224,7 @@ function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Doc
       sousCat: cat.sousCat,
       statut: valReq ? 'Soumis' : 'Publié',
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      direction: userDirection,
       fileUrl,
       fileExt: ext,
     });
@@ -290,6 +274,13 @@ function UploadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (doc: Doc
                 <option value="">— Sélectionner —</option>
                 <option>APD</option><option>APS</option><option>Marché</option><option>Avenant</option>
                 <option>Facture</option><option>Rapport</option><option>Plan</option><option>Shapefile</option>
+                <option>Bordereau</option><option>Décompte</option><option>Fiche facturation</option>
+                <option>Attachement</option><option>PV Réception</option><option>Ordre de mission</option>
+                <optgroup label="Leçons apprises">
+                  <option value="Leçon apprise">Leçon apprise</option>
+                  <option value="Retour expérience">Retour d&apos;expérience</option>
+                  <option value="Recommandation">Recommandation</option>
+                </optgroup>
               </select>
             </div>
             <div className="form-group">
@@ -395,7 +386,7 @@ function EditDocModal({ doc, onClose, onSave }: { doc: Document; onClose: () => 
    MODALE — PARTAGER UN DOCUMENT
 ═══════════════════════════════════════════════════════════════════════ */
 function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
-  const link = `${typeof window !== 'undefined' ? window.location.origin : 'https://sigepp-dpe.senelec.sn'}/ged?doc=${doc.id}`;
+  const link = `${typeof window !== 'undefined' ? window.location.origin : 'https://sigep-dpe.senelec.sn'}/ged?doc=${doc.id}`;
   const [copied, setCopied] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [emailSent, setEmailSent] = useState(false);
@@ -486,7 +477,7 @@ function ShareModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
           {/* Info accès */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(27,79,138,0.06)', borderRadius: 7 }}>
             <Link2 size={12} style={{ color: 'var(--navy)', flexShrink: 0 }} />
-            <span style={{ fontSize: 10.5, color: 'var(--text-2)' }}>Le lien est accessible aux utilisateurs SIGEPP-DPE authentifiés ayant les droits GED.</span>
+            <span style={{ fontSize: 10.5, color: 'var(--text-2)' }}>Le lien est accessible aux utilisateurs SIGEP-DPE authentifiés ayant les droits GED.</span>
           </div>
         </div>
         <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border-2)', display: 'flex', justifyContent: 'flex-end' }}>
@@ -536,7 +527,7 @@ function DeleteConfirmModal({ doc, onConfirm, onClose }: { doc: Document; onConf
 /* ═══════════════════════════════════════════════════════════════════════
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════════════════════ */
-const LS_GED = 'sigepp-ged-docs-v1';
+const LS_GED = 'sigep-ged-docs-v1';
 
 function loadGedDocs(): Document[] {
   if (typeof window === 'undefined') return DOCUMENTS;
@@ -650,8 +641,16 @@ export default function GED() {
     setShowNewVer(false);
   }, [docs, versions, newVerForm]);
 
+  /* Rôles DPE-global : voient tous les documents sans restriction de direction */
+  const DPE_WIDE_ROLES = ['DIR_DPE', 'ADMIN', 'AUDIT', 'CHEF_CELLULE'];
+  const isDpeWide = user ? DPE_WIDE_ROLES.includes(user.role) : false;
+  const userDir = user?.direction ?? '';
+
   /* Filtrage */
   const filtered = docs.filter(d => {
+    // Scoping direction : chaque profil ne voit que sa GED,
+    // sauf "Leçons apprises" (capitalisation DPE-wide) et rôles DPE-global.
+    if (!isDpeWide && d.categorie !== 'Leçons apprises' && d.direction && d.direction !== userDir) return false;
     if (catActive && d.categorie !== catActive) return false;
     if (sousCatActive && d.sousCat !== sousCatActive) return false;
     if (search) {
@@ -739,7 +738,7 @@ export default function GED() {
             {/* 4 pillars */}
             <div style={{ background: '#fff', borderRadius: 14, padding: '20px 22px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: PURPLE, marginBottom: 4 }}>Les 4 Piliers du Cycle de Vie Documentaire</div>
-              <div style={{ fontSize: 11, color: '#64748B', marginBottom: 18 }}>Norme GED DPE SENELEC — SIGEPP-DPE v3.0</div>
+              <div style={{ fontSize: 11, color: '#64748B', marginBottom: 18 }}>Norme GED DPE SENELEC — SIGEP-DPE v3.0</div>
               {/* Pipeline arrow */}
               <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
                 {PILLARS.map((p, i) => (
@@ -848,9 +847,9 @@ export default function GED() {
       </div>
 
       {/* ── Corps principal ── */}
-      <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, flex: 1, minHeight: 0 }}>
         {/* Arborescence */}
-        <div className="card" style={{ width: 220, flexShrink: 0, overflowY: 'auto' }}>
+        <div className="card ged-sidebar" style={{ width: 220, flexShrink: 0, overflowY: 'auto' }}>
           <div className="card-header">
             <span className="card-title">Bibliothèque</span>
           </div>
@@ -945,11 +944,11 @@ export default function GED() {
                         </span>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-ghost btn-xs" onClick={() => setShowWorkflow(d.id)}><Eye size={10} /> Workflow</button>
-                      <button className="btn btn-xs" style={{ background: 'rgba(27,79,138,0.1)', color: 'var(--navy)', border: '1px solid rgba(27,79,138,0.3)' }} onClick={() => lancerWorkflow(d)} title="Créer un workflow (destinataires + rôles)"><GitBranch size={10} /> Workflow</button>
-                      <button className="btn btn-xs" style={{ background: 'rgba(22,163,74,0.1)', color: 'var(--green)', border: '1px solid rgba(22,163,74,0.3)' }} onClick={() => advanceDoc(d.id)}><CheckCircle size={10} /> Approuver</button>
-                      <button className="btn btn-xs" style={{ background: 'rgba(239,51,64,0.1)', color: 'var(--red)', border: '1px solid rgba(239,51,64,0.3)' }} onClick={() => rejectDoc(d.id)}><ThumbsDown size={10} /> Rejeter</button>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      <button className="btn btn-ghost btn-xs" style={{ whiteSpace: 'nowrap' }} onClick={() => setShowWorkflow(d.id)}><Eye size={10} /> Statut WF</button>
+                      <button className="btn btn-xs" style={{ whiteSpace: 'nowrap', background: 'rgba(27,79,138,0.1)', color: 'var(--navy)', border: '1px solid rgba(27,79,138,0.3)' }} onClick={() => lancerWorkflow(d)} title="Créer un workflow (destinataires + rôles)"><GitBranch size={10} /> Lancer WF</button>
+                      <button className="btn btn-xs" style={{ whiteSpace: 'nowrap', background: 'rgba(22,163,74,0.1)', color: 'var(--green)', border: '1px solid rgba(22,163,74,0.3)' }} onClick={() => advanceDoc(d.id)}><CheckCircle size={10} /> Approuver</button>
+                      <button className="btn btn-xs" style={{ whiteSpace: 'nowrap', background: 'rgba(239,51,64,0.1)', color: 'var(--red)', border: '1px solid rgba(239,51,64,0.3)' }} onClick={() => rejectDoc(d.id)}><ThumbsDown size={10} /> Rejeter</button>
                     </div>
                   </div>
                 ))}
@@ -1017,7 +1016,7 @@ export default function GED() {
                               const a = document.createElement('a');
                               if (d.fileUrl) { a.href = d.fileUrl; a.download = d.nom; }
                               else {
-                                a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Document : ${d.nom}\nVersion : ${d.version}\nAuteur : ${d.auteur}\nDate : ${d.date}\nStatut : ${d.statut}\n\n(Document SENELEC — SIGEPP-DPE)`);
+                                a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Document : ${d.nom}\nVersion : ${d.version}\nAuteur : ${d.auteur}\nDate : ${d.date}\nStatut : ${d.statut}\n\n(Document SENELEC — SIGEP-DPE)`);
                                 a.download = d.nom.replace(/\s+/g, '_') + '.txt';
                               }
                               a.click();
@@ -1064,7 +1063,7 @@ export default function GED() {
                         <button className="btn btn-ghost btn-xs" style={{ flex: 1 }} onClick={() => {
                           const a = document.createElement('a');
                           if (d.fileUrl) { a.href = d.fileUrl; a.download = d.nom; }
-                          else { a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Document : ${d.nom}\nVersion : ${d.version}\nAuteur : ${d.auteur}\nDate : ${d.date}\nStatut : ${d.statut}\n\n(Document SENELEC — SIGEPP-DPE)`); a.download = d.nom.replace(/\s+/g, '_') + '.txt'; }
+                          else { a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Document : ${d.nom}\nVersion : ${d.version}\nAuteur : ${d.auteur}\nDate : ${d.date}\nStatut : ${d.statut}\n\n(Document SENELEC — SIGEP-DPE)`); a.download = d.nom.replace(/\s+/g, '_') + '.txt'; }
                           a.click();
                         }}><Download size={10} /> DL</button>
                         <button aria-label="Partager" className="btn btn-ghost btn-xs" title="Partager" onClick={() => setShareDoc(d)}><Share2 size={10} /></button>
@@ -1258,6 +1257,24 @@ export default function GED() {
                   <button className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }} onClick={() => setViewerDoc(null)}><X size={12} /></button>
                 </div>
               </div>
+              {/* Action buttons in viewer header area */}
+              <div style={{ padding: '8px 18px', background: '#3D4449', borderBottom: '1px solid #555', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+                <button className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
+                  onClick={() => { setViewerDoc(null); const ext = (doc.fileExt || 'pdf') as 'pdf'; setAnnotDoc({ nom: doc.nom, ext, taille: doc.taille, url: doc.fileUrl }); }}>
+                  <Edit2 size={11} /> Annoter
+                </button>
+                <button className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
+                  onClick={() => { setViewerDoc(null); setWfSource({ titre: doc.nom, reference: doc.version, type: 'document', projet: doc.projet, piecesJointes: [{ nom: doc.nom, taille: doc.taille, ext: (doc.fileExt as 'pdf') || 'pdf', url: doc.fileUrl }] }); }}>
+                  <GitBranch size={11} /> Créer workflow
+                </button>
+                <button className="btn btn-ghost btn-xs" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
+                  onClick={() => { const a = document.createElement('a'); if (doc.fileUrl) { a.href = doc.fileUrl; a.download = doc.nom; a.click(); } }}>
+                  <Share2 size={11} /> Partager
+                </button>
+                <span style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>
+                  {doc.auteur} · {doc.date} · {doc.version}
+                </span>
+              </div>
               <div style={{ flex: 1, overflow: 'auto', background: '#525659', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {canPreview && isImage && (
                   <img src={doc.fileUrl} alt={doc.nom} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -1266,18 +1283,61 @@ export default function GED() {
                   <iframe src={doc.fileUrl} title={doc.nom} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
                 )}
                 {!canPreview && (
-                  <div style={{ textAlign: 'center', color: '#fff', padding: 40 }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><DocIcon type={doc.type} /></div>
-                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{doc.nom}</div>
-                    <div style={{ fontSize: 12, opacity: 0.75, maxWidth: 380, margin: '0 auto 16px' }}>
-                      {doc.fileUrl
-                        ? `L'aperçu intégré n'est pas disponible pour ce type de fichier (${doc.type}). Téléchargez-le pour l'ouvrir.`
-                        : 'Ce document de démonstration n\'a pas de fichier téléversé. Ajoutez un document via « Ajouter document » pour le visualiser.'}
+                  <div style={{ background: '#fff', borderRadius: 12, padding: '32px 40px', maxWidth: 520, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
+                      <div style={{ flexShrink: 0 }}><DocIcon type={doc.type} /></div>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: '#1E293B', marginBottom: 4 }}>{doc.nom}</div>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {[doc.categorie, doc.sousCat, doc.statut].filter(Boolean).map((tag, i) => (
+                            <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#475569', background: '#F1F5F9', padding: '2px 8px', borderRadius: 10 }}>{tag}</span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    {doc.fileUrl && (
-                      <button className="btn btn-primary btn-sm" onClick={() => {
-                        const a = document.createElement('a'); a.href = doc.fileUrl!; a.download = doc.nom; a.click();
-                      }}><Download size={12} /> Télécharger le fichier</button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', marginBottom: 20 }}>
+                      {[
+                        { label: 'Auteur', value: doc.auteur },
+                        { label: 'Date', value: doc.date },
+                        { label: 'Version', value: doc.version },
+                        { label: 'Taille', value: doc.taille },
+                        { label: 'Projet', value: doc.projet },
+                        { label: 'Type', value: doc.type },
+                      ].map(({ label, value }) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.5px' }}>{label}</div>
+                          <div style={{ fontSize: 12.5, color: '#1E293B', fontWeight: 500 }}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {doc.tags.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>Tags</div>
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                          {doc.tags.map(t => <span key={t} style={{ fontSize: 10.5, background: '#EFF6FF', color: '#2563EB', padding: '2px 9px', borderRadius: 10, fontWeight: 600 }}>{t}</span>)}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, borderTop: '1px solid #F1F5F9', paddingTop: 16, flexWrap: 'wrap' }}>
+                      <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#1B4F8A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                        onClick={() => { setViewerDoc(null); const ext = (doc.fileExt || 'pdf') as 'pdf'; setAnnotDoc({ nom: doc.nom, ext, taille: doc.taille, url: doc.fileUrl }); }}>
+                        <Edit2 size={13} /> Annoter &amp; commenter
+                      </button>
+                      <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                        onClick={() => { setViewerDoc(null); setWfSource({ titre: doc.nom, reference: doc.version, type: 'document', projet: doc.projet, piecesJointes: [{ nom: doc.nom, taille: doc.taille, ext: (doc.fileExt as 'pdf') || 'pdf', url: doc.fileUrl }] }); }}>
+                        <GitBranch size={13} /> Créer un workflow
+                      </button>
+                      {doc.fileUrl && (
+                        <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                          onClick={() => { const a = document.createElement('a'); a.href = doc.fileUrl!; a.download = doc.nom; a.click(); }}>
+                          <Download size={13} /> Télécharger
+                        </button>
+                      )}
+                    </div>
+                    {!doc.fileUrl && (
+                      <div style={{ marginTop: 10, padding: '8px 12px', background: '#FFF7ED', borderRadius: 8, fontSize: 11, color: '#92400E' }}>
+                        💡 Document de démonstration — uploadez le fichier réel via <strong>« Ajouter document »</strong> pour activer la prévisualisation et le téléchargement.
+                      </div>
                     )}
                   </div>
                 )}
@@ -1287,7 +1347,7 @@ export default function GED() {
         );
       })()}
 
-      {showUpload && <UploadModal onClose={() => setShowUpload(false)} onAdd={(doc) => { setDocs(prev => [doc, ...prev]); gedAudit('Dépôt de document (GED)', doc.nom, `v${doc.version} · ${doc.type}`); setShowUpload(false); }} />}
+      {showUpload && <UploadModal onClose={() => setShowUpload(false)} userDirection={user?.direction} onAdd={(doc) => { setDocs(prev => [doc, ...prev]); gedAudit('Dépôt de document (GED)', doc.nom, `v${doc.version} · ${doc.type}`); setShowUpload(false); }} />}
 
       {editDoc && <EditDocModal doc={editDoc} onClose={() => setEditDoc(null)} onSave={saveEditDoc} />}
 

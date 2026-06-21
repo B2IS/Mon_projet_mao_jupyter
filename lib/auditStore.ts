@@ -1,5 +1,5 @@
 /**
- * auditStore.ts — Journal d'audit SIGEPP-DPE (CCF MVP · ADM-03)
+ * auditStore.ts — Journal d'audit SIGEP-DPE (CCF MVP · ADM-03)
  * « En tant qu'administrateur, je veux consulter le journal d'audit afin de tracer
  *   toutes les actions effectuées sur la plateforme. »
  * Critères : date · heure · utilisateur · action · objet concerné · export CSV.
@@ -53,7 +53,7 @@ export const useAuditStore = create<AuditState>()(
         return { entries: s.entries.filter(x => new Date(x.date).getTime() >= cutoff) };
       }),
     }),
-    { name: 'sigepp-audit-journal' },
+    { name: 'sigep-audit-journal' },
   ),
 );
 

@@ -48,6 +48,6 @@ export const useParapheurStore = create<ParapheurState>()(
       addDossier: (d) => set(s => ({ dossiers: [d, ...s.dossiers.filter(x => x.id !== d.id)].slice(0, 200) })),
       removeDossier: (id) => set(s => ({ dossiers: s.dossiers.filter(x => x.id !== id) })),
     }),
-    { name: 'sigepp-parapheur-dossiers' },
+    { name: 'sigep-parapheur-dossiers' },
   ),
 );

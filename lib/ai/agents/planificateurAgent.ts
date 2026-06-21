@@ -1,7 +1,7 @@
 /**
- * planificateurAgent.ts — Agent Planificateur Oracle PPM
- * Phase 1 — Extrait WBS, jalons, baseline, EVM depuis tous documents (incl. scans).
- * Comporte comme un expert Oracle Projects / MS Project qui lit le planning projet.
+ * planificateurAgent.ts — Agent WBS & Planning SIGEP-DPE
+ * Phase 1 — Reconstruit WBS, jalons, baseline, chemin critique depuis APS/APD/DAO/Contrats/Plannings.
+ * Étapes 8-9 du Swarm SIGEP : Reconstruction WBS + Reconstruction Planning.
  */
 
 import type {
@@ -110,10 +110,10 @@ export async function runPlanificateurAgent(
   const hasContent = files.some(f => f.textContent || f.dataUrl);
   const filesUsed  = files.filter(f => f.textContent || f.dataUrl).map(f => f.name);
 
-  // ── Tentative extraction LLM Oracle PPM ─────────────────────────────────────
+  // ── Tentative extraction LLM SIGEP-DPE ─────────────────────────────────────
   const llmResult = hasContent ? await analyzeDocuments<LLMPlanningResult>(
     files,
-    'Planification de projet Oracle PPM',
+    'Planification de projet SIGEP-DPE',
     `Analyse les documents et extrait la structure WBS, le planning Gantt, les jalons et le chemin critique.
 Identifie :
 - Toutes les tâches avec numéro WBS, dates début/fin, durée en jours, responsable, % avancement réel
@@ -161,9 +161,9 @@ Projet : ${ctx.nomProjet} · Budget : ${ctx.budgetEstime} MFCFA · Début : ${ct
         baselineNom: llmResult.baselineNom ?? 'Référence LLM v1.0',
         dureeJours: llmResult.dureeJours ?? taches.length * 10,
         cheminCritique: llmResult.cheminCritique ?? [],
-        detectionsWarnings: [`LLM Oracle PPM : ${taches.length} tâches extraites des documents.`],
+        detectionsWarnings: [`LLM SIGEP-DPE : ${taches.length} tâches extraites des documents.`],
       },
-      summary: `Oracle PPM : ${taches.length} tâches WBS · ${jalons.length} jalons · LLM analyse documents`,
+      summary: `SIGEP-DPE : ${taches.length} tâches WBS · ${jalons.length} jalons · LLM analyse documents`,
     };
   }
 

@@ -27,7 +27,7 @@ export interface OrgDepartement {
 export interface OrgPoste {
   code: string;
   label: string;
-  roleCode: string; // quel rôle SIGEPP ce poste mappe
+  roleCode: string; // quel rôle SIGEP ce poste mappe
   niveau: number; // 0=DPE, 1=Direction, 2=Département, 3=Agent
   keywords: string[]; // mots-clés pour matching
   active: boolean;
@@ -97,33 +97,33 @@ const DEFAULT_DEPARTEMENTS: OrgDepartement[] = [
 
 const DEFAULT_POSTES: OrgPoste[] = [
   { code: 'DIR_DPE', label: 'Directeur Principal Équipement', roleCode: 'DIR_DPE', niveau: 0, keywords: ['directeur principal','directeur genie civil','directeur innovation'], active: true },
-  { code: 'PMO_PRG', label: 'Coordonnateur des Programmes', roleCode: 'PMO', niveau: 1, keywords: ['coordonnateur','chef de cellule','responsable suivi'], active: true },
+  { code: 'PMO_PRG', label: 'Coordonnateur des Programmes', roleCode: 'CHEF_CELLULE', niveau: 1, keywords: ['coordonnateur','chef de cellule','responsable suivi'], active: true },
   { code: 'CHEF_DPT', label: 'Chef de Département', roleCode: 'CHEF_DEPT', niveau: 1, keywords: ['chef departement','chef de service','chef unite'], active: true },
   { code: 'CHEF_PROJ', label: 'Chef de Projet', roleCode: 'CHEF_PROJ', niveau: 2, keywords: ['chef de projet'], active: true },
   { code: 'CTRL', label: 'Contrôleur de Projet', roleCode: 'CONTROLEUR', niveau: 2, keywords: ['controleur','assistant chef de projet'], active: true },
-  { code: 'EXPERT', label: 'Expert Technique', roleCode: 'EXPERT', niveau: 2, keywords: ['expert','conseiller technique'], active: true },
+  { code: 'EXPERT_SE', label: 'Expert Technique', roleCode: 'EXPERT_SE', niveau: 2, keywords: ['expert','conseiller technique'], active: true },
   { code: 'ING', label: 'Ingénieur', roleCode: 'INGENIEUR', niveau: 2, keywords: ['ingenieur','dessinateur','cartographe','geomaticien'], active: true },
-  { code: 'CHARGE', label: 'Chargé de Mission', roleCode: 'CHARGE', niveau: 2, keywords: ['charge'], active: true },
-  { code: 'ASSIST', label: 'Assistant de Direction', roleCode: 'ASSISTANT', niveau: 3, keywords: ['assistant','aide archiviste'], active: true },
+  { code: 'HSE', label: 'Chargé de Mission', roleCode: 'HSE', niveau: 2, keywords: ['charge'], active: true },
+  { code: 'ASSIST', label: 'Assistant de Direction', roleCode: 'ASSISTANT_DIR', niveau: 3, keywords: ['assistant','aide archiviste'], active: true },
   { code: 'SECR', label: 'Secrétaire', roleCode: 'SECRETAIRE', niveau: 3, keywords: ['secretaire'], active: true },
   { code: 'CHAUF', label: 'Chauffeur', roleCode: 'CHAUFFEUR', niveau: 3, keywords: ['chauffeur'], active: true },
-  { code: 'CTRL_FIN', label: 'Contrôleur Financier', roleCode: 'CTRL_FIN', niveau: 1, keywords: ['comptable','responsable audit'], active: true },
+  { code: 'RAF', label: 'Contrôleur Financier', roleCode: 'RAF', niveau: 1, keywords: ['comptable','responsable audit'], active: true },
   { code: 'RESP_LOG', label: 'Responsable Logistique / UAGL', roleCode: 'RESP_LOG', niveau: 2, keywords: ['responsable administratif','responsable passation','chef uagl'], active: true },
 ];
 
 const DEFAULT_ROLES: OrgRoleConfig[] = [
   { code: 'DIR_DPE', label: 'Directeur DPE', description: 'Vision exécutive — portefeuille stratégique, KPIs, arbitrages', color: '#3D1A6B', icon: '👔', sections: ['accueil','portefeuille','planning','execution','terrain','finances','rh','logistique','transverses','parametrage'], routes: ['*'], active: true },
-  { code: 'PMO', label: 'PMO / Chef Programmes', description: 'Pilotage portefeuille multi-projets, EVM, reporting', color: '#7C3AED', icon: '📊', sections: ['accueil','portefeuille','planning','execution','terrain','finances','transverses'], routes: ['/tableau-de-bord','/projets','/portefeuille','/gantt','/suivi-evaluation','/terrain','/evm','/budget','/marches','/reporting','/agents-ia','/ged','/workflows'], active: true },
+  { code: 'CHEF_CELLULE', label: 'PMO / Chef Programmes', description: 'Pilotage portefeuille multi-projets, EVM, reporting', color: '#7C3AED', icon: '📊', sections: ['accueil','portefeuille','planning','execution','terrain','finances','transverses'], routes: ['/tableau-de-bord','/projets','/portefeuille','/gantt','/suivi-evaluation','/terrain','/evm','/budget','/marches','/reporting','/agents-ia','/ged','/workflows'], active: true },
   { code: 'CHEF_PROJ', label: 'Chef de Projet', description: 'Gestion opérationnelle de ses projets', color: '#1D4ED8', icon: '🧑‍💼', sections: ['accueil','mes_projets','execution','finances','transverses'], routes: ['/tableau-de-bord','/projets','/cockpit-projet','/gantt','/suivi-evaluation','/terrain','/risques','/cartographie','/ged','/workflows'], active: true },
   { code: 'CHEF_DEPT', label: 'Chef de Département', description: 'Projets et indicateurs de son unité', color: '#0F766E', icon: '🏢', sections: ['accueil','portefeuille','planning','execution','terrain','finances','rh','transverses'], routes: ['/tableau-de-bord','/projets','/portefeuille','/programmes','/gantt','/suivi-evaluation','/terrain','/evm','/budget','/marches','/rh','/reporting','/ged','/workflows'], active: true },
   { code: 'INGENIEUR', label: 'Ingénieur / Études', description: 'Conception technique, études', color: '#2563EB', icon: '⚙️', sections: ['accueil','mes_projets','execution','transverses'], routes: ['/tableau-de-bord','/projets','/cockpit-projet','/suivi-evaluation','/terrain','/ged','/workflows'], active: true },
-  { code: 'EXPERT', label: 'Expert Technique', description: 'Expertise sectorielle', color: '#7C3AED', icon: '🔬', sections: ['accueil','portefeuille','mes_projets','execution','transverses'], routes: ['/tableau-de-bord','/projets','/portefeuille','/cockpit-projet','/suivi-evaluation','/terrain','/agents-ia','/ged','/workflows'], active: true },
+  { code: 'EXPERT_SE', label: 'Expert Technique', description: 'Expertise sectorielle', color: '#7C3AED', icon: '🔬', sections: ['accueil','portefeuille','mes_projets','execution','transverses'], routes: ['/tableau-de-bord','/projets','/portefeuille','/cockpit-projet','/suivi-evaluation','/terrain','/agents-ia','/ged','/workflows'], active: true },
   { code: 'CONTROLEUR', label: 'Contrôleur', description: 'Contrôle qualité, performance et conformité', color: '#D97706', icon: '🔍', sections: ['accueil','mes_projets','execution','transverses'], routes: ['/tableau-de-bord','/projets','/cockpit-projet','/gantt','/suivi-evaluation','/terrain','/risques','/reporting','/workflows'], active: true },
-  { code: 'CHARGE', label: 'Chargé de Mission', description: 'Suivi social, environnemental', color: '#059669', icon: '📋', sections: ['accueil','mes_projets','execution','transverses'], routes: ['/tableau-de-bord','/projets','/cockpit-projet','/terrain','/reporting','/workflows'], active: true },
-  { code: 'ASSISTANT', label: 'Assistant de Direction', description: 'Support administratif', color: '#4B5563', icon: '📝', sections: ['accueil','mes_projets','transverses'], routes: ['/tableau-de-bord','/projets','/taches','/suivi-evaluation','/ged','/reporting','/workflows'], active: true },
+  { code: 'HSE', label: 'Chargé de Mission', description: 'Suivi social, environnemental', color: '#059669', icon: '📋', sections: ['accueil','mes_projets','execution','transverses'], routes: ['/tableau-de-bord','/projets','/cockpit-projet','/terrain','/reporting','/workflows'], active: true },
+  { code: 'ASSISTANT_DIR', label: 'Assistant de Direction', description: 'Support administratif', color: '#4B5563', icon: '📝', sections: ['accueil','mes_projets','transverses'], routes: ['/tableau-de-bord','/projets','/taches','/suivi-evaluation','/ged','/reporting','/workflows'], active: true },
   { code: 'SECRETAIRE', label: 'Secrétaire', description: 'Secrétariat, archivage', color: '#8B5CF6', icon: '📁', sections: ['accueil','transverses'], routes: ['/tableau-de-bord','/ged','/workflows'], active: true },
   { code: 'CHAUFFEUR', label: 'Chauffeur / UAGL', description: 'Conduite, logistique', color: '#0891B2', icon: '🚗', sections: ['accueil','logistique','transverses'], routes: ['/tableau-de-bord','/flotte','/courriers','/workflows'], active: true },
-  { code: 'CTRL_FIN', label: 'Contrôleur Financier', description: 'Budget, marchés, bordereaux', color: '#B45309', icon: '💰', sections: ['accueil','finances','transverses'], routes: ['/tableau-de-bord','/budget','/marches','/bordereaux','/receptions','/reporting','/workflows'], active: true },
+  { code: 'RAF', label: 'Contrôleur Financier', description: 'Budget, marchés, bordereaux', color: '#B45309', icon: '💰', sections: ['accueil','finances','transverses'], routes: ['/tableau-de-bord','/budget','/marches','/bordereaux','/receptions','/reporting','/workflows'], active: true },
   { code: 'RESP_LOG', label: 'Resp. UAGL / Logistique', description: 'Ordres de mission, flotte', color: '#0891B2', icon: '🚗', sections: ['accueil','logistique','transverses'], routes: ['/tableau-de-bord','/flotte','/courriers','/odm','/workflows'], active: true },
   { code: 'ADMIN', label: 'Administrateur Système', description: 'Accès complet', color: '#374151', icon: '🔧', sections: ['*'], routes: ['*'], active: true },
 ];
@@ -304,7 +304,7 @@ export const useOrgConfig = create<OrgConfigState>()(
       },
     }),
     {
-      name: 'sigepp-org-config',
+      name: 'sigep-org-config',
       partialize: (state) => ({
         directions: state.directions,
         departements: state.departements,

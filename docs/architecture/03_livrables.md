@@ -1,4 +1,4 @@
-# SIGEPP-DPE — Livrables Enterprise (matrices, GraphQL, RAG, déploiement, structure)
+# SIGEP-DPE — Livrables Enterprise (matrices, GraphQL, RAG, déploiement, structure)
 
 > Complète `02_architecture.md` (architecture) et `01_data_model.sql` (modèle/SQL).
 > Tout dérive du **référentiel maître : l'organisation**. Aucune permission manuelle.

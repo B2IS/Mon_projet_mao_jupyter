@@ -5,7 +5,7 @@
  * et pointages des ressources affectées aux projets/localités.
  *
  * Tracking réel :
- *   • PLATEFORME — temps actif passé sur SIGEPP, accumulé par projet (heartbeat 20s).
+ *   • PLATEFORME — temps actif passé sur SIGEP, accumulé par projet (heartbeat 20s).
  *   • TERRAIN — pings GPS de l'app mobile matchés aux géofences des sites projet.
  *   • DÉCLARATIF — saisie manuelle dans la feuille de temps (vue N+1 + agent).
  *
@@ -327,7 +327,7 @@ export const useTempsStore = create<TempsState>()(
         });
       },
     }),
-    { name: 'sigepp-temps' }
+    { name: 'sigep-temps' }
   )
 );
 
@@ -576,7 +576,7 @@ export function detecterIncoherences(entrees: EntreeTemps[], pingsGeo: PingGeo[]
       if (!sites.some(s => s.projet === e.projet)) {
         result.push({ id: uid(), type: 'lieu_projet_inconnu', gravite: 'info',
           libelle: 'Projet terrain non géolocalisé',
-          details: `"${e.projet}" n'a pas de site géofencé configuré dans SIGEPP-DPE`,
+          details: `"${e.projet}" n'a pas de site géofencé configuré dans SIGEP-DPE`,
           date: e.date, collaborateur: e.collaborateur, entreeIds: [e.id] });
       }
     }

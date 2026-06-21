@@ -78,7 +78,7 @@ export default function DocsPage() {
   const envVars = [
     { key: 'OLLAMA_BASE_URL', value: 'http://localhost:11434', desc: 'URL Ollama (défaut: localhost)' },
     { key: 'GROQ_API_KEY', value: 'gsk_...', desc: 'Clé Groq — serveur uniquement (non exposée au client)' },
-    { key: 'NEXT_PUBLIC_SIGEPP_API', value: 'http://localhost:4000/api', desc: 'URL backend NestJS' },
+    { key: 'NEXT_PUBLIC_SIGEP_API', value: 'http://localhost:4000/api', desc: 'URL backend NestJS' },
     { key: 'AZURE_OPENAI_ENDPOINT', value: 'https://<resource>.openai.azure.com', desc: 'Azure OpenAI' },
     { key: 'AZURE_OPENAI_KEY', value: 'sk_...', desc: 'Clé Azure OpenAI' },
   ];
@@ -95,7 +95,7 @@ export default function DocsPage() {
             </div>
             <div>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
-                Documentation API — SIGEPP-DPE
+                Documentation API — SIGEP-DPE
               </h1>
               <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748B' }}>
                 OpenAPI 3.0 · v2.0.0 · Architecture souveraine Senelec
@@ -246,7 +246,7 @@ export default function DocsPage() {
             { label: 'Modèle léger (Phi-3 — serveurs sans GPU)', cmd: 'ollama pull phi3' },
             { label: 'Modèle puissant (Llama 3.1 70B — si GPU ≥ 48GB VRAM)', cmd: 'ollama pull llama3.1:70b' },
             { label: 'Démarrer le serveur Ollama', cmd: 'ollama serve' },
-            { label: 'Tester le chat', cmd: "ollama run mistral 'Bonjour, es-tu prêt pour SIGEPP ?'" },
+            { label: 'Tester le chat', cmd: "ollama run mistral 'Bonjour, es-tu prêt pour SIGEP ?'" },
           ].map(({ label, cmd }) => (
             <div key={cmd} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: '#64748B', marginBottom: 3 }}># {label}</div>

@@ -1,101 +1,119 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Docker Compose — SIGEPP-DPE (Frontend Next.js + Backend FastAPI + PostgreSQL)
-# Architecture complète pour déploiement local ou cloud
-# ─────────────────────────────────────────────────────────────────────────────
-
-version: "3.9"
+###############################################################################
+# docker-compose.yml — SIGEP-DPE : orchestration complète
+#
+# Services :
+#   postgres        — PostgreSQL 16 (partagé NestJS + FastAPI)
+#   nestjs          — API canonique (projets, finances, workflows, RH…) :4000
+#   ai-backend      — FastAPI spécialisé IA + migration documentaire      :8000
+#   frontend        — Next.js 15                                          :3000
+#
+# LLM Docker séparé : docker compose -f docker-compose.llm.yml up -d
+#
+# Démarrage rapide :
+#   docker compose up -d
+#
+# Variables (.env à la racine) :
+#   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+#   SUPABASE_URL, SUPABASE_KEY
+#   NESTJS_PORT (défaut 4000)
+#   AI_BACKEND_PORT (défaut 8000)
+###############################################################################
 
 services:
-  # ── Base de données PostgreSQL (fallback local si Supabase Cloud non utilisé) ──
+
+  # ── PostgreSQL 16 (source de vérité unique) ────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: sigepp-postgres
+    container_name: sigep-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-sigepp}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sigepp2026}
-      POSTGRES_DB: ${POSTGRES_DB:-sigepp_dpe}
+      POSTGRES_USER:     ${POSTGRES_USER:-sigep}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sigep2026}
+      POSTGRES_DB:       ${POSTGRES_DB:-sigep_dpe}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/data/init:/docker-entrypoint-initdb.d
+      - ./backend-enterprise/prisma/rls:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sigepp} -d ${POSTGRES_DB:-sigepp_dpe}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sigep} -d ${POSTGRES_DB:-sigep_dpe}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── Backend FastAPI (Python) ──
-  backend:
+  # ── NestJS Enterprise (API canonique) ────────────────────────────────────
+  nestjs:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: sigepp-backend
+      context: ./backend-enterprise
+    container_name: sigep-nestjs
     restart: unless-stopped
-    env_file:
-      - ./backend/.env
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-sigepp}:${POSTGRES_PASSWORD:-sigepp2026}@postgres:5432/${POSTGRES_DB:-sigepp_dpe}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/models:/app/models
-      - ./backend/reports:/app/reports
-      - ./backend/logs:/app/logs
-      - ./backend/data:/app/data
-    ports:
-      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
-    command: >
-      python -m uvicorn src.api.app:app
-      --host 0.0.0.0 --port 8000 --workers 2 --reload
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sigep}:${POSTGRES_PASSWORD:-sigep2026}@postgres:5432/${POSTGRES_DB:-sigep_dpe}?schema=public
+      PORT: ${NESTJS_PORT:-4000}
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "${NESTJS_PORT:-4000}:4000"
+    command: sh -c "npx prisma migrate deploy && node dist/src/main.js"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4000/api/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
-  # ── Frontend Next.js ──
+  # ── FastAPI AI & Migration backend ────────────────────────────────────────
+  ai-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sigep-ai-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sigep}:${POSTGRES_PASSWORD:-sigep2026}@postgres:5432/${POSTGRES_DB:-sigep_dpe}
+      # LLM local — pointe vers kimi-llm si lancé via docker-compose.llm.yml
+      DOCKER_LLM_BASE_URL: ${DOCKER_LLM_BASE_URL:-http://host.docker.internal:8080/v1}
+    volumes:
+      - ./backend/src:/app/src:ro
+      - ./ged_documents:/app/ged_storage
+      - ai_models:/app/models
+    ports:
+      - "${AI_BACKEND_PORT:-8000}:8000"
+    command: python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── Next.js Frontend ──────────────────────────────────────────────────────
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: sigepp-frontend
+    container_name: sigep-frontend
     restart: unless-stopped
+    depends_on:
+      nestjs:
+        condition: service_healthy
     env_file:
       - .env.local
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
+      NEXT_PUBLIC_API_URL:      http://nestjs:4000/api
+      NEXT_PUBLIC_AI_API_URL:   http://ai-backend:8000/api/v1
+      DOCKER_LLM_BASE_URL:      ${DOCKER_LLM_BASE_URL:-http://host.docker.internal:8080/v1}
     ports:
       - "3000:3000"
-    depends_on:
-      - backend
-    command: >
-      npm run dev
-
-  # ── Ollama (IA Open Source LLM — optionnel, pour inférence locale) ──
-  ollama:
-    image: ollama/ollama:latest
-    container_name: sigepp-ollama
-    restart: unless-stopped
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-    # Décommenter pour GPU NVIDIA
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    command: npm run start
 
 volumes:
   postgres_data:
-  ollama_data:
+  ai_models:

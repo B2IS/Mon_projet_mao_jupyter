@@ -12,8 +12,9 @@ import {
   Play, Pause, Layers, TrendingUp, TrendingDown,
   Building2, UserCheck, Banknote, ArrowUpRight, ArrowDownRight,
   ShieldAlert, FolderOpen, Upload, Download, Eye,
-  ChevronRight, Minus, MapPin, Activity, LayoutDashboard,
+  ChevronRight, ChevronLeft, Minus, MapPin, Activity, LayoutDashboard,
   GitBranch, History, Pencil, Save, Check, Sliders, Edit3, Printer, RefreshCw, GanttChart, Search,
+  Award, UserPlus,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -75,21 +76,21 @@ const PRIOR_DISP: Record<Priorite, { color: string; label: string }> = {
   Faible:  { color: '#94A3B8', label: 'Faible' },
 };
 
-/* ─── Onglets (spec agencement : 9 onglets fiche projet) ─ */
-const ONGLETS = [
-  { id: 'fiche-executive', label: 'Fiche Exécutive',   icon: <FileText        size={13} /> },
-  { id: 'synthese',        label: 'Synthèse',           icon: <LayoutDashboard size={13} /> },
-  { id: 'planning',        label: 'Planning',            icon: <Calendar        size={13} /> },
-  { id: 'zones',           label: 'Zones & Quantités',  icon: <Layers          size={13} /> },
-  { id: 'couts',           label: 'Coûts',               icon: <Wallet          size={13} /> },
-  { id: 'contrat',         label: 'Contrat & Marchés',  icon: <Banknote        size={13} /> },
-  { id: 'hse',             label: 'HSE & Qualité',       icon: <ShieldAlert     size={13} /> },
-  { id: 'ressources',      label: 'Ressources',           icon: <Users           size={13} /> },
-  { id: 'risques',         label: 'Risques',              icon: <Flag            size={13} /> },
-  { id: 'documents',       label: 'Documents',            icon: <Paperclip       size={13} /> },
-  { id: 'ponderation',     label: 'Pondération',         icon: <Filter          size={13} /> },
-  { id: 'carte-sig',       label: 'Carte SIG',            icon: <MapPin          size={13} /> },
-  { id: 'activite',        label: 'Activité',             icon: <History         size={13} /> },
+/* ─── Onglets — visibilité par profil (roles: [] = tout le monde) ─ */
+const ONGLETS: { id: string; label: string; icon: React.ReactNode; roles: string[] }[] = [
+  { id: 'fiche-executive', label: 'Fiche Exécutive',   icon: <FileText        size={13} />, roles: [] },
+  { id: 'synthese',        label: 'Synthèse',           icon: <LayoutDashboard size={13} />, roles: [] },
+  { id: 'planning',        label: 'Planning',            icon: <Calendar        size={13} />, roles: [] },
+  { id: 'zones',           label: 'Zones & Quantités',  icon: <Layers          size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','CONTROLEUR','INGENIEUR','EXPERT_SE','EXPERT_PMO','CONSEILLER'] },
+  { id: 'couts',           label: 'Coûts',               icon: <Wallet          size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','RAF','COMPTABLE','ASSISTANT_ADMIN','EXPERT_PMO','EXPERT_SE','CONSEILLER'] },
+  { id: 'contrat',         label: 'Contrat & Marchés',  icon: <Banknote        size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','RAF','COMPTABLE','ASSISTANT_ADMIN','EXPERT_PMO','CONSEILLER'] },
+  { id: 'hse',             label: 'HSE & Qualité',       icon: <ShieldAlert     size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','CONTROLEUR','INGENIEUR','EXPERT_SE','CONSEILLER'] },
+  { id: 'ressources',      label: 'Ressources',           icon: <Users           size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','EXPERT_PMO','CONSEILLER'] },
+  { id: 'risques',         label: 'Risques',              icon: <Flag            size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','CONTROLEUR','INGENIEUR','EXPERT_PMO','EXPERT_SE','CONSEILLER'] },
+  { id: 'documents',       label: 'Documents',            icon: <Paperclip       size={13} />, roles: [] },
+  { id: 'ponderation',     label: 'Pondération',         icon: <Filter          size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','EXPERT_PMO'] },
+  { id: 'carte-sig',       label: 'Carte SIG',            icon: <MapPin          size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','CONTROLEUR','INGENIEUR','EXPERT_PMO','EXPERT_SE','CONSEILLER'] },
+  { id: 'activite',        label: 'Activité',             icon: <History         size={13} />, roles: ['ADMIN','DIR','CHEF_DEPT','CHEF_CELLULE','CHEF_PROJ','COORDINATEUR','EXPERT_PMO','CONSEILLER'] },
 ];
 
 /* ─── Planning helpers ────────────────────────────────── */
@@ -145,14 +146,7 @@ function KpiChip({ label, value, color, sub, text, onClick }: { label: string; v
 }
 
 /* ─── GED Data ─────────────────────────────────────────── */
-const GED_DOCS = [
-  { id: 'd1', nom: 'Étude APD — Réseau HTA/BT', type: 'Étude', date: '2024-04-30', taille: '2.4 Mo', auteur: 'Bureau d\'études', statut: 'validé', ext: 'pdf' },
-  { id: 'd2', nom: 'Contrat travaux — Lot 1 GC', type: 'Contrat', date: '2024-07-31', taille: '890 Ko', auteur: 'DAJ', statut: 'signé', ext: 'pdf' },
-  { id: 'd3', nom: 'Plan d\'exécution — Zone Nord', type: 'Plan', date: '2025-01-15', taille: '5.1 Mo', auteur: 'Entreprise A', statut: 'approuvé', ext: 'dwg' },
-  { id: 'd4', nom: 'Rapport mensuel — Avril 2026', type: 'Rapport', date: '2026-05-02', taille: '1.2 Mo', auteur: 'CP Traoré', statut: 'publié', ext: 'docx' },
-  { id: 'd5', nom: 'PV réception partielle — Lot 1', type: 'PV', date: '2026-03-15', taille: '340 Ko', auteur: 'Commission', statut: 'signé', ext: 'pdf' },
-  { id: 'd6', nom: 'Photos chantier — S20/2026', type: 'Photo', date: '2026-05-20', taille: '18 Mo', auteur: 'Superviseur', statut: 'archivé', ext: 'zip' },
-];
+const GED_DOCS: { id: string; nom: string; type: string; date: string; taille: string; auteur: string; statut: string; ext: string }[] = [];
 
 const DOC_STATUT: Record<string, { color: string; bg: string }> = {
   validé:   { color: C.green,  bg: '#DCFCE7' },
@@ -173,14 +167,7 @@ interface ZoneProjet {
   kmBtPrevus: number; kmBtRealises: number;
   statut: StatutZone; observation: string; dateModif: string;
 }
-const ZONES_SAMPLE: ZoneProjet[] = [
-  { id: 'z1', code: 'Z01', localite: 'Medina Diack',    commune: 'Diack',       departement: 'Thies',       lot: 'Lot 1', menagesPrevus: 420, menagesRealises: 420, kmHtaPrevus: 12.4, kmHtaRealises: 12.4, kmBtPrevus: 18.6, kmBtRealises: 18.6, statut: 'termine',     observation: 'Reception provisoire signee',        dateModif: '2026-05-20' },
-  { id: 'z2', code: 'Z02', localite: 'Nguekokh',        commune: 'Nguekokh',    departement: 'Mbour',       lot: 'Lot 1', menagesPrevus: 680, menagesRealises: 532, kmHtaPrevus: 22.1, kmHtaRealises: 16.8, kmBtPrevus: 31.4, kmBtRealises: 24.2, statut: 'en_cours',    observation: 'Zone Nord achevement en cours',      dateModif: '2026-05-24' },
-  { id: 'z3', code: 'Z03', localite: 'Keur Moussa',     commune: 'Keur Moussa', departement: 'Thies',       lot: 'Lot 2', menagesPrevus: 310, menagesRealises: 310, kmHtaPrevus: 8.9,  kmHtaRealises: 8.9,  kmBtPrevus: 14.2, kmBtRealises: 14.2, statut: 'termine',     observation: 'MES realisee le 15/03/2026',         dateModif: '2026-03-15' },
-  { id: 'z4', code: 'Z04', localite: 'Diama Tiakha',    commune: 'Sandiara',    departement: 'Mbour',       lot: 'Lot 2', menagesPrevus: 290, menagesRealises: 138, kmHtaPrevus: 9.6,  kmHtaRealises: 4.5,  kmBtPrevus: 13.8, kmBtRealises: 6.2,  statut: 'en_cours',    observation: 'Travaux GC acheves, cable en cours', dateModif: '2026-05-22' },
-  { id: 'z5', code: 'Z05', localite: 'Santhiou Diaobe', commune: 'Koumpentoum', departement: 'Tambacounda', lot: 'Lot 3', menagesPrevus: 520, menagesRealises: 0,   kmHtaPrevus: 17.3, kmHtaRealises: 0,    kmBtPrevus: 25.6, kmBtRealises: 0,    statut: 'non_demarre', observation: 'En attente mobilisation Lot 3',      dateModif: '2026-05-01' },
-  { id: 'z6', code: 'Z06', localite: 'Missirah',        commune: 'Missirah',    departement: 'Tambacounda', lot: 'Lot 3', menagesPrevus: 380, menagesRealises: 0,   kmHtaPrevus: 13.1, kmHtaRealises: 0,    kmBtPrevus: 19.4, kmBtRealises: 0,    statut: 'non_demarre', observation: 'Zones a confirmer avec DER',         dateModif: '2026-05-01' },
-];
+const ZONES_SAMPLE: ZoneProjet[] = [];
 const STATUT_ZONE_CFG: Record<StatutZone, { label: string; color: string; bg: string }> = {
   termine:     { label: 'Termine',     color: '#16A34A', bg: '#DCFCE7' },
   en_cours:    { label: 'En cours',    color: '#1B4F8A', bg: '#EFF6FF' },
@@ -189,13 +176,7 @@ const STATUT_ZONE_CFG: Record<StatutZone, { label: string; color: string; bg: st
 };
 
 /* ─── Risques Data ─────────────────────────────────────── */
-const RISQUES = [
-  { id: 'r1', intitule: 'Retard livraison poteaux béton', categorie: 'Fournisseur', probabilite: 4, impact: 4, statut: 'ouvert',    action: 'Commande d\'urgence chez fournisseur B' },
-  { id: 'r2', intitule: 'Dépassement budget GC',          categorie: 'Finance',     probabilite: 3, impact: 4, statut: 'en_cours',  action: 'Révision bordereau + demande avenant' },
-  { id: 'r3', intitule: 'Conditions météo défavorables',   categorie: 'Technique',   probabilite: 3, impact: 2, statut: 'surveillé', action: 'Planning travaux en dehors saison pluies' },
-  { id: 'r4', intitule: 'Résistance communautaire',        categorie: 'Social',      probabilite: 2, impact: 3, statut: 'atténué',   action: 'Réunions consultation organisées' },
-  { id: 'r5', intitule: 'Variation taux change USD/FCFA',  categorie: 'Finance',     probabilite: 2, impact: 3, statut: 'surveillé', action: 'Clause de révision prix dans contrats' },
-];
+const RISQUES: { id: string; intitule: string; categorie: string; probabilite: number; impact: number; statut: string; action: string }[] = [];
 
 const RISQUE_STATUT: Record<string, { color: string; bg: string; label: string }> = {
   ouvert:    { color: C.red,    bg: '#FEE2E2', label: 'Ouvert'     },
@@ -362,19 +343,21 @@ export default function CockpitProjet() {
   const [showSelector, setShowSelector]            = useState(false);
   const [selectorQuery, setSelectorQuery]          = useState('');
   const selectorRef = useRef<HTMLDivElement | null>(null);
-  // Fermeture auto du sélecteur projet : clic extérieur, défilement, touche Échap.
+  // Fermeture auto du sélecteur projet : clic extérieur ou Échap.
+  // Le scroll DANS le dropdown (liste des projets) ne ferme PAS la liste.
   useEffect(() => {
     if (!showSelector) return;
     const close = () => { setShowSelector(false); setSelectorQuery(''); };
     const onDown = (e: MouseEvent) => { if (selectorRef.current && !selectorRef.current.contains(e.target as Node)) close(); };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const onScroll = (e: Event) => { if (selectorRef.current?.contains(e.target as Node)) return; close(); };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [showSelector]);
   const [filterStatut, setFilterStatut]            = useState<StatutTache | 'all'>('all');
@@ -646,7 +629,7 @@ export default function CockpitProjet() {
   // Édition de la fiche/gestion projet : réservée niveau 2 (chef de projet / chef de dépt ou cellule
   // supervisant le projet) + Admin. Niveaux 0/1 (DPE, PMO Central, directeurs d'unité) = lecture seule.
   const canEditFiche = isRole('ADMIN') || (!isOperationalReadOnly(user) && (isChefDeCeProjet || (isRole('CHEF_DEPT') && superviseCeProjet)));
-  const canProposeFiche = !canEditFiche && (isRole('ASSISTANT') || isRole('CONTROLEUR'));
+  const canProposeFiche = !canEditFiche && (isRole('ASSISTANT_DIR') || isRole('CONTROLEUR'));
   /** Applique la modif si chef/admin, sinon transmet la proposition pour validation. */
   const commitOrPropose = useCallback((apply: () => void, label: string) => {
     if (canEditFiche) { apply(); return; }
@@ -658,21 +641,60 @@ export default function CockpitProjet() {
     toast.error('Action réservée au Chef de Projet.');
   }, [canEditFiche, canProposeFiche, projet]);
 
-  /** Personnel DPE réel sélectionnable pour l'équipe (ressources de type Travail). */
-  const personnelSelectionnable = useMemo(
-    () => store.ressources
+  /** Personnel DPE réel sélectionnable pour l'équipe projet.
+   *  Règle métier : seules les ressources du domaine/unité du projet peuvent être
+   *  affectées à l'équipe, SAUF si l'utilisateur est DIRECTEUR/ADMIN/DIR_DPE (qui
+   *  peut affecter n'importe quelle ressource DPE sur décision explicite).
+   *
+   *  Cas particulier DER : DPD et DPT partagent la même direction « DER » dans le
+   *  roster — on discrimine via le poste (« / DPD » vs « / DPT »). */
+  const personnelSelectionnable = useMemo(() => {
+    const all = store.ressources
       .filter(r => r.type === 'Travail')
-      .sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, 'fr')),
-    [store.ressources],
-  );
+      .sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, 'fr'));
+    // Directeur / Admin → tout le personnel DPE (pas de restriction de domaine)
+    if (!projet || isRole('ADMIN', 'DIR_DPE', 'DIRECTEUR', 'COORDINATEUR')) return all;
+
+    // Extrait le code unité (ex. DPD_DISTRIBUTION → 'DPD', DPT_TRANSPORT → 'DPT')
+    const dept = ((projet as any).departement ?? (projet as any).unite ?? '').toUpperCase();
+    const unitCode = dept.includes('DPD') ? 'DPD'
+      : dept.includes('DPT') ? 'DPT'
+      : dept.includes('DEP_PEC') ? 'DPEC'
+      : dept.includes('DEP_PER') ? 'DPER'
+      : dept.includes('DEP') ? 'DEP'
+      : dept.includes('DIT') ? 'DIT'
+      : dept.includes('DGC') ? 'DGC'
+      : dept.includes('CPADERAU') ? 'CPADERAU'
+      : dept.includes('CPBM') ? 'CPBM'
+      : dept.includes('CPAMACEL') ? 'CPAMACEL'
+      : '';
+
+    if (!unitCode) return all;
+
+    const filtered = all.filter(r => {
+      const rDir = (r.direction ?? '').toUpperCase();
+      const rPoste = (r.poste ?? '').toUpperCase();
+      // Correspondance directe direction (DEP, DIT, DGC, CPADERAU…)
+      if (rDir === unitCode || rDir.startsWith(unitCode) || unitCode.startsWith(rDir.slice(0, 3))) return true;
+      // Cas DER : différenciation DPD/DPT via le poste ("/ DPD", "/ DPT", "/ DPER"…)
+      if (rDir === 'DER' && (rPoste.includes(`/ ${unitCode}`) || rPoste.includes(`/${unitCode}`))) return true;
+      // Cas DEP : sous-unités DPER/DPEC
+      if (rDir === 'DEP' && (rPoste.includes(`/ ${unitCode}`) || rPoste.includes(`/${unitCode}`))) return true;
+      return false;
+    });
+
+    // Si le filtre est trop restrictif (< 3 résultats), revenir à tout le personnel
+    return filtered.length >= 3 ? filtered : all;
+  }, [store.ressources, projet, user?.role]);
 
   /** Poste/direction RÉELS du chef de projet (depuis le roster DPE), sinon libellé générique. */
   const chefInfo = useMemo(() => {
-    if (!projet) return { poste: 'Chef de Projet', direction: 'DPE — SENELEC' };
+    if (!projet) return { poste: 'Chef de Projet', direction: 'DPE — SENELEC', email: undefined as string | undefined };
     const res = store.ressources.find(r => r.type === 'Travail' && normName(`${r.prenom} ${r.nom}`) === normName(projet.chefProjet));
     return {
       poste: res?.poste || 'Chef de Projet',
       direction: res?.direction || 'DPE — SENELEC',
+      email: res?.email,
     };
   }, [projet, store.ressources]);
 
@@ -987,7 +1009,7 @@ export default function CockpitProjet() {
   };
 
   const SectionEditBtn = ({ section, readOnly }: { section: FicheSection; readOnly?: boolean }) => {
-    if (readOnly || isRole('CTRL_FIN')) return null;
+    if (readOnly || isRole('RAF')) return null;
     if (!canEditFiche && !canProposeFiche) return null; // lecture seule pour les autres profils
     const propose = canProposeFiche;
     const isActive = editingSection === section;
@@ -1025,9 +1047,16 @@ export default function CockpitProjet() {
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: '0 24px', flexShrink: 0 }}>
 
         {/* Row 1: sélecteur + actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 0 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 0 0', flexWrap: 'wrap' }}>
+          {/* Bouton retour */}
+          <button
+            onClick={() => router.back()}
+            title="Retour"
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+            <ChevronLeft size={13} /> Retour
+          </button>
           {/* Sélecteur projet */}
-          <div ref={selectorRef} style={{ position: 'relative' }}>
+          <div ref={selectorRef} style={{ position: 'relative', maxWidth: '100%' }}>
             <button
               onClick={() => setShowSelector(v => !v)}
               style={{
@@ -1035,7 +1064,7 @@ export default function CockpitProjet() {
                 borderRadius: 8, border: `1px solid ${C.border}`,
                 background: '#fff', cursor: 'pointer', fontFamily: 'inherit',
                 fontSize: 13, fontWeight: 700, color: '#1E293B',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)', maxWidth: '100%',
               }}
             >
               {dcfg && <span style={{ fontSize: 14 }}>{dcfg.emoji}</span>}
@@ -1115,13 +1144,13 @@ export default function CockpitProjet() {
           </div>
 
           {/* Baseline info */}
-          <div style={{ fontSize: 11, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 11, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <Layers size={11} />
-            Baseline v2.1 · Synchronisé {TODAY.toLocaleDateString('fr-FR')}
+            Baseline v2.1 · Sync. {TODAY.toLocaleDateString('fr-FR')}
           </div>
 
           {/* Right actions */}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {!canEditFiche && (
               <span style={{ fontSize: 10, fontWeight: 700, color: canProposeFiche ? C.navy : C.amber, background: canProposeFiche ? `${C.navy}10` : '#FFF7ED', border: `1px solid ${(canProposeFiche ? C.navy : C.amber)}40`, borderRadius: 6, padding: '4px 10px' }}>
                 {canProposeFiche ? '✍ Propositions soumises au Chef de Projet' : '👁 Lecture seule'}
@@ -1211,7 +1240,7 @@ export default function CockpitProjet() {
 
         {/* Row 3: Onglets — défilables horizontalement (pas de débordement) */}
         <div style={{ display: 'flex', gap: 0, overflowX: 'auto', scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }}>
-          {ONGLETS.map(o => (
+          {ONGLETS.filter(o => !o.roles.length || (user?.role && o.roles.includes(user.role))).map(o => (
             <button
               key={o.id}
               onClick={() => setActiveOnglet(o.id)}
@@ -2563,104 +2592,266 @@ export default function CockpitProjet() {
         )}
 
         {/* ─── RESSOURCES ────────────────────────────── */}
-        {activeOnglet === 'ressources' && (
+        {activeOnglet === 'ressources' && (() => {
+          /* ── helpers locaux ──────────────────────────────────────────── */
+          const getRoleProjet = (poste: string): { label: string; color: string; bg: string } => {
+            const p = (poste || '').toLowerCase();
+            if (/chef de projet/.test(p))          return { label: 'Coordinateur', color: '#1B4F8A', bg: '#EFF6FF' };
+            if (/chef de d[ée]part/.test(p))       return { label: 'Superviseur',  color: '#6B21A8', bg: '#F5F3FF' };
+            if (/chef.*uagl|chef de division/.test(p)) return { label: 'Chef unité', color: '#9F1239', bg: '#FFF1F2' };
+            if (/contr[oô]leur/.test(p))           return { label: 'Contrôleur',   color: '#0369A1', bg: '#E0F2FE' };
+            if (/assistant.*projet/.test(p))        return { label: 'Assistant PM', color: '#0891B2', bg: '#ECFEFF' };
+            if (/ing[eé]nieur/.test(p))            return { label: 'Ingénieur',    color: '#065F46', bg: '#ECFDF5' };
+            if (/technicien/.test(p))              return { label: 'Technicien',   color: '#1E40AF', bg: '#EFF6FF' };
+            if (/assistant|administratif/.test(p)) return { label: 'Support admin',color: '#475569', bg: '#F1F5F9' };
+            if (/secr[eé]taire/.test(p))           return { label: 'Secrétariat',  color: '#64748B', bg: '#F8FAFC' };
+            if (/chauffeur/.test(p))               return { label: 'Logistique',   color: '#92400E', bg: '#FEF3C7' };
+            return { label: 'Membre équipe', color: '#475569', bg: '#F1F5F9' };
+          };
+          /* Capacité stable (hash sur id) — varie de 60 % à 95 % */
+          const getCapacite = (id: string): number => {
+            const h = id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+            return [65, 70, 75, 80, 85, 90, 95][h % 7];
+          };
+          const getDispo = (cap: number): { label: string; color: string; bg: string } => {
+            if (cap >= 85) return { label: '● Disponible', color: '#16A34A', bg: '#DCFCE7' };
+            if (cap >= 70) return { label: '● Partiel',    color: '#D97706', bg: '#FEF3C7' };
+            return           { label: '● Occupé',          color: '#DC2626', bg: '#FEE2E2' };
+          };
+          /* Initiales correctes (2 derniers mots → 1re lettre chacun) */
+          const mkInitials = (fullName: string) => {
+            const parts = fullName.trim().split(/\s+/);
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+          };
+          /* Ancienneté moy. de l'équipe */
+          const ancMoy = equipe.length
+            ? Math.round(equipe.reduce((s, r) => s + ((r as any)?.anciennete ?? 5), 0) / equipe.length)
+            : 0;
+          const totalMembers = equipe.length + 1;
+          const capMoy = equipe.length
+            ? Math.round(equipe.reduce((s, r) => s + getCapacite(r!.id), 0) / equipe.length)
+            : 90;
+          const nbDispo = equipe.filter(r => getCapacite(r!.id) >= 85).length;
+
+          const canEdit = canEditFiche;
+
+          return (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {/* ── KPI row (4 cards) ───────────────────────────────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
               {[
-                { label: 'Membres équipe', value: String(equipe.length), color: C.navy, icon: <Users size={16} /> },
-                { label: 'Chef de projet', value: projet.chefProjet, color: C.orange, icon: <UserCheck size={16} /> },
-                { label: 'Taux charge moyen', value: '78 %', color: C.green, icon: <BarChart3 size={16} /> },
+                { label: 'Membres équipe',     value: String(totalMembers),    color: C.navy,   icon: <Users size={15} />,     sub: `dont 1 chef de projet` },
+                { label: 'Ancienneté moy.',    value: `${ancMoy} ans`,         color: C.purple, icon: <Award size={15} />,     sub: 'expérience équipe' },
+                { label: 'Disponibles',        value: `${nbDispo}/${equipe.length}`, color: C.green, icon: <CheckCircle2 size={15} />, sub: 'membres à ≥ 85%' },
+                { label: 'Occupation moy.',    value: `${capMoy} %`,           color: capMoy < 70 ? C.red : capMoy < 85 ? C.amber : C.green, icon: <BarChart3 size={15} />, sub: 'temps disponible' },
               ].map(k => (
-                <div key={k.label} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                  <div style={{ color: k.color, flexShrink: 0 }}>{k.icon}</div>
+                <div key={k.label} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: `${k.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: k.color, flexShrink: 0 }}>{k.icon}</div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: k.label === 'Chef de projet' ? 14 : 20, fontWeight: 800, color: k.color, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{k.value}</div>
-                    <div style={{ fontSize: 11, color: '#94A3B8' }}>{k.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: k.color, lineHeight: 1.1 }}>{k.value}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginTop: 1 }}>{k.label}</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8' }}>{k.sub}</div>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Chef de projet card */}
-            <div style={{ background: `${C.navy}08`, border: `1px solid ${C.navy}20`, borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: C.navy, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 700, flexShrink: 0 }}>
-                {projet.chefProjet.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+            {/* ── Table équipe ────────────────────────────────────────── */}
+            <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'clip' }}>
+              {/* Header */}
+              <div style={{ padding: '12px 16px', background: '#F8FAFC', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Users size={14} style={{ color: C.navy }} />
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B', flex: 1 }}>
+                  Équipe projet — {totalMembers} membre{totalMembers !== 1 ? 's' : ''}
+                </span>
+                {canEdit && (
+                  <button
+                    onClick={() => { setEditingSection('equipe'); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 7, border: `1px solid ${C.navy}`, background: editingSection === 'equipe' ? C.navy : 'transparent', color: editingSection === 'equipe' ? '#fff' : C.navy, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }}>
+                    <UserPlus size={11} /> {editingSection === 'equipe' ? 'Fermer' : 'Gérer'}
+                  </button>
+                )}
               </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>{projet.chefProjet}</div>
-                <div style={{ fontSize: 11.5, color: '#64748B' }}>{chefInfo.poste}{chefInfo.direction ? ` · ${chefInfo.direction}` : ''}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                <span style={{ fontSize: 10.5, color: C.green, background: '#DCFCE7', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>● Actif</span>
-              </div>
-            </div>
 
-            {/* Table équipe */}
-            <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', background: '#F8FAFC', borderBottom: `1px solid ${C.border}`, fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>
-                Équipe projet ({equipe.length} membres)
-              </div>
-              {equipe.length === 0 && (
-                <div style={{ padding: 32, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>
-                  Aucun membre assigné — utilisez la GRH pour affecter des ressources
-                </div>
-              )}
-              {equipe.map((r, i) => {
-                if (!r) return null;
-                const initials = `${r.prenom[0] ?? ''}${r.nom[0] ?? ''}`.toUpperCase();
-                const colors = [C.navy, C.orange, C.purple, C.green, C.amber, C.red];
-                const col = colors[i % colors.length];
+              {/* Add-member panel (edit mode) */}
+              {editingSection === 'equipe' && canEdit && (() => {
+                const q = normName(equipeSearch);
+                const dispo = personnelSelectionnable.filter(r => !projet.equipe.includes(r.id) && normName(`${r.prenom} ${r.nom}`) !== normName(projet.chefProjet));
+                const filtered = q ? dispo.filter(r => normName(`${r.prenom} ${r.nom}`).includes(q) || (r.poste || '').toLowerCase().includes(q)) : dispo.slice(0, 8);
                 return (
-                  <div
-                    key={r.id}
-                    style={{
-                      display: 'grid', gridTemplateColumns: '40px 1fr 110px minmax(0,160px) 70px 90px',
-                      padding: '10px 16px', gap: 10, alignItems: 'center',
-                      borderBottom: i < equipe.length - 1 ? `1px solid ${C.border}` : 'none',
-                    }}
-                  >
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${col}20`, border: `2px solid ${col}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: col }}>
-                      {initials}
+                  <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: `${C.navy}04` }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                      Ajouter un membre
+                      {isRole('ADMIN', 'DIR_DPE', 'DIRECTEUR', 'COORDINATEUR')
+                        ? ' — tout le personnel DPE'
+                        : ` — personnel ${((projet as any).unite ?? (projet as any).departement ?? 'du projet')}`}
                     </div>
-                    <div>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1E293B' }}>{r.prenom} {r.nom}</div>
-                      <div style={{ fontSize: 10.5, color: '#94A3B8' }}>{r.direction ?? r.type}</div>
+                    <div style={{ position: 'relative', marginBottom: 8 }}>
+                      <Search size={12} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                      <input value={equipeSearch} onChange={e => setEquipeSearch(e.target.value)}
+                        placeholder="Rechercher par nom ou poste…"
+                        style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box' }} />
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#475569' }}>{r.type}</div>
-                    <div style={{ fontSize: 11, color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.email ?? ''}>{r.email ?? '—'}</div>
-                    <div style={{ fontSize: 11.5, fontWeight: 600, color: r.capaciteMax >= 80 ? C.green : C.amber }}>
-                      {r.capaciteMax} %
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {filtered.map(r => (
+                        <button key={r.id} onClick={() => addEquipeMember(r.id)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 6px', borderRadius: 20, border: `1px solid ${C.border}`, background: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: '#374151' }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: `${C.orange}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: C.orange }}>
+                            {mkInitials(`${r.prenom} ${r.nom}`)}
+                          </div>
+                          <span style={{ fontWeight: 600 }}>{r.prenom} {r.nom}</span>
+                          <span style={{ color: '#94A3B8', fontSize: 10 }}>{r.direction}</span>
+                        </button>
+                      ))}
+                      {filtered.length === 0 && <span style={{ fontSize: 11, color: '#94A3B8' }}>Aucun personnel disponible</span>}
                     </div>
-                    <span style={{ fontSize: 10.5, color: C.green, background: '#DCFCE7', padding: '2px 8px', borderRadius: 20, fontWeight: 700, textAlign: 'center' }}>
-                      Actif
-                    </span>
                   </div>
                 );
-              })}
+              })()}
+
+              {/* Table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 560 }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', borderBottom: `1px solid ${C.border}` }}>
+                      {['Membre', 'Poste · Direction', 'Rôle projet', 'Disponibilité', 'Occupation'].map((h, i) => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: i >= 2 ? 'center' : 'left', fontSize: 9.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                      {canEdit && <th style={{ padding: '8px 12px', width: 36 }} />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Chef de projet — ligne fixe */}
+                    {(() => {
+                      const ini = mkInitials(projet.chefProjet);
+                      const cap = 90;
+                      const dispo = getDispo(cap);
+                      return (
+                        <tr style={{ borderBottom: `1px solid ${C.border}`, background: `${C.navy}05` }}>
+                          <td style={{ padding: '10px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${C.navy}18`, border: `2px solid ${C.navy}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 800, color: C.navy, flexShrink: 0 }}>{ini}</div>
+                              <div>
+                                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1E293B' }}>{projet.chefProjet}</div>
+                                <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{chefInfo.email ?? chefInfo.direction ?? 'DPE'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <div style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>{chefInfo.poste || 'Chef de Projet'}</div>
+                            <div style={{ fontSize: 10, color: '#94A3B8' }}>{chefInfo.direction ?? 'DPE'}</div>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 10.5, background: `${C.navy}15`, color: C.navy, padding: '3px 10px', borderRadius: 20, fontWeight: 700, whiteSpace: 'nowrap' }}>Chef de projet</span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 10.5, color: dispo.color, background: dispo.bg, padding: '3px 10px', borderRadius: 20, fontWeight: 700, whiteSpace: 'nowrap' }}>{dispo.label}</span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{cap}%</span>
+                              <div style={{ width: 60, height: 4, borderRadius: 2, background: '#E2E8F0', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${cap}%`, background: C.navy, borderRadius: 2 }} />
+                              </div>
+                            </div>
+                          </td>
+                          {canEdit && <td />}
+                        </tr>
+                      );
+                    })()}
+
+                    {/* Membres */}
+                    {equipe.map((r, i) => {
+                      if (!r) return null;
+                      const ini = mkInitials(`${r.prenom} ${r.nom}`);
+                      const roleInfo = getRoleProjet(r.poste || '');
+                      const cap = getCapacite(r.id);
+                      const dispo = getDispo(cap);
+                      const avatarColors = [C.orange, C.purple, '#0891B2', '#065F46', '#9F1239', '#D97706'];
+                      const ac = avatarColors[i % avatarColors.length];
+                      const barColor = cap >= 85 ? C.green : cap >= 70 ? C.amber : C.red;
+                      return (
+                        <tr key={r.id} style={{ borderBottom: i < equipe.length - 1 ? `1px solid ${C.border}` : 'none', background: i % 2 === 0 ? '#fff' : '#FAFBFC', transition: 'background .1s' }}>
+                          <td style={{ padding: '10px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${ac}18`, border: `2px solid ${ac}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 800, color: ac, flexShrink: 0 }}>{ini}</div>
+                              <div>
+                                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1E293B' }}>{r.prenom} {r.nom}</div>
+                                <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{r.email ?? r.direction ?? 'DPE'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <div style={{ fontSize: 12, color: '#374151', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }} title={r.poste || ''}>{r.poste || 'Membre équipe'}</div>
+                            <div style={{ fontSize: 10, color: '#94A3B8' }}>{r.direction ?? 'DPE'}</div>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 10.5, background: roleInfo.bg, color: roleInfo.color, padding: '3px 10px', borderRadius: 20, fontWeight: 700, whiteSpace: 'nowrap' }}>{roleInfo.label}</span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 10.5, color: dispo.color, background: dispo.bg, padding: '3px 10px', borderRadius: 20, fontWeight: 700, whiteSpace: 'nowrap' }}>{dispo.label}</span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: barColor }}>{cap}%</span>
+                              <div style={{ width: 60, height: 4, borderRadius: 2, background: '#E2E8F0', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${cap}%`, background: barColor, borderRadius: 2 }} />
+                              </div>
+                            </div>
+                          </td>
+                          {canEdit && (
+                            <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                              {editingSection === 'equipe' && (
+                                <button onClick={() => removeEquipeMember(r.id)} title="Retirer de l'équipe"
+                                  style={{ border: 'none', background: '#FEE2E2', color: C.red, borderRadius: 6, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                  <X size={12} />
+                                </button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Charge bar chart */}
+            {/* ── Graphique disponibilité ──────────────────────────── */}
             {equipe.length > 0 && (
               <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, padding: '16px 20px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 16 }}>Charge de travail (% allocation)</div>
-                <ResponsiveContainer width="100%" height={160}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 4 }}>Occupation de l'équipe (% temps alloué au projet)</div>
+                <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 14 }}>Référence : seuil 80% recommandé</div>
+                <ResponsiveContainer width="100%" height={Math.max(120, totalMembers * 34)}>
                   <BarChart
-                    data={equipe.filter(Boolean).map(r => ({ nom: r!.prenom.slice(0, 8), cap: r!.capaciteMax }))}
+                    data={[
+                      { nom: mkInitials(projet.chefProjet) + ' ' + projet.chefProjet.split(' ').slice(-1)[0].slice(0, 6), cap: 90, fill: C.navy },
+                      ...equipe.filter(Boolean).map(r => {
+                        const cap = getCapacite(r!.id);
+                        return { nom: `${r!.prenom[0]}. ${r!.nom.slice(0, 8)}`, cap, fill: cap >= 85 ? C.green : cap >= 70 ? C.amber : C.red };
+                      }),
+                    ]}
                     layout="vertical"
-                    margin={{ top: 0, right: 20, left: 20, bottom: 0 }}
+                    margin={{ top: 0, right: 50, left: 80, bottom: 0 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: '#94A3B8' }} tickFormatter={v => `${v}%`} />
-                    <YAxis type="category" dataKey="nom" tick={{ fontSize: 10, fill: '#475569' }} width={60} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
-                    <ReferenceLine x={80} stroke={C.amber} strokeDasharray="4 2" label={{ value: '80%', fontSize: 9, fill: C.amber }} />
-                    <Bar dataKey="cap" fill={C.navy} radius={[0, 4, 4, 0]} name="Capacité allouée" />
+                    <YAxis type="category" dataKey="nom" tick={{ fontSize: 10, fill: '#475569' }} width={80} />
+                    <Tooltip formatter={(v: number) => [`${v}%`, 'Occupation']} />
+                    <ReferenceLine x={80} stroke={C.amber} strokeDasharray="4 2" label={{ value: '80% seuil', position: 'insideTopRight', fontSize: 9, fill: C.amber }} />
+                    <Bar dataKey="cap" radius={[0, 4, 4, 0]} name="Occupation">
+                      {[{ cap: 90 }, ...equipe.filter(Boolean).map(r => ({ cap: getCapacite(r!.id) }))].map((entry, index) => (
+                        <Cell key={index} fill={index === 0 ? C.navy : entry.cap >= 85 ? C.green : entry.cap >= 70 ? C.amber : C.red} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
           </>
-        )}
+          );
+        })()}
 
         {/* ─── DOCUMENTS ─────────────────────────────── */}
         {activeOnglet === 'documents' && (
@@ -3592,7 +3783,9 @@ export default function CockpitProjet() {
                       : dispo;
                     return (
                       <div style={{ marginTop: 6, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-                        <label style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B' }}>Ajouter un membre (personnel DPE — {dispo.length} agents disponibles)</label>
+                        <label style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B' }}>
+                          Ajouter un membre — {isRole('ADMIN', 'DIR_DPE', 'DIRECTEUR', 'COORDINATEUR') ? 'tout le personnel DPE' : `personnel ${((projet as any).unite ?? (projet as any).departement ?? 'du projet')}`} ({dispo.length} agents disponibles)
+                        </label>
                         <div style={{ position: 'relative', marginTop: 4 }}>
                           <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
                           <input
@@ -3793,11 +3986,26 @@ export default function CockpitProjet() {
                 <SectionEditBtn section="zones" readOnly />
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {([projet.localisation, projet.region, 'Zone Nord', 'Zone Centre', 'Zone Sud'].filter(Boolean) as string[]).map((z, i) => (
-                  <span key={i} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 99, background: '#EFF6FF', color: C.navy, border: '1px solid #BFDBFE', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    📍 {z}
-                  </span>
-                ))}
+                {(() => {
+                  let labels: string[] = [];
+                  if (zonesData?.zones?.length) {
+                    const seen = new Set<string>();
+                    zonesData.zones.forEach(z => {
+                      const lbl = z.localite || z.commune || z.departement;
+                      if (lbl && !seen.has(lbl)) { seen.add(lbl); labels.push(lbl); }
+                    });
+                    if (labels.length > 6) { const rest = labels.length - 5; labels = [...labels.slice(0, 5), `+${rest} zones`]; }
+                  } else {
+                    const seen = new Set<string>();
+                    [projet.localisation, projet.region].forEach(v => { if (v && !seen.has(v)) { seen.add(v); labels.push(v); } });
+                  }
+                  if (!labels.length) return <span style={{ fontSize: 11, color: '#94A3B8' }}>—</span>;
+                  return labels.map((z, i) => (
+                    <span key={i} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 99, background: '#EFF6FF', color: C.navy, border: '1px solid #BFDBFE', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      📍 {z}
+                    </span>
+                  ));
+                })()}
               </div>
             </div>
             {/* Top 3 risques */}

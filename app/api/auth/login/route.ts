@@ -1,61 +1,90 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { findUser } from '@/lib/usersDb';
 import { signToken } from '@/lib/jwt';
 import { SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/authTypes';
+import {
+  checkRateLimit, rateLimitResponse, getClientIp,
+  isValidEmail, isValidPassword,
+} from '@/lib/apiAuth';
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-  if (!body?.email || !body?.password) {
-    return NextResponse.json({ error: 'Email et mot de passe requis.' }, { status: 400 });
+// ── Rate limit : 10 tentatives / 15 min par IP ───────────────────────────────
+const RATE_OPTS = { max: 10, windowMs: 15 * 60 * 1000 };
+
+export async function POST(req: NextRequest) {
+  // 1. Rate limiting par IP
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`login:${ip}`, RATE_OPTS);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
+
+  // 2. Parse body (taille max 4 Ko pour éviter DoS)
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (contentLength > 4096) {
+    return NextResponse.json({ error: 'Corps de requête trop volumineux.' }, { status: 413 });
   }
 
-  const emailLower = (body.email as string).trim().toLowerCase();
-  const pwdTrim    = (body.password as string).trim();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'JSON invalide.' }, { status: 400 });
+  }
 
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Corps de requête invalide.' }, { status: 400 });
+  }
+
+  const { email, password } = body as Record<string, unknown>;
+
+  // 3. Validation serveur stricte
+  if (!isValidEmail(email)) {
+    return NextResponse.json({ error: 'Email invalide.' }, { status: 400 });
+  }
+  if (!isValidPassword(password)) {
+    return NextResponse.json({ error: 'Mot de passe invalide (4–128 caractères).' }, { status: 400 });
+  }
+
+  const emailLower = email.trim().toLowerCase();
+  const pwdTrim    = (password as string).trim();
+
+  // 4. Vérification en base — pas de backdoor domaine
   const found = findUser(emailLower, pwdTrim);
-
-  // Allow any @dpe.sn / @senelec.sn / @enerticai.com domain as DIR_DPE fallback
-  const isTrustedDomain =
-    emailLower.endsWith('@dpe.sn') ||
-    emailLower.endsWith('@senelec.sn') ||
-    emailLower.endsWith('@enerticai.com');
-
-  const sessionUser = found ?? (isTrustedDomain
-    ? { id: 'legacy', email: emailLower, role: 'DIR_DPE' as const, prenom: emailLower.split('@')[0].split('.')[0], nom: 'SENELEC', initials: emailLower.substring(0,2).toUpperCase(), avatarColor: '#0E3460', direction: 'DPE', password: pwdTrim }
-    : null
-  );
-
-  if (!sessionUser) {
+  if (!found) {
+    // Délai constant pour éviter les timing attacks
+    await new Promise(r => setTimeout(r, 200 + Math.random() * 100));
     return NextResponse.json({ error: 'Identifiants incorrects.' }, { status: 401 });
   }
 
-  const token = await signToken({ role: sessionUser.role, id: sessionUser.id, email: sessionUser.email });
+  // 5. Émission du token
+  const token = await signToken({ role: found.role, id: found.id, email: found.email });
 
   const res = NextResponse.json({
     user: {
-      id: sessionUser.id,
-      prenom: sessionUser.prenom,
-      nom: sessionUser.nom,
-      email: sessionUser.email,
-      role: sessionUser.role,
-      direction: sessionUser.direction,
-      initials: sessionUser.initials,
-      avatarColor: sessionUser.avatarColor,
-      poste: (sessionUser as { poste?: string }).poste,
-      departement: (sessionUser as { departement?: string }).departement,
-      cellule: (sessionUser as { cellule?: string }).cellule,
-    }
+      id:          found.id,
+      prenom:      found.prenom,
+      nom:         found.nom,
+      email:       found.email,
+      role:        found.role,
+      direction:   found.direction,
+      initials:    found.initials,
+      avatarColor: found.avatarColor,
+      poste:       (found as { poste?: string }).poste,
+      departement: (found as { departement?: string }).departement,
+      cellule:     (found as { cellule?: string }).cellule,
+    },
   });
 
   res.cookies.set({
-    name: SESSION_COOKIE,
-    value: token,
+    name:     SESSION_COOKIE,
+    value:    token,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: SESSION_MAX_AGE,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path:     '/',
+    maxAge:   SESSION_MAX_AGE,
   });
+
+  // Reset compteur pour cette IP en cas de succès
+  checkRateLimit(`login:${ip}:reset`, { max: 0, windowMs: 1 });
 
   return res;
 }

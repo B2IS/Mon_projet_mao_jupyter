@@ -1,5 +1,5 @@
 /**
- * authTypes.ts — Types purs + tables RBAC SIGEPP-DPE
+ * authTypes.ts — Types purs + tables RBAC SIGEP-DPE
  * Rôles calés sur les postes réels du fichier personnel DPE (203 agents).
  * Sans directive React / sans import dynamique — importable côté serveur (middleware.ts).
  */
@@ -168,7 +168,7 @@ export const ROLE_SECTIONS: Record<RoleCode, SidebarSectionId[]> = {
   CONSEILLER:     ['accueil', 'portefeuille', 'execution', 'finances', 'transverses'],
   EXPERT_SE:      ['accueil', 'portefeuille', 'transverses'],
   EXPERT_PMO:     ['accueil', 'portefeuille', 'mes_projets', 'execution', 'transverses'],
-  CONTROLEUR:     ['accueil', 'mes_projets', 'execution', 'transverses'],
+  CONTROLEUR:     ['accueil', 'mes_projets', 'execution', 'logistique', 'transverses'],
   INGENIEUR:      ['accueil', 'mes_projets', 'execution', 'transverses'],
   RAF:            ['accueil', 'finances', 'transverses'],
   COMPTABLE:      ['accueil', 'finances', 'transverses'],
@@ -234,14 +234,14 @@ const R_CHEF_TEAM = [
 
 export const ROLE_ROUTES: Record<RoleCode, string[]> = {
   // ── Direction générale ──────────────────────────────────────────────────────
-  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/migration', '/administration', ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/migration', '/administration', ...R_LOG, ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
-  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/odm', '/gestion-temps', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   COORDINATEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', '/agents-ia', ...R_GED, ...R_RPT, '/courriers', '/migration', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   // ── Management ──────────────────────────────────────────────────────────────
-  CHEF_DEPT: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  CHEF_DEPT: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/odm', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   CHEF_CELLULE: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/administration', ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
@@ -255,21 +255,22 @@ export const ROLE_ROUTES: Record<RoleCode, string[]> = {
   EXPERT_PMO: [R_TBL, '/alertes', ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_EXEC, ...R_CARTO, '/agents-ia', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   // ── Opérationnel projets ─────────────────────────────────────────────────────
-  CONTROLEUR: [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', '/risques', ...R_CARTO, ...R_GED, '/courriers', '/workflows', ...R_RECOLEMENT],
+  // CONTROLEUR = agent non-cadre terrain → accès pointage heures supplémentaires
+  CONTROLEUR: [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', '/risques', ...R_CARTO, ...R_GED, '/courriers', '/workflows', '/gestion-temps', '/pointage', '/suivi-temps', ...R_RECOLEMENT],
 
   INGENIEUR: [R_TBL, '/alertes', ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   // ── Finances & Marchés ───────────────────────────────────────────────────────
   RAF:      [R_TBL, '/alertes', ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', ...R_SYS],
 
-  COMPTABLE:[R_TBL, '/alertes', '/budget', '/bordereaux', '/receptions', ...R_GED, '/reporting', '/courriers'],
+  COMPTABLE:[R_TBL, '/alertes', '/budget', '/bordereaux', '/receptions', ...R_GED, '/reporting', '/workflows', '/courriers'],
 
   MARCHES:  [R_TBL, '/alertes', '/marches', '/bordereaux', '/receptions', '/fournisseurs', ...R_GED, ...R_RPT],
 
   SPM:      [R_TBL, '/alertes', '/marches', '/bordereaux', '/receptions', ...R_GED, '/courriers', '/workflows'],
 
   // ── Techniques spécialisés ───────────────────────────────────────────────────
-  SIG:      [R_TBL, '/alertes', ...R_CARTO, '/projets', ...R_GED, '/courriers', ...R_RECOLEMENT],
+  SIG:      [R_TBL, '/alertes', ...R_CARTO, '/projets', ...R_GED, '/courriers', '/workflows', ...R_RECOLEMENT],
 
   IMMO:     [R_TBL, '/alertes', '/immobilisations', '/structuration', ...R_GED, ...R_RPT, '/courriers', ...R_MES],
 
@@ -277,21 +278,22 @@ export const ROLE_ROUTES: Record<RoleCode, string[]> = {
 
   HSE:      [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/workflows'],
 
-  COMMUNICATION: [R_TBL, '/alertes', ...R_GED, '/courriers'],
+  COMMUNICATION: [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows'],
 
   // ── Administratifs & Support ─────────────────────────────────────────────────
   ASSISTANT_PROJ:  [R_TBL, '/alertes', ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, ...R_ETUDES],
 
   ASSISTANT_ADMIN: [R_TBL, '/alertes', '/budget', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
 
-  ASSISTANT_DIR:   [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
+  // ASSISTANT_DIR et SECRETAIRE = agents non-cadres → accès pointage heures supplémentaires
+  ASSISTANT_DIR:   [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows', '/reservation-salle', '/gestion-temps', '/pointage', '/suivi-temps'],
 
-  SECRETAIRE: [R_TBL, '/alertes', ...R_GED, '/courriers', '/reservation-salle', ...R_RPT],
+  SECRETAIRE: [R_TBL, '/alertes', ...R_GED, '/courriers', '/reservation-salle', '/workflows', '/gestion-temps', '/pointage', '/suivi-temps'],
 
-  // RESP_LOG : logistique + RH terrain — PAS projets, PAS budget portefeuille, PAS KPIs projet
-  RESP_LOG:  [R_TBL, '/alertes', ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/courriers', ...R_GED, '/reporting', '/gestion-temps', '/pointage', '/suivi-temps'],
+  // RESP_LOG : logistique + rapport UAGL uniquement — PAS studio composition, PAS projets, PAS finances
+  RESP_LOG:  [R_TBL, '/alertes', ...R_LOG, '/reservation-salle', '/courriers', ...R_GED, '/reporting', '/workflows', '/gestion-temps', '/pointage', '/suivi-temps'],
 
-  // CHAUFFEUR : missions uniquement — PAS projets, PAS workflows parapheur, PAS réservation salle, PAS GED globale
+  // CHAUFFEUR : missions uniquement — vue mobile
   CHAUFFEUR: [R_TBL, '/alertes', '/odm', '/flotte', '/gestion-temps', '/pointage', '/suivi-temps'],
 
   // ── Système ──────────────────────────────────────────────────────────────────
@@ -300,9 +302,9 @@ export const ROLE_ROUTES: Record<RoleCode, string[]> = {
 };
 
 export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
-  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows', '/migration', '/administration', ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows', '/migration', '/administration', ...R_LOG, ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
-  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', '/odm', '/gestion-temps', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   COORDINATEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', '/agents-ia', ...R_GED, ...R_RPT, '/courriers', '/workflows', '/migration', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
@@ -318,7 +320,7 @@ export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
 
   EXPERT_PMO: [R_TBL, '/alertes', ...R_PORT, ...R_PROJ, '/suivi-evaluation', ...R_EXEC, ...R_CARTO, '/agents-ia', ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
-  CONTROLEUR: [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', '/risques', ...R_CARTO, ...R_GED, '/courriers', '/workflows', ...R_RECOLEMENT],
+  CONTROLEUR: [R_TBL, '/alertes', ...R_PROJ, '/suivi-evaluation', '/terrain', '/risques', ...R_CARTO, ...R_GED, '/courriers', '/workflows', '/gestion-temps', '/pointage', '/suivi-temps', ...R_RECOLEMENT],
 
   INGENIEUR: [R_TBL, '/alertes', ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/terrain', ...R_CARTO, ...R_GED, '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
@@ -344,21 +346,22 @@ export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
 
   ASSISTANT_ADMIN: [R_TBL, '/alertes', '/budget', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
 
-  ASSISTANT_DIR:   [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows', '/reservation-salle'],
+  ASSISTANT_DIR:   [R_TBL, '/alertes', ...R_GED, '/courriers', '/workflows', '/reservation-salle', '/gestion-temps', '/pointage', '/suivi-temps'],
 
-  SECRETAIRE: [R_TBL, '/alertes', ...R_GED, '/courriers', '/reservation-salle', ...R_RPT, '/workflows'],
+  SECRETAIRE: [R_TBL, '/alertes', ...R_GED, '/courriers', '/reservation-salle', '/workflows', '/gestion-temps', '/pointage', '/suivi-temps'],
 
-  // RESP_LOG : logistique + RH terrain — PAS projets, PAS budget portefeuille, PAS KPIs projet
-  RESP_LOG:  [R_TBL, '/alertes', ...R_LOG, '/reservation-salle', '/receptions', '/immobilisations', '/courriers', ...R_GED, '/reporting', '/gestion-temps', '/pointage', '/suivi-temps'],
+  // RESP_LOG : logistique + rapport UAGL uniquement — PAS studio composition, PAS projets, PAS finances
+  RESP_LOG:  [R_TBL, '/alertes', ...R_LOG, '/reservation-salle', '/courriers', ...R_GED, '/reporting', '/workflows', '/gestion-temps', '/pointage', '/suivi-temps'],
 
-  // CHAUFFEUR : missions uniquement — PAS projets, PAS workflows parapheur, PAS réservation salle, PAS GED globale
+  // CHAUFFEUR : missions uniquement — vue mobile
   CHAUFFEUR: [R_TBL, '/alertes', '/odm', '/flotte', '/gestion-temps', '/pointage', '/suivi-temps'],
 
   AUDIT:     ['*'],
   ADMIN:     ['*'],
 };
 
-export const UNIVERSAL_ROUTES = ['/reservation-salle', '/suivi-temps', '/pointage', '/gestion-temps'];
+// /pointage (heures supplémentaires) est EXCLU des routes universelles — réservé agents non-cadres
+export const UNIVERSAL_ROUTES = ['/reservation-salle', '/suivi-temps', '/gestion-temps'];
 
 export const ASSISTANT_DETAIL_ROUTES = [
   '/gestion-projet', '/wbs', '/taches', '/terrain', '/gantt',
@@ -366,7 +369,7 @@ export const ASSISTANT_DETAIL_ROUTES = [
 ];
 
 // ─── HELPERS D'ACCÈS ─────────────────────────────────────────────────────────
-const MIGRATION_ROLES: RoleCode[] = ['CHEF_PROJ', 'CHEF_DEPT', 'CHEF_CELLULE', 'COORDINATEUR', 'INGENIEUR', 'ADMIN'];
+const MIGRATION_ROLES: RoleCode[] = ['DIR_DPE', 'DIRECTEUR', 'CHEF_PROJ', 'CHEF_DEPT', 'CHEF_CELLULE', 'COORDINATEUR', 'INGENIEUR', 'ADMIN'];
 const COURRIERS_ROLES: RoleCode[] = [
   'DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CHEF_DEPT', 'CHEF_CELLULE', 'CHEF_PROJ',
   'CONSEILLER', 'EXPERT_SE', 'EXPERT_PMO', 'CONTROLEUR', 'INGENIEUR', 'RAF', 'COMPTABLE',
@@ -435,7 +438,7 @@ export interface ChangePasswordResult {
 }
 
 // ─── SESSION COOKIE ───────────────────────────────────────────────────────────
-export const SESSION_COOKIE = 'sigepp_session';
+export const SESSION_COOKIE = 'sigep_session';
 export const SESSION_MAX_AGE = 7 * 24 * 3600; // 7 jours
 
 export interface SessionPayload {

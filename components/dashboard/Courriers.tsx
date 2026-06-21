@@ -490,7 +490,7 @@ export default function Courriers() {
         <div className="card-body" style={{ padding: '10px 14px' }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* Tabs */}
-            <div className="tabs" style={{ flexShrink: 0 }}>
+            <div className="tabs" style={{ flex: '0 1 auto', minWidth: 0 }}>
               {([
                 { key: 'entrants', label: 'Entrants', count: ENTRANTS.length },
                 { key: 'sortants', label: 'Sortants', count: SORTANTS.length },

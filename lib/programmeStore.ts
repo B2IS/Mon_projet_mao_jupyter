@@ -1,6 +1,6 @@
 /**
  * lib/programmeStore.ts
- * Store Zustand persisté pour les programmes utilisateur SIGEPP-DPE.
+ * Store Zustand persisté pour les programmes utilisateur SIGEP-DPE.
  * Un programme regroupe des projets existants sous un label commun
  * (ex: PADAES, BEST, PES…). Les programmes auto-domaine générés dans
  * Programmes.tsx restent calculés dynamiquement et ne sont pas ici.
@@ -81,6 +81,6 @@ export const useProgrammeStore = create<ProgrammeStore>()(
           ),
         })),
     }),
-    { name: 'sigepp-programmes-v1' }
+    { name: 'sigep-programmes-v1' }
   )
 );

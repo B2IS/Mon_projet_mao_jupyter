@@ -98,7 +98,7 @@ function handleExportPDF(title: string, rows: ProjectRow[], year: string) {
         <tbody>${rowsHtml}</tbody>
         <tfoot><tr><td colspan="3">TOTAL (${rows.length} projets)</td><td style="text-align:right">${total}</td><td></td><td style="text-align:right">${totalDec}</td><td></td><td></td></tr></tfoot>
       </table>
-      <div class="footer">CONFIDENTIEL — Usage interne SENELEC · Document généré par SIGEPP-DPE</div>
+      <div class="footer">CONFIDENTIEL — Usage interne SENELEC · Document généré par SIGEP-DPE</div>
     </body></html>
   `);
   printWindow.document.close();
@@ -161,80 +161,15 @@ const DOMAIN_COLORS: Record<string, string> = {
   Production: NAVY, Transport: ORANGE, Distribution: GREEN, Commercial: PURPLE, 'Génie Civil': '#B45309',
 };
 
-/* ─── Mock data ─────────────────────────────────────────────────────────────── */
-const PROJECTS: ProjectRow[] = [
-  { code: 'PRD-01', nom: 'Centrale CC Tobène',            domain: 'Production',   prevu: 45.2, marches: 38.4, decaisse: 22.4, statut: 'Attention'  },
-  { code: 'PRD-02', nom: 'Solar Farm Taïba 60MW',         domain: 'Production',   prevu: 24.2, marches: 20.1, decaisse: 14.6, statut: 'On Track'   },
-  { code: 'PRD-03', nom: 'Extension Barrage Manantali',   domain: 'Production',   prevu: 30.4, marches: 18.2, decaisse:  9.8, statut: 'Critique'   },
-  { code: 'TRP-01', nom: 'Ligne 225kV Tobène–Hann',       domain: 'Transport',    prevu: 42.0, marches: 28.6, decaisse: 16.4, statut: 'Attention'  },
-  { code: 'TRP-02', nom: 'PADERAU HTB Extension',         domain: 'Transport',    prevu: 18.7, marches: 14.2, decaisse: 10.8, statut: 'On Track'   },
-  { code: 'TRP-03', nom: 'Poste 90kV Saint-Louis',        domain: 'Transport',    prevu: 12.8, marches:  8.4, decaisse:  4.2, statut: 'Critique'   },
-  { code: 'DST-01', nom: 'Réseau BT Dakar Banlieue',      domain: 'Distribution', prevu: 15.3, marches: 13.1, decaisse: 10.2, statut: 'On Track'   },
-  { code: 'DST-02', nom: 'AMI Compteurs Intelligents',    domain: 'Distribution', prevu: 12.8, marches:  7.4, decaisse:  4.8, statut: 'Critique'   },
-  { code: 'DST-03', nom: 'Réseau BT Ziguinchor',          domain: 'Distribution', prevu:  7.6, marches:  6.2, decaisse:  5.1, statut: 'On Track'   },
-  { code: 'COM-01', nom: 'CRM Commercial Platform',       domain: 'Commercial',   prevu:  8.6, marches:  7.8, decaisse:  6.2, statut: 'Achevé'     },
-  { code: 'COM-02', nom: 'Télégestion SCADA v3',          domain: 'Commercial',   prevu: 10.1, marches:  9.7, decaisse:  8.4, statut: 'On Track'   },
-  { code: 'COM-03', nom: 'Éclairage public LED x5000',    domain: 'Commercial',   prevu:  9.5, marches:  5.2, decaisse:  2.4, statut: 'Critique'   },
-];
 
-const QUARTERLY_DATA: QuarterData[] = [
-  { quarter: 'T1 2024', Production:  8.2, Transport:  6.4, Distribution: 4.8, Commercial: 1.8, cumul:  21.2 },
-  { quarter: 'T2 2024', Production: 12.6, Transport:  9.8, Distribution: 6.2, Commercial: 2.4, cumul:  52.2 },
-  { quarter: 'T3 2024', Production: 16.4, Transport: 13.2, Distribution: 8.6, Commercial: 3.2, cumul: 103.6 },
-  { quarter: 'T4 2024', Production: 18.8, Transport: 15.6, Distribution: 9.4, Commercial: 3.8, cumul: 151.2 },
-];
-
-const buildWaterfall = (): WaterfallItem[] => {
-  let running = 0;
-  const steps: { name: string; delta: number; isTotal: boolean; color: string }[] = [
-    { name: 'Budget initial',  delta: 220.0, isTotal: true,  color: NAVY   },
-    { name: 'Avenants +',      delta:  24.2, isTotal: false, color: GREEN  },
-    { name: 'Avenants −',      delta: -7.0,  isTotal: false, color: RED    },
-    { name: 'Budget révisé',   delta: 237.2, isTotal: true,  color: ORANGE },
-    { name: 'Engagements',     delta: -189.4,isTotal: false, color: NAVY2  },
-    { name: 'Décaissements',   delta: -142.6,isTotal: false, color: PURPLE },
-    { name: 'Solde disponible',delta: 47.8,  isTotal: true,  color: GREEN  },
-  ];
-
-  return steps.map(s => {
-    const item: WaterfallItem = {
-      name:    s.name,
-      value:   Math.abs(s.delta),
-      isTotal: s.isTotal,
-      color:   s.color,
-      base:    s.isTotal ? 0 : (s.delta > 0 ? running : running + s.delta),
-    };
-    if (!s.isTotal) {
-      running += s.delta;
-    } else {
-      running = s.delta;
-    }
-    return item;
-  });
+const PHASE_TO_CAT: Record<string, string> = {
+  passations: 'Services',
+  etudes: 'Études',
+  fournitures: 'Équipements',
+  travaux: 'Travaux',
+  mise_en_service: 'Services',
+  cloture: 'Divers',
 };
-
-const WATERFALL_DATA = buildWaterfall();
-
-const CATEGORY_DATA: CategoryBudget[] = [
-  { cat: 'Études',      Production: 2.8, Transport: 3.4, Distribution: 1.8, Commercial: 1.2 },
-  { cat: 'Travaux',     Production: 28.4, Transport: 36.2, Distribution: 18.6, Commercial: 4.8 },
-  { cat: 'Équipements', Production: 38.6, Transport: 18.4, Distribution: 8.2, Commercial: 2.6 },
-  { cat: 'Services',    Production: 8.2, Transport: 6.8, Distribution: 4.4, Commercial: 2.8 },
-  { cat: 'Divers',      Production: 3.8, Transport: 2.4, Distribution: 1.8, Commercial: 0.8 },
-];
-
-/* ─── PIE data: Domain budget ────────────────────────────────────────────────── */
-const PIE_DOMAINS = [
-  { name: 'Production',   value: 42, color: NAVY   },
-  { name: 'Transport',    value: 28, color: ORANGE },
-  { name: 'Distribution', value: 22, color: GREEN  },
-  { name: 'Commercial',   value: 8,  color: PURPLE },
-];
-
-const TOTAL_BUDGET = 237.2;
-const MARCHES_CONCLUS = 189.4;
-const DECAISSEMENTS = 142.6;
-const SOLDE = TOTAL_BUDGET - MARCHES_CONCLUS;
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 function pct(a: number, b: number): number { return b > 0 ? Math.round((a / b) * 100) : 0; }
@@ -325,7 +260,7 @@ function KPICard({ label, value, sub, progress, progressColor = ORANGE, accent =
           </span>
         )}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: accent }}>{value}</div>
+      <div style={{ fontSize: 'clamp(13px, 3.5vw, 22px)', fontWeight: 800, color: accent, lineHeight: 1.2, wordBreak: 'break-word' }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: '#94A3B8' }}>{sub}</div>}
       {progress !== undefined && (
         <div style={{ height: 5, background: '#F1F5F9', borderRadius: 3, marginTop: 4 }}>
@@ -647,72 +582,72 @@ export default function Budget() {
     return { realDecaisse, realEngage, hasData: projs.length > 0 && (realDecaisse > 0 || realEngage > 0) };
   }, [storeProjects, domainFilter]);
 
-  /* Courbe en S des décaissements cumulés — calibrée sur le décaissé réel. */
+  /* Courbe en S des décaissements cumulés — distribuée linéairement sur la durée du projet. */
   const quarterlyDataFiltered = useMemo(() => {
-    const yearSuffix = year.slice(2); // '24', '25', '26'
-    const yearFiltered = QUARTERLY_DATA.filter(q => q.quarter.includes(yearSuffix)).length > 0
-      ? QUARTERLY_DATA.filter(q => q.quarter.includes(yearSuffix))
-      : QUARTERLY_DATA;
-    // Vue mono-domaine : on isole la colonne du domaine.
-    const view = domainFilter === 'Tous' ? yearFiltered : yearFiltered.map(q => ({
-      ...q,
-      Production:   domainFilter === 'Production'   ? q.Production   : 0,
-      Transport:    domainFilter === 'Transport'    ? q.Transport    : 0,
-      Distribution: domainFilter === 'Distribution' ? q.Distribution : 0,
-      Commercial:   domainFilter === 'Commercial'   ? q.Commercial   : 0,
-      cumul:        domainFilter === 'Production'   ? q.Production
-                  : domainFilter === 'Transport'    ? q.Transport
-                  : domainFilter === 'Distribution' ? q.Distribution
-                  : q.Commercial,
-    }));
-    // Mise à l'échelle : le dernier cumul = décaissé réel du périmètre (0 si rien chargé).
-    const mockFinal = view.length ? view[view.length - 1].cumul : 0;
-    const ratio = mockFinal > 0 ? realScaling.realDecaisse / mockFinal : 0;
-    return view.map(q => ({
-      quarter: q.quarter,
-      Production:   +(q.Production   * ratio).toFixed(2),
-      Transport:    +(q.Transport    * ratio).toFixed(2),
-      Distribution: +(q.Distribution * ratio).toFixed(2),
-      Commercial:   +(q.Commercial   * ratio).toFixed(2),
-      cumul:        +(q.cumul        * ratio).toFixed(2),
-    }));
-  }, [year, domainFilter, realScaling]);
+    const inScope = (dom: string) => domainFilter === 'Tous' || dom === domainFilter;
+    const yr = parseInt(year);
+    return ['T1', 'T2', 'T3', 'T4'].map((label, qi) => {
+      const qStart = new Date(yr, qi * 3, 1).getTime();
+      const qEnd   = new Date(yr, qi * 3 + 3, 0, 23, 59, 59).getTime();
+      const row: QuarterData = { quarter: `${label} ${year}`, Production: 0, Transport: 0, Distribution: 0, Commercial: 0, cumul: 0 };
+      store.projets.forEach(p => {
+        const dom = DOMAIN_MAP[p.domaine] ?? 'Production';
+        if (!inScope(dom)) return;
+        const phStart = new Date(p.dateDebut).getTime();
+        const phEnd   = new Date(p.dateFinPrevue).getTime();
+        if (!phStart || !phEnd || phStart >= phEnd || phStart > qEnd || phEnd < qStart) return;
+        const totalMs   = phEnd - phStart;
+        const overlapMs = Math.max(0, Math.min(phEnd, qEnd) - Math.max(phStart, qStart));
+        const frac = overlapMs / totalMs;
+        const rowAny = row as unknown as Record<string, number>;
+        rowAny[dom] = +((rowAny[dom] ?? 0) + (p.budgetDecaisse / 1_000) * frac).toFixed(3);
+      });
+      row.cumul = +(row.Production + row.Transport + row.Distribution + row.Commercial).toFixed(3);
+      return row;
+    });
+  }, [store.projets, domainFilter, year]);
 
-  /* Ventilation par catégorie — calibrée sur l'engagé réel du périmètre. */
+  /* Ventilation par catégorie — estimée depuis les poids de phases projet. */
   const categoryDataFiltered = useMemo(() => {
-    const base = domainFilter === 'Tous' ? CATEGORY_DATA : CATEGORY_DATA.map(c => ({
-      ...c,
-      Production:   domainFilter === 'Production'   ? c.Production   : 0,
-      Transport:    domainFilter === 'Transport'    ? c.Transport    : 0,
-      Distribution: domainFilter === 'Distribution' ? c.Distribution : 0,
-      Commercial:   domainFilter === 'Commercial'   ? c.Commercial   : 0,
-    }));
-    const mockTotal = base.reduce((s, c) => s + c.Production + c.Transport + c.Distribution + c.Commercial, 0);
-    const ratio = mockTotal > 0 ? realScaling.realEngage / mockTotal : 0;
-    return base.map(c => ({
-      cat: c.cat,
-      Production:   +(c.Production   * ratio).toFixed(2),
-      Transport:    +(c.Transport    * ratio).toFixed(2),
-      Distribution: +(c.Distribution * ratio).toFixed(2),
-      Commercial:   +(c.Commercial   * ratio).toFixed(2),
-    }));
-  }, [domainFilter, realScaling]);
+    const inScope = (dom: string) => domainFilter === 'Tous' || dom === domainFilter;
+    const acc: Record<string, Record<string, number>> = {
+      'Études': {}, 'Travaux': {}, 'Équipements': {}, 'Services': {}, 'Divers': {},
+    };
+    store.projets.forEach(p => {
+      const dom = DOMAIN_MAP[p.domaine] ?? 'Production';
+      if (!inScope(dom)) return;
+      const phases = p.phases ?? [];
+      const totalPoids = phases.reduce((s, ph) => s + ph.poids, 0) || 100;
+      phases.forEach(ph => {
+        const cat = PHASE_TO_CAT[ph.id] ?? 'Divers';
+        const fraction = ph.poids / totalPoids;
+        acc[cat][dom] = (acc[cat][dom] ?? 0) + (p.budgetEngage / 1_000) * fraction;
+      });
+    });
+    return Object.entries(acc).map(([cat, vals]) => ({
+      cat,
+      Production:   +(vals.Production   ?? 0).toFixed(2),
+      Transport:    +(vals.Transport    ?? 0).toFixed(2),
+      Distribution: +(vals.Distribution ?? 0).toFixed(2),
+      Commercial:   +(vals.Commercial   ?? 0).toFixed(2),
+    })) as CategoryBudget[];
+  }, [store.projets, domainFilter]);
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', background: '#F5F6FA', padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>Gestion Budgétaire</div>
-          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>Portefeuille DPE Senelec — Mise à jour: 25/05/2026</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 8 }}>
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Gestion Budgétaire</div>
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Portefeuille DPE — SENELEC · Mise à jour : 25/05/2026</div>
         </div>
 
         {/* Year selector */}
-        <div style={{ display: 'flex', gap: 0, border: `1px solid ${NAVY}30`, borderRadius: 7, overflow: 'hidden', marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 0, border: `1px solid ${NAVY}30`, borderRadius: 7, overflow: 'hidden', flexShrink: 0 }}>
           {(['2024', '2025', '2026'] as YearOption[]).map(y => (
             <button key={y} onClick={() => setYear(y)} style={{
-              padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
+              padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
               background: year === y ? NAVY : '#fff', color: year === y ? '#fff' : NAVY, transition: 'all .15s',
             }}>{y}</button>
           ))}

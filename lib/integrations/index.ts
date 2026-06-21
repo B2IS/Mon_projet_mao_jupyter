@@ -1,5 +1,5 @@
 /**
- * index.ts — Point d'entrée des intégrations externes SIGEPP-DPE
+ * index.ts — Point d'entrée des intégrations externes SIGEP-DPE
  *
  * Systèmes connectés :
  *   • Oracle E-Business Suite R12 (Financials, Fixed Assets, GL)

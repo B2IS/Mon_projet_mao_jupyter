@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { useOdmConfig, tauxHoraire, coutHeuresSup, perdiemFCFA } from '@/lib/odmConfigStore';
+import { useProjectStore } from '@/lib/projectStore';
 import { isCopilotLinked } from '@/lib/ai/aiEngine';
 import toast from 'react-hot-toast';
 import {
@@ -121,149 +122,9 @@ interface ODMCloture {
   statut: 'Clôturé' | 'En cours';
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const PROJETS_ODM = ['PASE Dakar', 'ER Thiès', 'PADERAU', 'MCA Transport', 'BEST BM', 'PAMACEL', 'SG-Ziguinchor', 'ER Kolda'];
+// ─── Véhicules disponibles (fallback si aucun configuré dans odmConfigStore) ───
 const VEHICULES_DISPO = ['SN-0234-DA — Toyota LC 200', 'SN-4521-DK — Nissan Patrol', 'SN-7892-DK — Mitsubishi L200', 'SN-1103-TH — Toyota Hilux', 'SN-5567-ZG — Land Rover Defender'];
-const AGENTS_LIST = ['A. Dieng', 'M. Fall', 'I. Sow', 'K. Ndiaye', 'B. Sarr', 'C. Diallo', 'F. Ba', 'O. Diop', 'N. Thiam'];
-
-const INITIAL_ODMS: ODMItem[] = [
-  // ── Missions terrain Sénégal ──────────────────────────────────────────────
-  {
-    id: 'ODM-001', ref: 'ODM-DER-2026-041', objet: 'Supervision travaux HTA – Phase 2 réseau aérien Casamance',
-    projet: 'SG-Ziguinchor', destination: 'Ziguinchor', pays: 'Sénégal', region: 'Casamance',
-    typeMission: 'terrain', international: false, dateDepart: '26/05/2026', dateRetour: '30/05/2026', dureeJours: 5,
-    participants: ['I. Sow', 'O. Diop', 'C. Diallo'],
-    participantsDetail: [
-      { nom: 'Ibrahima Sow',    mle: 'C00642', unite: 'Département Projets Distribution', cr: 'PE221', heuresSupplementaires: 12 },
-      { nom: 'Ousmane Diop',    mle: 'C00995', unite: 'Département Projet Commercial',    cr: 'PE305', heuresSupplementaires: 8 },
-      { nom: 'Cheikh Diallo',   mle: 'C00644', unite: 'Département Conduite des Marches', cr: 'PM201', heuresSupplementaires: 10 },
-    ],
-    transport: 'Véhicule de service', vehicule: 'SN-7892-DK — Mitsubishi L200',
-    kmPrevisionnel: 520, dotationCarburant: 85, budgetEstime: 450000,
-    agentDemandeur: 'I. Sow', statut: 'Validé', priseEnCharge: 'PERDIEM_3',
-  },
-  {
-    id: 'ODM-002', ref: 'ODM-DER-2026-042', objet: 'Réunion de coordination chantier – Poste source Thiès',
-    projet: 'ER Thiès', destination: 'Thiès', pays: 'Sénégal', region: 'Thiès',
-    typeMission: 'reunion', international: false, dateDepart: '27/05/2026', dateRetour: '27/05/2026', dureeJours: 1,
-    participants: ['M. Fall', 'K. Ndiaye'],
-    participantsDetail: [
-      { nom: 'Mamadou Fall',    mle: 'C01043', unite: 'Cellule PADERAU',     cr: 'PE003' },
-      { nom: 'Khalifa Ndiaye',  mle: 'C00889', unite: 'Cellule Projet PAMACEL', cr: 'PE003' },
-    ],
-    transport: 'Véhicule de service', vehicule: 'SN-1103-TH — Toyota Hilux',
-    kmPrevisionnel: 140, dotationCarburant: 22, budgetEstime: 85000,
-    agentDemandeur: 'M. Fall', statut: 'En validation', priseEnCharge: 'SENELEC',
-  },
-  {
-    id: 'ODM-003', ref: 'ODM-DER-2026-039', objet: 'Levé topographique et jalonnement – Tracé ligne 30kV Kolda',
-    projet: 'ER Kolda', destination: 'Kolda', pays: 'Sénégal', region: 'Ziguinchor',
-    typeMission: 'terrain', international: false, dateDepart: '20/05/2026', dateRetour: '24/05/2026', dureeJours: 5,
-    participants: ['K. Ndiaye', 'B. Sarr'],
-    participantsDetail: [
-      { nom: 'Khalifa Ndiaye',  mle: 'C00889', unite: 'Cellule Projet PAMACEL', cr: 'PE003', heuresSupplementaires: 15 },
-      { nom: 'Boubacar Sarr',   mle: 'C00912', unite: 'Département Projet Commercial',    cr: 'PE305', heuresSupplementaires: 15 },
-    ],
-    transport: 'Véhicule de service', vehicule: 'SN-5567-ZG — Land Rover Defender',
-    kmPrevisionnel: 750, dotationCarburant: 120, budgetEstime: 620000,
-    agentDemandeur: 'K. Ndiaye', statut: 'Clôturé', priseEnCharge: 'PERDIEM_3',
-  },
-  {
-    id: 'ODM-004', ref: 'ODM-DER-2026-043', objet: 'Inspection réception provisoire lot 3A – Saint-Louis',
-    projet: 'PADERAU', destination: 'Saint-Louis', pays: 'Sénégal', region: 'Saint-Louis',
-    typeMission: 'terrain', international: false, dateDepart: '28/05/2026', dateRetour: '29/05/2026', dureeJours: 2,
-    participants: ['A. Dieng', 'F. Ba', 'N. Thiam'],
-    participantsDetail: [
-      { nom: 'Amadou Dieng',     mle: 'C00532', unite: 'Service Environnement et Prevention Securite', cr: 'QE003', heuresSupplementaires: 4 },
-      { nom: 'Fatou Ba',         mle: 'C00788', unite: 'Département Projet Energie Renouvelable',       cr: 'PE102', heuresSupplementaires: 4 },
-      { nom: 'Ndeye Thiam',      mle: 'C00763', unite: 'Département Projet Commercial',                  cr: 'PE305', heuresSupplementaires: 4 },
-    ],
-    transport: 'Véhicule de service', vehicule: 'SN-0234-DA — Toyota LC 200',
-    kmPrevisionnel: 440, dotationCarburant: 70, budgetEstime: 380000,
-    agentDemandeur: 'A. Dieng', statut: 'En validation', priseEnCharge: 'PERDIEM_2',
-  },
-  {
-    id: 'ODM-005', ref: 'ODM-DER-2026-044', objet: 'Formation agents locaux branchement BT – Kaolack',
-    projet: 'PASE Dakar', destination: 'Kaolack', pays: 'Sénégal', region: 'Kaolack',
-    typeMission: 'formation', international: false, dateDepart: '02/06/2026', dateRetour: '04/06/2026', dureeJours: 3,
-    participants: ['O. Diop'],
-    participantsDetail: [{ nom: 'Ousmane Diop', mle: 'C00995', unite: 'Département Projet Commercial', cr: 'PE305' }],
-    transport: 'Transport commun', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, budgetEstime: 120000,
-    agentDemandeur: 'O. Diop', statut: 'Brouillon', priseEnCharge: 'SENELEC',
-  },
-  {
-    id: 'ODM-006', ref: 'ODM-DER-2026-037', objet: 'Audit technique MCA – Poste 90kV Tobène',
-    projet: 'MCA Transport', destination: 'Thiès', pays: 'Sénégal', region: 'Thiès',
-    typeMission: 'audit', international: false, dateDepart: '15/05/2026', dateRetour: '15/05/2026', dureeJours: 1,
-    participants: ['A. Dieng', 'I. Sow'],
-    participantsDetail: [
-      { nom: 'Amadou Dieng',  mle: 'C00532', unite: 'Service Environnement et Prevention Securite', cr: 'QE003' },
-      { nom: 'Ibrahima Sow',  mle: 'C00642', unite: 'Département Projets Distribution',             cr: 'PE221' },
-    ],
-    transport: 'Véhicule de service', vehicule: 'SN-4521-DK — Nissan Patrol',
-    kmPrevisionnel: 145, dotationCarburant: 24, budgetEstime: 95000,
-    agentDemandeur: 'A. Dieng', statut: 'Clôturé', priseEnCharge: 'SENELEC',
-  },
-  {
-    id: 'ODM-007', ref: 'ODM-DER-2026-045', objet: 'Réunion bailleurs AFD – PADERAU avancement Q2',
-    projet: 'PADERAU', destination: 'Dakar (Almadies)', pays: 'Sénégal', region: 'Dakar',
-    typeMission: 'reunion', international: false, dateDepart: '03/06/2026', dateRetour: '03/06/2026', dureeJours: 1,
-    participants: ['N. Thiam', 'A. Dieng'],
-    participantsDetail: [
-      { nom: 'Ndeye Thiam',   mle: 'C00763', unite: 'Département Projet Commercial',                   cr: 'PE305' },
-      { nom: 'Amadou Dieng',  mle: 'C00532', unite: 'Service Environnement et Prevention Securite',     cr: 'QE003' },
-    ],
-    transport: 'Véhicule de service', vehicule: 'SN-0234-DA — Toyota LC 200',
-    kmPrevisionnel: 35, dotationCarburant: 6, budgetEstime: 30000,
-    agentDemandeur: 'N. Thiam', statut: 'Brouillon', priseEnCharge: 'SENELEC',
-  },
-  {
-    id: 'ODM-008', ref: 'ODM-DER-2026-040', objet: 'Supervision soudage câbles HTA – PAMACEL secteur Est',
-    projet: 'PAMACEL', destination: 'Rufisque', pays: 'Sénégal', region: 'Dakar',
-    typeMission: 'terrain', international: false, dateDepart: '22/05/2026', dateRetour: '22/05/2026', dureeJours: 1,
-    participants: ['C. Diallo', 'B. Sarr'],
-    participantsDetail: [
-      { nom: 'Cheikh Diallo',  mle: 'C00644', unite: 'Département Conduite des Marches', cr: 'PM201', heuresSupplementaires: 3 },
-      { nom: 'Boubacar Sarr',  mle: 'C00912', unite: 'Département Projet Commercial',    cr: 'PE305', heuresSupplementaires: 3 },
-    ],
-    transport: 'Véhicule de service', vehicule: 'SN-1103-TH — Toyota Hilux',
-    kmPrevisionnel: 55, dotationCarburant: 10, budgetEstime: 45000,
-    agentDemandeur: 'C. Diallo', statut: 'Validé', priseEnCharge: 'SENELEC',
-  },
-  // ── ODM de référence — calqué sur l'ODM N°3-2026 importé ──────────────────
-  {
-    id: 'ODM-009', ref: 'ODM N°3 - 2026', objet: 'PADERAU: Formation sur la gestion des contrats des projets d\'infrastructures électriques',
-    projet: 'PADERAU', destination: 'Dakar, Paris, Lyon', pays: 'France', region: 'Internationale',
-    typeMission: 'formation', international: true, dateDepart: '31/01/2026', dateRetour: '07/02/2026', dureeJours: 7,
-    participants: ['Nguissaly B Khalifa DIENG', 'Papa Boubacar DIOP', 'Maodo SENE', 'Thierno Alia MBENGUE', 'Ousseynou THIAO', 'Djily FALL', 'Madiagne NDIAYE', 'Nafissatou DIOP', 'Boubacar DIOP', 'ANNA CHANTAL WONE'],
-    participantsDetail: [
-      { nom: 'Nguissaly B Khalifa DIENG', mle: 'C00981', unite: 'Service Environnement et Prevention Securite', cr: 'QE003' },
-      { nom: 'Papa Boubacar DIOP',        mle: 'C01120', unite: 'Cellule PADERAU',                               cr: 'PE003' },
-      { nom: 'Maodo SENE',                mle: 'C00768', unite: 'Département Projets Distribution',              cr: 'PE221' },
-      { nom: 'Thierno Alia MBENGUE',      mle: 'C01121', unite: 'Cellule Projet PAMACEL',                        cr: '70022' },
-      { nom: 'Ousseynou THIAO',           mle: 'C01102', unite: 'Département Projet Energie Renouvelable',       cr: 'PE102' },
-      { nom: 'Djily FALL',                mle: 'C00644', unite: 'Département Conduite des Marches Supports',     cr: 'PM201' },
-      { nom: 'Madiagne NDIAYE',           mle: 'C00957', unite: 'Cellule PADERAU',                               cr: 'PE003' },
-      { nom: 'Nafissatou DIOP',           mle: 'C00763', unite: 'Département Projet Commercial',                  cr: 'PE305' },
-      { nom: 'Boubacar DIOP',             mle: 'C00995', unite: 'Département Projet Commercial',                  cr: 'PE305' },
-      { nom: 'ANNA CHANTAL WONE',         mle: 'C00953', unite: 'Cellule PADERAU',                               cr: 'PE003' },
-    ],
-    transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0,
-    perdiemJour: 143000, budgetEstime: 9800000,
-    agentDemandeur: 'Papa Toby GAYE (DG)', statut: 'Clôturé', priseEnCharge: 'PARTENAIRE', pdfIngere: true,
-  },
-  // ── Missions FAT Internationales ─────────────────────────────────────────
-  { id: 'ODM-FAT-001', ref: 'ODM-FAT-2026-001', objet: 'FAT Transformateurs de puissance 225/30kV — TBEA Shanghai', projet: 'MCA Transport', destination: 'Shanghai', pays: 'Chine', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '10/06/2026', dateRetour: '17/06/2026', dureeJours: 7, participants: ['A. Dieng', 'M. Fall', 'K. Ndiaye'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 104000, budgetEstime: 6850000, agentDemandeur: 'A. Dieng', statut: 'Validé', priseEnCharge: 'PARTENAIRE' },
-  { id: 'ODM-FAT-002', ref: 'ODM-FAT-2026-002', objet: 'FAT Disjoncteurs SF6 GIS 225kV — Siemens Energy Nuremberg', projet: 'BEST BM', destination: 'Nuremberg', pays: 'Allemagne', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '20/06/2026', dateRetour: '26/06/2026', dureeJours: 6, participants: ['I. Sow', 'F. Ba'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 127000, budgetEstime: 5200000, agentDemandeur: 'I. Sow', statut: 'En validation', priseEnCharge: 'PARTENAIRE' },
-  { id: 'ODM-FAT-003', ref: 'ODM-FAT-2026-003', objet: 'FAT Transformateurs HTA 30/15kV — Schneider Electric Paris', projet: 'PADERAU', destination: 'Paris / Orléans', pays: 'France', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '15/07/2026', dateRetour: '20/07/2026', dureeJours: 5, participants: ['N. Thiam', 'O. Diop'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 143000, budgetEstime: 4750000, agentDemandeur: 'N. Thiam', statut: 'Brouillon', priseEnCharge: 'PARTENAIRE' },
-  { id: 'ODM-FAT-004', ref: 'ODM-FAT-2026-004', objet: 'FAT Compteurs AMI Smart Metering — Hyundai Electric Séoul', projet: 'PASE Dakar', destination: 'Séoul', pays: 'Corée du Sud', region: 'Internationale', typeMission: 'FAT', international: true, dateDepart: '05/08/2026', dateRetour: '11/08/2026', dureeJours: 6, participants: ['B. Sarr', 'C. Diallo', 'A. Dieng'], transport: 'Vol international', vehicule: null, kmPrevisionnel: 0, dotationCarburant: 0, perdiemJour: 123000, budgetEstime: 5940000, agentDemandeur: 'B. Sarr', statut: 'Brouillon', priseEnCharge: 'PARTENAIRE' },
-];
-
-const INITIAL_CLOTURES: ODMCloture[] = [
-  { odmId: 'ODM-003', kmDepart: 41200, kmArrivee: 41950, consommationReelle: 132, consommationPrevue: 120, observations: 'Piste dégradée après Kolda, consommation légèrement supérieure au prévisionnel.', statut: 'Clôturé' },
-  { odmId: 'ODM-006', kmDepart: 28400, kmArrivee: 28545, consommationReelle: 23, consommationPrevue: 24, observations: 'Mission réalisée dans les délais. Aucune observation particulière.', statut: 'Clôturé' },
-];
+const AGENTS_LIST: string[] = [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -409,7 +270,7 @@ function extractParticipants(text: string): string[] {
   const re = /(?:M(?:onsieur|r)?\.?\s*|Mme\.?\s*)?([A-ZÀ-Ÿ][a-zA-ZÀ-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zA-ZÀ-ÿ\-]+){1,3})/g;
   while ((m = re.exec(text)) !== null) {
     const n = clean(m[1]);
-    if (isName(n) && !/SENELEC|DPE|SIGEPP|Mission|Terrain|Budget|Dakar|Thi[èe]s|Ziguinchor|Kolda|Louga|Kaolack|Saint-Louis|Rufisque|Casamance|Avion|Service|Cellule|D[ée]partement/i.test(n)) {
+    if (isName(n) && !/SENELEC|DPE|SIGEP|Mission|Terrain|Budget|Dakar|Thi[èe]s|Ziguinchor|Kolda|Louga|Kaolack|Saint-Louis|Rufisque|Casamance|Avion|Service|Cellule|D[ée]partement/i.test(n)) {
       names.push(n);
     }
   }
@@ -907,7 +768,7 @@ function generateODMDocument(odm: ODMItem): void {
 </div>
 
 <div class="footer">
-  SENELEC — Direction Principale Équipement (DPE) · SIGEPP-DPE V1.0 · Document généré le ${new Date().toLocaleDateString('fr-FR')}
+  SENELEC — Direction Principale Équipement (DPE) · SIGEP-DPE V1.0 · Document généré le ${new Date().toLocaleDateString('fr-FR')}
 </div>
 
 <script>window.onload = () => window.print();</script>
@@ -998,7 +859,7 @@ ${cloture ? `
 </div>
 
 <div class="footer">
-  SENELEC — DPE · SIGEPP-DPE V1.0 · Rapport généré le ${new Date().toLocaleDateString('fr-FR')}
+  SENELEC — DPE · SIGEP-DPE V1.0 · Rapport généré le ${new Date().toLocaleDateString('fr-FR')}
 </div>
 <script>window.onload = () => window.print();</script>
 </body>
@@ -1107,7 +968,7 @@ function OptimisationTab({ odms }: { odms: ODMItem[] }) {
       .section-body{font-size:10px;line-height:1.7;color:#374151;padding:10px 14px;background:#FAFBFC;border-radius:8px;border:1px solid #F1F5F9}
     </style></head><body>
       <div class="bar"></div>
-      <div class="logo">SENELEC · SIGEPP-DPE · Intelligence Artificielle</div>
+      <div class="logo">SENELEC · SIGEP-DPE · Intelligence Artificielle</div>
       <h1>Rapport IA — Optimisation des Ordres de Mission</h1>
       <div class="meta">Analyse générée le ${new Date().toLocaleDateString('fr-FR')} · ${pending.length} ODM analysés · ${opportunites.length} opportunités détectées</div>
       <div class="kpi-grid">
@@ -1154,7 +1015,7 @@ function OptimisationTab({ odms }: { odms: ODMItem[] }) {
         </div>
       </div>
       <table><thead><tr><th>#</th><th>Région</th><th>ODMs</th><th style="text-align:center">Nb</th><th style="text-align:right">Budget avant</th><th style="text-align:right">Budget après</th><th style="text-align:right">Économie</th><th style="text-align:center">Km</th></tr></thead><tbody>${rows}</tbody></table>
-      <div class="footer"><span>CONFIDENTIEL — Usage interne SENELEC · SIGEPP-DPE uniquement</span><span>Document généré par IA — SIGEPP-DPE · ${new Date().toLocaleDateString('fr-FR')}</span></div>
+      <div class="footer"><span>CONFIDENTIEL — Usage interne SENELEC · SIGEP-DPE uniquement</span><span>Document généré par IA — SIGEP-DPE · ${new Date().toLocaleDateString('fr-FR')}</span></div>
     </body></html>`);
     pw.document.close(); setTimeout(() => pw.print(), 500);
   }
@@ -1340,21 +1201,40 @@ export default function ODM() {
   const isChauffeur = user?.role === 'CHAUFFEUR';
   const canConfigOdm = isRole('DIR_DPE', 'CHEF_CELLULE', 'RAF', 'ADMIN');
   const odmCfg = useOdmConfig();
+  const { projets } = useProjectStore();
+  // Projets depuis le store (remplace la liste hardcodée)
+  const projetsOdm = projets.map(p => p.nom);
   // Flotte paramétrable (véhicules actifs) — remplace la constante codée en dur
   const vehiculesDispo = odmCfg.vehicules.filter(v => v.actif);
   const vehiculesLabels = vehiculesDispo.length ? vehiculesDispo.map(v => v.label) : VEHICULES_DISPO;
   const consoDefaut = odmCfg.carburant.consoMoyennePar100;
   const [onglet, setOnglet] = useState<OngletODM>('mes-odm');
+
+  // Reset état UI transient à chaque changement d'onglet (filtres, formulaires, sélections)
+  useEffect(() => {
+    setOdmSearchQ('');
+    setOdmStatutFilter('tous');
+    setSelectedODM(null);
+    setEditMode(false);
+    setEditedODM(null);
+    // Formulaire nouvelle demande
+    setFObjet(''); setFItineraire(''); setFDepart(''); setFRetour('');
+    setFKm(''); setFParticipants([]); setFBudget(''); setFEmail(''); setFDelai('');
+    // Clôture
+    setCloKmDep(''); setCloKmArr(''); setCloConso(''); setCloObs('');
+    // PDF
+    setPdfFile(null); setExtracted(null);
+  }, [onglet]);
   const [showDemandeModal, setShowDemandeModal] = useState(false);
   const [demObjet, setDemObjet] = useState('');
-  const [demProjet, setDemProjet] = useState(PROJETS_ODM[0]);
+  const [demProjet, setDemProjet] = useState(projetsOdm[0] ?? '');
   const [demDest, setDemDest] = useState('');
   const [demDepart, setDemDepart] = useState('');
   const [demRetour, setDemRetour] = useState('');
   const [demNotes, setDemNotes] = useState('');
   const [demSubmitted, setDemSubmitted] = useState(false);
-  const [odms, setOdms] = useState<ODMItem[]>(INITIAL_ODMS);
-  const [clotures, setClotures] = useState<ODMCloture[]>(INITIAL_CLOTURES);
+  const [odms, setOdms] = useState<ODMItem[]>([]);
+  const [clotures, setClotures] = useState<ODMCloture[]>([]);
   const [selectedODM, setSelectedODM] = useState<ODMItem | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [odmSearchQ, setOdmSearchQ] = useState('');
@@ -1362,7 +1242,7 @@ export default function ODM() {
 
   // Form état — nouvelle demande
   const [fObjet, setFObjet] = useState('');
-  const [fProjet, setFProjet] = useState(PROJETS_ODM[0]);
+  const [fProjet, setFProjet] = useState(projetsOdm[0] ?? '');
   const [fItineraire, setFItineraire] = useState('');
   const [fDepart, setFDepart] = useState('');
   const [fRetour, setFRetour] = useState('');
@@ -1431,7 +1311,7 @@ export default function ODM() {
       kmPrevisionnel: parseInt(fKm) || 0,
       dotationCarburant: dotationCalc,
       budgetEstime: parseInt(fBudget) || 0,
-      agentDemandeur: 'Utilisateur connecté',
+      agentDemandeur: user ? `${user.prenom} ${user.nom}` : 'Utilisateur connecté',
       priseEnCharge: 'NON_PRECISEE',
       statut: 'En validation',
     };
@@ -2033,7 +1913,7 @@ export default function ODM() {
                 <li>Déposez l'ODM PDF reçu de votre outil externe (SIRH, ERP, etc.)</li>
                 <li>L'IA SENELEC extrait automatiquement : objet, participants, dates, itinéraire</li>
                 <li>Vérifiez et complétez les données extraites</li>
-                <li>Importez l'ODM dans SIGEPP-DPE pour le suivi et la clôture</li>
+                <li>Importez l'ODM dans SIGEP-DPE pour le suivi et la clôture</li>
               </ul>
             </div>
           </div>
@@ -2202,7 +2082,7 @@ export default function ODM() {
                 <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                   <button onClick={handleImportExtracted}
                     style={{ flex: 1, padding: '10px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <Check size={14} /> Importer dans SIGEPP-DPE
+                    <Check size={14} /> Importer dans SIGEP-DPE
                   </button>
                   <button onClick={() => { setExtracted(null); setPdfFile(null); }}
                     style={{ padding: '10px 14px', background: '#F1F5F9', color: '#374151', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -2239,7 +2119,7 @@ export default function ODM() {
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Projet lié</label>
                 <select value={fProjet} onChange={e => setFProjet(e.target.value)}
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#F8FAFC' }}>
-                  {PROJETS_ODM.map(p => <option key={p}>{p}</option>)}
+                  {projetsOdm.map(p => <option key={p}>{p}</option>)}
                 </select>
               </div>
 
@@ -2793,7 +2673,7 @@ export default function ODM() {
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Projet</label>
                     <select value={demProjet} onChange={e => setDemProjet(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 7, border: '1px solid #D1D5DB', fontSize: 12, fontFamily: 'inherit', background: '#fff' }}>
-                      {PROJETS_ODM.map(p => <option key={p}>{p}</option>)}
+                      {projetsOdm.map(p => <option key={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>

@@ -1,7 +1,7 @@
 {
-  "name": "sigepp-dpe-backend",
+  "name": "sigep-dpe-backend",
   "version": "1.0.0",
-  "description": "SIGEPP-DPE — Backend Enterprise (NestJS / DDD / CQRS / PostgreSQL / Camunda 8 / Keycloak)",
+  "description": "SIGEP-DPE — Backend Enterprise (NestJS / DDD / CQRS / PostgreSQL / Camunda 8 / Keycloak)",
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",

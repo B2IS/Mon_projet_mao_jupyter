@@ -164,7 +164,7 @@ Avenue Lamine Guèye, BP 93, Dakar, Sénégal
 Email : dpe@senelec.sn | Tél : +221 33 839 30 00
 
 *Document émis conformément au Manuel de Procédures de Passation des Marchés SENELEC (version 2023)*`,
-    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEPP', usageCount: 0,
+    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEP', usageCount: 0,
   },
 
   // ─── 2. Fiche Projet ─────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ Email : dpe@senelec.sn | Tél : +221 33 839 30 00
     nom: 'Fiche de Projet — Canevas standard DPE',
     categorie: 'Pilotage Projet',
     statut: 'officiel',
-    description: 'Fiche d\'identification complète d\'un projet DPE (CDC §3.2). Sert de document de référence pour l\'enregistrement dans SIGEPP.',
+    description: 'Fiche d\'identification complète d\'un projet DPE (CDC §3.2). Sert de document de référence pour l\'enregistrement dans SIGEP.',
     reference: 'CDC DPE §3.2 — Référentiel projets',
     variables: [
       { cle: '{{PROJET_NOM}}',     libelle: 'Intitulé du projet',     exemple: 'Réhabilitation SS 30kV Louga', obligatoire: true },
@@ -250,8 +250,8 @@ Email : dpe@senelec.sn | Tél : +221 33 839 30 00
 | Responsable PGES | | |
 
 ---
-*Fiche générée via SIGEPP-DPE · {{DATE_EMISSION}} — Confidentiel usage interne SENELEC*`,
-    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEPP', usageCount: 0,
+*Fiche générée via SIGEP-DPE · {{DATE_EMISSION}} — Confidentiel usage interne SENELEC*`,
+    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEP', usageCount: 0,
   },
 
   // ─── 3. PV Réception provisoire ──────────────────────────────────────────
@@ -363,7 +363,7 @@ Les travaux objet du marché {{CONTRAT_REF}} ont été inspectés ce jour {{DATE
 
 ---
 *Document officiel SENELEC · Confidentiel*`,
-    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEPP', usageCount: 0,
+    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEP', usageCount: 0,
   },
 
   // ─── 4. Rapport mensuel d'avancement ────────────────────────────────────
@@ -457,7 +457,7 @@ Les travaux objet du marché {{CONTRAT_REF}} ont été inspectés ce jour {{DATE
 
 ---
 *Rapport confidentiel — Usage interne SENELEC DPE — {{MOIS_ANNEE}}*`,
-    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEPP', usageCount: 0,
+    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEP', usageCount: 0,
   },
 
   // ─── 5. Note de Consultation ─────────────────────────────────────────────
@@ -513,7 +513,7 @@ Les offres doivent être déposées sous pli fermé à l'adresse :
 {{CONTACT}} — SENELEC, Avenue Lamine Guèye, Dakar
 
 *avant le {{DATE_LIMITE}}*`,
-    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEPP', usageCount: 0,
+    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEP', usageCount: 0,
   },
 
   // ─── 6. Termes de Référence ──────────────────────────────────────────────
@@ -572,7 +572,7 @@ _SENELEC mettra à disposition : plans, données techniques, accès aux sites._
 
 Sélection sur la base de la Qualité et du Coût (SBQC)
 Pondération : Qualité 80% / Prix 20%`,
-    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEPP', usageCount: 0,
+    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEP', usageCount: 0,
   },
 
   // ─── 7. Compte Rendu de Réunion ──────────────────────────────────────────
@@ -640,7 +640,7 @@ Date : _____________ | Lieu : _____________
 
 ---
 *CR diffusé à tous les participants — Retour sous 48h pour corrections*`,
-    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEPP', usageCount: 0,
+    dateCreation: today, dateMAJ: today, auteur: 'DPE — SIGEP', usageCount: 0,
   },
 ];
 
@@ -685,6 +685,6 @@ export const useCanevasStore = create<CanevasStore>()(
           canevas: s.canevas.map(c => c.id === id ? { ...c, usageCount: c.usageCount + 1 } : c),
         })),
     }),
-    { name: 'sigepp-canevas' }
+    { name: 'sigep-canevas' }
   )
 );

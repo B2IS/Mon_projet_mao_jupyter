@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
   ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, Cell,
@@ -487,18 +487,30 @@ export default function RH() {
       )
     : 0;
 
-  // ─── Tab labels ───
-  const TABS = ['Annuaire', 'Charge & Affectation', 'Planification', 'Feuilles de temps', 'Effectif DPE', 'Demandes UAGL→CAB'];
+  // ─── Tab labels — onglet Demandes UAGL→CAB réservé aux RESP_LOG et managers ───
+  const canSeeDemandesCAB = ['RESP_LOG', 'CHEF_DEPT', 'CHEF_CELLULE', 'DIRECTEUR', 'DIR_DPE', 'ADMIN'].includes(user?.role ?? '');
+  const TABS = [
+    'Annuaire', 'Charge & Affectation', 'Planification', 'Feuilles de temps', 'Effectif DPE',
+    ...(canSeeDemandesCAB ? ['Demandes UAGL→CAB'] : []),
+  ];
 
   // ── Effectif réel DPE (201 agents — fichier au 10/03/2026) ──
   const [effSearch, setEffSearch] = useState('');
   const [effDir, setEffDir] = useState('Toutes');
+
+  // Réinitialise formulaires et sélections au changement d'onglet principal
+  useEffect(() => {
+    setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setInlineEdit(null);
+    setAffProjetId(''); setAffTacheId(''); setAffRessId(''); setAffUnite('100'); setAffSuccess(false);
+    setEffSearch(''); setEffDir('Toutes');
+  }, [activeTab]);
   const parDir = effectifParDirection;
   const parCollege = effectifParCollege;
   const parSexe = effectifParSexe;
   // ── Périmètre MMH : un profil ne voit que le personnel de SA direction ────────
-  // (UAGL DER ne voit plus tout le monde, mais uniquement les agents de la DER).
-  // Les rôles RH-globaux (DIR_DPE, PMO, ADMIN, CSE) conservent la vue complète.
+  // RESP_LOG (UAGL) : filtre supplémentaire par unité (DPD / DPT) car DPD et DPT
+  // sont deux unités distinctes sous la même direction « DER ».
+  // Les rôles RH-globaux (DIR_DPE, PMO, ADMIN, CSE, DIRECTEUR) conservent la vue complète.
   const perimetreDirs = useMemo(() => {
     if (!user) return null;
     const profile: UserOrgProfile = { role: user.role, direction: user.direction, departement: user.departement, cellule: user.cellule, poste: user.poste };
@@ -506,10 +518,31 @@ export default function RH() {
     if (s.all || s.directions.includes('*')) return null; // vue globale
     return new Set(s.directions.map(d => canonDirectionKey(d)));
   }, [user]);
-  const personnelPerimetre = useMemo(
-    () => perimetreDirs ? PERSONNEL_DPE.filter(a => perimetreDirs.has(canonDirectionKey(a.direction))) : PERSONNEL_DPE,
-    [perimetreDirs],
-  );
+
+  // Code unité de l'UAGL (extrait de son département, ex. DPD_DISTRIBUTION → "DPD")
+  const monUniteRH = useMemo(() => {
+    if (user?.role !== 'RESP_LOG') return '';
+    const dept = (user?.departement ?? '').toUpperCase();
+    if (dept.includes('DPD')) return 'DPD';
+    if (dept.includes('DPT')) return 'DPT';
+    if (dept.includes('DEP_PEC')) return 'DPEC';
+    if (dept.includes('DEP_PER')) return 'DPER';
+    if (dept.includes('DEP')) return 'DEP';
+    if (dept.includes('DIT')) return 'DIT';
+    if (dept.includes('DGC')) return 'DGC';
+    return '';
+  }, [user?.role, user?.departement]);
+
+  const personnelPerimetre = useMemo(() => {
+    let list = perimetreDirs
+      ? PERSONNEL_DPE.filter(a => perimetreDirs.has(canonDirectionKey(a.direction)))
+      : PERSONNEL_DPE;
+    // RESP_LOG : restreindre encore à son unité via le poste ("/ DPD", "/ DPT"…)
+    if (monUniteRH) {
+      list = list.filter(a => a.poste.toUpperCase().includes(`/ ${monUniteRH}`) || a.poste.toUpperCase().includes(`/${monUniteRH}`));
+    }
+    return list;
+  }, [perimetreDirs, monUniteRH]);
   // Agrégats recalculés sur le périmètre (cohérence des compteurs avec la liste).
   const effectifScoped = personnelPerimetre.length;
   const parDirScoped = useMemo(() => {
@@ -532,7 +565,7 @@ export default function RH() {
     downloadExcel('effectif_dpe', {
       sheetName: 'Effectif',
       title: 'Effectif — Direction Principale Équipement',
-      subtitle: 'SENELEC · SIGEPP-DPE',
+      subtitle: 'SENELEC · SIGEP-DPE',
       headers: ['Matricule', 'Prénom', 'Nom', 'Sexe', 'Collège', 'Âge', 'Ancienneté', 'Direction', 'Fonction', 'Poste', 'Site'],
       rows: personnelFiltre.map(a => [a.mle, a.prenom, a.nom, a.sexe, a.college, a.age ?? '', a.anciennete ?? '', a.direction, a.fonction, a.poste, a.site]),
     });

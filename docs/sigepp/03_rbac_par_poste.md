@@ -1,4 +1,4 @@
-# SIGEPP — Étape 3 : Matrice RBAC complète par poste réel
+# SIGEP — Étape 3 : Matrice RBAC complète par poste réel
 
 > Les **rôles** sont dérivés du **poste** ; les **droits données** (RBAC) sont **intersectés** avec le
 > **périmètre organisationnel** (ABAC, Étape 6). Aucune permission n'est saisie : tout est calculé.

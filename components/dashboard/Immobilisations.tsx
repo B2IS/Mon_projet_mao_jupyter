@@ -9,8 +9,9 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import {
-  Building2, Plus, Trash2, Calculator, X, TrendingDown, Layers, Save, Search,
+  Building2, Plus, Trash2, Calculator, X, TrendingDown, Layers, Save, Search, ChevronLeft,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/projectStore';
 import { useTranslation } from '@/lib/i18n/I18nContext';
 import {
@@ -25,6 +26,7 @@ const card: React.CSSProperties = { background: '#fff', border: '1px solid #E2E8
 const inp: React.CSSProperties = { width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #CBD5E1', fontSize: 12.5, color: '#0F172A', background: '#fff' };
 
 export default function Immobilisations() {
+  const router = useRouter();
   const { lang } = useTranslation();
   const { projets } = useProjectStore();
   const { immobilisations, add, update, remove, seedFor } = useImmobilisationStore();
@@ -73,16 +75,19 @@ export default function Immobilisations() {
     <div style={{ padding: 20, maxWidth: 1280, margin: '0 auto', width: '100%' }}>
       {/* En-tête */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: '#FEF3C7', display: 'grid', placeItems: 'center' }}>
+        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+          <ChevronLeft size={13} /> Retour
+        </button>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: '#FEF3C7', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
           <Building2 size={22} style={{ color: '#B45309' }} />
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0 }}>
-            {T('Immobilisations & Amortissements', 'Fixed Assets & Depreciation')}
+            {T('Immobilisations & Patrimoine', 'Fixed Assets & Patrimony')}
           </h1>
           <p style={{ fontSize: 13, color: '#64748B', margin: '2px 0 0' }}>
-            {T('Actifs rattachés aux projets — gestion des amortissements (DGC / Finance).',
-               'Project-linked assets — depreciation management (DGC / Finance).')}
+            {T('Registre des équipements et infrastructures créés par vos projets — valeur brute, amortissements comptables et valeur nette (VNC). Alimenté depuis la Structuration des actifs.',
+               'Register of project-created equipment & infrastructure — gross value, depreciation and net book value. Fed from asset structuration.')}
           </p>
         </div>
         <select value={projetId} onChange={e => { setProjetId(e.target.value); setShowForm(false); setPlanId(null); }} style={{ ...inp, width: 'auto', minWidth: 240, fontWeight: 600 }}>

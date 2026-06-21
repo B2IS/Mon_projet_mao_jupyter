@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Springboard from '@/components/dashboard/Springboard';
 
-export const metadata = { title: 'Springboard' };
+export const metadata = { title: 'Portail de Pilotage — SIGEP' };
 
 export default function SpringboardPage() {
   return (

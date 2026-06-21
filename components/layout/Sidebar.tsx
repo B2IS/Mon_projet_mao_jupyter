@@ -1,6 +1,6 @@
 'use client';
 /**
- * Sidebar SIGEPP-DPE — Double-level navigation
+ * Sidebar SIGEP-DPE — Double-level navigation
  * Rail (52px) → Sub-panel (220px)  |  Total: 272px expanded / 52px collapsed
  */
 import Link from 'next/link';
@@ -58,7 +58,7 @@ interface Domain {
   sectionId?: SidebarSectionId;
 }
 
-/* ── Architecture SIGEPP-DPE — Vision Géospatiale & Cycle de Vie ─────────────
+/* ── Architecture SIGEP-DPE — Vision Géospatiale & Cycle de Vie ─────────────
    7 domaines (Oracle Unifier + ArcGIS Utilities + Apple HIG).
    SIG = référentiel maître (domaine 2).  Portefeuille fusionné dans Projets.
    Récolement + MES dans "Clôture → SIG" (jalons de clôture projet, pas SIG).
@@ -101,12 +101,12 @@ const DOMAINS: Domain[] = [
               CHEF_DEPT: 'Mon Département',
               EXPERT_PMO: 'Espace PMO',
             },
-            onlyRoles: ['CHEF_PROJ', 'CHEF_CELLULE', 'COORDINATEUR', 'DIR_DPE', 'CHEF_DEPT', 'EXPERT_PMO', 'ADMIN'],
+            onlyRoles: ['CHEF_PROJ', 'CHEF_CELLULE', 'COORDINATEUR', 'DIRECTEUR', 'DIR_DPE', 'CHEF_DEPT', 'EXPERT_PMO', 'ADMIN'],
           },
           {
             href: '/alertes', icon: Bell,
             label: 'Alertes',
-            badge: stats.alertesActives > 0 ? String(stats.alertesActives) : '4',
+            badge: stats.alertesActives > 0 ? String(stats.alertesActives) : undefined,
             badgeType: 'danger',
           },
         ],
@@ -136,7 +136,6 @@ const DOMAINS: Domain[] = [
               CHEF_CELLULE: 'SIG Programme',
               SIG: 'Référentiel SIG',
             },
-            badge: '4', badgeType: 'danger',
             hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION'],
           },
         ],
@@ -164,8 +163,8 @@ const DOMAINS: Domain[] = [
   },
 
   /* ── 3. PROJETS — CYCLE DE VIE ───────────────────────────────────────────
-     Portefeuille → Programme → Projet → As Planned → As Built → Clôture → SIG
-     Fusion Portefeuille + Projets (Oracle P6 : Portfolio > Program > Project).
+     Portefeuille → Programme → Projet → Planification → Réalisation → Clôture
+     Fusion Portefeuille + Projets (Oracle PPM : Portfolio > Program > Project).
   ─────────────────────────────────────────────────────────────────────────── */
   {
     id: 'projets',
@@ -212,7 +211,7 @@ const DOMAINS: Domain[] = [
         ],
       },
       {
-        label: 'As Planned',
+        label: 'Planification',
         items: [
           {
             href: '/etudes', icon: FileText,
@@ -249,7 +248,7 @@ const DOMAINS: Domain[] = [
         ],
       },
       {
-        label: 'As Built',
+        label: 'Réalisation',
         items: [
           {
             href: '/taches', icon: CheckSquare2,
@@ -266,7 +265,6 @@ const DOMAINS: Domain[] = [
           {
             href: '/risques', icon: ShieldAlert,
             label: 'Risques',
-            badge: '4', badgeType: 'warning',
             hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
           },
         ],
@@ -276,8 +274,8 @@ const DOMAINS: Domain[] = [
         items: [
           {
             href: '/recolement', icon: Repeat,
-            label: 'Récolement As Built',
-            labelByRole: { SIG: 'Validation As Built', INGENIEUR: 'Récolement travaux', DIR_DPE: 'Récolement & MES' },
+            label: 'Récolement Numérique',
+            labelByRole: { SIG: 'Validation Récolement', INGENIEUR: 'Récolement travaux', DIR_DPE: 'Récolement & MES' },
             onlyRoles: ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'SIG', 'CHEF_CELLULE', 'CHEF_DEPT', 'COORDINATEUR', 'EXPERT_PMO', 'DIRECTEUR', 'DIR_DPE', 'ADMIN', 'AUDIT'],
           },
           {
@@ -376,7 +374,6 @@ const DOMAINS: Domain[] = [
           {
             href: '/workflows', icon: CheckSquare2,
             label: 'Workflows & Parapheur',
-            badge: '8', badgeType: 'danger',
             hideRoles: ['CHAUFFEUR', 'RESP_LOG'],
           },
         ],
@@ -398,7 +395,6 @@ const DOMAINS: Domain[] = [
             href: '/flotte', icon: Car,
             label: 'Flotte & Chauffeurs',
             labelByRole: { CHAUFFEUR: 'Mon véhicule' },
-            badge: '5', badgeType: 'info',
             hideRoles: ['CHEF_DEPT'],
           },
           {
@@ -525,11 +521,6 @@ const DOMAINS: Domain[] = [
             href: '/erp-interface', icon: Plug2,
             label: 'Connecteurs ERP',
             onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'RAF'],
-          },
-          {
-            href: '/docs', icon: BookOpen,
-            label: 'Documentation API',
-            onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE'],
           },
         ],
       },
@@ -709,18 +700,6 @@ export default function Sidebar() {
                   color: isActive && subPanelOpen ? '#F9A05C' : hasActiveItem ? '#fff' : 'rgba(255,255,255,0.55)',
                 }}
               />
-              {badge && (
-                <span style={{
-                  position: 'absolute', top: 5, right: 5,
-                  width: 14, height: 14, borderRadius: 99,
-                  background: BADGE_COLORS[badge.type].bg,
-                  fontSize: 8, fontWeight: 800, color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  lineHeight: 1,
-                }}>
-                  {parseInt(badge.count) > 9 ? '9+' : badge.count}
-                </span>
-              )}
             </button>
           );
         })}
@@ -763,7 +742,7 @@ export default function Sidebar() {
         }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              SIGEPP<span style={{ color: '#F9A05C' }}>-DPE</span>
+              SIGEP<span style={{ color: '#F9A05C' }}>-DPE</span>
             </div>
             <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
               Direction Principale Équipement
@@ -955,23 +934,15 @@ export default function Sidebar() {
     return () => mq.removeEventListener('change', update);
   }, []);
 
-  /* On tablet the rail stays 52px; sub-panel floats as an overlay */
-  const desktopWidth = isTablet ? 52 : 52 + (subPanelOpen ? 220 : 0);
+  /* Sub-panel pushes content on both desktop and tablet */
+  const desktopWidth = 52 + (subPanelOpen ? 220 : 0);
 
   /* ── Full sidebar assembly ──────────────────────────────────────── */
   const sidebarShell = (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', position: 'relative' }}>
       {railContent}
-      {/* On tablet: sub-panel is absolute overlay; on desktop: inline */}
-      {isTablet && subPanelOpen ? (
-        <>
-          <div onClick={() => setSubPanelOpen(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 39, background: 'transparent' }} />
-          <div style={{ position: 'fixed', top: 0, left: 52, height: '100vh', zIndex: 40, boxShadow: '4px 0 20px rgba(15,23,42,0.22)' }}>
-            {subPanel}
-          </div>
-        </>
-      ) : !isTablet ? subPanel : null}
+      {/* Sub-panel always renders inline — pushes content on both desktop and tablet */}
+      {subPanel}
     </div>
   );
 
@@ -1052,7 +1023,7 @@ export default function Sidebar() {
           <div style={{ width: 220, background: 'linear-gradient(180deg, #1F0D54 0%, #160A3A 100%)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ height: 56, flexShrink: 0, padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.07)', gap: 8 }}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>SIGEPP<span style={{ color: '#F9A05C' }}>-DPE</span></div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px', whiteSpace: 'nowrap' }}>SIGEP<span style={{ color: '#F9A05C' }}>-DPE</span></div>
                 <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Direction Principale Équipement</div>
               </div>
               <button onClick={closeMobile} title="Fermer le menu" aria-label="Fermer le menu de navigation" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', display: 'flex', padding: 4, borderRadius: 6 }}>

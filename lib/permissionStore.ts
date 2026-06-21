@@ -92,6 +92,6 @@ export const usePermissionStore = create<PermissionState>()(
         }),
       scopeFor: (role) => get().roleScopes[role] ?? null,
     }),
-    { name: 'sigepp-permissions' }
+    { name: 'sigep-permissions' }
   )
 );

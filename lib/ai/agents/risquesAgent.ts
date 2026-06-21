@@ -120,7 +120,7 @@ const RISQUES_TYPES_DPE: Omit<RisqueType, 'id' | 'statut' | 'responsable'>[] = [
     categorie: 'Contractuel',
     probabilite: 1, impact: 4,
     criticite: 4,
-    mitigation: 'Audit interne trimestriel. Dématérialisation des processus via SIGEPP-DPE. Clause anti-corruption.',
+    mitigation: 'Audit interne trimestriel. Dématérialisation des processus via SIGEP-DPE. Clause anti-corruption.',
     delai: 'Continu',
   },
   {
@@ -142,7 +142,7 @@ export async function runRisquesAgent(
   const warnings: string[] = [];
 
   // Adapter les responsables selon le contexte
-  const responsables = ['Chef de Projet', 'RAF DPE', 'Directeur DPE', 'DER / Chef de Projet', 'Chef de Projet / DER', 'PMO'];
+  const responsables = ['Chef de Projet', 'RAF DPE', 'Directeur DPE', 'DER / Chef de Projet', 'Chef de Projet / DER', 'CHEF_CELLULE'];
 
   const risques: RisqueType[] = RISQUES_TYPES_DPE.map((r, i) => ({
     ...r,

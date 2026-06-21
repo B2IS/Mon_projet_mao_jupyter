@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
 import { useProjectStore, DOMAINE_CFG, type StatutTache } from '@/lib/projectStore';
 import { useProgrammeStore } from '@/lib/programmeStore';
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
@@ -58,94 +60,7 @@ interface WBSNode {
 /* ══════════════════════════════════════════════════════════════════════════════
    MOCK DATA
 ══════════════════════════════════════════════════════════════════════════════ */
-const WBS_DATA_INITIAL: WBSNode[] = [
-  {
-    id: 'P1', code: '1.0', label: 'PRJ-DER-2024-001 — Électrification Casamance',
-    type: 'projet', responsable: 'Ibrahima Diallo', dateDebut: '01/01/2024', dateFin: '30/06/2026',
-    avancement: 62, statut: 'en_cours', budgetMrd: 21.4, budgetEngagePct: 78,
-    children: [
-      {
-        id: 'P1-1', code: '1.1', label: 'Études',
-        type: 'lot', responsable: 'TRACTEBEL Sénégal', dateDebut: '01/01/2024', dateFin: '31/05/2024',
-        avancement: 100, statut: 'termine', budgetMrd: 1.2, budgetEngagePct: 98,
-        documents: ['Rapport APS v2.1', 'Rapport APD final'],
-        children: [
-          { id: 'P1-1-1', code: '1.1.1', label: 'APS — Avant-Projet Sommaire', type: 'tache', responsable: 'Oumar Sarr', dateDebut: '01/01/2024', dateFin: '28/02/2024', avancement: 100, statut: 'termine', budgetEngagePct: 100 },
-          { id: 'P1-1-2', code: '1.1.2', label: 'APD — Avant-Projet Détaillé', type: 'tache', responsable: 'TRACTEBEL', dateDebut: '01/03/2024', dateFin: '31/05/2024', avancement: 100, statut: 'termine', budgetEngagePct: 95 },
-        ],
-      },
-      {
-        id: 'P1-2', code: '1.2', label: 'Passation marchés',
-        type: 'lot', responsable: 'DRMP / DEP', dateDebut: '01/06/2024', dateFin: '31/10/2024',
-        avancement: 100, statut: 'termine', budgetMrd: 0.3, budgetEngagePct: 102,
-        documents: ['DAO Travaux GC', 'PV évaluation offres', 'Contrat GC signé'],
-        children: [
-          { id: 'P1-2-1', code: '1.2.1', label: 'DAO — Dossier Appel d\'Offres', type: 'tache', responsable: 'DEP', dateDebut: '01/06/2024', dateFin: '31/07/2024', avancement: 100, statut: 'termine', budgetEngagePct: 100 },
-          { id: 'P1-2-2', code: '1.2.2', label: 'Évaluation des offres', type: 'tache', responsable: 'Commission marchés', dateDebut: '01/08/2024', dateFin: '30/09/2024', avancement: 100, statut: 'termine', budgetEngagePct: 110 },
-          { id: 'P1-2-3', code: '1.2.3', label: 'Signature contrat', type: 'jalon', responsable: 'DG SENELEC', dateDebut: '31/10/2024', dateFin: '31/10/2024', avancement: 100, statut: 'termine' },
-        ],
-      },
-      {
-        id: 'P1-3', code: '1.3', label: 'Travaux',
-        type: 'lot', responsable: 'Moussa Diallo', dateDebut: '01/11/2024', dateFin: '28/02/2026',
-        avancement: 38, statut: 'en_cours', budgetMrd: 16.8, budgetEngagePct: 55,
-        children: [
-          { id: 'P1-3-1', code: '1.3.1', label: 'Mobilisation chantier', type: 'tache', responsable: 'SCBTP Sénégal', dateDebut: '01/11/2024', dateFin: '30/11/2024', avancement: 100, statut: 'termine', dependances: ['1.2.3'], budgetEngagePct: 100 },
-          { id: 'P1-3-2', code: '1.3.2', label: 'Génie civil', type: 'tache', responsable: 'SCBTP Sénégal', dateDebut: '01/12/2024', dateFin: '31/08/2025', avancement: 40, statut: 'en_cours', dependances: ['1.3.1'], budgetEngagePct: 45 },
-          { id: 'P1-3-3', code: '1.3.3', label: 'Électrification HTA', type: 'tache', responsable: 'EFACEC', dateDebut: '01/03/2025', dateFin: '31/10/2025', avancement: 35, statut: 'en_cours', dependances: ['1.3.1'], budgetEngagePct: 38 },
-          { id: 'P1-3-4', code: '1.3.4', label: 'Électrification BT', type: 'tache', responsable: 'Électro-Sénégal', dateDebut: '01/08/2025', dateFin: '28/02/2026', avancement: 0, statut: 'non_demarre', dependances: ['1.3.2', '1.3.3'], budgetEngagePct: 5 },
-          { id: 'P1-3-5', code: '1.3.5', label: 'Mise en service', type: 'jalon', responsable: 'DER / DEP', dateDebut: '28/02/2026', dateFin: '28/02/2026', avancement: 0, statut: 'non_demarre', dependances: ['1.3.4'] },
-        ],
-      },
-      {
-        id: 'P1-4', code: '1.4', label: 'Clôture',
-        type: 'lot', responsable: 'Commission DPE', dateDebut: '01/03/2026', dateFin: '30/06/2026',
-        avancement: 0, statut: 'non_demarre', budgetMrd: 0.5, budgetEngagePct: 0,
-        children: [
-          { id: 'P1-4-1', code: '1.4.1', label: 'Réception provisoire', type: 'jalon', responsable: 'Commission DPE', dateDebut: '31/03/2026', dateFin: '31/03/2026', avancement: 0, statut: 'non_demarre' },
-          { id: 'P1-4-2', code: '1.4.2', label: 'Réception définitive', type: 'jalon', responsable: 'Commission DPE', dateDebut: '30/06/2026', dateFin: '30/06/2026', avancement: 0, statut: 'non_demarre' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'P2', code: '2.0', label: 'PRJ-DIT-2024-003 — Smartgrid Dakar',
-    type: 'projet', responsable: 'Fatou Ndiaye', dateDebut: '01/06/2024', dateFin: '30/06/2027',
-    avancement: 22, statut: 'en_cours', budgetMrd: 35.6, budgetEngagePct: 18,
-    children: [
-      {
-        id: 'P2-1', code: '2.1', label: 'Études & Conception',
-        type: 'lot', responsable: 'Siemens Sénégal', dateDebut: '01/06/2024', dateFin: '30/11/2024',
-        avancement: 100, statut: 'termine', budgetMrd: 2.1, budgetEngagePct: 99,
-        documents: ['Étude faisabilité Smartgrid', 'Architecture SCADA'],
-        children: [
-          { id: 'P2-1-1', code: '2.1.1', label: 'Étude de faisabilité', type: 'tache', responsable: 'Siemens', dateDebut: '01/06/2024', dateFin: '31/08/2024', avancement: 100, statut: 'termine', budgetEngagePct: 100 },
-          { id: 'P2-1-2', code: '2.1.2', label: 'Conception architecture SCADA', type: 'tache', responsable: 'Siemens', dateDebut: '01/09/2024', dateFin: '30/11/2024', avancement: 100, statut: 'termine', budgetEngagePct: 98 },
-        ],
-      },
-      {
-        id: 'P2-2', code: '2.2', label: 'Passation marchés',
-        type: 'lot', responsable: 'DRMP', dateDebut: '01/12/2024', dateFin: '30/04/2025',
-        avancement: 75, statut: 'en_cours', budgetMrd: 0.4, budgetEngagePct: 72,
-        children: [
-          { id: 'P2-2-1', code: '2.2.1', label: 'Appel d\'offres capteurs IoT', type: 'tache', responsable: 'DRMP', dateDebut: '01/12/2024', dateFin: '31/01/2025', avancement: 100, statut: 'termine', budgetEngagePct: 100 },
-          { id: 'P2-2-2', code: '2.2.2', label: 'Sélection & négociation', type: 'tache', responsable: 'Commission', dateDebut: '01/02/2025', dateFin: '31/03/2025', avancement: 80, statut: 'en_cours', budgetEngagePct: 65 },
-          { id: 'P2-2-3', code: '2.2.3', label: 'Signature contrats systèmes', type: 'jalon', responsable: 'DIT', dateDebut: '30/04/2025', dateFin: '30/04/2025', avancement: 0, statut: 'non_demarre' },
-        ],
-      },
-      {
-        id: 'P2-3', code: '2.3', label: 'Déploiement',
-        type: 'lot', responsable: 'Équipe DIT', dateDebut: '01/05/2025', dateFin: '31/03/2027',
-        avancement: 0, statut: 'non_demarre', budgetMrd: 28.5, budgetEngagePct: 0,
-        children: [
-          { id: 'P2-3-1', code: '2.3.1', label: 'Déploiement capteurs (ph.1)', type: 'tache', responsable: 'Contractor IoT', dateDebut: '01/05/2025', dateFin: '31/12/2025', avancement: 0, statut: 'non_demarre', budgetEngagePct: 0 },
-          { id: 'P2-3-2', code: '2.3.2', label: 'Intégration SCADA central', type: 'tache', responsable: 'Siemens', dateDebut: '01/01/2026', dateFin: '31/12/2026', avancement: 0, statut: 'non_demarre', dependances: ['2.3.1'], budgetEngagePct: 0 },
-          { id: 'P2-3-3', code: '2.3.3', label: 'Mise en service Smartgrid', type: 'jalon', responsable: 'DIT / DER', dateDebut: '31/03/2027', dateFin: '31/03/2027', avancement: 0, statut: 'non_demarre', dependances: ['2.3.2'] },
-        ],
-      },
-    ],
-  },
-];
+const WBS_DATA_INITIAL: WBSNode[] = [];
 
 /* ── Template modèle Électrification Rurale ──────────────────────────────── */
 const TEMPLATE_ELECTRIFICATION: WBSNode[] = [
@@ -540,6 +455,7 @@ function EPSBreadcrumb() {
    COMPOSANT PRINCIPAL
 ══════════════════════════════════════════════════════════════════════════════ */
 export default function WBS() {
+  const router   = useRouter();
   const store    = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
   const prgStore = useProgrammeStore();
   const { user } = useAuth();
@@ -815,6 +731,13 @@ export default function WBS() {
 
       {/* ── EPS Breadcrumb ── */}
       <EPSBreadcrumb />
+
+      {/* ── Back button ── */}
+      <div style={{ padding: '8px 16px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 7, border: '1px solid #E2E8F0', background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+          <ChevronLeft size={13} /> Retour
+        </button>
+      </div>
 
       {/* ── KPIs ── */}
       <div className="kpi-grid" style={{ padding: '12px 16px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0, gap: 10 }}>

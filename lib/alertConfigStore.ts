@@ -1,12 +1,12 @@
 /**
- * alertConfigStore.ts — Configuration des canaux d'alerte (SIGEPP-DPE).
+ * alertConfigStore.ts — Configuration des canaux d'alerte (SIGEP-DPE).
  *
  * Permet de paramétrer les canaux de notification (Email, SMS, WhatsApp,
  * notification interne, webhook/Teams) et, par type d'événement métier
  * (échéance décompte, dépassement budget, retard jalon, alerte SLA…),
  * de choisir quels canaux sont déclenchés et leur seuil.
  *
- * Persistance localStorage (clé `sigepp-alert-config`).
+ * Persistance localStorage (clé `sigep-alert-config`).
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -55,7 +55,7 @@ const DEFAULT_CANAUX: CanalConfig[] = [
   { id: 'email',    label: 'Email',                 actif: true,  cible: 'dpe-alertes@senelec.sn', parametre: 'SMTP SENELEC' },
   { id: 'sms',      label: 'SMS',                   actif: true,  cible: '+221 77 000 00 00',      parametre: 'Passerelle SMS' },
   { id: 'whatsapp', label: 'WhatsApp',              actif: false, cible: '+221 77 000 00 00',      parametre: 'WhatsApp Business API' },
-  { id: 'interne',  label: 'Notification interne',  actif: true,  cible: 'Cloche SIGEPP',          parametre: '' },
+  { id: 'interne',  label: 'Notification interne',  actif: true,  cible: 'Cloche SIGEP',          parametre: '' },
   { id: 'webhook',  label: 'Webhook / Teams',       actif: false, cible: 'https://…/webhook',      parametre: 'Microsoft Teams' },
 ];
 
@@ -92,7 +92,7 @@ export const useAlertConfig = create<AlertState>()(
         regles: DEFAULT_REGLES.map(r => ({ ...r, canaux: [...r.canaux] })),
       }),
     }),
-    { name: 'sigepp-alert-config' },
+    { name: 'sigep-alert-config' },
   ),
 );
 

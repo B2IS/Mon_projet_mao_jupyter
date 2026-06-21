@@ -508,7 +508,8 @@ export default function Risques() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as const }}>
+        <div style={{ display: 'flex', gap: 16, minWidth: 480 }}>
           {/* Matrix */}
           <div style={{ flex: 1 }}>
             {/* Impact axis header */}
@@ -582,6 +583,7 @@ export default function Risques() {
             </div>
           )}
         </div>
+        </div>{/* /scroll-wrapper */}
       </div>
 
       {/* ── Row 3: Charts ──────────────────────────────────────────────────── */}

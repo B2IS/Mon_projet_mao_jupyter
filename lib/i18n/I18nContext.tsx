@@ -1,5 +1,5 @@
 /**
- * I18nContext.tsx — Système de traduction SIGEPP-DPE (FR/EN)
+ * I18nContext.tsx — Système de traduction SIGEP-DPE (FR/EN)
  * Sans dépendance externe lourde : Context React + useState localStorage
  */
 

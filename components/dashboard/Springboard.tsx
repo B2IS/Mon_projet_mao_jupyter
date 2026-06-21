@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Springboard — Tableau de bord Chef de Projet / PMO (SIGEPP-DPE)
+ * Springboard — Tableau de bord Chef de Projet / PMO (SIGEP-DPE)
  * Inspiré du Springboard Oracle SIGP PPM (Guide p.41) + contexte DPE SENELEC.
  * Sections : Mes Projets (RAG) · Ressources (heures hebdo) · Incidents
  */
@@ -196,7 +196,7 @@ export default function Springboard() {
       <div style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #1B4F8A 100%)`, padding: '16px 24px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ color: '#fff', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>Springboard — Tableau de Bord Chef de Projet</div>
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>Portail Projet — Tableau de Bord Chef de Projet</div>
             <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 2 }}>
               Portefeuille DPE · {kpis.total} projets actifs · Mis à jour {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
             </div>
@@ -244,7 +244,7 @@ export default function Springboard() {
       </div>
 
       {/* ── TABS ── */}
-      <div style={{ display: 'flex', gap: 0, padding: '0 24px', borderBottom: '2px solid #E2E8F0', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 0, padding: '0 24px', borderBottom: '2px solid #E2E8F0', flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
         {(['projets', 'ressources', 'incidents'] as SpringTab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={{ padding: '10px 20px', border: 'none', background: 'transparent', fontWeight: 700, fontSize: 12, cursor: 'pointer', color: tab === t ? PURPLE : '#64748B', borderBottom: tab === t ? `2px solid ${PURPLE}` : '2px solid transparent', marginBottom: -2, fontFamily: 'inherit' }}>

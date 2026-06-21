@@ -74,7 +74,7 @@ export const useIntegrationConfig = create<IntegrationConfigState>()(
       resetCopilot: () => set({ copilot: { ...DEFAULT_COPILOT } }),
     }),
     {
-      name: 'sigepp-integration-config',
+      name: 'sigep-integration-config',
       partialize: (state) => ({ arcgis: state.arcgis, copilot: state.copilot }),
     }
   )

@@ -121,6 +121,6 @@ export const usePVMESStore = create<PVMESState>()(
         };
       }),
     }),
-    { name: 'sigepp-pv-mes' }
+    { name: 'sigep-pv-mes' }
   )
 );

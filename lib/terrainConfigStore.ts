@@ -188,7 +188,7 @@ export const useTerrainConfigStore = create<TerrainConfigState>()(
         Object.values(get().templates).sort((a, b) =>
           a.domaine === b.domaine ? a.label.localeCompare(b.label) : a.domaine.localeCompare(b.domaine)),
     }),
-    { name: 'sigepp-terrain-config' }
+    { name: 'sigep-terrain-config' }
   )
 );
 

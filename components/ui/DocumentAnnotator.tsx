@@ -96,7 +96,7 @@ export default function DocumentAnnotator({
   author?: string;
 }) {
   /* ── Clé localStorage unique par document ── */
-  const annKey = `sigepp-annotations-${doc.nom.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+  const annKey = `sigep-annotations-${doc.nom.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
 
   /* ── État ── */
   const [tool, setTool]               = useState<Tool>('select');
@@ -106,7 +106,7 @@ export default function DocumentAnnotator({
     // Charge les annotations persistées au montage
     if (typeof window === 'undefined') return [];
     try {
-      const raw = localStorage.getItem(`sigepp-annotations-${doc.nom.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`);
+      const raw = localStorage.getItem(`sigep-annotations-${doc.nom.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   });

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * TableauDeBord.tsx — Cockpit Exécutif SIGEPP-DPE
+ * TableauDeBord.tsx — Cockpit Exécutif SIGEP-DPE
  * Canevas A (SDD §19) : vue de pilotage direction/PMO
  * Données temps-réel depuis useProjectStore()
  */
@@ -69,7 +69,7 @@ const SCURVE = [
 ];
 
 /* ─── Drawer projet ──────────────────────────────────────── */
-function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void }) {
+function ProjetDrawer({ projet, onClose, ressources }: { projet: Projet; onClose: () => void; ressources: { id: string; nom: string; prenom: string }[] }) {
   const dcfg = DOMAINE_CFG[projet.domaine as Domaine];
   const scfg = STATUT_CFG[projet.statut as StatutProjet];
   const engPct = projet.budget > 0 ? Math.round((projet.budgetDecaisse / projet.budget) * 100) : 0;
@@ -177,9 +177,13 @@ function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Équipe ({projet.equipe.length})</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {projet.equipe.map(id => (
-                  <span key={id} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#EFF6FF', color: C.navy, fontWeight: 600 }}>{id}</span>
-                ))}
+                {projet.equipe.map(id => {
+                  const r = ressources.find(res => res.id === id);
+                  const name = r ? `${r.prenom} ${r.nom}`.trim() : id;
+                  return (
+                    <span key={id} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#EFF6FF', color: C.navy, fontWeight: 600 }}>{name}</span>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -266,9 +270,27 @@ export default function TableauDeBord() {
     }, 450);
   };
 
+  /* ── Périmètre utilisateur — chaque profil ne voit que ses projets ── */
+  const projetsPerimetre = useMemo(() => {
+    const all = store.projets;
+    if (isRole('DIR_DPE', 'ADMIN', 'CHEF_CELLULE', 'EXPERT_SE', 'EXPERT_PMO', 'COORDINATEUR', 'DIRECTEUR', 'CONSEILLER')) return all;
+    if (isRole('CHEF_DEPT', 'RAF', 'MARCHES', 'SPM', 'SIG', 'IMMO', 'COMPTABLE', 'HSE')) {
+      const dir = (user?.direction ?? '').toUpperCase();
+      if (!dir || dir === 'EM_DPE') return all;
+      // Filtrage par département projet (DPD_DISTRIBUTION ⊃ DER, DPT_TRANSPORT ⊃ DER, DEP_* ⊃ DEP…)
+      return all.filter(p => (p.departement ?? '').toUpperCase().includes(dir) || (p.domaine ?? '').toUpperCase().includes(dir));
+    }
+    // Chef de projet / Ingénieur / Contrôleur : uniquement leurs projets
+    if (isRole('CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'ASSISTANT_PROJ', 'DESSINATEUR')) {
+      const nom = `${user?.prenom ?? ''} ${user?.nom ?? ''}`.trim();
+      return all.filter(p => p.chefProjet === nom || (p.equipe ?? []).some(id => id === user?.id || id === nom));
+    }
+    return all;
+  }, [store.projets, user, isRole]);
+
   /* ── Computed metrics ── */
   const metrics = useMemo(() => {
-    const p = store.projets;
+    const p = projetsPerimetre;
     const filtered = p
       .filter(pr => filtreDomaine === 'tous' || pr.domaine === filtreDomaine)
       .filter(pr => filtreStatut  === 'tous' || pr.statut  === filtreStatut);
@@ -488,7 +510,7 @@ export default function TableauDeBord() {
                   </div>
                 </div>
                 <table><thead><tr><th>Code</th><th>Projet</th><th style="text-align:right">Avancement</th><th style="text-align:right">CPI</th><th style="text-align:right">SPI</th></tr></thead><tbody>${rows}</tbody></table>
-                <div class="footer">CONFIDENTIEL — Usage interne SENELEC · Document généré par SIGEPP-DPE</div>
+                <div class="footer">CONFIDENTIEL — Usage interne SENELEC · Document généré par SIGEP-DPE</div>
                 <script>window.onload=()=>window.print()</script>
               </body></html>`);
               w.document.close();
@@ -816,7 +838,7 @@ export default function TableauDeBord() {
                   <Calendar size={13} style={{ color: C.purple }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Prochains jalons</span>
                 </div>
-                {store.projets.flatMap(pr =>
+                {metrics.filtered.flatMap(pr =>
                   pr.jalons.filter(j => !j.atteint).map(j => ({
                     ...j, code: pr.code, dom: pr.domaine as Domaine,
                   }))
@@ -833,7 +855,7 @@ export default function TableauDeBord() {
                     </div>
                   );
                 })}
-                {store.projets.flatMap(pr => pr.jalons.filter(j => !j.atteint)).length === 0 && (
+                {metrics.filtered.flatMap(pr => pr.jalons.filter(j => !j.atteint)).length === 0 && (
                   <div style={{ padding: 24, textAlign: 'center', color: C.slate, fontSize: 12 }}>Aucun jalon à venir</div>
                 )}
               </div>
@@ -993,7 +1015,7 @@ export default function TableauDeBord() {
       </div>
 
       {/* ══ DRAWER ══════════════════════════════════════════════ */}
-      {drawer && <ProjetDrawer projet={drawer} onClose={() => setDrawer(null)} />}
+      {drawer && <ProjetDrawer projet={drawer} onClose={() => setDrawer(null)} ressources={store.ressources} />}
     </div>
   );
 }
@@ -1040,8 +1062,6 @@ function SupportCockpit({ role, router }: { role: string; router: ReturnType<typ
         { label: 'Ressources Humaines', desc: 'logistique RH', href: '/rh', icon: <Users size={18} />, accent: C.green },
         { label: 'Réservation de salle', desc: 'salles · équipements · réunions', href: '/reservation-salle', icon: <Calendar size={18} />, accent: C.orange },
         { label: 'Courriers', desc: 'entrants · sortants · parapheur', href: '/courriers', icon: <Bell size={18} />, accent: '#0891B2' },
-        { label: 'Réceptions & Appui', desc: 'support logistique projets', href: '/receptions', icon: <CheckCircle2 size={18} />, accent: C.green },
-        { label: 'Patrimoine & Inventaire', desc: 'mobilier · équipements', href: '/immobilisations', icon: <Layers size={18} />, accent: C.slate },
         { label: 'GED & Documents', desc: 'classement · archivage', href: '/ged', icon: <Folder size={18} />, accent: C.navy },
       ],
     },

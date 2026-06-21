@@ -780,7 +780,7 @@ function AIAdvisoryPanel({ project, CPI, SPI, EAC, BAC, EV, AC, CV }: AIAdvisory
           </div>
         </div>
         <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', background: '#F3F0FF', color: '#7C3AED', borderRadius: 20, flexShrink: 0 }}>
-          SIGEPP-DPE · EVM
+          SIGEP-DPE · EVM
         </span>
         {open ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
       </button>

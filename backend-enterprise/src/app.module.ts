@@ -32,7 +32,7 @@ import { LowcodeModule } from './modules/lowcode/lowcode.module';
 import { AdminModule } from './modules/admin/admin.module';
 
 /**
- * AppModule — SIGEPP-DPE Backend Enterprise (NestJS / DDD / CQRS / Event-Driven).
+ * AppModule — SIGEP-DPE Backend Enterprise (NestJS / DDD / CQRS / Event-Driven).
  * Plateforme ORGANIZATION-DRIVEN : l'organisation est le référentiel maître ;
  * tout objet métier (projet, marché, budget, KPI, risque, immo, doc, mission,
  * workflow, agent IA) hérite automatiquement de sa sécurité via `orgPath`.

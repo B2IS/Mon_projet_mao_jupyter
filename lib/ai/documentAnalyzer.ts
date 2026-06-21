@@ -26,7 +26,7 @@ const MOONSHOT_VISION_MODEL = 'moonshot-v1-32k';
 
 function getGroqClientKey(): string {
   if (typeof window !== 'undefined') {
-    const s = localStorage.getItem('sigepp_groq_key');
+    const s = localStorage.getItem('sigep_groq_key');
     if (s?.startsWith('gsk_')) return s;
   }
   return '';

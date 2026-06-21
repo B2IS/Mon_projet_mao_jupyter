@@ -116,43 +116,7 @@ function genererFactures(fournisseurId: string, taux: number): Facture[] {
   });
 }
 
-const FOURNISSEURS_INITIAUX: Fournisseur[] = [
-  {
-    id: 'F001', code: 'F-SATEG-001', raisonSociale: 'SATEG Sénégal', type: 'Génie Civil', statut: 'actif',
-    contact: 'Mamadou BA', email: 'm.ba@sateg.sn', telephone: '+221 33 824 12 00', adresse: 'Zone industrielle, Parcelles Assainies', ville: 'Dakar',
-    ninea: '005162652', rc: 'SN-DKR-2015-B-11234', iban: 'SN08 SNIB 0123 4567 8901 2345', banque: 'SGBS',
-    agregeSenelec: true, dateAgrement: '2018-03-15', delaiPaiementContractuel: 30, tauxInteretMoratoire: TAUX_LEGAL_DEFAUT,
-    factures: genererFactures('F001', TAUX_LEGAL_DEFAUT),
-  },
-  {
-    id: 'F002', code: 'F-AFRICA-002', raisonSociale: 'Africa Poles Ltd', type: 'Fournitures électriques', statut: 'actif',
-    contact: 'Aminata DIOP', email: 'contact@africapoles.com', telephone: '+221 33 889 45 00', adresse: 'Sicap Liberté, Villa n°45', ville: 'Dakar',
-    ninea: '003284712', rc: 'SN-DKR-2012-B-08912', iban: 'SN05 CBAO 0099 1122 3344 5566', banque: 'CBAO',
-    agregeSenelec: true, dateAgrement: '2016-07-20', delaiPaiementContractuel: 45, tauxInteretMoratoire: 10.5,
-    factures: genererFactures('F002', 10.5),
-  },
-  {
-    id: 'F003', code: 'F-TRACT-003', raisonSociale: 'Tractebel Engineering', type: 'Bureau d\'études', statut: 'actif',
-    contact: 'Jean-Pierre MARTIN', email: 'jp.martin@tractebel.engie.com', telephone: '+32 2 773 98 00', adresse: 'Avenue Ariane 7', ville: 'Bruxelles',
-    ninea: 'N/A — UE', rc: 'BE 0403.471.292', iban: 'BE68 5390 0754 7034', banque: 'ING Belgique',
-    agregeSenelec: true, dateAgrement: '2019-01-10', delaiPaiementContractuel: 60, tauxInteretMoratoire: 8.0,
-    factures: genererFactures('F003', 8.0),
-  },
-  {
-    id: 'F004', code: 'F-COLAS-004', raisonSociale: 'Colas Sénégal SA', type: 'VRD / Génie Civil', statut: 'actif',
-    contact: 'Ibrahima SOW', email: 'i.sow@colas.sn', telephone: '+221 33 832 15 00', adresse: 'Route de Rufisque, KM 5', ville: 'Dakar',
-    ninea: '004562198', rc: 'SN-DKR-2010-B-06789', iban: 'SN12 BICIS 0077 8899 0011 2233', banque: 'BICIS',
-    agregeSenelec: true, dateAgrement: '2015-11-05', delaiPaiementContractuel: 30, tauxInteretMoratoire: TAUX_LEGAL_DEFAUT,
-    factures: genererFactures('F004', TAUX_LEGAL_DEFAUT),
-  },
-  {
-    id: 'F005', code: 'F-ECO-005', raisonSociale: 'ÉcoÉnergie SARL', type: 'Solaire / Renouvelable', statut: 'suspendu',
-    contact: 'Fatou DIAW', email: 'f.diaw@ecoenergie.sn', telephone: '+221 77 654 32 10', adresse: 'Mermoz, Résidence du Parc', ville: 'Dakar',
-    ninea: '006789345', rc: 'SN-DKR-2021-B-02345', iban: 'SN09 NSIA 0101 0202 0303 0404', banque: 'NSIA',
-    agregeSenelec: false, delaiPaiementContractuel: 30, tauxInteretMoratoire: 11.0,
-    factures: genererFactures('F005', 11.0),
-  },
-];
+const FOURNISSEURS_INITIAUX: Fournisseur[] = [];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    COMPOSANT PRINCIPAL
@@ -300,7 +264,7 @@ export default function Fournisseurs() {
     </style></head><body>
       <div class="bar"></div>
       <div style="margin-bottom:12px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:44px;width:auto;display:block" /></div>
-      <div class="logo">SENELEC · SIGEPP-DPE · Gestion Fournisseurs</div>
+      <div class="logo">SENELEC · SIGEP-DPE · Gestion Fournisseurs</div>
       <h1>État des dettes et intérêts moratoires</h1>
       <div class="meta">Généré le 28/05/2026 · Taux légal : BCEAO ${TAUX_BCEAO}% + 5 points = ${TAUX_LEGAL_DEFAUT}%</div>
       <div class="alert">⚠️ Les intérêts moratoires sont calculés selon l'arrêté interministériel fixant le taux de l'intérêt légal (BCEAO + 5 points). Le montant total des intérêts cumulés est de <strong>${fmtN2(kpis.totalInterets)} FCFA</strong>.</div>
@@ -312,7 +276,7 @@ export default function Fournisseurs() {
       <table><thead><tr><th>Code</th><th>Raison sociale</th><th>Type</th><th style="text-align:right">Montant dû</th><th style="text-align:right">Intérêts moratoires</th><th style="text-align:center">Factures en retard</th><th>Statut</th></tr></thead>
       <tbody>${rows}</tbody>
       </table>
-      <div class="footer"><span>CONFIDENTIEL — Usage interne SENELEC · SIGEPP-DPE uniquement</span><span>Document généré par SIGEPP-DPE · 28/05/2026</span></div>
+      <div class="footer"><span>CONFIDENTIEL — Usage interne SENELEC · SIGEP-DPE uniquement</span><span>Document généré par SIGEP-DPE · 28/05/2026</span></div>
     </body></html>`);
     pw.document.close(); setTimeout(() => pw.print(), 500);
   };

@@ -1,4 +1,4 @@
-# SIGEPP-DPE — Documentation Technique
+# SIGEP-DPE — Documentation Technique
 ## Système Intégré de Gestion et de Pilotage de Projets — Direction Principale Équipement
 
 **SENELEC · Direction Principale Équipement (DPE)**
@@ -29,11 +29,11 @@
 
 ### Idée centrale
 
-SIGEPP-DPE est une **solution digitale intégrée** construite autour de **7 composantes interconnectées**, avec le **SIG comme socle central** garantissant la cohérence et la fiabilité de l'ensemble des données :
+SIGEP-DPE est une **solution digitale intégrée** construite autour de **7 composantes interconnectées**, avec le **SIG comme socle central** garantissant la cohérence et la fiabilité de l'ensemble des données :
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    SIGEPP-DPE — SIGEPP Portefeuille                 │
+│                    SIGEP-DPE — SIGEP Portefeuille                 │
 │                                                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
 │  │  Outils GP   │  │     BI       │  │         GED              │  │
@@ -275,8 +275,8 @@ Python >= 3.11
 ### Étape 1 — Cloner le dépôt
 
 ```bash
-git clone https://github.com/senelec-dpe/sigepp-dpe.git
-cd sigepp-dpe
+git clone https://github.com/senelec-dpe/sigep-dpe.git
+cd sigep-dpe
 ```
 
 ### Étape 2 — Configurer les variables d'environnement
@@ -320,12 +320,12 @@ docker compose exec backend python scripts/seed_demo.py
 
 ### Étape 5 — Configurer Nginx (reverse proxy)
 
-Créer `/etc/nginx/sites-available/sigepp-dpe` :
+Créer `/etc/nginx/sites-available/sigep-dpe` :
 
 ```nginx
 server {
     listen 80;
-    server_name sigepp.senelec.sn;
+    server_name sigep.senelec.sn;
 
     # Redirection HTTPS
     return 301 https://$host$request_uri;
@@ -333,10 +333,10 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name sigepp.senelec.sn;
+    server_name sigep.senelec.sn;
 
-    ssl_certificate /etc/ssl/certs/sigepp.crt;
-    ssl_certificate_key /etc/ssl/private/sigepp.key;
+    ssl_certificate /etc/ssl/certs/sigep.crt;
+    ssl_certificate_key /etc/ssl/private/sigep.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
@@ -372,7 +372,7 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/sigepp-dpe /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/sigep-dpe /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -400,8 +400,8 @@ docker compose exec backend python scripts/create_admin.py \
 
 | Service | URL | Statut attendu |
 |---------|-----|---------------|
-| Frontend SIGEPP-DPE | `https://sigepp.senelec.sn` | Page de login |
-| API Backend | `https://sigepp.senelec.sn/api/docs` | Swagger UI |
+| Frontend SIGEP-DPE | `https://sigep.senelec.sn` | Page de login |
+| API Backend | `https://sigep.senelec.sn/api/docs` | Swagger UI |
 | PostgreSQL | `localhost:5432` | Connexion DB |
 | Ollama LLM | `http://localhost:11434` | `{"models":[...]}` |
 
@@ -448,7 +448,7 @@ const CartoMap = dynamic(() => import('@/components/dashboard/CartoMap'), { ssr:
 
 ```env
 # API Backend
-NEXT_PUBLIC_API_URL=https://sigepp.senelec.sn/api
+NEXT_PUBLIC_API_URL=https://sigep.senelec.sn/api
 
 # Supabase (optionnel si PostgreSQL local)
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
@@ -469,7 +469,7 @@ NEXT_PUBLIC_APP_VERSION=1.0.0
 
 ```env
 # Base de données
-DATABASE_URL=postgresql://sigepp:sigepp2026@localhost:5432/sigepp_dpe
+DATABASE_URL=postgresql://sigep:sigep2026@localhost:5432/sigep_dpe
 
 # Supabase
 SUPABASE_URL=https://xxxxx.supabase.co
@@ -490,8 +490,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 # Environnement
 APP_ENV=production
 DEBUG=False
-ALLOWED_HOSTS=sigepp.senelec.sn,localhost
-CORS_ORIGINS=https://sigepp.senelec.sn
+ALLOWED_HOSTS=sigep.senelec.sn,localhost
+CORS_ORIGINS=https://sigep.senelec.sn
 ```
 
 ---
@@ -629,7 +629,7 @@ Le backend bascule automatiquement sur Ollama si Anthropic n'est pas configuré.
 SECRET_KEY=$(openssl rand -hex 32)
 
 # 2. HTTPS obligatoire — certificat Let's Encrypt
-certbot --nginx -d sigepp.senelec.sn
+certbot --nginx -d sigep.senelec.sn
 
 # 3. Firewall — n'exposer que les ports nécessaires
 ufw allow 22/tcp    # SSH
@@ -639,7 +639,7 @@ ufw deny 5432       # PostgreSQL (jamais public)
 ufw deny 11434      # Ollama (interne uniquement)
 
 # 4. Backups PostgreSQL automatiques
-0 2 * * * docker compose exec postgres pg_dump -U sigepp sigepp_dpe | gzip > /backups/sigepp_$(date +%Y%m%d).sql.gz
+0 2 * * * docker compose exec postgres pg_dump -U sigep sigep_dpe | gzip > /backups/sigep_$(date +%Y%m%d).sql.gz
 ```
 
 ---
@@ -654,7 +654,7 @@ docker compose logs -f --tail=100 frontend
 docker compose logs -f --tail=100 backend
 
 # Logs structurés (structlog JSON)
-docker compose exec backend cat /app/logs/sigepp.log | python3 -m json.tool
+docker compose exec backend cat /app/logs/sigep.log | python3 -m json.tool
 ```
 
 ### Mise à jour de l'application
@@ -681,10 +681,10 @@ docker compose exec backend alembic upgrade head
 curl http://localhost:8000/metrics
 
 # Métriques clés à surveiller
-sigepp_api_requests_total
-sigepp_ai_inference_duration_seconds
-sigepp_db_connections_active
-sigepp_document_extractions_total
+sigep_api_requests_total
+sigep_ai_inference_duration_seconds
+sigep_db_connections_active
+sigep_document_extractions_total
 ```
 
 ---
@@ -725,7 +725,7 @@ Direction Principale Équipement (DPE)
 
 Projet de référence : **Projet Régional d'Accès à l'Électricité de la CEDEAO (ECOWAS-REAP)**, Composante 1.
 
-| Préoccupation projet BEST | Prise en compte dans SIGEPP-DPE |
+| Préoccupation projet BEST | Prise en compte dans SIGEP-DPE |
 |---------------------------|----------------------------------|
 | Suivi 3 lots (Ziguinchor/Sédhiou, Kolda, Kédougou/Tamba/Kaolack) | Filtrage par région/direction dans tous les modules |
 | 6 régions d'intervention | Cartographie SIG avec couches régionales |
@@ -754,4 +754,4 @@ Projet de référence : **Projet Régional d'Accès à l'Électricité de la CED
 
 ---
 
-*Document généré par SIGEPP-DPE — Juin 2026 — CONFIDENTIEL SENELEC*
+*Document généré par SIGEP-DPE — Juin 2026 — CONFIDENTIEL SENELEC*

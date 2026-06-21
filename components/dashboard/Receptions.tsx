@@ -102,11 +102,7 @@ const IMMO_CFG: Record<StatutImmo, { label: string; color: string; bg: string }>
   transfere:     { label: 'Transféré exploitation', color: '#16A34A', bg: '#DCFCE7' },
   reforme:       { label: 'Réformé',       color: '#64748B', bg: '#F1F5F9' },
 };
-const IMMOS_DEMO: Immobilisation[] = [
-  { id: 'im1', code: 'IMMO-2026-0145', designation: 'Lignes HTA 33kV — 45 km (Lot Nord)', projetOrigine: 'Électrification Rurale 19 Localités — Thiès', categorie: 'Réseau HTA', dateMiseEnService: '2026-04-30', valeurAcquisition: 1_240_000_000, dureeAmortissement: 30, uniteAffectataire: 'Direction Exploitation Réseaux — Thiès', statut: 'transfere' },
-  { id: 'im2', code: 'IMMO-2026-0146', designation: '12 Postes de transformation H61', projetOrigine: 'Électrification Rurale 19 Localités — Thiès', categorie: 'Postes', dateMiseEnService: '2026-04-30', valeurAcquisition: 186_000_000, dureeAmortissement: 25, uniteAffectataire: 'Direction Exploitation Réseaux — Thiès', statut: 'en_service' },
-  { id: 'im3', code: 'IMMO-2026-0151', designation: 'Réseau BT — 120 km (extension)', projetOrigine: 'Extension BT — Oumy Diallo', categorie: 'Réseau BT', dateMiseEnService: '2026-05-15', valeurAcquisition: 540_000_000, dureeAmortissement: 20, uniteAffectataire: 'Direction Distribution', statut: 'a_immobiliser' },
-];
+const IMMOS_DEMO: Immobilisation[] = [];
 
 /* ─── Moteur IA d'aide à l'immobilisation (human-in-the-loop) ───
  * À partir des PV définitifs validés, l'IA PROPOSE des fiches d'immobilisation
@@ -244,153 +240,10 @@ function genererPropositionsImmo(pvds: PVD[], immosExistants: Immobilisation[]):
 const propLbl: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.03em', minWidth: 0 };
 const propInp: CSSProperties = { fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid #E2E8F0', color: '#1E293B', fontWeight: 500, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' };
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const PVPS: PVP[] = [
-  {
-    id: 'pvp1', ref: 'PVP-DER-2026-001', projet: 'Électrification Rurale 19 Localités — Thiès',
-    localite: 'Ndiaye (L001)', dateVisite: '20/05/2026', entreprise: 'ELEC AFRIQUE SARL',
-    nbReserves: 3, statut: 'EN_COURS', avancement: 33,
-    reserves: [
-      { id: 'r1', description: 'Clôture périmètre poste électrique incomplète (côté Nord)', delai: '30/06/2026', responsable: 'ELEC AFRIQUE SARL', statut: 'en_cours',  dateSignalement: '20/05/2026' },
-      { id: 'r2', description: 'Panneau signalisation manquant — 3 emplacements route principale', delai: '15/06/2026', responsable: 'Chef Projet DER', statut: 'levee', dateSignalement: '20/05/2026', dateLevee: '28/05/2026' },
-      { id: 'r3', description: 'Documentation As-Built incomplète — plans génie civil', delai: '10/06/2026', responsable: 'ELEC AFRIQUE SARL', statut: 'ouverte', dateSignalement: '20/05/2026' },
-    ],
-  },
-  {
-    id: 'pvp2', ref: 'PVP-DEP-2026-002', projet: 'Réhabilitation Centrale Cap des Biches',
-    localite: 'Cap des Biches — TAG 1', dateVisite: '15/05/2026', entreprise: 'GE POWER AFRICA',
-    nbReserves: 1, statut: 'EN_COURS', avancement: 0,
-    reserves: [
-      { id: 'r4', description: 'Essais protection différentielle TAG 1 — résultats non conformes (dépassement seuil 8%)', delai: '20/06/2026', responsable: 'GE POWER AFRICA', statut: 'ouverte', dateSignalement: '15/05/2026' },
-    ],
-  },
-  {
-    id: 'pvp3', ref: 'PVP-CC26-2026-003', projet: 'Ligne 225 kV Tobène–Thiès–Hann',
-    localite: 'Tronçon Tobène–Thiès Lot 1', dateVisite: '05/07/2026', entreprise: 'TRACTEBEL ENGINEERING SA',
-    nbReserves: 0, statut: 'EN_COURS', avancement: 0,
-    reserves: [],
-  },
-  {
-    id: 'pvp4', ref: 'PVP-DIT-2026-004', projet: 'Déploiement compteurs AMI',
-    localite: 'Dakar Plateau — Zone A', dateVisite: '10/05/2026', entreprise: 'LANDIS+GYR AFRICA',
-    nbReserves: 2, statut: 'VALIDE', avancement: 100,
-    reserves: [
-      { id: 'r5', description: 'Configuration GPRS lot 230 compteurs — paramètres réseau incorrects', delai: '25/05/2026', responsable: 'LANDIS+GYR AFRICA', statut: 'levee', dateSignalement: '10/05/2026', dateLevee: '22/05/2026' },
-      { id: 'r6', description: 'Certificats étalonnage manquants pour 45 compteurs', delai: '20/05/2026', responsable: 'METROLOGIE SENELEC', statut: 'levee', dateSignalement: '10/05/2026', dateLevee: '18/05/2026' },
-    ],
-  },
-  {
-    id: 'pvp5', ref: 'PVP-DGC-2026-005', projet: 'Construction siège régional Saint-Louis',
-    localite: 'Saint-Louis — Bâtiment principal', dateVisite: '28/04/2026', entreprise: 'SABER CONSTRUCTION SARL',
-    nbReserves: 4, statut: 'EN_COURS', avancement: 25,
-    reserves: [
-      { id: 'r7', description: 'Fissures façade Est — cartographie et injection résine requise', delai: '15/06/2026', responsable: 'SABER CONSTRUCTION SARL', statut: 'ouverte', dateSignalement: '28/04/2026' },
-      { id: 'r8', description: 'Système incendie non conforme NFPA — remplacement sprinklers salle serveurs', delai: '30/06/2026', responsable: 'SABER CONSTRUCTION SARL', statut: 'en_cours', dateSignalement: '28/04/2026' },
-      { id: 'r9', description: 'Clim VRF salle réunion — débit insuffisant (60% capacité nominale)', delai: '20/06/2026', responsable: 'SABER CONSTRUCTION SARL', statut: 'ouverte', dateSignalement: '28/04/2026' },
-      { id: 'r10', description: 'Parkings — marquage au sol non réalisé', delai: '10/06/2026', responsable: 'SABER CONSTRUCTION SARL', statut: 'levee', dateSignalement: '28/04/2026', dateLevee: '15/05/2026' },
-    ],
-  },
-  {
-    id: 'pvp6', ref: 'PVP-DER-2026-006', projet: 'PADERAU — Réseau HTA/BT zones rurales',
-    localite: 'Zone 2 — Kaolack', dateVisite: '22/05/2026', entreprise: 'EFACEC ENERGY SPA',
-    nbReserves: 2, statut: 'EN_COURS', avancement: 50,
-    reserves: [
-      { id: 'r11', description: 'Équipements HTA non conformes norme CEI 62271 — lot transformateurs', delai: '15/07/2026', responsable: 'EFACEC ENERGY SPA', statut: 'ouverte', dateSignalement: '22/05/2026' },
-      { id: 'r12', description: 'Plan as-built réseau BT incomplet — 12 rues manquantes', delai: '10/07/2026', responsable: 'EFACEC ENERGY SPA', statut: 'levee', dateSignalement: '22/05/2026', dateLevee: '18/05/2026' },
-    ],
-  },
-  {
-    id: 'pvp7', ref: 'PVP-CPADERAU-2026-007', projet: 'PADERAU — Réseau HTA/BT zones rurales',
-    localite: 'Zone 3 — Diourbel', dateVisite: '18/05/2026', entreprise: 'EFACEC ENERGY SPA',
-    nbReserves: 0, statut: 'VALIDE', avancement: 100,
-    reserves: [],
-  },
-  {
-    id: 'pvp8', ref: 'PVP-DGC-2026-008', projet: 'Construction siège régional SENELEC — Ziguinchor',
-    localite: 'Ziguinchor — Bâtiment administratif', dateVisite: '05/05/2026', entreprise: 'SABER CONSTRUCTION SARL',
-    nbReserves: 1, statut: 'REJETE', avancement: 0,
-    reserves: [
-      { id: 'r13', description: 'Travaux structurels non conformes — béton armé hors tolérances DTU', delai: '—', responsable: 'SABER CONSTRUCTION SARL', statut: 'ouverte', dateSignalement: '05/05/2026' },
-    ],
-  },
-];
-
-const PVDS: PVD[] = [
-  {
-    id: 'pvd1', ref: 'PVD-CPBM-2026-001', projet: 'PASE — Accès électricité zones péri-urbaines',
-    localite: 'Dakar — Guédiawaye Lot 1', lot: 'Lot 1',
-    dateVisite: '01/04/2026', entreprise: 'ABB SENEGAL SA',
-    delaiGarantie: '01/04/2027', retenueLibere: true,
-    statut: 'VALIDE', avancement: 100,
-    reserves: [],
-  },
-  {
-    id: 'pvd2', ref: 'PVD-DER-2026-002', projet: 'Électrification Rurale 19 Localités — Thiès',
-    localite: 'Ngoyah (L003)', lot: undefined,
-    dateVisite: '15/04/2026', entreprise: 'ELEC AFRIQUE SARL',
-    delaiGarantie: '15/04/2027', retenueLibere: false,
-    statut: 'EN_COURS', avancement: 50,
-    reserves: [
-      { id: 'rd1', description: 'Transformateur 160 kVA présente vibrations anormales en charge', delai: '30/06/2026', responsable: 'ABB SENEGAL SA', statut: 'en_cours', dateSignalement: '15/04/2026' },
-      { id: 'rd2', description: 'Documentation maintenance préventive manquante', delai: '15/06/2026', responsable: 'ELEC AFRIQUE SARL', statut: 'levee', dateSignalement: '15/04/2026', dateLevee: '10/05/2026' },
-    ],
-  },
-  {
-    id: 'pvd3', ref: 'PVD-DEP-2026-003', projet: 'Réhabilitation Centrale Cap des Biches',
-    localite: 'Cap des Biches — TAG 2', lot: 'TAG 2',
-    dateVisite: '20/03/2026', entreprise: 'GE POWER AFRICA',
-    delaiGarantie: '20/03/2027', retenueLibere: true,
-    statut: 'VALIDE', avancement: 100,
-    reserves: [],
-  },
-  {
-    id: 'pvd4', ref: 'PVD-DIT-2026-004', projet: 'Déploiement compteurs AMI',
-    localite: 'Pikine — Zones B & C', lot: 'Lot 2',
-    dateVisite: '10/05/2026', entreprise: 'LANDIS+GYR AFRICA',
-    delaiGarantie: '10/05/2027', retenueLibere: false,
-    statut: 'EN_COURS', avancement: 0,
-    reserves: [
-      { id: 'rd3', description: 'Firmware compteurs v3.1 — bug lecture heure creuse nuit', delai: '15/06/2026', responsable: 'LANDIS+GYR AFRICA', statut: 'ouverte', dateSignalement: '10/05/2026' },
-    ],
-  },
-  {
-    id: 'pvd5', ref: 'PVD-CPADERAU-2026-005', projet: 'PADERAU — Réseau HTA/BT zones rurales',
-    localite: 'Zone 1 — Fatick', lot: 'Zone 1',
-    dateVisite: '25/02/2026', entreprise: 'EFACEC ENERGY SPA',
-    delaiGarantie: '25/02/2027', retenueLibere: true,
-    statut: 'VALIDE', avancement: 100,
-    reserves: [],
-  },
-];
-
-const PLANIFIEES: ReceptionPlanifiee[] = [
-  { id: 'pl1', ref: 'PVP-CC26-2026-003',    projet: 'Ligne 225 kV — Lot 1',    date: '05/07/2026', type: 'PVP', entreprise: 'TRACTEBEL' },
-  { id: 'pl2', ref: 'PVP-DGC-2026-009',     projet: 'Siège Thiès',             date: '08/07/2026', type: 'PVP', entreprise: 'SABER CONST.' },
-  { id: 'pl3', ref: 'PVD-DER-2026-006',     projet: 'Rural Thiès — L002',      date: '10/07/2026', type: 'PVD', entreprise: 'ELEC AFRIQUE' },
-  { id: 'pl4', ref: 'PVP-CPAMACEL-2026-001',projet: 'PAMACEL Zone Rufisque',   date: '12/07/2026', type: 'PVP', entreprise: 'EFACEC ENERGY' },
-  { id: 'pl5', ref: 'PVP-DEP-2026-010',     projet: 'Cap des Biches — TAG 3',  date: '14/07/2026', type: 'PVP', entreprise: 'GE POWER AFRICA' },
-  { id: 'pl6', ref: 'PVD-DIT-2026-007',     projet: 'AMI Guédiawaye Lot 3',   date: '15/07/2026', type: 'PVD', entreprise: 'LANDIS+GYR' },
-  { id: 'pl7', ref: 'PVP-DGC-2026-011',     projet: 'Siège Ziguinchor — reçu', date: '18/07/2026', type: 'PVP', entreprise: 'SABER CONST.' },
-  { id: 'pl8', ref: 'PVP-CPADERAU-2026-008',projet: 'PADERAU Zone 4 — Tambacounda', date: '20/07/2026', type: 'PVP', entreprise: 'EFACEC ENERGY' },
-  { id: 'pl9', ref: 'PVP-DER-2026-009',     projet: 'Rural Kaolack — 12 lots', date: '22/07/2026', type: 'PVP', entreprise: 'ELEC AFRIQUE' },
-  { id: 'pl10', ref: 'PVD-CC26-2026-004',   projet: 'Ligne 225 kV — Lot 2',   date: '25/07/2026', type: 'PVD', entreprise: 'TRACTEBEL' },
-];
-
-// Stats pour graphiques
-const TOP_ENTREPRISES = [
-  { nom: 'ABB SENEGAL',     sansReserves: 3, avecReserves: 1 },
-  { nom: 'LANDIS+GYR',      sansReserves: 2, avecReserves: 2 },
-  { nom: 'ELEC AFRIQUE',    sansReserves: 1, avecReserves: 3 },
-  { nom: 'GE POWER',        sansReserves: 2, avecReserves: 1 },
-  { nom: 'EFACEC ENERGY',   sansReserves: 1, avecReserves: 3 },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function statutPill(s: StatutPV): string {
-  return s === 'VALIDE' ? 'pill-ok' : s === 'EN_COURS' ? 'pill-warn' : 'pill-ko';
-}
+const PVPS: PVP[] = [];
+const PVDS: PVD[] = [];
+const PLANIFIEES: ReceptionPlanifiee[] = [];
+const TOP_ENTREPRISES: { nom: string; sansReserves: number; avecReserves: number }[] = [];
 
 function statutLabel(s: StatutPV): string {
   return s === 'VALIDE' ? 'Validé' : s === 'EN_COURS' ? 'En cours' : 'Rejeté';
@@ -472,21 +325,21 @@ function ReservesPanel({ reserves, titre, onClose }: {
   );
 }
 
-const PAIEMENTS_INIT: Paiement[] = [
-  { id: 'pay1', ref: 'FAC-2026-0142', pvdRef: 'PVD-DER-2026-002', projet: 'Électrification Rurale 19 Localités — Thiès', entreprise: 'ELEC AFRIQUE SARL', montantMarche: 485_000_000, montantFacture: 485_000_000, montantRegle: 0, dateFacture: '2026-05-12', dateEcheance: '2026-06-12', statut: 'en_attente' },
-  { id: 'pay2', ref: 'FAC-2026-0137', pvdRef: 'PVD-CPBM-2026-001', projet: 'PASE — Accès électricité zones péri-urbaines', entreprise: 'TRACTEBEL ENGIE', montantMarche: 1_240_000_000, montantFacture: 620_000_000, montantRegle: 310_000_000, dateFacture: '2026-04-28', dateEcheance: '2026-05-28', statut: 'partiel', observations: 'Acompte 50% réglé le 20/05/2026' },
-  { id: 'pay3', ref: 'FAC-2026-0119', pvdRef: 'PVD-DEP-2026-003', projet: 'Réhabilitation Centrale Cap des Biches', entreprise: 'GE POWER AFRICA', montantMarche: 2_860_000_000, montantFacture: 715_000_000, montantRegle: 715_000_000, dateFacture: '2026-03-10', dateEcheance: '2026-04-10', dateReglement: '2026-04-08', statut: 'regle' },
-  { id: 'pay4', ref: 'FAC-2026-0158', pvdRef: 'PVD-DIT-2026-004', projet: 'Déploiement compteurs AMI', entreprise: 'LANDIS+GYR', montantMarche: 980_000_000, montantFacture: 245_000_000, montantRegle: 0, dateFacture: '2026-05-30', dateEcheance: '2026-06-30', statut: 'en_attente' },
-  { id: 'pay5', ref: 'FAC-2026-0103', pvdRef: 'PVD-CPADERAU-2026-005', projet: 'PADERAU — Réseau HTA/BT zones rurales', entreprise: 'EFACEC ENERGY', montantMarche: 1_520_000_000, montantFacture: 380_000_000, montantRegle: 0, dateFacture: '2026-04-15', dateEcheance: '2026-05-15', statut: 'litige', observations: 'Réserves non levées sur PVD — paiement bloqué' },
-  { id: 'pay6', ref: 'FAC-2026-0091', pvdRef: 'PVD-DEP-2026-003', projet: 'Réhabilitation Centrale Cap des Biches', entreprise: 'GE POWER AFRICA', montantMarche: 2_860_000_000, montantFacture: 715_000_000, montantRegle: 715_000_000, dateFacture: '2026-02-18', dateEcheance: '2026-03-18', dateReglement: '2026-03-15', statut: 'regle' },
-];
+const PAIEMENTS_INIT: Paiement[] = [];
 
-const STATUT_PAY_CFG: Record<StatutPaiement, { label: string; bg: string; color: string }> = {
-  en_attente: { label: 'En attente',  bg: '#FEF9C3', color: '#92400E' },
-  partiel:    { label: 'Partiel',     bg: '#FFF7ED', color: '#C2410C' },
-  regle:      { label: 'Réglé',       bg: '#F0FDF4', color: '#15803D' },
-  litige:     { label: 'Litige',      bg: '#FEF2F2', color: '#B91C1C' },
+const STATUT_PAIE_CFG: Record<StatutPaiement, { label: string; bg: string; color: string }> = {
+  en_attente: { label: 'En attente', bg: '#FEF9C3', color: '#854D0E' },
+  partiel:    { label: 'Partiel',    bg: '#FFF7ED', color: '#C2410C' },
+  regle:      { label: 'Réglé',      bg: '#F0FDF4', color: '#15803D' },
+  litige:     { label: 'Litige',     bg: '#FEF2F2', color: '#B91C1C' },
 };
+const STATUT_PAY_CFG = STATUT_PAIE_CFG;
+
+function statutPill(s: StatutPV): string {
+  if (s === 'VALIDE')   return 'pill-ok';
+  if (s === 'EN_COURS') return 'pill-warn';
+  return 'pill-ko';
+}
 
 // ── Helpers immo (module-level pour éviter les re-créations dans les IIFEs) ────
 const ANNEE_COURANTE = new Date().getFullYear();

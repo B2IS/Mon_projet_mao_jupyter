@@ -341,7 +341,7 @@ function InviterModal({ onClose, onSend }: { onClose: () => void; onSend?: (inv:
                   <input className="form-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="prenom.nom@senelec.sn" />
                 </div>
                 <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label">Rôle SIGEPP *</label>
+                  <label className="form-label">Rôle SIGEP *</label>
                   <select className="form-input" value={role} onChange={e => setRole(e.target.value as RoleCode | '')}>
                     <option value="">— Sélectionner —</option>
                     {ROLES_LIST.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -1073,10 +1073,10 @@ export default function Administration() {
         <div className="card">
           <div className="card-header">
             <div>
-              <span className="card-title">Fonctions organigramme ↔ Rôles SIGEPP</span>
+              <span className="card-title">Fonctions organigramme ↔ Rôles SIGEP</span>
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
                 Une <strong>Fonction</strong> = grade dans l'organigramme DPE (Chef de Projet, Directeur…).
-                Un <strong>Rôle SIGEPP</strong> = droits d'accès plateforme (CHEF_PROJ, PMO, ADMIN…).
+                Un <strong>Rôle SIGEP</strong> = droits d'accès plateforme (CHEF_PROJ, PMO, ADMIN…).
                 Ils sont indépendants — un agent peut avoir un rôle différent de sa fonction.
               </div>
             </div>
@@ -1089,7 +1089,7 @@ export default function Administration() {
               <thead>
                 <tr>
                   <th>Fonction DPE</th>
-                  <th>Rôle SIGEPP par défaut</th>
+                  <th>Rôle SIGEP par défaut</th>
                   <th>Agents concernés</th>
                   <th>Description</th>
                 </tr>
@@ -2007,7 +2007,7 @@ function JournalAuditPanel() {
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `journal_audit_sigepp_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.href = url; a.download = `journal_audit_sigep_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
   };
   return (

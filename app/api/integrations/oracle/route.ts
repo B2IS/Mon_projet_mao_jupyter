@@ -16,8 +16,18 @@ import {
   creerImmobilisationOracle,
   getFacturesEnAttenteValidation,
 } from '@/lib/integrations/oracleEBS';
+import { requireApiAuth, checkRateLimit, rateLimitResponse, getClientIp } from '@/lib/apiAuth';
+
+const RL_ORACLE = { max: 60, windowMs: 60 * 1000 };
 
 export async function GET(req: NextRequest) {
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`oracle:${ip}`, RL_ORACLE);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
+
+  const guard = await requireApiAuth(req);
+  if (!guard.ok) return guard.response;
+
   const { searchParams } = new URL(req.url);
   const action = searchParams.get('action');
 
@@ -95,13 +105,28 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { action } = body;
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`oracle:${ip}`, RL_ORACLE);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
+
+  const guard = await requireApiAuth(req);
+  if (!guard.ok) return guard.response;
+
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (contentLength > 256 * 1024) {
+    return NextResponse.json({ error: 'Corps de requête trop volumineux (max 256 Ko).' }, { status: 413 });
+  }
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: 'JSON invalide.' }, { status: 400 });
+  }
+  const { action } = body as { action?: string };
 
   try {
     switch (action) {
       case 'creer_immobilisation': {
-        const res = await creerImmobilisationOracle(body.payload);
+        const res = await creerImmobilisationOracle((body as { payload: Parameters<typeof creerImmobilisationOracle>[0] }).payload);
         return NextResponse.json(res);
       }
 

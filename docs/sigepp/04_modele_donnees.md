@@ -1,7 +1,7 @@
-# SIGEPP — Étape 4 : Modèle de données complet
+# SIGEP — Étape 4 : Modèle de données complet
 
 > Évolution du schéma V1 (`docs/architecture/01_data_model.sql` + `backend-enterprise/prisma/schema.prisma`).
-> Tout objet métier porte `org_path` (héritage de sécurité RLS). Ajouts SIGEPP : **EPS/OBS/CBS**,
+> Tout objet métier porte `org_path` (héritage de sécurité RLS). Ajouts SIGEP : **EPS/OBS/CBS**,
 > **Data Hub/MDM**, **Knowledge Graph**, **PostGIS**, **gouvernance & gates**, **audit immuable**.
 
 ---

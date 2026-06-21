@@ -11,7 +11,7 @@
  *   • Règles d'heures supplémentaires (majorations jour/nuit/dimanche/férié).
  *
  * Éditable par les profils habilités (DPE / PMO / Contrôle financier / Admin).
- * Persisté dans localStorage (clé `sigepp-odm-config`).
+ * Persisté dans localStorage (clé `sigep-odm-config`).
  */
 
 import { create } from 'zustand';
@@ -262,6 +262,6 @@ export const useOdmConfig = create<OdmConfigState>()(
         heuresSup: { ...DEFAULTS.heuresSup },
       }),
     }),
-    { name: 'sigepp-odm-config' }
+    { name: 'sigep-odm-config' }
   )
 );

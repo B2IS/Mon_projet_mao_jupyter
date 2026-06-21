@@ -1,6 +1,6 @@
-# SIGEPP — Étape 1 : Architecture fonctionnelle complète
+# SIGEP — Étape 1 : Architecture fonctionnelle complète
 
-> **SIGEPP** — Système Intégré de Gouvernance, d'Exécution et de Pilotage des Projets et
+> **SIGEP** — Système Intégré de Gouvernance, d'Exécution et de Pilotage des Projets et
 > Investissements de la **Direction Principale Équipement (DPE) / SENELEC**.
 > Cible : **supérieur** à Primavera P6 · Unifier · SAP PPM · MS Project Enterprise · ServiceNow SPM.
 > Ce document fait évoluer la **V1 existante** (38 pages · 20 stores · 42 composants · RBAC/ABAC/GED/
@@ -11,7 +11,7 @@
 
 ## 1. Positionnement
 
-SIGEPP n'est **pas** un logiciel de gestion de projets : c'est la **plateforme officielle de
+SIGEP n'est **pas** un logiciel de gestion de projets : c'est la **plateforme officielle de
 gouvernance des investissements** de la DPE — **source unique de vérité**.
 
 > **Aucun** projet, marché, immobilisation ou reporting officiel **hors plateforme**.
@@ -84,9 +84,9 @@ documents · workflows · dashboards · **APIs** · **agents IA**. *(Cœur V1 : 
 - **Édition opérationnelle** : s'arrête au **département & chef de cellule** (niveau 2) + équipe projet ;
   niveaux 0/1 = **lecture seule** *(V1, verrou `readOnlyGuard`)*.
 
-## 6. Écart V1 → SIGEPP (ce que cette évolution ajoute)
+## 6. Écart V1 → SIGEP (ce que cette évolution ajoute)
 
-| Domaine | V1 | Ajout Enterprise SIGEPP |
+| Domaine | V1 | Ajout Enterprise SIGEP |
 |---------|----|--------------------------|
 | Données | 20 stores front + Postgres backend | **Data Hub / MDM**, catalogue, qualité, historisation, lineage |
 | Graphe | — | **Knowledge Graph Neo4j** (raisonnement IA) |

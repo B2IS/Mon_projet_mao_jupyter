@@ -13,8 +13,17 @@ import { useAuth } from '@/lib/authStore';
 import toast from 'react-hot-toast';
 import {
   Download, AlertTriangle, CheckCircle2, Users, Plus, Trash2,
-  Info, Filter,
+  Info, Filter, History, ChevronDown, ChevronUp,
 } from 'lucide-react';
+
+type RACIAuditEntry = {
+  ts: number;          // Date.now()
+  auteur: string;      // prénom nom
+  tacheNom: string;
+  actor: string;
+  from: RACIValue | '';
+  to: RACIValue | '';
+};
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const NAVY   = '#1B4F8A';
@@ -67,26 +76,32 @@ async function exportRACIExcel(
 export default function MatriceRACI() {
   const store = useProjectStore();
   const { user } = useAuth();
-  const canEdit = user && ['ADMIN', 'CHEF_PROJ', 'PMO', 'CHEF_DEPT'].includes(user.role);
+  const canEdit = user && ['ADMIN', 'CHEF_PROJ', 'CHEF_CELLULE', 'CHEF_DEPT'].includes(user.role);
 
   // ── Sélection projet ───────────────────────────────────────────────────────
   const [selectedProjetId, setSelectedProjetId] = useState<string>(store.projets[0]?.id ?? '');
   const projet = useMemo(() => store.projets.find(p => p.id === selectedProjetId), [store.projets, selectedProjetId]);
 
-  // ── Acteurs (colonnes) — initialisés depuis l'équipe du projet ─────────────
+  // ── Acteurs (colonnes) — tirés de l'équipe projet (chefProjet + equipe[]) ──
   const defaultActors = useMemo((): string[] => {
     if (!projet) return [];
-    const names = new Set<string>();
-    projet.taches.forEach(t => {
-      t.assigneA && names.add(t.assigneA);
-      (t.livrables ?? []).forEach(l => { l.proprietaireNom && names.add(l.proprietaireNom); });
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const add = (n?: string) => { if (n && n.trim() && !seen.has(n.trim())) { seen.add(n.trim()); out.push(n.trim()); } };
+    // Chef de projet en premier (déjà un nom)
+    add(projet.chefProjet);
+    // Membres de l'équipe — equipe[] contient des IDs (r-MLE), on résout via le store
+    (projet.equipe ?? []).forEach(id => {
+      const r = store.ressources.find(r => r.id === id);
+      if (r) add(`${r.prenom} ${r.nom}`.trim());
+      else add(id); // fallback : affiche l'ID brut si la ressource n'est pas trouvée
     });
-    (projet.equipe ?? []).forEach((m: { nom?: string; prenom?: string; nomComplet?: string }) => {
-      const full = m.nomComplet ?? `${m.prenom ?? ''} ${m.nom ?? ''}`.trim();
-      if (full) names.add(full);
-    });
-    return Array.from(names).filter(Boolean).slice(0, 20);
-  }, [projet]);
+    // Fallback livrables
+    if (out.length === 0) {
+      projet.taches.forEach(t => (t.livrables ?? []).forEach(l => add(l.proprietaireNom)));
+    }
+    return out.slice(0, 8);
+  }, [projet, store.ressources]);
 
   const [actors, setActors] = useState<string[]>([]);
   const [newActorName, setNewActorName] = useState('');
@@ -96,17 +111,63 @@ export default function MatriceRACI() {
   // Synchronise acteurs quand on change de projet
   const effectiveActors = actors.length > 0 ? actors : defaultActors;
 
+  // ── RACI suggéré par défaut (inféré du nom de tâche + position dans l'équipe)
+  const suggestedRaci = useMemo(() => {
+    if (!projet || effectiveActors.length === 0) return {} as Record<string, Record<string, RACIValue>>;
+    const [chef, ing1, ing2, ...rest] = effectiveActors;
+    const out: Record<string, Record<string, RACIValue>> = {};
+
+    projet.taches.forEach(t => {
+      if (t.raci && Object.keys(t.raci).length > 0) return; // déjà renseigné
+      const n = t.nom.toLowerCase();
+      const r: Record<string, RACIValue> = {};
+
+      if (/étude|audit|dimension|calcul|note\s+tech/.test(n)) {
+        // Études → Ingénieur R, Chef A, autre C/I
+        if (ing1) r[ing1] = 'R'; if (chef) r[chef] = 'A'; if (ing2) r[ing2] = 'C';
+        rest.forEach(a => { r[a] = 'I'; });
+      } else if (/plan|dessin|dao|conception|projeté/.test(n)) {
+        // Plans → Ingénieur/Dessinateur R, Chef A
+        if (ing2 || ing1) r[ing2 ?? ing1] = 'R'; if (ing1 && ing2) r[ing1] = 'A'; if (chef) r[chef] = 'C';
+        rest.forEach(a => { r[a] = 'I'; });
+      } else if (/fourni|matér|approvi|achat|poteaux|transfo|cabine/.test(n)) {
+        // Fournitures → Ingénieur R, Chef A
+        if (ing1) r[ing1] = 'R'; if (chef) r[chef] = 'A'; if (ing2) r[ing2] = 'C';
+        rest.forEach(a => { r[a] = 'I'; });
+      } else if (/travaux|pose|terrain|bran|excavation|génie\s+civil/.test(n)) {
+        // Travaux terrain → Ingénieur R, Chef A, autre C
+        if (ing2 ?? ing1) r[ing2 ?? ing1] = 'R'; if (chef) r[chef] = 'A'; if (ing1 && ing2) r[ing1] = 'C';
+        rest.forEach(a => { r[a] = 'I'; });
+      } else if (/réception|clôture|mise en service|pvr|pv\s/.test(n)) {
+        // Réception/Clôture → Chef R, Ing A
+        if (chef) r[chef] = 'R'; if (ing1) r[ing1] = 'A'; if (ing2) r[ing2] = 'C';
+        rest.forEach(a => { r[a] = 'I'; });
+      } else {
+        // Défaut : chef R, ing1 A, ing2 C, rest I
+        if (chef) r[chef] = 'R'; if (ing1) r[ing1] = 'A'; if (ing2) r[ing2] = 'C';
+        rest.forEach(a => { r[a] = 'I'; });
+      }
+      out[t.id] = r;
+    });
+    return out;
+  }, [projet, effectiveActors]);
+
   // ── RACI local state (patch par-dessus ce qui est dans le store) ──────────
   const [raciPatch, setRaciPatch] = useState<Record<string, Record<string, RACIValue | ''>>>({});
 
-  // Fusionne store + patch
+  // ── Audit trail — journal immuable des modifications ──────────────────────
+  const [auditLog, setAuditLog] = useState<RACIAuditEntry[]>([]);
+  const [showAudit, setShowAudit] = useState(false);
+
+  // Fusionne store + patch + suggestion
   const getRaci = useCallback((tacheId: string, actor: string): RACIValue | '' => {
     if (raciPatch[tacheId]?.[actor] !== undefined) return raciPatch[tacheId][actor];
     const t = projet?.taches.find(t => t.id === tacheId);
-    return (t?.raci?.[actor] ?? '') as RACIValue | '';
-  }, [raciPatch, projet]);
+    if (t?.raci?.[actor]) return t.raci[actor] as RACIValue;
+    return (suggestedRaci[tacheId]?.[actor] ?? '') as RACIValue | '';
+  }, [raciPatch, projet, suggestedRaci]);
 
-  // Cycle on click
+  // Cycle on click + enregistrement dans l'audit trail
   const toggleCell = useCallback((tacheId: string, actor: string) => {
     if (!canEdit) return;
     const current = getRaci(tacheId, actor);
@@ -115,7 +176,10 @@ export default function MatriceRACI() {
       ...prev,
       [tacheId]: { ...(prev[tacheId] ?? {}), [actor]: next },
     }));
-  }, [canEdit, getRaci]);
+    const tacheNom = projet?.taches.find(t => t.id === tacheId)?.nom ?? tacheId;
+    const auteur = user ? `${user.prenom} ${user.nom}`.trim() : 'Inconnu';
+    setAuditLog(prev => [{ ts: Date.now(), auteur, tacheNom, actor, from: current, to: next }, ...prev]);
+  }, [canEdit, getRaci, projet, user]);
 
   // Sauvegarde dans le store
   const saveRaci = useCallback(() => {
@@ -174,7 +238,7 @@ export default function MatriceRACI() {
     if (!projet) return;
     const tasks = projet.taches.map(t => ({
       id: t.id,
-      code: t.code ?? t.id,
+      code: t.id,
       nom: t.nom,
       raci: Object.fromEntries(
         effectiveActors.map(a => [a, getRaci(t.id, a) as RACIValue]).filter(([, v]) => v)
@@ -216,6 +280,15 @@ export default function MatriceRACI() {
           <Info size={12} /> Légende
         </button>
 
+        {/* Historique */}
+        <button onClick={() => setShowAudit(a => !a)}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid #E2E8F0', borderRadius: 6, background: showAudit ? '#FEF9C3' : '#fff', color: showAudit ? '#713F12' : SLATE, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <History size={12} />
+          Historique
+          {auditLog.length > 0 && <span style={{ background: '#EAB308', color: '#fff', borderRadius: 10, fontSize: 9, fontWeight: 700, padding: '1px 5px' }}>{auditLog.length}</span>}
+          {showAudit ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+        </button>
+
         {canEdit && (
           <button onClick={() => setShowAddActor(a => !a)}
             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: 'none', borderRadius: 6, background: '#F0FDF4', color: '#065F46', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -247,6 +320,47 @@ export default function MatriceRACI() {
           ))}
           {canEdit && (
             <span style={{ fontSize: 11, color: SLATE, fontStyle: 'italic', alignSelf: 'center' }}>· Cliquez une cellule pour cycler R→A→C→I→vide</span>
+          )}
+        </div>
+      )}
+
+      {/* ── Historique des modifications ────────────────────────────────────── */}
+      {showAudit && (
+        <div style={{ background: '#FEFCE8', borderBottom: '1px solid #FDE68A', padding: '10px 16px', maxHeight: 180, overflowY: 'auto' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#713F12', marginBottom: 6 }}>
+            Journal des modifications RACI — session courante
+          </div>
+          {auditLog.length === 0 ? (
+            <div style={{ fontSize: 11, color: '#A16207', fontStyle: 'italic' }}>Aucune modification dans cette session.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <thead>
+                <tr style={{ color: '#92400E', borderBottom: '1px solid #FCD34D' }}>
+                  <th style={{ textAlign: 'left', padding: '2px 8px', fontWeight: 700 }}>Heure</th>
+                  <th style={{ textAlign: 'left', padding: '2px 8px', fontWeight: 700 }}>Auteur</th>
+                  <th style={{ textAlign: 'left', padding: '2px 8px', fontWeight: 700 }}>Tâche</th>
+                  <th style={{ textAlign: 'left', padding: '2px 8px', fontWeight: 700 }}>Acteur</th>
+                  <th style={{ textAlign: 'center', padding: '2px 8px', fontWeight: 700 }}>Avant</th>
+                  <th style={{ textAlign: 'center', padding: '2px 8px', fontWeight: 700 }}>Après</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLog.map((e, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #FDE68A', color: '#78350F' }}>
+                    <td style={{ padding: '2px 8px', whiteSpace: 'nowrap' }}>{new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                    <td style={{ padding: '2px 8px', fontWeight: 600 }}>{e.auteur}</td>
+                    <td style={{ padding: '2px 8px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.tacheNom}>{e.tacheNom.slice(0, 35)}{e.tacheNom.length > 35 ? '…' : ''}</td>
+                    <td style={{ padding: '2px 8px' }}>{e.actor}</td>
+                    <td style={{ padding: '2px 8px', textAlign: 'center' }}>
+                      {e.from ? <span style={{ background: RACI_CFG[e.from].bg, color: RACI_CFG[e.from].color, borderRadius: 3, padding: '0 5px', fontWeight: 800 }}>{e.from}</span> : <span style={{ color: '#CBD5E1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '2px 8px', textAlign: 'center' }}>
+                      {e.to ? <span style={{ background: RACI_CFG[e.to].bg, color: RACI_CFG[e.to].color, borderRadius: 3, padding: '0 5px', fontWeight: 800 }}>{e.to}</span> : <span style={{ color: '#CBD5E1' }}>—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}
@@ -308,8 +422,8 @@ export default function MatriceRACI() {
                 {effectiveActors.map(actor => (
                   <th key={actor} style={{ padding: '6px 8px', fontWeight: 700, fontSize: 10, textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.15)', minWidth: 90, maxWidth: 120 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100, display: 'block' }} title={actor}>
-                        {actor.length > 12 ? actor.slice(0, 12) + '…' : actor}
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110, display: 'block' }} title={actor}>
+                        {actor.length > 16 ? actor.slice(0, 16) + '…' : actor}
                       </span>
                       {canEdit && (
                         <button onClick={() => removeActor(actor)} title={`Supprimer ${actor}`}
@@ -337,7 +451,7 @@ export default function MatriceRACI() {
                   <tr key={tache.id} style={{ background: rowHighlight, borderBottom: '1px solid #E2E8F0' }}>
                     {/* Code */}
                     <td style={{ padding: '6px 10px', borderRight: '2px solid #E2E8F0', fontSize: 11, color: SLATE, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                      {tache.code ?? tache.id.slice(-4)}
+                      {tache.id.slice(-6).toUpperCase()}
                     </td>
                     {/* Nom tâche */}
                     <td style={{ padding: '6px 12px', borderRight: '2px solid #E2E8F0', fontSize: 12, color: '#1E293B', fontWeight: 500, minWidth: 280 }}>

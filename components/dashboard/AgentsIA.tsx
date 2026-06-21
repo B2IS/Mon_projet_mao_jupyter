@@ -263,7 +263,7 @@ export default function AgentsIA() {
       return `${p.code}|${p.cpi.toFixed(2)}|${p.spi.toFixed(2)}|${p.avancement}|${VAC}|${p.region.slice(0,6)}|${p.domaine.slice(0,6)}`;
     }).join('\n');
 
-    return `SIGEPP-DPE SÉNÉGAL — ${selectedCode === 'all' ? 'PORTEFEUILLE' : `PROJET ${selectedCode}`} — ${new Date().toLocaleDateString('fr-FR')}
+    return `SIGEP-DPE SÉNÉGAL — ${selectedCode === 'all' ? 'PORTEFEUILLE' : `PROJET ${selectedCode}`} — ${new Date().toLocaleDateString('fr-FR')}
 Projets:${total} | Budget:${Math.round(tb/1000)}Md | Décaissé:${Math.round(td/tb*100)}% | CPI:${avgCpi} | SPI:${avgSpi} | Critiques:${critiques.length}/${total}
 
 ${header}
@@ -292,7 +292,7 @@ ${rows}`;
       const t0 = Date.now();
       const messages: ChatMessage[] = [
         { role: 'system', content: `${def.persona} Réponds en français, tableaux markdown, 4 recommandations chiffrées max.` },
-        { role: 'user', content: `Analyse ${def.label} — SIGEPP-DPE:\n${ctx}` },
+        { role: 'user', content: `Analyse ${def.label} — SIGEP-DPE:\n${ctx}` },
       ];
       try {
         const output = await chatOnce(messages, { model: GROQ_MODELS.fast, temperature: 0.35, maxTokens: 400 });
@@ -350,7 +350,7 @@ ${rows}`;
       .map(a => `<section style="margin-bottom:28px;page-break-inside:avoid"><h2 style="font-size:14px;font-weight:800;color:${a.color};margin:0 0 8px;border-bottom:2px solid #E2E8F0;padding-bottom:5px">${a.label}</h2><div style="font-size:11px;line-height:1.6;color:#334155;white-space:pre-wrap">${a.output.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')}</div></section>`)
       .join('');
     const synthRow = synthesis ? `<section style="margin-top:32px;padding-top:20px;border-top:3px solid ${NAVY}"><h2 style="font-size:16px;font-weight:900;color:${NAVY};margin:0 0 12px">SYNTHÈSE EXÉCUTIVE CONSOLIDÉE</h2><div style="font-size:11.5px;line-height:1.65;color:#1E293B;white-space:pre-wrap">${synthesis.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')}</div></section>` : '';
-    pw.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Analyse Multi-Agents DPE</title><style>body{font-family:'Segoe UI',Arial,sans-serif;padding:32px 44px;color:#1E293B;font-size:11px;max-width:800px;margin:0 auto}strong{color:${NAVY};font-weight:700}.bar{height:5px;background:${ORANGE};margin-bottom:24px}h1{font-size:18px;font-weight:900;color:#0F172A;margin:0 0 4px}.meta{font-size:10px;color:#64748B;margin-bottom:28px}@media print{section{page-break-inside:avoid}}</style></head><body><div class="bar"></div><div style="margin-bottom:12px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:42px;width:auto;display:block"/></div><h1>Analyse Multi-Agents IA — ${selectedCode === 'all' ? 'Portefeuille DPE' : `Projet ${selectedCode}`}</h1><div class="meta">Générée le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · SIGEPP-DPE · ${agents.filter(a => a.status === 'done').length}/6 agents · Groq ${GROQ_MODELS.smart}</div>${agentRows}${synthRow}<div style="margin-top:32px;padding-top:12px;border-top:1px solid #E2E8F0;font-size:8px;color:#94A3B8;text-align:center">CONFIDENTIEL — Usage interne SENELEC DPE · Analyse IA assistée par SIGEPP-DPE · Non contractuel</div></body></html>`);
+    pw.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Analyse Multi-Agents DPE</title><style>body{font-family:'Segoe UI',Arial,sans-serif;padding:32px 44px;color:#1E293B;font-size:11px;max-width:800px;margin:0 auto}strong{color:${NAVY};font-weight:700}.bar{height:5px;background:${ORANGE};margin-bottom:24px}h1{font-size:18px;font-weight:900;color:#0F172A;margin:0 0 4px}.meta{font-size:10px;color:#64748B;margin-bottom:28px}@media print{section{page-break-inside:avoid}}</style></head><body><div class="bar"></div><div style="margin-bottom:12px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:42px;width:auto;display:block"/></div><h1>Analyse Multi-Agents IA — ${selectedCode === 'all' ? 'Portefeuille DPE' : `Projet ${selectedCode}`}</h1><div class="meta">Générée le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · SIGEP-DPE · ${agents.filter(a => a.status === 'done').length}/6 agents · Groq ${GROQ_MODELS.smart}</div>${agentRows}${synthRow}<div style="margin-top:32px;padding-top:12px;border-top:1px solid #E2E8F0;font-size:8px;color:#94A3B8;text-align:center">CONFIDENTIEL — Usage interne SENELEC DPE · Analyse IA assistée par SIGEP-DPE · Non contractuel</div></body></html>`);
     pw.document.close();
     setTimeout(() => pw.print(), 500);
   };

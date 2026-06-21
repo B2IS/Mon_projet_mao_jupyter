@@ -724,7 +724,7 @@ const DEFAULT_TEMPLATES: WorkflowTemplate[] = [
     steps: [
       { id: 's1', label: 'Contrôle pièces justificatives', role: 'UAGL', action: 'vérifier', slaHeures: 24, condition: 'Toujours', ordre: 1, assigneeEmail: 'uagl@dpe.sn', assigneeNom: 'Geneviève SAGNA' },
       { id: 's2', label: 'Visa Chef de Projet', role: 'CHEF_PROJ', action: 'approuver', slaHeures: 48, condition: 'Montant > 0 FCFA', ordre: 2, assigneeEmail: 'chef.projet@dpe.sn', assigneeNom: 'Maodo SENE' },
-      { id: 's3', label: 'Validation DAF', role: 'CTRL_FIN', action: 'approuver', slaHeures: 72, condition: 'Montant > 50 MFCFA', ordre: 3, assigneeEmail: 'finance@dpe.sn', assigneeNom: 'Yacine GUEYE' },
+      { id: 's3', label: 'Validation DAF', role: 'RAF', action: 'approuver', slaHeures: 72, condition: 'Montant > 50 MFCFA', ordre: 3, assigneeEmail: 'finance@dpe.sn', assigneeNom: 'Yacine GUEYE' },
       { id: 's4', label: 'Ordre de paiement DG', role: 'DIR_DPE', action: 'signer', slaHeures: 24, condition: 'Montant > 500 MFCFA', ordre: 4, assigneeEmail: 'directeur@dpe.sn', assigneeNom: 'Djiby DIENG' },
     ]
   },
@@ -744,14 +744,14 @@ const DEFAULT_TEMPLATES: WorkflowTemplate[] = [
       { id: 's1', label: 'Constitution dossier AO', role: 'CHEF_PROJ', action: 'préparer', slaHeures: 0, condition: 'Toujours', ordre: 1, assigneeEmail: 'chef.projet@dpe.sn', assigneeNom: 'Maodo SENE' },
       { id: 's2', label: 'Validation DAJ — Conformité légale', role: 'DAJ', action: 'vérifier', slaHeures: 72, condition: 'Toujours', ordre: 2 },
       { id: 's3', label: 'Évaluation technique des offres', role: 'Bureau études', action: 'évaluer', slaHeures: 120, condition: 'Toujours', ordre: 3, assigneeEmail: 'ingenieur@dpe.sn', assigneeNom: 'Cheikh FALL' },
-      { id: 's4', label: 'Évaluation financière', role: 'CTRL_FIN', action: 'analyser', slaHeures: 48, condition: 'Toujours', ordre: 4, assigneeEmail: 'finance@dpe.sn', assigneeNom: 'Yacine GUEYE' },
+      { id: 's4', label: 'Évaluation financière', role: 'RAF', action: 'analyser', slaHeures: 48, condition: 'Toujours', ordre: 4, assigneeEmail: 'finance@dpe.sn', assigneeNom: 'Yacine GUEYE' },
       { id: 's5', label: 'Avis ARMP si requis', role: 'ARMP', action: 'avis', slaHeures: 336, condition: 'Montant > 500 MFCFA', ordre: 5 },
       { id: 's6', label: 'Approbation DG', role: 'DIR_DPE', action: 'approuver', slaHeures: 48, condition: 'Toujours', ordre: 6, assigneeEmail: 'directeur@dpe.sn', assigneeNom: 'Djiby DIENG' },
     ]
   },
 ];
 
-const ROLES_WF = ['DIR_DPE', 'PMO', 'CHEF_PROJ', 'CTRL_FIN', 'CHEF_DEPT', 'RESP_LOG', 'DAJ', 'DAF', 'UAGL', 'Bureau études', 'ARMP', 'Commission réception'];
+const ROLES_WF = ['DIR_DPE', 'CHEF_CELLULE', 'CHEF_PROJ', 'RAF', 'CHEF_DEPT', 'RESP_LOG', 'DAJ', 'DAF', 'UAGL', 'Bureau études', 'ARMP', 'Commission réception'];
 const ACTIONS_WF = ['approuver', 'vérifier', 'signer', 'soumettre', 'analyser', 'évaluer', 'préparer', 'avis', 'certifier'];
 const CONDITIONS_WF = ['Toujours', 'Montant > 50 MFCFA', 'Montant > 200 MFCFA', 'Montant > 500 MFCFA', 'Durée > 5 jours', 'International', 'Sur dérogation'];
 
@@ -1082,7 +1082,7 @@ export default function Workflows() {
       </div>
 
       {/* ══ Tabs ══ */}
-      <div style={{ background: '#fff', borderBottom: `1px solid ${C.border}`, padding: '0 24px', display: 'flex', gap: 0, flexShrink: 0 }}>
+      <div style={{ background: '#fff', borderBottom: `1px solid ${C.border}`, padding: '0 24px', display: 'flex', gap: 0, flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
         {TAB_ITEMS.map(tab => (
           <button
             key={tab.id}
@@ -1341,7 +1341,7 @@ export default function Workflows() {
                             <button
                               key={preset}
                               onClick={() => {
-                                setStepForm({ label: preset, role: preset === 'Signature' ? 'DIR_DPE' : preset === 'Vérification' ? 'CTRL_FIN' : 'CHEF_PROJ', action: preset === 'Signature' ? 'signer' : preset === 'Vérification' ? 'vérifier' : 'approuver', slaHeures: 48, condition: 'Toujours', ordre: editingWf.steps.length + 1, assigneeEmail: '', assigneeNom: '' });
+                                setStepForm({ label: preset, role: preset === 'Signature' ? 'DIR_DPE' : preset === 'Vérification' ? 'RAF' : 'CHEF_PROJ', action: preset === 'Signature' ? 'signer' : preset === 'Vérification' ? 'vérifier' : 'approuver', slaHeures: 48, condition: 'Toujours', ordre: editingWf.steps.length + 1, assigneeEmail: '', assigneeNom: '' });
                                 setEditingStep(null);
                               }}
                               style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', fontSize: 11.5, fontWeight: 600, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}

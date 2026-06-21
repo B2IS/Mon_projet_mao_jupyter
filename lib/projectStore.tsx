@@ -15,7 +15,7 @@ import { logAudit, type AuditType } from '@/lib/auditStore';
 /** Journalise une action dans le journal d'audit (CCF ADM-03), avec l'utilisateur courant. */
 function auditLog(action: string, objet: string, type: AuditType, detail?: string, direction?: string): void {
   try {
-    const u = JSON.parse(localStorage.getItem('sigepp_dpe_user') || 'null');
+    const u = JSON.parse(localStorage.getItem('sigep_dpe_user') || 'null');
     logAudit({ utilisateur: u ? `${u.prenom} ${u.nom}` : 'Système', email: u?.email, role: u?.role,
       action, objet, type, detail, direction: direction ?? u?.direction });
   } catch { /* SSR / pas d'utilisateur */ }
@@ -357,6 +357,26 @@ export interface Incident {
   pointsAction: PointAction[];
 }
 
+// ── Types SIG — référentiel géospatial ────────────────────────────────────────
+export type InfraType =
+  | 'Ligne HTA'
+  | 'Ligne BT'
+  | 'Poste HTA/BT'
+  | 'Poste HTB'
+  | 'Centrale'
+  | 'Bâtiment'
+  | 'Ouvrage GC';
+
+/** Une localité géoréférencée attachée à un projet (référentiel maître SIG). */
+export interface LocaliteSIG {
+  id: string;
+  nom: string;
+  commune?: string;
+  region?: string;
+  lat: number;
+  lng: number;
+}
+
 export interface Projet {
   id: string;
   domaine: Domaine;
@@ -373,8 +393,19 @@ export interface Projet {
   chefProjet: string;
   localisation: string;
   region: string;
+  // ── Géolocalisation SIG — référentiel maître ─────────────────────────────
+  /** Localité principale (rétrocompatibilité — utiliser localites[] pour le multi-site). */
+  localite?: string;
+  /** Commune administrative (rétrocompatibilité). */
+  commune?: string;
   lat?: number;
   lng?: number;
+  /** Emprise géographique (GeoJSON polygon en string, ou description textuelle). */
+  empriseGeo?: string;
+  /** Liste des localités géoréférencées du projet — référentiel maître SIG. Au moins 1. */
+  localites?: LocaliteSIG[];
+  /** Types d'infrastructure électrique impactés par ce projet. */
+  infrasImpactees?: InfraType[];
   avancement: number;
   avancementPlanifie: number;
   avancementReel?: number; // taux pondéré réel (calculé depuis phases)
@@ -836,8 +867,8 @@ const PROJETS_INIT: Projet[] = [
   //               + « Matrice Suivi projets DPT au 28 Fevrier 2026.xlsx » (24 projets, Transport).
   // 77 projets — budgets/décaissés/avancements/statuts fidèles aux matrices (Fév. 2026).
   // chefProjet = prénom nom exact du personnel DPE → visibilité par implication (ND 005/2023).
-  mkMatrixProjet({ id: 'prj-001', domaine: 'distribution', code: '', nom: 'Travaux Programme d\'Urgence Electrification Rurale -2010-2011- Convention 20- phase1', chefProjet: 'Ababacar KA', region: 'Multi-régions', localisation: 'Multi-régions', budget: 365, budgetDecaisse: 364, avancement: 98, unite: 'DPD', departement: 'DPD_DISTRIBUTION', statut: 'en_cours' }),
-  mkMatrixProjet({ id: 'prj-002', domaine: 'distribution', code: '', nom: 'Travaux Programme d\'Urgence Electrification Rurale -2010-2011- Convention 20- phase1', chefProjet: 'Ababacar KA', region: 'Multi-régions', localisation: 'Multi-régions', budget: 667, budgetDecaisse: 358, avancement: 76, unite: 'DPD', departement: 'DPD_DISTRIBUTION', statut: 'en_cours' }),
+  mkMatrixProjet({ id: 'prj-001', domaine: 'distribution', code: '', nom: 'Travaux Programme d\'Urgence Electrification Rurale 2010-2011 — Convention 20 — Phase 1', chefProjet: 'Ababacar KA', region: 'Multi-régions', localisation: 'Multi-régions', budget: 365, budgetDecaisse: 364, avancement: 98, unite: 'DPD', departement: 'DPD_DISTRIBUTION', statut: 'en_cours' }),
+  mkMatrixProjet({ id: 'prj-002', domaine: 'distribution', code: '', nom: 'Travaux Programme d\'Urgence Electrification Rurale 2010-2011 — Convention 20 — Phase 2', chefProjet: 'Ababacar KA', region: 'Multi-régions', localisation: 'Multi-régions', budget: 667, budgetDecaisse: 358, avancement: 76, unite: 'DPD', departement: 'DPD_DISTRIBUTION', statut: 'en_cours' }),
   mkMatrixProjet({ id: 'prj-003', domaine: 'distribution', code: '22DM10014027', nom: 'REHABILITATION DE LA SOUS STATION 30 kV DE LOUGA', chefProjet: 'Ndiémé GUEYE', region: 'Louga', localisation: 'Louga', budget: 813, budgetDecaisse: 783, avancement: 95, unite: 'DPD', departement: 'DPD_DISTRIBUTION', statut: 'en_cours', dateFinPrevue: '2025-03-20' }),
   mkMatrixProjet({ id: 'prj-004', domaine: 'distribution', code: '22DM10014028', nom: 'Réhabilitation des postes de manœuvre de la boucle 30 kV de Touba (renouvellement des cellules iraniennes)', chefProjet: 'El Hadji Moussa SOW', region: 'Multi-régions', localisation: 'Multi-régions', budget: 2300, budgetDecaisse: 1414, avancement: 58, unite: 'DPD', departement: 'DPD_DISTRIBUTION', statut: 'en_cours', dateDebut: '2024-07-27', dateFinPrevue: '2026-02-28' }),
   mkMatrixProjet({ id: 'prj-005', domaine: 'distribution', code: '18DX30211498', nom: 'AOI N° 24/2019 ;L20-Sécurisation alimentation électrique de KARMEL et amélioration qualité de service des feeders T32 ; T31 ; Rufisque Nord et Km 22', chefProjet: 'Abdourahmane Diallo', region: 'Multi-régions', localisation: 'Multi-régions', budget: 2793, budgetDecaisse: 2262, avancement: 84, unite: 'DPD', departement: 'DPD_DISTRIBUTION', statut: 'en_cours', dateDebut: '2019-11-01' }),
@@ -913,6 +944,227 @@ const PROJETS_INIT: Projet[] = [
   mkMatrixProjet({ id: 'prj-075', domaine: 'transport', code: '', nom: 'REALISATION DE LA LIAISON SOUTERRAINE 225 KV ENTRE LE POSTE WAE ET LE POSTE MCA', chefProjet: 'Fatou Kiné Ngom', region: 'Multi-régions', localisation: 'Multi-régions', budget: 0, budgetDecaisse: 0, avancement: 89, unite: 'DPT', departement: 'DPT_TRANSPORT', statut: 'en_cours', dateDebut: '2025-07-30', bailleur: 'NATIXIS' }),
   mkMatrixProjet({ id: 'prj-076', domaine: 'transport', code: '', nom: 'REMPLACEMENT DE LA LIGNE 90 KV KOUNOUNE-SOCOCIM', chefProjet: 'Jean Marie Sene', region: 'Multi-régions', localisation: 'Multi-régions', budget: 0, budgetDecaisse: 0, avancement: 0, unite: 'DPT', departement: 'DPT_TRANSPORT', statut: 'en_cours', bailleur: 'NATIXIS' }),
   mkMatrixProjet({ id: 'prj-077', domaine: 'transport', code: '26TM10015135', nom: 'REABILITATION DU POSTE 225 KV DE SENDOU', chefProjet: 'François Xavier S. DIONE', region: 'Multi-régions', localisation: 'Multi-régions', budget: 4600, budgetDecaisse: 0, avancement: 0, unite: 'DPT', departement: 'DPT_TRANSPORT', statut: 'en_cours', bailleur: 'FONDS PROPRES' }),
+
+  // ─── PROJET TEST — Données simulées complètes (toutes fonctionnalités) ──────
+  // Ce projet est conçu pour valider l'ensemble des modules SIGEP-DPE.
+  // Chef de projet = Maodo SENE (compte réel DPE — RBAC visibilité complète).
+  {
+    id: 'prj-test-002',
+    domaine: 'distribution' as Domaine,
+    nom: '[TEST] Extension HTA/BT 34 Localités — Corridor Diourbel-Bambey',
+    code: 'TEST-DPD-DIOURBEL-34',
+    description: 'Projet pilote de validation SIGEP-DPE. Extension réseau HTA/BT pour électrification de 34 localités rurales dans le corridor Diourbel-Bambey — données entièrement simulées pour test fonctionnel de tous les modules.',
+    objectif: 'Électrifier 34 localités (7 800 ménages, 46 000 bénéficiaires) dans le corridor Diourbel-Bambey par extension des réseaux HTA/BT.',
+    contexte: 'Dans le cadre du PADERAU II (AFD/BEI), SENELEC étend l\'accès universel à l\'électricité dans les zones rurales de Diourbel. Ce projet test simule un projet de distribution HTA/BT avec toutes les phases documentées pour valider le bon fonctionnement de SIGEP-DPE.',
+    objectifs: [
+      'Construire 85 km de lignes HTA 33 kV dans le corridor Diourbel-Bambey',
+      'Installer 125 km de réseaux BT 400/230 V desservant 34 localités',
+      'Poser 78 transformateurs HTA/BT (160 kVA et 250 kVA)',
+      'Raccorder 7 800 ménages et 46 000 bénéficiaires',
+      'Atteindre un taux de desserte ≥ 95% dans la zone du projet',
+    ],
+    livrables: [
+      'Rapport APS approuvé (85 km HTA + 125 km BT)',
+      'Rapport APD + DAO validés — 78 postes HTA/BT',
+      'Étude d\'impact environnemental approuvée',
+      'Contrats fournitures & travaux signés',
+      'PV de réception provisoire — 34 localités',
+      'Dossier de mise en service et branchements',
+    ],
+    chefProjet: 'Maodo SENE',
+    localisation: 'Diourbel / Bambey',
+    region: 'Diourbel',
+    lat: 14.650,
+    lng: -16.231,
+    localites: [
+      { id: 'loc-test-01', nom: 'Ndindy', commune: 'Ndindy', region: 'Diourbel', lat: 14.68, lng: -16.25 },
+      { id: 'loc-test-02', nom: 'Keur Samba Gueye', commune: 'Bambey', region: 'Diourbel', lat: 14.70, lng: -16.45 },
+      { id: 'loc-test-03', nom: 'Darou Moukhty', commune: 'Diourbel', region: 'Diourbel', lat: 14.65, lng: -16.10 },
+      { id: 'loc-test-04', nom: 'Keur Mbaye Fall', commune: 'Bambey', region: 'Diourbel', lat: 14.71, lng: -16.38 },
+    ],
+    infrasImpactees: ['Ligne HTA', 'Ligne BT', 'Poste HTA/BT'],
+    avancement: 62,
+    avancementPlanifie: 70,
+    avancementReel: 61,
+    budget: 18500,
+    budgetEngage: 14800,
+    budgetDecaisse: 11470,
+    partFixeFCFA: 5550,
+    partEtrangere: 22,
+    deviseEtrangere: 'EUR' as DeviseCode,
+    tauxChange: 655.957,
+    dateDebut: '2024-03-01',
+    dateFinPrevue: '2026-09-30',
+    dateFinEstimee: '2026-11-15',
+    statut: 'en_cours' as StatutProjet,
+    priorite: 'Haute' as Priorite,
+    cpi: 0.92,
+    spi: 0.89,
+    statutGlobal: 'orange' as StatutGlobal,
+    bailleurs: [
+      { nom: 'AFD (Agence Française de Développement)', montant: 9250, devise: 'FCFA' as const, pourcentage: 50 },
+      { nom: 'BEI (Banque Européenne d\'Investissement)', montant: 5550, devise: 'FCFA' as const, pourcentage: 30 },
+      { nom: 'SENELEC (Fonds Propres)', montant: 3700, devise: 'FCFA' as const, pourcentage: 20 },
+    ],
+    equipe: ['r-C01102', 'r-C01250', 'r-M06766', 'r-M08168', 'r-M08169'],
+    jalons: [
+      { label: 'Signature Contrats Fournitures & Travaux', date: '2024-06-15', atteint: true },
+      { label: 'ODS Démarrage Travaux HTA', date: '2024-08-01', atteint: true },
+      { label: 'Lignes HTA 60% réalisées', date: '2025-04-30', atteint: true },
+      { label: 'Fourniture transformateurs livrée (100%)', date: '2025-08-31', atteint: true },
+      { label: 'Travaux BT — Lot 1 terminé (17 localités)', date: '2025-12-31', atteint: false },
+      { label: 'Mise en Service Partielle — 20 localités', date: '2026-03-31', atteint: false },
+      { label: 'Réception Provisoire — 34 localités', date: '2026-09-30', atteint: false },
+    ],
+    phases: [
+      { id: 'passations', label: 'Préparation', poids: 10, avancement: 100 },
+      { id: 'etudes', label: 'Études', poids: 10, avancement: 100 },
+      { id: 'fournitures', label: 'Fourniture', poids: 20, avancement: 85 },
+      { id: 'travaux', label: 'Travaux', poids: 52, avancement: 45 },
+      { id: 'mise_en_service', label: 'Mise en service', poids: 5, avancement: 0 },
+      { id: 'cloture', label: 'Clôture', poids: 3, avancement: 0 },
+    ],
+    taches: [
+      // Phase 1 : Études
+      { id: 'prj-test-002-t01', projetId: 'prj-test-002', nom: 'Phase 1 — Études & Ingénierie', type: 'Récapitulative' as TypeTache, niveau: 1, ordre: 1, duree: 120, dateDebut: '2024-03-01', dateFin: '2024-07-01', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [], assignations: [], coutPrevu: 280, coutReel: 275 },
+      { id: 'prj-test-002-t02', projetId: 'prj-test-002', nom: 'Études APS lignes HTA/BT 34 localités', type: 'Normale' as TypeTache, niveau: 2, ordre: 2, duree: 45, dateDebut: '2024-03-01', dateFin: '2024-04-15', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [], assignations: [], coutPrevu: 85, coutReel: 82 },
+      { id: 'prj-test-002-t03', projetId: 'prj-test-002', nom: 'Études APD + DAO câbles et transformateurs', type: 'Normale' as TypeTache, niveau: 2, ordre: 3, duree: 60, dateDebut: '2024-04-15', dateFin: '2024-06-15', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t02', type: 'FS' as DepType, delai: 0 }], assignations: [], coutPrevu: 120, coutReel: 118 },
+      { id: 'prj-test-002-t04', projetId: 'prj-test-002', nom: 'Notice d\'impact environnemental & social (NIES)', type: 'Normale' as TypeTache, niveau: 2, ordre: 4, duree: 60, dateDebut: '2024-03-01', dateFin: '2024-05-01', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [], assignations: [], coutPrevu: 75, coutReel: 75 },
+      // Phase 2 : Passation Marchés
+      { id: 'prj-test-002-t05', projetId: 'prj-test-002', nom: 'Phase 2 — Passation des Marchés', type: 'Récapitulative' as TypeTache, niveau: 1, ordre: 5, duree: 90, dateDebut: '2024-05-01', dateFin: '2024-08-01', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t01', type: 'SS' as DepType, delai: 30 }], assignations: [], coutPrevu: 45, coutReel: 48 },
+      { id: 'prj-test-002-t06', projetId: 'prj-test-002', nom: 'Lancement DAO & Réception offres Fournitures', type: 'Normale' as TypeTache, niveau: 2, ordre: 6, duree: 45, dateDebut: '2024-05-01', dateFin: '2024-06-15', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [], assignations: [], coutPrevu: 20, coutReel: 22 },
+      { id: 'prj-test-002-t07', projetId: 'prj-test-002', nom: 'Analyse offres & Attribution provisoire Travaux', type: 'Normale' as TypeTache, niveau: 2, ordre: 7, duree: 30, dateDebut: '2024-06-15', dateFin: '2024-07-15', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t06', type: 'FS' as DepType, delai: 0 }], assignations: [], coutPrevu: 15, coutReel: 16 },
+      { id: 'prj-test-002-t08', projetId: 'prj-test-002', nom: 'Signature Contrats Fournitures & Travaux', type: 'Jalon' as TypeTache, niveau: 2, ordre: 8, duree: 0, dateDebut: '2024-08-01', dateFin: '2024-08-01', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t07', type: 'FS' as DepType, delai: 15 }], assignations: [], coutPrevu: 10, coutReel: 10 },
+      // Phase 3 : Fournitures
+      { id: 'prj-test-002-t09', projetId: 'prj-test-002', nom: 'Phase 3 — Fournitures & Approvisionnements', type: 'Récapitulative' as TypeTache, niveau: 1, ordre: 9, duree: 180, dateDebut: '2024-09-01', dateFin: '2025-05-01', avancement: 92, statutTache: 'en_cours' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t05', type: 'FS' as DepType, delai: 30 }], assignations: [], coutPrevu: 3800, coutReel: 3950 },
+      { id: 'prj-test-002-t10', projetId: 'prj-test-002', nom: 'Fourniture câbles HTA 33 kV (85 km)', type: 'Normale' as TypeTache, niveau: 2, ordre: 10, duree: 60, dateDebut: '2024-09-01', dateFin: '2024-11-01', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [], assignations: [], coutPrevu: 980, coutReel: 1020 },
+      { id: 'prj-test-002-t11', projetId: 'prj-test-002', nom: 'Fourniture transformateurs HTA/BT 78 unités (160–250 kVA)', type: 'Normale' as TypeTache, niveau: 2, ordre: 11, duree: 90, dateDebut: '2024-11-01', dateFin: '2025-02-01', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t10', type: 'FS' as DepType, delai: 0 }], assignations: [], coutPrevu: 1850, coutReel: 1900 },
+      { id: 'prj-test-002-t12', projetId: 'prj-test-002', nom: 'Fourniture câbles BT & coffrets (125 km)', type: 'Normale' as TypeTache, niveau: 2, ordre: 12, duree: 60, dateDebut: '2025-02-01', dateFin: '2025-04-01', avancement: 85, statutTache: 'en_cours' as StatutTache, priorite: 'Moyenne' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t10', type: 'SS' as DepType, delai: 60 }], assignations: [], coutPrevu: 970, coutReel: 1030 },
+      // Phase 4 : Travaux HTA & BT
+      { id: 'prj-test-002-t13', projetId: 'prj-test-002', nom: 'Phase 4 — Travaux HTA & BT', type: 'Récapitulative' as TypeTache, niveau: 1, ordre: 13, duree: 240, dateDebut: '2025-01-01', dateFin: '2025-09-01', avancement: 58, statutTache: 'en_cours' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t09', type: 'SS' as DepType, delai: 90 }], assignations: [], coutPrevu: 11200, coutReel: 5950 },
+      { id: 'prj-test-002-t14', projetId: 'prj-test-002', nom: 'Travaux lignes HTA — Lots 1 & 2 (55 km)', type: 'Normale' as TypeTache, niveau: 2, ordre: 14, duree: 90, dateDebut: '2025-01-01', dateFin: '2025-04-01', avancement: 100, statutTache: 'termine' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [], assignations: [], coutPrevu: 7200, coutReel: 7350, commentaire: 'Câbles XLPE 120mm² — entreprise ELEC AFRIQUE SARL. Retard traversée voie ferrée +15j compensé.' },
+      { id: 'prj-test-002-t15', projetId: 'prj-test-002', nom: 'Travaux lignes HTA — Lot 3 (30 km)', type: 'Normale' as TypeTache, niveau: 2, ordre: 15, duree: 120, dateDebut: '2025-04-01', dateFin: '2025-08-01', avancement: 55, statutTache: 'en_cours' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t14', type: 'FS' as DepType, delai: 0 }], assignations: [], coutPrevu: 1800, coutReel: 1050 },
+      { id: 'prj-test-002-t16', projetId: 'prj-test-002', nom: 'Pose transformateurs & construction postes HTA/BT', type: 'Normale' as TypeTache, niveau: 2, ordre: 16, duree: 90, dateDebut: '2025-07-01', dateFin: '2025-10-01', avancement: 0, statutTache: 'a_faire' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t12', type: 'FS' as DepType, delai: 60 }], assignations: [], coutPrevu: 2200, coutReel: 0 },
+      { id: 'prj-test-002-t17', projetId: 'prj-test-002', nom: 'Travaux réseaux BT & branchements (125 km)', type: 'Normale' as TypeTache, niveau: 2, ordre: 17, duree: 60, dateDebut: '2025-08-01', dateFin: '2025-10-01', avancement: 0, statutTache: 'a_faire' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t15', type: 'FS' as DepType, delai: 60 }], assignations: [], coutPrevu: 950, coutReel: 0 },
+      // Phase 5 : Mise en Service
+      { id: 'prj-test-002-t18', projetId: 'prj-test-002', nom: 'Phase 5 — Tests & Mise en Service', type: 'Récapitulative' as TypeTache, niveau: 1, ordre: 18, duree: 120, dateDebut: '2026-01-01', dateFin: '2026-05-01', avancement: 0, statutTache: 'a_faire' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t13', type: 'FS' as DepType, delai: 60 }], assignations: [], coutPrevu: 1850, coutReel: 0 },
+      { id: 'prj-test-002-t19', projetId: 'prj-test-002', nom: 'Tests électriques & essais de charge HTA', type: 'Normale' as TypeTache, niveau: 2, ordre: 19, duree: 90, dateDebut: '2026-01-01', dateFin: '2026-04-01', avancement: 0, statutTache: 'a_faire' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [], assignations: [], coutPrevu: 1200, coutReel: 0 },
+      { id: 'prj-test-002-t20', projetId: 'prj-test-002', nom: 'Mise sous tension & vérification protection BT', type: 'Normale' as TypeTache, niveau: 2, ordre: 20, duree: 30, dateDebut: '2026-04-01', dateFin: '2026-05-01', avancement: 0, statutTache: 'a_faire' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t19', type: 'FS' as DepType, delai: 0 }], assignations: [], coutPrevu: 650, coutReel: 0 },
+      // Phase 6 : Réception & Clôture
+      { id: 'prj-test-002-t21', projetId: 'prj-test-002', nom: 'Phase 6 — Réception Provisoire & Clôture', type: 'Récapitulative' as TypeTache, niveau: 1, ordre: 21, duree: 90, dateDebut: '2026-07-01', dateFin: '2026-10-01', avancement: 0, statutTache: 'a_faire' as StatutTache, priorite: 'Moyenne' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t18', type: 'FS' as DepType, delai: 60 }], assignations: [], coutPrevu: 320, coutReel: 0 },
+      { id: 'prj-test-002-t22', projetId: 'prj-test-002', nom: 'PV Réception Provisoire — 34 localités', type: 'Jalon' as TypeTache, niveau: 2, ordre: 22, duree: 0, dateDebut: '2026-09-30', dateFin: '2026-09-30', avancement: 0, statutTache: 'a_faire' as StatutTache, priorite: 'Haute' as Priorite, predecesseurs: [{ tacheId: 'prj-test-002-t21', type: 'FS' as DepType, delai: -30 }], assignations: [], coutPrevu: 0, coutReel: 0 },
+    ],
+    unite: 'DPD',
+    departement: 'DPD_DISTRIBUTION',
+    programme: 'PADERAU-II',
+    dateCreation: '2024-01-15',
+    dateModification: '2026-06-19',
+    // Contrat
+    dateODS: '2024-08-01',
+    dateSignatureContrat: '2024-06-15',
+    dateFinCaution: '2029-09-30',
+    numeroMarche: 'T3142/24-DPE',
+    codeImputation: 'IMP-TEST-PV-MBACKE',
+    montantMarche: 17020,
+    montantAvenants: 480,
+    montantFacture: 12350,
+    montantPaye: 11470,
+    montantFinancement: 18500,
+    // Passation
+    passationMarches: {
+      elaborationDAC: 100,
+      lancementDAC: 100,
+      ouvertureAnalyse: 100,
+      attributionProvisoire: 100,
+      attributionDefinitive: 100,
+      signatureContrat: 100,
+    },
+    // HSE
+    hse: {
+      nbAnomalies: 3,
+      tauxRealisationPGES: 78,
+      tauxRealisationPAR: 95,
+      commentairePGES: 'Plans reboisement compensatoire en cours — 3 anomalies mineures signalées (poussière, bruit chantier). Mesures correctives en place.',
+      commentairePAR: 'Réinstallation 12 ménages agriculteurs terminée. Indemnisations versées à 100%.',
+      derniereMaj: '2026-06-01',
+    },
+    // Qualité
+    qualite: {
+      nbNonConformites: 7,
+      nbControles: 124,
+      commentaire: '7 non-conformités dont 2 majeures (tolérances fondations). Toutes résolues. Taux de conformité 94.4%.',
+      derniereMaj: '2026-06-15',
+    },
+    // Incidents
+    incidents: [
+      {
+        id: 'inc-test-001',
+        synthese: 'Retard livraison câbles HTA Lot 2 — rupture stock fournisseur',
+        creePar: 'Maodo SENE',
+        dateCreation: '2025-03-15',
+        proprietaireId: 'r-TEST01',
+        proprietaireNom: 'Maodo SENE',
+        statut: 'Resolu' as StatutIncident,
+        priorite: 'Haute' as PrioriteIncident,
+        dateRequise: '2025-03-30',
+        type: 'Contractuel' as TypeIncident,
+        description: 'Rupture de stock câbles XLPE 120mm² chez fournisseur — livraison Lot 2 retardée de 15 jours. Impact sur planning Lot 3 HTA.',
+        pointsAction: [
+          { id: 'pa-001', synthese: 'Identifier fournisseur alternatif câbles HTA', proprietaireId: 'r-TEST01', proprietaireNom: 'Maodo SENE', statut: 'Termine' as const, dateRequise: '2025-03-20' },
+          { id: 'pa-002', synthese: 'Réviser planning travaux Lot 3 + buffer 10 jours', proprietaireId: 'r-TEST01', proprietaireNom: 'Maodo SENE', statut: 'Termine' as const, dateRequise: '2025-03-25' },
+        ],
+      },
+      {
+        id: 'inc-test-002',
+        synthese: 'Câbles souterrains non cartographiés — traversée route nationale RN3',
+        creePar: 'Maodo SENE',
+        dateCreation: '2025-02-10',
+        proprietaireId: 'r-TEST01',
+        proprietaireNom: 'Maodo SENE',
+        statut: 'Resolu' as StatutIncident,
+        priorite: 'Haute' as PrioriteIncident,
+        dateRequise: '2025-02-28',
+        type: 'Technique' as TypeIncident,
+        description: 'Découverte lors des travaux de terrassement de câbles souterrains BT non cartographiés au niveau de la traversée RN3 (Bambey-Diourbel). Arrêt chantier 4 jours.',
+        pointsAction: [
+          { id: 'pa-003', synthese: 'Levé topographique complémentaire — DGC/SIG', proprietaireId: 'r-TEST01', proprietaireNom: 'Maodo SENE', statut: 'Termine' as const, dateRequise: '2025-02-20' },
+          { id: 'pa-004', synthese: 'Mise à jour des plans GIS RN3 (direction SIG)', proprietaireId: 'r-TEST01', proprietaireNom: 'Maodo SENE', statut: 'Termine' as const, dateRequise: '2025-02-28' },
+        ],
+      },
+      {
+        id: 'inc-test-003',
+        synthese: 'Risque dépassement budget câbles BT — hausse prix cuivre +18%',
+        creePar: 'Maodo SENE',
+        dateCreation: '2026-04-05',
+        proprietaireId: 'r-TEST01',
+        proprietaireNom: 'Maodo SENE',
+        statut: 'En_cours' as StatutIncident,
+        priorite: 'Moyenne' as PrioriteIncident,
+        dateRequise: '2026-07-01',
+        type: 'Financier' as TypeIncident,
+        description: 'Hausse des cours du cuivre (+18% LME) depuis contractualisation. Risque de dépassement sur câbles BT 125 km estimé à 320 MFCFA. Avenant en cours de préparation.',
+        pointsAction: [
+          { id: 'pa-005', synthese: 'Préparer avenant révision prix câbles cuivre BT', proprietaireId: 'r-TEST01', proprietaireNom: 'Maodo SENE', statut: 'En_cours' as const, dateRequise: '2026-05-31' },
+          { id: 'pa-006', synthese: 'Consulter service juridique sur clause de révision de prix', proprietaireId: 'r-TEST01', proprietaireNom: 'Maodo SENE', statut: 'Non_demarre' as const, dateRequise: '2026-06-15' },
+        ],
+      },
+    ],
+    baselineSaved: true,
+    baselineDate: '2024-09-01',
+    baselines: [
+      {
+        id: 'bl-test-001',
+        nom: 'Baseline initiale — ODS Travaux HTA (01/09/2024)',
+        description: 'Référence planning contractuel à la date ODS. Base de calcul EVM — 85 km HTA + 125 km BT.',
+        dateCreation: '2024-09-01',
+        isPrincipal: true,
+        taches: [
+          { tacheId: 'prj-test-002-t01', nomTache: 'Phase 1 — Études HTA/BT', dateDebutPlanifie: '2024-03-01', dateFinPlanifie: '2024-07-01', dureePlanifie: 120, coutPlanifie: 280, avancementAuMoment: 0 },
+          { tacheId: 'prj-test-002-t13', nomTache: 'Phase 4 — Travaux HTA & BT', dateDebutPlanifie: '2025-01-01', dateFinPlanifie: '2025-09-01', dureePlanifie: 240, coutPlanifie: 11200, avancementAuMoment: 0 },
+        ],
+      },
+    ],
+  },
 ];
 
 // ────────────────────────────── CONTEXT ──────────────────────────────────────
@@ -976,8 +1228,8 @@ function nextId(prefix: string, counter: { val: number }) {
   return `${prefix}-${counter.val}`;
 }
 
-const LS_PROJETS = 'sigepp-projets-v1';
-const LS_RESSOURCES = 'sigepp-ressources-v1';
+const LS_PROJETS = 'sigep-projets-v1';
+const LS_RESSOURCES = 'sigep-ressources-v1';
 
 function loadProjets(): Projet[] {
   if (typeof window === 'undefined') return PROJETS_INIT;
@@ -1021,11 +1273,11 @@ export function ProjectStoreProvider({ children }: { children: React.ReactNode }
   const [projets, setProjets] = useState<Projet[]>(() => loadProjets());
   const [ressources, setRessources] = useState<Ressource[]>(() => loadRessources());
   const [globalDomaine, setGlobalDomaineState] = useState<string>(() => {
-    try { return localStorage.getItem('sigepp_global_domaine') ?? 'tous'; } catch { return 'tous'; }
+    try { return localStorage.getItem('sigep_global_domaine') ?? 'tous'; } catch { return 'tous'; }
   });
   const setGlobalDomaine = useCallback((d: string) => {
     setGlobalDomaineState(d);
-    try { localStorage.setItem('sigepp_global_domaine', d); } catch { /* ignore */ }
+    try { localStorage.setItem('sigep_global_domaine', d); } catch { /* ignore */ }
   }, []);
 
   // Persister à chaque changement
@@ -1416,7 +1668,7 @@ export function useProjectStore(): ProjectStore {
     };
     const scope = computeVisibilityScope(profile);
     // Super-rôles ou wildcard : vision exhaustive du portefeuille
-    if (scope.all || isRole('DIR_DPE', 'PMO', 'ADMIN')) {
+    if (scope.all || isRole('DIR_DPE', 'CHEF_CELLULE', 'ADMIN')) {
       return ctx.projets;
     }
 
@@ -1440,7 +1692,7 @@ export function useProjectStore(): ProjectStore {
     //    vision complète de leur périmètre.
     // S&E (EXPERT/CHARGE) NON inclus : ils suivent les KPI de TOUT leur département
     // (Responsable S&E DPD = tous les projets DPD), pas seulement ceux qui leur sont affectés.
-    const rolesImplication: RoleCode[] = ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'ASSISTANT'];
+    const rolesImplication: RoleCode[] = ['CHEF_PROJ', 'INGENIEUR', 'CONTROLEUR', 'ASSISTANT_DIR'];
     if (rolesImplication.includes(user.role)) {
       const assignedIds = new Set(user.projetsAssignes ?? []);
       const myName = normalizeName(`${user.prenom} ${user.nom}`);
@@ -1531,7 +1783,7 @@ export const DOMAINE_CFG: Record<Domaine, { label: string; color: string; emoji:
 };
 
 /**
- * Directions dont les données ont été effectivement chargées dans SIGEPP-DPE.
+ * Directions dont les données ont été effectivement chargées dans SIGEP-DPE.
  * Toute page affichant un filtre domaine doit griser / masquer les domaines absent.
  * DPD → distribution | DPT → transport
  */

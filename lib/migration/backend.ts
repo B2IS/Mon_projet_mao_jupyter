@@ -9,8 +9,14 @@
 
 import type { ExtractedData } from './types';
 
-const BASE = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '');
+const BACKEND_URL_ENV = process.env.NEXT_PUBLIC_BACKEND_URL;
+const BASE = (BACKEND_URL_ENV || 'http://localhost:8000').replace(/\/$/, '');
 const API = `${BASE}/api/v1/migration`;
+
+/** Vrai uniquement si la variable d'environnement est explicitement définie. */
+export function isBackendConfigured(): boolean {
+  return Boolean(BACKEND_URL_ENV);
+}
 
 export interface SwarmImmobilisation {
   code: string; designation: string; categorie: string;

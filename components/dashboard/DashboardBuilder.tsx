@@ -262,13 +262,20 @@ function ChartWidget({ widgetId, projets }: { widgetId: string; projets: ReturnT
   }
 
   if (widgetId === 'charge-ressources') {
-    const data = [
-      { nom: 'Fall I.', charge: 95 },
-      { nom: 'Diallo M.', charge: 80 },
-      { nom: 'Sy F.', charge: 70 },
-      { nom: 'Ndiaye O.', charge: 60 },
-      { nom: 'Ba A.', charge: 85 },
-    ];
+    // Calcul depuis les projets réels : chaque projet actif contribue 1 unité de charge normalisée
+    const actifs = projets.filter(p => p.statut !== 'archive');
+    const chefMap: Record<string, number> = {};
+    actifs.forEach(p => {
+      if (!p.chefProjet) return;
+      const nom = p.chefProjet.split(' ').map((w, i) => i === 0 ? w : w[0] + '.').join(' ');
+      chefMap[nom] = (chefMap[nom] ?? 0) + 1;
+    });
+    const maxCharge = Math.max(...Object.values(chefMap), 1);
+    const data = Object.entries(chefMap)
+      .map(([nom, n]) => ({ nom, charge: Math.min(100, Math.round((n / maxCharge) * 100)) }))
+      .sort((a, b) => b.charge - a.charge)
+      .slice(0, 6);
+    if (data.length === 0) return <div style={{ color: '#94A3B8', fontSize: 12, textAlign: 'center', padding: '40px 0' }}>Aucun chef de projet actif</div>;
     return (
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
@@ -287,10 +294,18 @@ function ChartWidget({ widgetId, projets }: { widgetId: string; projets: ReturnT
   }
 
   if (widgetId === 'tendances') {
-    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû'];
-    const data = months.map((m, i) => ({
+    // Avancement moyen par mois basé sur les projets avec dateDebut valide
+    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-based
+    const actifs = projets.filter(p => p.statut !== 'archive' && p.avancement != null);
+    const avgAvancement = actifs.length > 0
+      ? Math.round(actifs.reduce((s, p) => s + (p.avancement ?? 0), 0) / actifs.length)
+      : 0;
+    // Reconstitution de la courbe mensuelle : interpolation linéaire jusqu'au mois courant
+    const data = months.slice(0, Math.min(currentMonth + 1, 8)).map((m, i, arr) => ({
       mois: m,
-      avancement: Math.min(100, 10 + i * 8),
+      avancement: Math.round(avgAvancement * (i + 1) / arr.length),
     }));
     return (
       <ResponsiveContainer width="100%" height={200}>

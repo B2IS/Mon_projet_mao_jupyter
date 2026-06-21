@@ -31,6 +31,6 @@ export const useSignatureStore = create<SignatureState>()(
           return { signatures: sigs };
         }),
     }),
-    { name: 'sigepp-signatures-v1' }
+    { name: 'sigep-signatures-v1' }
   )
 );

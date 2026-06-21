@@ -76,6 +76,6 @@ export const useImmoModule = create<ImmoModuleState>()(
         set({ actifs, pvs });
       },
     }),
-    { name: 'sigepp-immo-module' }
+    { name: 'sigep-immo-module' }
   )
 );

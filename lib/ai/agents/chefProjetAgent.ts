@@ -75,18 +75,18 @@ export async function runChefProjetAgent(
     `   Niveau global : ${risques?.niveauRisqueGlobal ?? '?'}`,
     ``,
     `6. SCORE DE COHÉRENCE : ${scoreSynthese}/100`,
-    projetValide ? `   ✓ Projet prêt pour publication SIGEPP-DPE` : `   ⚠ Anomalies à corriger avant publication`,
+    projetValide ? `   ✓ Projet prêt pour publication SIGEP-DPE` : `   ⚠ Anomalies à corriger avant publication`,
     ``,
     ...(anomalies.length ? [`ANOMALIES :`, ...anomalies.map(a => `  • ${a}`), ``] : []),
     ...(warnings.length  ? [`AVERTISSEMENTS :`, ...warnings.map(w => `  ⚠ ${w}`), ``] : []),
     `═══════════════════════════════════════════════════════`,
-    `  Généré par Agent Chef de Projet — SIGEPP-DPE v3.0`,
+    `  Généré par Agent Chef de Projet — SIGEP-DPE v3.0`,
     `═══════════════════════════════════════════════════════`,
   ].join('\n');
 
   const notifications: ChefProjetOutput['notifications'] = [
     { destinataire: 'PMO SENELEC DPE', sujet: `Nouveau projet à valider : ${projetCtx.nomProjet}`, canal: 'app' },
-    { destinataire: projetCtx.chefProjetNom ?? 'Chef de Projet', sujet: `Projet ${projetCtx.codeProjet} créé dans SIGEPP-DPE`, canal: 'email' },
+    { destinataire: projetCtx.chefProjetNom ?? 'Chef de Projet', sujet: `Projet ${projetCtx.codeProjet} créé dans SIGEP-DPE`, canal: 'email' },
     { destinataire: 'Gestionnaire Financier', sujet: `Plan budgétaire à confirmer — ${projetCtx.nomProjet}`, canal: 'app' },
   ];
 
@@ -101,7 +101,7 @@ export async function runChefProjetAgent(
       rapportCreation,
       notifications,
       prochainAction: projetValide
-        ? 'Valider manuellement le projet et cliquer sur "Publier dans SIGEPP-DPE"'
+        ? 'Valider manuellement le projet et cliquer sur "Publier dans SIGEP-DPE"'
         : 'Corriger les anomalies listées avant de republier.',
     },
     filesUsed: [],

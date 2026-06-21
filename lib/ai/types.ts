@@ -1,5 +1,5 @@
 /**
- * lib/ai/types.ts — Swarm Orchestrateur SIGEPP-DPE
+ * lib/ai/types.ts — Swarm Orchestrateur SIGEP-DPE
  * Types partagés par tous les agents du pipeline IA.
  */
 

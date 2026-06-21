@@ -1,16 +1,20 @@
 /**
- * kimiClient.ts — Client LLM SIGEPP-DPE
+ * kimiClient.ts — Client LLM SIGEP-DPE
  *
  * Priorité :
  *   1. Docker llama.cpp (Kimi K2.6 GGUF local) — http://localhost:8080/v1
- *   2. Kimi K2 (Moonshot AI cloud)             — clé NEXT_PUBLIC_KIMI_API_KEY ou localStorage 'sigepp_kimi_key'
+ *   2. Kimi K2 (Moonshot AI cloud)             — clé NEXT_PUBLIC_KIMI_API_KEY ou localStorage 'sigep_kimi_key'
  *   3. Ollama local (qwen2.5-coder:14b > deepseek-r1:7b > llama3.2)  — aucune clé requise
  *   4. Mode heuristique                        — toujours disponible en dernier recours
  */
 
-// ── Docker llama.cpp (Kimi K2.6 GGUF local) ──────────────────────────────────
-const DOCKER_LLM_BASE_URL = 'http://localhost:8080/v1';
-const DOCKER_LLM_MODEL    = 'Kimi-K2.6-Q4_K_M';  // nom renvoyé par llama.cpp server
+// ── Docker llama.cpp (Kimi K2 GGUF local) ────────────────────────────────────
+// URL configurable via DOCKER_LLM_BASE_URL (server-side) ou NEXT_PUBLIC_DOCKER_LLM_BASE_URL (client)
+const DOCKER_LLM_BASE_URL =
+  (typeof process !== 'undefined' && process.env?.DOCKER_LLM_BASE_URL) ||
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_DOCKER_LLM_BASE_URL) ||
+  'http://localhost:8080/v1';
+const DOCKER_LLM_MODEL    = 'kimi-k2';   // alias déclaré dans --alias du docker-compose
 
 // ── Kimi K2 (Moonshot AI cloud) ───────────────────────────────────────────────
 export const KIMI_MODEL   = 'kimi-k2';
@@ -38,7 +42,7 @@ export interface KimiOptions {
 /** Récupère la clé Kimi : localStorage → env var */
 export function getKimiKey(): string {
   if (typeof window !== 'undefined') {
-    const ls = localStorage.getItem('sigepp_kimi_key');
+    const ls = localStorage.getItem('sigep_kimi_key');
     if (ls?.trim()) return ls.trim();
   }
   return '';

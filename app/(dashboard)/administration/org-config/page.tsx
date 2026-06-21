@@ -20,7 +20,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'directions', label: 'Directions', icon: Building2 },
   { id: 'departements', label: 'Départements', icon: Layers },
   { id: 'postes', label: 'Postes', icon: Briefcase },
-  { id: 'roles', label: 'Rôles SIGEPP', icon: Shield },
+  { id: 'roles', label: 'Rôles SIGEP', icon: Shield },
   { id: 'agents', label: 'Agents', icon: Users },
 ];
 
@@ -46,7 +46,7 @@ export default function OrgConfigPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `sigepp-org-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `sigep-org-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('Configuration exportée');

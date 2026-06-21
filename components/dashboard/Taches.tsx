@@ -20,9 +20,11 @@ import {
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import { readOnlyGuard } from '@/lib/operationalGuard';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { useRouter } from 'next/navigation';
 import {
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   Plus,
   Trash2,
   Edit2,
@@ -645,6 +647,7 @@ function GanttView({ taches, collapsed }: GanttViewProps) {
 type View = 'liste' | 'kanban' | 'planning';
 
 export default function Taches() {
+  const router = useRouter();
   const { user } = useAuth();
   const readOnly = isOperationalReadOnly(user);
   const store = readOnlyGuard(useProjectStore(), readOnly);
@@ -800,6 +803,9 @@ export default function Taches() {
 
       {/* ── Top bar ── */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+          <ChevronLeft size={13} /> Retour
+        </button>
         <div style={{ flex: 1, minWidth: 240 }}>
           <SearchableSelect
             value={selectedProjetId}
@@ -1373,7 +1379,7 @@ export default function Taches() {
                   )}
                   <button onClick={() => {
                     if (!livrableForm.nom.trim()) return;
-                    const user = (() => { try { return JSON.parse(localStorage.getItem('sigepp_dpe_user') || 'null'); } catch { return null; } })();
+                    const user = (() => { try { return JSON.parse(localStorage.getItem('sigep_dpe_user') || 'null'); } catch { return null; } })();
                     if (livrableEdit) {
                       store.updateLivrable(selectedProjetId, livrableTaskId, livrableEdit, { ...livrableForm });
                       setLivrableEdit(null);

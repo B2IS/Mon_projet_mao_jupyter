@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import {
   useProjectStore, DOMAINE_CFG, STATUT_CFG, REGIONS, CHEFS,
-  type Projet, type StatutProjet, type Domaine, type Priorite, type Ressource,
+  type Projet, type StatutProjet, type Domaine, type Priorite, type Ressource, type InfraType, type LocaliteSIG,
 } from '@/lib/projectStore';
 import { useAuth, isOperationalReadOnly } from '@/lib/authStore';
 import { readOnlyGuard } from '@/lib/operationalGuard';
@@ -786,7 +786,9 @@ interface WizardForm {
   nom: string;
   code: string;
   description: string;
-  localisation: string;
+  localisation: string; // région principale (rétrocompat)
+  localites: LocaliteSIG[];
+  infrasImpactees: string[];
   chefProjet: string;
   dateDebut: string;
   dateFinPrevue: string;
@@ -806,7 +808,10 @@ interface WizardForm {
 const DEFAULT_FORM: WizardForm = {
   domaine: '',
   nom: '', code: '', description: '',
-  localisation: '', chefProjet: '',
+  localisation: '',
+  localites: [],
+  infrasImpactees: [],
+  chefProjet: '',
   dateDebut: '', dateFinPrevue: '',
   priorite: 'Moyenne',
   bailleur: '', montantPrevu: '', montantEngage: '',
@@ -818,6 +823,78 @@ const DEFAULT_FORM: WizardForm = {
   kpis: ['CPI', 'SPI', 'Budget', 'Délai'],
 };
 
+/* ── Import universel de localités (CSV / GeoJSON / KML) ─────────────────── */
+function parseLocalitesFromFile(
+  text: string, filename: string
+): { localites: LocaliteSIG[]; error?: string } {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+
+  /* ── GeoJSON ── */
+  if (ext === 'geojson' || ext === 'json') {
+    try {
+      const obj = JSON.parse(text);
+      const features = obj.type === 'FeatureCollection' ? obj.features
+        : obj.type === 'Feature' ? [obj] : [];
+      const localites: LocaliteSIG[] = features
+        .filter((f: any) => f.geometry?.type === 'Point')
+        .map((f: any, i: number) => ({
+          id: `loc-${Date.now()}-${i}`,
+          nom: f.properties?.nom || f.properties?.name || f.properties?.localite || `Point ${i + 1}`,
+          commune: f.properties?.commune || f.properties?.district || '',
+          region: f.properties?.region || '',
+          lat: f.geometry.coordinates[1],
+          lng: f.geometry.coordinates[0],
+        }));
+      return localites.length ? { localites } : { localites: [], error: 'Aucun Point GeoJSON trouvé.' };
+    } catch { return { localites: [], error: 'Fichier GeoJSON invalide.' }; }
+  }
+
+  /* ── KML ── */
+  if (ext === 'kml') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/xml');
+      const placemarks = Array.from(doc.querySelectorAll('Placemark'));
+      const localites: LocaliteSIG[] = placemarks.map((pm, i) => {
+        const name = pm.querySelector('name')?.textContent?.trim() || `Point ${i + 1}`;
+        const coordsEl = pm.querySelector('Point > coordinates');
+        const coords = coordsEl?.textContent?.trim().split(',') ?? [];
+        const lng = parseFloat(coords[0] ?? '0');
+        const lat = parseFloat(coords[1] ?? '0');
+        const desc = pm.querySelector('description')?.textContent?.trim() || '';
+        return { id: `loc-${Date.now()}-${i}`, nom: name, commune: '', region: desc, lat, lng };
+      }).filter(l => !isNaN(l.lat) && !isNaN(l.lng));
+      return localites.length ? { localites } : { localites: [], error: 'Aucun Point KML trouvé.' };
+    } catch { return { localites: [], error: 'Fichier KML invalide.' }; }
+  }
+
+  /* ── CSV / TSV / Excel-exported-as-CSV ── */
+  const sep = text.includes('\t') ? '\t' : text.includes(';') ? ';' : ',';
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return { localites: [], error: 'Fichier CSV trop court.' };
+  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+  const idx = (keys: string[]) => keys.map(k => headers.indexOf(k)).find(i => i >= 0) ?? -1;
+  const iNom = idx(['nom', 'localite', 'village', 'name', 'site', 'lieu']);
+  const iLat = idx(['lat', 'latitude', 'y']);
+  const iLng = idx(['lng', 'lon', 'longitude', 'x']);
+  const iCom = idx(['commune', 'district', 'arrondissement']);
+  const iReg = idx(['region', 'région']);
+  if (iLat < 0 || iLng < 0) return { localites: [], error: 'Colonnes lat/lng introuvables.' };
+  const localites: LocaliteSIG[] = lines.slice(1).map((line, i) => {
+    const cells = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+    const lat = parseFloat(cells[iLat] ?? '');
+    const lng = parseFloat(cells[iLng] ?? '');
+    return {
+      id: `loc-${Date.now()}-${i}`,
+      nom: (iNom >= 0 ? cells[iNom] : '') || `Localité ${i + 1}`,
+      commune: iCom >= 0 ? cells[iCom] : '',
+      region: iReg >= 0 ? cells[iReg] : '',
+      lat, lng,
+    };
+  }).filter(l => !isNaN(l.lat) && !isNaN(l.lng));
+  return localites.length ? { localites } : { localites: [], error: 'Aucune ligne valide (vérifiez lat/lng).' };
+}
+
 function WizardModal({ onClose }: { onClose: () => void }) {
   const store = readOnlyGuard(useProjectStore(), isOperationalReadOnly(useAuth().user));
   const [step, setStep] = useState(1);
@@ -825,6 +902,40 @@ function WizardModal({ onClose }: { onClose: () => void }) {
   const [newMemberRole, setNewMemberRole] = useState<Role>('Ingénieur');
   const [newMemberNom, setNewMemberNom] = useState('');
   const [newMemberAlloc, setNewMemberAlloc] = useState('100');
+
+  /* ── État gestionnaire de localités ── */
+  const [showAddLoc, setShowAddLoc] = useState(false);
+  const [locDraft, setLocDraft] = useState<Omit<LocaliteSIG, 'id'>>({ nom: '', commune: '', region: '', lat: 0, lng: 0 });
+  const [locImportErr, setLocImportErr] = useState('');
+  const locFileRef = useRef<HTMLInputElement>(null);
+
+  const addLocality = () => {
+    if (!locDraft.nom.trim() || !locDraft.lat || !locDraft.lng) return;
+    const loc: LocaliteSIG = { ...locDraft, id: `loc-${Date.now()}` };
+    updateForm('localites', [...form.localites, loc]);
+    updateForm('localisation', locDraft.region || form.localisation);
+    setLocDraft({ nom: '', commune: '', region: '', lat: 0, lng: 0 });
+    setShowAddLoc(false);
+  };
+
+  const removeLocality = (id: string) =>
+    updateForm('localites', form.localites.filter(l => l.id !== id));
+
+  const handleLocImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target?.result as string;
+      const { localites, error } = parseLocalitesFromFile(text, file.name);
+      if (error) { setLocImportErr(error); return; }
+      setLocImportErr('');
+      updateForm('localites', [...form.localites, ...localites]);
+      if (localites[0]?.region) updateForm('localisation', localites[0].region);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   /* ── Priorisation multi-critères pondérée (grille gouvernance DPE/PMO/Admin) ── */
   const govCriteres = useCriteriaStore(s => s.prioritization);
@@ -902,7 +1013,7 @@ function WizardModal({ onClose }: { onClose: () => void }) {
 
   const canNext = useMemo(() => {
     if (step === 1) return form.domaine !== '';
-    if (step === 2) return form.nom.trim() !== '' && form.localisation !== '' && form.dateDebut !== '' && form.dateFinPrevue !== '';
+    if (step === 2) return form.nom.trim() !== '' && form.localites.length > 0 && form.dateDebut !== '' && form.dateFinPrevue !== '';
     if (step === 3) return form.bailleur !== '' && form.montantPrevu.trim() !== '';
     return true;
   }, [step, form]);
@@ -916,8 +1027,14 @@ function WizardModal({ onClose }: { onClose: () => void }) {
       description: form.description,
       objectif: '',
       chefProjet: form.chefProjet || 'À définir',
-      localisation: form.localisation,
-      region: form.localisation,
+      localisation: form.localites[0]?.nom || form.localisation || 'Non défini',
+      region: form.localites[0]?.region || form.localisation || 'Non défini',
+      localite: form.localites[0]?.nom,
+      commune: form.localites[0]?.commune,
+      lat: form.localites[0]?.lat,
+      lng: form.localites[0]?.lng,
+      localites: form.localites.length ? form.localites : undefined,
+      infrasImpactees: form.infrasImpactees.length ? (form.infrasImpactees as any) : undefined,
       avancement: 0,
       avancementPlanifie: 0,
       budget: parseFloat(form.montantPrevu) || 0,
@@ -1018,7 +1135,7 @@ function WizardModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {/* Step 2: General info */}
+            {/* Step 2: General info + SIG géolocalisation */}
             {step === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>Informations générales</div>
@@ -1035,13 +1152,6 @@ function WizardModal({ onClose }: { onClose: () => void }) {
                   <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={form.description} onChange={e => updateForm('description', e.target.value)} placeholder="Description du projet..." />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={labelStyle}>Localisation *</label>
-                    <select style={inputStyle} value={form.localisation} onChange={e => updateForm('localisation', e.target.value)}>
-                      <option value="">-- Région --</option>
-                      {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
                   <div>
                     <label style={labelStyle}>Chef de projet</label>
                     <select style={inputStyle} value={form.chefProjet} onChange={e => updateForm('chefProjet', e.target.value)}>
@@ -1064,9 +1174,137 @@ function WizardModal({ onClose }: { onClose: () => void }) {
                         ? `${Math.round((new Date(form.dateFinPrevue).getTime() - new Date(form.dateDebut).getTime()) / 86400000)} jours`
                         : '—'} />
                   </div>
+                </div>
+
+                {/* ── SIG — Géolocalisation multi-sites ── */}
+                <div style={{ borderTop: '2px solid #0D948820', paddingTop: 14 }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <MapPin size={14} color="#0D9488" />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0D9488' }}>Localités SIG</span>
+                      <span style={{ fontSize: 10, background: '#FEF3C7', color: '#92400E', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>OBLIGATOIRE</span>
+                      {form.localites.length > 0 && (
+                        <span style={{ fontSize: 10, background: '#0D948820', color: '#0D9488', borderRadius: 10, padding: '1px 7px', fontWeight: 700 }}>{form.localites.length} site{form.localites.length > 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input ref={locFileRef} type="file" accept=".csv,.geojson,.json,.kml,.tsv" style={{ display: 'none' }} onChange={handleLocImport} />
+                      <button type="button" onClick={() => locFileRef.current?.click()}
+                        style={{ fontSize: 10, padding: '4px 10px', borderRadius: 6, border: '1px solid #6366F1', background: 'transparent', color: '#6366F1', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        ↑ Importer CSV · GeoJSON · KML
+                      </button>
+                      <button type="button" onClick={() => { setShowAddLoc(s => !s); setLocImportErr(''); }}
+                        style={{ fontSize: 10, padding: '4px 10px', borderRadius: 6, border: '1px solid #0D9488', background: showAddLoc ? '#0D948820' : 'transparent', color: '#0D9488', cursor: 'pointer', fontWeight: 600 }}>
+                        + Ajouter
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 10 }}>
+                    Un projet peut couvrir plusieurs localités. Importez depuis CSV (colonnes : nom, lat, lng, commune, region), GeoJSON ou KML.
+                  </div>
+
+                  {/* Import error */}
+                  {locImportErr && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 6, padding: '6px 10px', marginBottom: 8, fontSize: 11, color: '#DC2626' }}>
+                      <AlertTriangle size={12} />{locImportErr}
+                    </div>
+                  )}
+
+                  {/* Inline add form */}
+                  {showAddLoc && (
+                    <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 8 }}>Nouvelle localité</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <label style={{ ...labelStyle, color: '#166534' }}>Nom / Site *</label>
+                          <input style={inputStyle} value={locDraft.nom} onChange={e => setLocDraft(d => ({ ...d, nom: e.target.value }))} placeholder="Ex: Village de Mboro, Zone industrielle Mbao…" />
+                        </div>
+                        <div>
+                          <label style={{ ...labelStyle, color: '#166534' }}>Région</label>
+                          <select style={inputStyle} value={locDraft.region} onChange={e => setLocDraft(d => ({ ...d, region: e.target.value }))}>
+                            <option value="">-- Région --</option>
+                            {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ ...labelStyle, color: '#166534' }}>Commune</label>
+                          <input style={inputStyle} value={locDraft.commune} onChange={e => setLocDraft(d => ({ ...d, commune: e.target.value }))} placeholder="Ex: Thiès-Nord" />
+                        </div>
+                        <div>
+                          <label style={{ ...labelStyle, color: '#166534' }}>Latitude * <span style={{ fontWeight: 400, color: '#9CA3AF' }}>ex: 14.6937</span></label>
+                          <input style={inputStyle} type="number" step="0.0001" value={locDraft.lat || ''} onChange={e => setLocDraft(d => ({ ...d, lat: parseFloat(e.target.value) || 0 }))} placeholder="14.6937" />
+                        </div>
+                        <div>
+                          <label style={{ ...labelStyle, color: '#166534' }}>Longitude * <span style={{ fontWeight: 400, color: '#9CA3AF' }}>ex: -17.4441</span></label>
+                          <input style={inputStyle} type="number" step="0.0001" value={locDraft.lng || ''} onChange={e => setLocDraft(d => ({ ...d, lng: parseFloat(e.target.value) || 0 }))} placeholder="-17.4441" />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button type="button" onClick={addLocality}
+                          disabled={!locDraft.nom.trim() || !locDraft.lat || !locDraft.lng}
+                          style={{ flex: 1, padding: '7px 0', borderRadius: 6, border: 'none', background: locDraft.nom.trim() && locDraft.lat && locDraft.lng ? '#0D9488' : '#E5E7EB', color: locDraft.nom.trim() && locDraft.lat && locDraft.lng ? '#fff' : '#9CA3AF', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                          Ajouter cette localité
+                        </button>
+                        <button type="button" onClick={() => setShowAddLoc(false)}
+                          style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#374151', fontSize: 12, cursor: 'pointer' }}>
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Localities list */}
+                  {form.localites.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', marginBottom: 10 }}>
+                      {form.localites.map((loc, i) => (
+                        <div key={loc.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F0FDF9', border: '1px solid #A7F3D0', borderRadius: 7, padding: '7px 10px' }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#0D9488', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#065F46', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.nom}</div>
+                            <div style={{ fontSize: 10, color: '#6B7280' }}>
+                              {[loc.commune, loc.region].filter(Boolean).join(' · ')}
+                              {' '}<span style={{ fontFamily: 'monospace', color: '#0D9488' }}>{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</span>
+                            </div>
+                          </div>
+                          <button type="button" onClick={() => removeLocality(loc.id)}
+                            aria-label="Supprimer cette localité"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2, display: 'flex', flexShrink: 0 }}>
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '20px 0', color: '#9CA3AF', fontSize: 11 }}>
+                      <MapPin size={24} color="#D1D5DB" />
+                      <span>Aucune localité — ajoutez manuellement ou importez un fichier</span>
+                    </div>
+                  )}
+
+                  {/* Validation hint */}
+                  {form.localites.length === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#B45309', fontSize: 11, marginBottom: 10 }}>
+                      <AlertTriangle size={12} />
+                      <span>Au moins une localité géoréférencée est obligatoire pour créer le projet.</span>
+                    </div>
+                  )}
+
+                  {/* Infrastructure types */}
                   <div>
-                    <label style={labelStyle}>Priorité</label>
-                    <input style={{ ...inputStyle, background: '#F3F4F6', color: '#6B7280' }} readOnly value="Définie à l'étape Priorité →" />
+                    <label style={{ ...labelStyle, marginBottom: 6 }}>Infrastructures impactées</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {(['Ligne HTA', 'Ligne BT', 'Poste HTA/BT', 'Poste HTB', 'Centrale', 'Bâtiment', 'Ouvrage GC'] as InfraType[]).map(infra => {
+                        const checked = form.infrasImpactees.includes(infra);
+                        return (
+                          <button key={infra} type="button"
+                            onClick={() => updateForm('infrasImpactees', checked ? form.infrasImpactees.filter(i => i !== infra) : [...form.infrasImpactees, infra])}
+                            style={{ padding: '4px 10px', fontSize: 10, borderRadius: 20, cursor: 'pointer', border: `1px solid ${checked ? '#0D9488' : '#D1D5DB'}`, background: checked ? '#0D948815' : '#F9FAFB', color: checked ? '#0D9488' : '#374151', fontWeight: checked ? 600 : 400, transition: 'all 0.15s' }}>
+                            {infra}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1358,7 +1596,16 @@ export default function ProjetsDPE() {
   // de projet (ou rôle opérationnel) ne voit JAMAIS d'agrégat consolidé : ses pages
   // ne concernent que ses propres projets. NB : un chef de département est niveau 2
   // pour la visibilité (scopé à son département) mais reste un profil de pilotage.
-  const canSeeConsolidated = isRole('DIR_DPE', 'ADMIN', 'PMO', 'CHEF_DEPT', 'EXPERT');
+  const canSeeConsolidated = isRole('DIR_DPE', 'ADMIN', 'CHEF_CELLULE', 'CHEF_DEPT', 'EXPERT_SE');
+
+  // Périmètre métier de l'utilisateur — détermine quels indicateurs afficher
+  const userDept = ((user?.departement ?? '') as string).toUpperCase();
+  const isDPD = userDept.includes('DPD') || userDept.includes('DISTRIBUTION');
+  const isDPT = userDept.includes('DPT') || userDept.includes('TRANSPORT');
+  const isProd = userDept.includes('PEC') || userDept.includes('PER') || userDept.includes('PRODUCTION');
+  // Vue consolidée complète : DIR_DPE/ADMIN ou profil sans département spécifique (ex. DIRECTEUR DER, CSE)
+  const isFullConsolidated = isRole('DIR_DPE', 'ADMIN') || (!isDPD && !isDPT && !isProd);
+
   const router = useRouter();
   const allProjets = store.projets;
 
@@ -1465,7 +1712,7 @@ export default function ProjetsDPE() {
       bailleurs: [], // Can be updated later
       equipe: [], // Can be updated later
       jalons: [], // Can be updated later
-      metadata: { migrated: true, original_system: 'Legacy SIGEPP' }, // Add metadata for migrated projects
+      metadata: { migrated: true, original_system: 'Legacy SIGEP' }, // Add metadata for migrated projects
     });
     addNotification({
       type: 'success',
@@ -1655,7 +1902,7 @@ export default function ProjetsDPE() {
             </div>
             <div>
               <div style={{ fontSize: 9, color: '#9CA3AF', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: 'clamp(13px, 3.5vw, 20px)', fontWeight: 800, color, lineHeight: 1.2, wordBreak: 'break-word' }}>{value}</div>
             </div>
           </div>
         ))}
@@ -1666,16 +1913,27 @@ export default function ProjetsDPE() {
       <div style={{ padding: '0 20px 10px', flexShrink: 0 }}>
         <div style={{ background: 'linear-gradient(135deg, #1B4F8A 0%, #0F3460 100%)', borderRadius: 10, padding: '12px 16px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 10 }}>
-            ⚡ Indicateurs DPE & Énergie — {isRole('DIR_DPE','ADMIN','PMO') ? 'Portefeuille consolidé' : 'Mon périmètre'}
+            ⚡ Indicateurs Énergie — {isFullConsolidated ? 'Portefeuille consolidé' : isDPD ? 'Distribution / DPD' : isDPT ? 'Transport / DPT' : isProd ? 'Production / DEP' : 'Mon périmètre'}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
             {[
-              { icon: '🔌', label: 'Réseau HTA/BT',    val: `${dpeKpis.kmReseau.toFixed(0)} km`,      sub: 'déployé',         color: '#60A5FA' },
-              { icon: '🏗️', label: 'Postes transfo',    val: String(dpeKpis.postes),                    sub: 'installés',       color: '#059669' },
-              { icon: '⚡', label: 'MW installés',      val: `${dpeKpis.mwInstalle.toFixed(0)} MW`,    sub: 'production',      color: '#FCD34D' },
-              { icon: '📊', label: 'Compteurs posés',   val: dpeKpis.compteurs.toLocaleString('fr'),   sub: 'actifs',          color: '#C084FC' },
-              { icon: '🔌', label: 'Pertes techn. évitées', val: `${dpeKpis.pertesEvitees.toFixed(1)} GWh`, sub: 'par an (réseau renforcé)', color: '#6EE7B7' },
-              { icon: '✅', label: 'Conformité DPE',    val: `${dpeKpis.conformite}%`,                 sub: 'moy. portefeuille', color: dpeKpis.conformite >= 80 ? '#4ADE80' : '#F87171' },
+              // Distribution (DPD)
+              ...(isDPD || isFullConsolidated ? [
+                { icon: '🔌', label: 'Réseau HTA/BT',    val: `${dpeKpis.kmReseau.toFixed(0)} km`,           sub: 'déployé',            color: '#60A5FA' },
+                { icon: '🏗️', label: 'Postes HTA/BT',    val: String(dpeKpis.postes),                         sub: 'installés',          color: '#059669' },
+                { icon: '📊', label: 'Compteurs posés',   val: dpeKpis.compteurs.toLocaleString('fr'),         sub: 'comptage actif',     color: '#C084FC' },
+              ] : []),
+              // Transport (DPT)
+              ...(isDPT || isFullConsolidated ? [
+                { icon: '⚡', label: 'Lignes HTB',         val: `${(dpeKpis.kmReseau * 0.6).toFixed(0)} km`,  sub: 'HTB déployées',      color: '#60A5FA' },
+                { icon: '🔌', label: 'Pertes évitées',     val: `${dpeKpis.pertesEvitees.toFixed(1)} GWh`,    sub: 'réseau renforcé/an', color: '#6EE7B7' },
+              ] : []),
+              // Production (DEP-PEC / DEP-PER)
+              ...(isProd || isFullConsolidated ? [
+                { icon: '⚡', label: 'MW installés',       val: `${dpeKpis.mwInstalle.toFixed(0)} MW`,         sub: 'production',         color: '#FCD34D' },
+              ] : []),
+              // Toujours visible (dans ce bandeau pilotage)
+              { icon: '✅', label: 'Conformité DPE',       val: `${dpeKpis.conformite}%`,                      sub: 'moy. périmètre',     color: dpeKpis.conformite >= 80 ? '#4ADE80' : '#F87171' },
             ].map(k => (
               <div key={k.label} style={{ textAlign: 'center', padding: '8px 6px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
                 <div style={{ fontSize: 16, marginBottom: 3 }}>{k.icon}</div>
@@ -1713,7 +1971,7 @@ export default function ProjetsDPE() {
 
       {/* ── Wizard Modal ── */}
       {showWizard && (
-        <WizardModal onClose={() => setShowWizard(false)} />
+        <WizardModal onClose={() => { setShowWizard(false); setFilterStatut('tous'); setFilterDomaine('tous'); }} />
       )}
 
       {/* ── Migration projet en cours ── */}

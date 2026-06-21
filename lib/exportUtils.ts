@@ -9,7 +9,7 @@
  * l'application par des sorties propres et professionnelles.
  */
 
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { SENELEC_LOGO_DATA_URI } from './senelecLogo';
 
 export type Cell = string | number | null | undefined;
@@ -214,7 +214,7 @@ export function printBranded(opts: PrintOptions): boolean {
   ${opts.bodyHTML ?? ''}
   <div class="footer">
     <span>${opts.confidentiel ? 'CONFIDENTIEL — Usage interne SENELEC' : 'SENELEC — Direction Principale Équipement'}</span>
-    <span>SIGEPP-DPE · Document généré le ${todayFR()}</span>
+    <span>SIGEP-DPE · Document généré le ${todayFR()}</span>
   </div>
   <script>window.onload = () => { window.print(); };</script>
 </body></html>`;

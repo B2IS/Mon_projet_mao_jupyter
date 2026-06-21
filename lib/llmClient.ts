@@ -1,5 +1,5 @@
 /**
- * lib/llmClient.ts — Client LLM Souverain SIGEPP-DPE
+ * lib/llmClient.ts — Client LLM Souverain SIGEP-DPE
  * ──────────────────────────────────────────────────────────────────────────
  * Architecture de résilience (3 niveaux) :
  *
@@ -70,7 +70,7 @@ function getOllamaBase(): string {
 /** Clé Groq saisie manuellement par l'utilisateur (localStorage uniquement). */
 function getGroqKey(): string {
   if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('sigepp_groq_key') ?? '';
+    const stored = localStorage.getItem('sigep_groq_key') ?? '';
     if (stored.startsWith('gsk_')) return stored;
   }
   return '';
@@ -91,7 +91,7 @@ async function isGroqAvailable(): Promise<boolean> {
 }
 
 
-/** Modèles Ollama recommandés pour SIGEPP-DPE, par priorité décroissante.
+/** Modèles Ollama recommandés pour SIGEP-DPE, par priorité décroissante.
  *  Tous open-source, bons pour le français et le contexte métier. */
 const OLLAMA_MODEL_PRIORITY = [
   'mistral-nemo',      // Meilleur français, contexte métier

@@ -1,5 +1,5 @@
 /**
- * indicatorStore.ts — Constructeur d'Indicateurs SIGEPP-DPE
+ * indicatorStore.ts — Constructeur d'Indicateurs SIGEP-DPE
  * ----------------------------------------------------------
  * Permet de configurer des indicateurs (KPI) personnalisés à partir des
  * données déjà présentes dans la plateforme (portefeuille projets), via :
@@ -335,57 +335,19 @@ export const RAG_COLORS: Record<RagStatus, string> = {
 // INDICATEURS PRÉ-CONFIGURÉS (issus du Rapport Trimestriel DPE)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// 6 indicateurs clés — contrat de gestion DPE : décision sans surcharge cognitive
 export const TEMPLATE_INDICATORS: Omit<CustomIndicator, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
-    name: 'Taux de réalisation financière', nameEn: 'Financial completion rate',
-    description: 'Décaissé / Budget total — cible trimestrielle DPE : 80 %',
-    formula: 'SUM(budgetDecaisse) / SUM(budget) * 100', unit: 'percent', target: 80,
-    thresholds: { good: 80, warn: 50, direction: 'higher' },
-  },
-  {
-    name: 'Taux d\'avancement physique (pondéré)', nameEn: 'Weighted physical progress',
-    description: 'Avancement pondéré par le budget — cible : 80 %',
-    formula: 'WAVG(avancement)', unit: 'percent', target: 80,
-    thresholds: { good: 80, warn: 50, direction: 'higher' },
-  },
-  {
     name: 'Taux de réalisation physique des prévisions', nameEn: 'Physical forecast achievement rate',
-    description: 'Avancement physique réalisé / planifié (TAPR ÷ TAPP) — indicateur phare du contrat de gestion DPE (cible 80 %)',
+    description: 'TAPR ÷ TAPP — indicateur phare du contrat de gestion DPE (cible 80 %)',
     formula: 'WAVG(avancement) / WAVG(avancementPlanifie) * 100', unit: 'percent', target: 80,
     thresholds: { good: 80, warn: 50, direction: 'higher' },
   },
   {
-    name: 'Taux d\'exécution du budget d\'investissement annuel', nameEn: 'Annual investment budget execution rate',
+    name: 'Taux d\'exécution budgétaire', nameEn: 'Budget execution rate',
     description: 'Budget décaissé / budget total — contrat de gestion DPE (cible 80 %)',
     formula: 'SUM(budgetDecaisse) / SUM(budget) * 100', unit: 'percent', target: 80,
     thresholds: { good: 80, warn: 50, direction: 'higher' },
-  },
-  {
-    name: 'Nombre total de projets', nameEn: 'Total number of projects',
-    description: 'Nombre de projets du périmètre (A = B+C+D+E) — situation physique IX.B',
-    formula: 'COUNT()', unit: 'number',
-  },
-  {
-    name: 'Projets en cours d\'exécution', nameEn: 'Projects under execution',
-    description: 'Nombre de projets au statut « en cours » (C) — situation physique IX.B',
-    formula: 'COUNT_ACTIF()', unit: 'number',
-  },
-  {
-    name: 'Projets terminés', nameEn: 'Completed projects',
-    description: 'Nombre de projets au statut « terminé » (E) — situation physique IX.B',
-    formula: 'COUNT_TERMINE()', unit: 'number',
-  },
-  {
-    name: 'Taux d\'achèvement du portefeuille', nameEn: 'Portfolio completion rate',
-    description: 'Projets terminés / nombre total de projets visibles',
-    formula: 'COUNT_TERMINE() / COUNT() * 100', unit: 'percent', target: 100,
-    thresholds: { good: 75, warn: 40, direction: 'higher' },
-  },
-  {
-    name: 'Taux d\'engagement', nameEn: 'Commitment rate',
-    description: 'Budget engagé / Budget total',
-    formula: 'SUM(budgetEngage) / SUM(budget) * 100', unit: 'percent', target: 90,
-    thresholds: { good: 90, warn: 60, direction: 'higher' },
   },
   {
     name: 'CPI moyen portefeuille', nameEn: 'Portfolio average CPI',
@@ -401,44 +363,14 @@ export const TEMPLATE_INDICATORS: Omit<CustomIndicator, 'id' | 'createdAt' | 'up
   },
   {
     name: 'Projets en retard', nameEn: 'Delayed projects',
-    description: 'Nombre de projets au statut « en retard »',
+    description: 'Nombre de projets au statut « en retard » — signal d\'alerte décision',
     formula: 'COUNT_RETARD()', unit: 'number', target: 0,
     thresholds: { good: 0, warn: 3, direction: 'lower' },
-  },
-  {
-    name: 'Budget total portefeuille', nameEn: 'Total portfolio budget',
-    description: 'Somme des budgets de tous les projets visibles',
-    formula: 'SUM(budget)', unit: 'fcfa',
-  },
-  // ── Indicateurs avancés CDC M16 — variables inter-modules ────────────────
-  {
-    name: 'Taux de signature des marchés', nameEn: 'Contract signing rate',
-    description: 'Marchés signés / projets avec marché (passation complète)',
-    formula: 'MARCHE_NB_SIGNES / MARCHE_NB_PROJETS * 100', unit: 'percent', target: 90,
-    thresholds: { good: 90, warn: 60, direction: 'higher' },
   },
   {
     name: 'Taux de conformité PGES', nameEn: 'ESMP compliance rate',
     description: 'Taux moyen de réalisation du Plan de Gestion Environnementale et Sociale',
     formula: 'HSE_TAUX_PGES', unit: 'percent', target: 80,
-    thresholds: { good: 80, warn: 50, direction: 'higher' },
-  },
-  {
-    name: 'Taux de réalisation PAR', nameEn: 'RAP completion rate',
-    description: 'Taux moyen de réalisation du Plan d\'Action de Réinstallation',
-    formula: 'HSE_TAUX_PAR', unit: 'percent', target: 80,
-    thresholds: { good: 80, warn: 50, direction: 'higher' },
-  },
-  {
-    name: 'Ratio budget / marchés', nameEn: 'Budget to contract ratio',
-    description: 'Montant total des marchés vs budget total du portefeuille (should be ≤ 1)',
-    formula: 'MARCHE_MONTANT_TOTAL / BUDGET_TOTAL * 100', unit: 'percent',
-    thresholds: { good: 95, warn: 110, direction: 'lower' },
-  },
-  {
-    name: 'Taux de validation UAGL', nameEn: 'UAGL validation rate',
-    description: 'Bulletins heures supp. validés par l\'UAGL sur le total soumis',
-    formula: 'POINTAGE_NB_VALIDES / POINTAGE_NB_BULLETINS * 100', unit: 'percent',
     thresholds: { good: 80, warn: 50, direction: 'higher' },
   },
 ];
@@ -486,6 +418,6 @@ export const useIndicatorStore = create<IndicatorState>()(
         set(s => ({ indicators: [...s.indicators, ...toAdd] }));
       },
     }),
-    { name: 'sigepp-indicators' }
+    { name: 'sigep-indicators-v2' }
   )
 );

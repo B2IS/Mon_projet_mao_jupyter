@@ -6,7 +6,7 @@
  * cf. terrainTemplates). La saisie peut être faite hors-ligne (« brouillon ») puis
  * synchronisée (« synchronisé ») vers la plateforme.
  *
- * Persisté dans localStorage (clé `sigepp-mobile-sync`).
+ * Persisté dans localStorage (clé `sigep-mobile-sync`).
  */
 
 import { create } from 'zustand';
@@ -130,6 +130,6 @@ export const useMobileSyncStore = create<MobileSyncState>()(
         saisies: state.saisies.map(x => x.id === id ? { ...x, statut: 'synchronise', syncedAt: nowISO() } : x),
       })),
     }),
-    { name: 'sigepp-mobile-sync', partialize: (s) => ({ saisies: s.saisies }) }
+    { name: 'sigep-mobile-sync', partialize: (s) => ({ saisies: s.saisies }) }
   )
 );

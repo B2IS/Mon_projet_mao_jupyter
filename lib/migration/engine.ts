@@ -79,7 +79,7 @@ export async function analyzeDocuments(docs: MigrationDocument[]): Promise<Extra
   return data;
 }
 export function generateProjectStructure(data: ExtractedData): Partial<MigrationProject> {
-  // Génère une structure de projet SIGEPP à partir des données extraites
+  // Génère une structure de projet SIGEP à partir des données extraites
   const wbs = data.wbsItems ?? generateDefaultWBS(data.projectType);
   const risks = data.risks ?? generateDefaultRisks();
 

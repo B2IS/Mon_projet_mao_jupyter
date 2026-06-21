@@ -8,7 +8,26 @@ import { SidebarContext } from '@/lib/sidebarContext';
 import { ProjectStoreProvider } from '@/lib/projectStore';
 import { I18nProvider } from '@/lib/i18n/I18nContext';
 import { Toaster } from 'react-hot-toast';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/authStore';
+import { canAccess } from '@/lib/authTypes';
+
+function RBACGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const route = '/' + pathname.split('/').filter(Boolean)[0];
+  const denied = !!user && user.role !== 'ADMIN' && user.role !== 'AUDIT' && !canAccess(user.role, route);
+
+  useEffect(() => {
+    if (denied) router.replace('/tableau-de-bord');
+  }, [denied, router]);
+
+  if (denied) return null;
+  return <>{children}</>;
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
@@ -28,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="app-main">
           {/* Barre mobile — remplace le hamburger flottant sur toutes les pages */}
           <MobileTopbar />
-          {children}
+          <RBACGuard>{children}</RBACGuard>
         </div>
         <Toaster
           position="bottom-right"

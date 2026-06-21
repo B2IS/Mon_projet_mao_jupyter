@@ -1,5 +1,5 @@
 /**
- * zonesQuantitesStore.ts — Modèle Zones & Quantités par projet (SIGEPP-DPE).
+ * zonesQuantitesStore.ts — Modèle Zones & Quantités par projet (SIGEP-DPE).
  *
  * Sépare clairement :
  *   • les ZONES (lignes géographiques : localité, commune, lot, coordonnées SIG),
@@ -14,7 +14,7 @@
  *   • la carte SIG auto-mise à jour à partir des coordonnées chargées — #27
  *   • le filtre par lot détecté dans le contenu — #28
  *
- * Persistance localStorage (clé `sigepp-zones-quantites`), indexée par CODE projet.
+ * Persistance localStorage (clé `sigep-zones-quantites`), indexée par CODE projet.
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -247,7 +247,7 @@ export const useZonesStore = create<ZonesState>()(
       }),
     }),
     {
-      name: 'sigepp-zones-quantites',
+      name: 'sigep-zones-quantites',
       version: 5,
       migrate: (state: unknown, fromVersion: number) => {
         let s = state as { byProjet: Record<string, ProjetZonesData> };

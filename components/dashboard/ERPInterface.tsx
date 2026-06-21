@@ -1,6 +1,6 @@
 'use client';
 /**
- * ERPInterface.tsx — Connecteur bidirectionnel SIGEPP-DPE ↔ ERP
+ * ERPInterface.tsx — Connecteur bidirectionnel SIGEP-DPE ↔ ERP
  * ─────────────────────────────────────────────────────────────────────────────
  * FLUX :
  *   IN  ← ERP  : données financières (engagements, décaissements, paiements)
@@ -65,20 +65,20 @@ interface SyncLog {
 const DEMO_CONNECTORS: ERPConnector[] = [
   {
     id: 'sap-1',
-    name: 'SAP S/4HANA DPE',
+    name: 'Connecteur GF-Finances DPE',
     type: 'SAP',
-    url: 'https://sap.senelec.sn:443/sap/opu/odata/sap',
-    username: 'SIGEPP_SVC',
+    url: 'https://erp.senelec.sn:443/api/odata/finances',
+    username: 'SIGEP_SVC',
     apiKey: 'sk-sap-dpe-••••••••••••••••',
     active: true,
     lastSync: '2026-06-09T08:32:00',
   },
   {
     id: 'oracle-1',
-    name: 'Oracle ERP Cloud — Finance',
+    name: 'Connecteur GF-Factures',
     type: 'Oracle',
-    url: 'https://fa-senelec.oraclecloud.com/fscmRestApi/resources',
-    username: 'api_sigepp@senelec.sn',
+    url: 'https://erp.senelec.sn/api/fscm/factures',
+    username: 'api_sigep@senelec.sn',
     apiKey: 'sk-oracle-fin-••••••••••••',
     active: false,
     lastSync: undefined,
@@ -86,11 +86,11 @@ const DEMO_CONNECTORS: ERPConnector[] = [
 ];
 
 const DEMO_LOGS: SyncLog[] = [
-  { id: 'l1', direction: 'in',  connector: 'SAP S/4HANA DPE',  entity: 'Engagements budgétaires',      records: 148, status: 'success', message: '148 lignes importées sans erreur.', at: '2026-06-09T08:32:15' },
-  { id: 'l2', direction: 'in',  connector: 'SAP S/4HANA DPE',  entity: 'Décaissements (FI-AP)',         records: 62,  status: 'success', message: '62 paiements importés.',           at: '2026-06-09T08:32:28' },
-  { id: 'l3', direction: 'out', connector: 'SAP S/4HANA DPE',  entity: 'Immobilisations (AM)',          records: 4,   status: 'success', message: '4 actifs transmis (AA01).',       at: '2026-06-08T16:11:05' },
-  { id: 'l4', direction: 'out', connector: 'SAP S/4HANA DPE',  entity: 'Plans d\'amortissement (AA)',   records: 1,   status: 'success', message: '1 plan linéaire publié.',         at: '2026-06-08T16:11:22' },
-  { id: 'l5', direction: 'in',  connector: 'Oracle ERP Cloud', entity: 'Factures fournisseurs',        records: 0,   status: 'error',   message: 'Connexion refusée : token expiré.', at: '2026-06-07T09:44:00' },
+  { id: 'l1', direction: 'in',  connector: 'Connecteur GF-Finances DPE',  entity: 'Engagements budgétaires',      records: 148, status: 'success', message: '148 lignes importées sans erreur.', at: '2026-06-09T08:32:15' },
+  { id: 'l2', direction: 'in',  connector: 'Connecteur GF-Finances DPE',  entity: 'Décaissements (FI-AP)',         records: 62,  status: 'success', message: '62 paiements importés.',           at: '2026-06-09T08:32:28' },
+  { id: 'l3', direction: 'out', connector: 'Connecteur GF-Finances DPE',  entity: 'Immobilisations (actifs)',      records: 4,   status: 'success', message: '4 actifs transmis.',             at: '2026-06-08T16:11:05' },
+  { id: 'l4', direction: 'out', connector: 'Connecteur GF-Finances DPE',  entity: 'Plans d\'amortissement',        records: 1,   status: 'success', message: '1 plan linéaire publié.',         at: '2026-06-08T16:11:22' },
+  { id: 'l5', direction: 'in',  connector: 'Connecteur GF-Factures',      entity: 'Factures fournisseurs',        records: 0,   status: 'error',   message: 'Connexion refusée : token expiré.', at: '2026-06-07T09:44:00' },
 ];
 
 // Champs financiers importables depuis ERP
@@ -152,7 +152,7 @@ export default function ERPInterface() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: INK, margin: 0 }}>Interface ERP</h1>
           <p style={{ fontSize: 13, color: MUT, margin: '3px 0 0' }}>
-            Synchronisation bidirectionnelle SIGEPP-DPE ↔ SAP · Oracle ERP · Sage X3
+            Synchronisation bidirectionnelle SIGEP-DPE ↔ Système de gestion financière
           </p>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -256,7 +256,7 @@ function ConnexionsTab({ connectors, setConnectors, editId, setEditId, showAdd, 
             <div style={{ fontSize: 13, fontWeight: 700, color: PURPLE, marginBottom: 4 }}>Sécurité & authentification</div>
             <div style={{ fontSize: 12.5, color: MUT, lineHeight: 1.7 }}>
               Les clés API sont masquées après saisie et stockées localement (non transmises). En production,
-              connectez-vous via <b>OAuth 2.0 / SAML</b> pour SAP et Oracle. Sage X3 supporte REST API + token.
+              connectez-vous via <b>OAuth 2.0 / SAML</b> ou <b>REST API + token</b> selon le protocole de votre système.
               Activez le <b>TLS 1.3</b> sur les URLs de connexion.
             </div>
           </div>
@@ -338,12 +338,12 @@ function ConnectorFormModal({ connector, onSave, onClose }: {
           <button onClick={onClose} style={iconBtn}><XCircle size={16} /></button>
         </div>
 
-        <Fld label="Nom du connecteur"><input style={inp} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="ex : SAP S/4HANA DPE" /></Fld>
-        <Fld label="Type ERP">
+        <Fld label="Nom du connecteur"><input style={inp} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="ex : Connecteur Finances DPE" /></Fld>
+        <Fld label="Type de système">
           <select style={inp} value={f.type} onChange={e => setF({ ...f, type: e.target.value as ERPType })}>
-            <option value="SAP">SAP S/4HANA</option>
-            <option value="Oracle">Oracle ERP Cloud</option>
-            <option value="Sage">Sage X3</option>
+            <option value="SAP">Système financier ERP (type A)</option>
+            <option value="Oracle">Système financier ERP (type B)</option>
+            <option value="Sage">Système financier ERP (type C)</option>
             <option value="Custom">API personnalisée</option>
           </select>
         </Fld>
@@ -413,7 +413,7 @@ function SyncInTab({ connectors, addLog }: {
           entity: entity.label,
           records,
           status: 'success',
-          message: `${records} enregistrements importés dans SIGEPP-DPE.`,
+          message: `${records} enregistrements importés dans SIGEP-DPE.`,
         });
         results.push(`✅ ${entity.label} : ${records} lignes`);
       });
@@ -460,7 +460,7 @@ function SyncInTab({ connectors, addLog }: {
             <b>Données importées :</b><br />
             • Engagements → alimentent le module Budget & Décaissements<br />
             • Décaissements → actualisent l'avancement financier des projets<br />
-            • Factures → mises en relation avec les marchés SIGEPP<br />
+            • Factures → mises en relation avec les marchés SIGEP<br />
             • Trésorerie → Cash-flow projet en temps réel
           </div>
 
@@ -493,8 +493,8 @@ function SyncInTab({ connectors, addLog }: {
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <AlertTriangle size={16} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
             <div style={{ fontSize: 12, color: '#92400E', lineHeight: 1.7 }}>
-              <b>Mappage de champs :</b> Les données importées sont mappées automatiquement selon le référentiel SIGEPP.
-              Vérifiez la correspondance codes projets ERP ↔ codes SIGEPP dans <b>Paramétrage → Mapping ERP</b>.
+              <b>Mappage de champs :</b> Les données importées sont mappées automatiquement selon le référentiel SIGEP.
+              Vérifiez la correspondance codes projets ERP ↔ codes SIGEP dans <b>Paramétrage → Mapping ERP</b>.
             </div>
           </div>
         </div>
@@ -616,7 +616,7 @@ function SyncOutTab({ connectors, addLog }: {
           <SectionTitle icon={<Zap size={15} color={ORANGE} />} label="Lancer l'export" />
           <div style={{ marginTop: 10, fontSize: 12.5, color: MUT, lineHeight: 1.8 }}>
             <b>Données envoyées à l'ERP :</b><br />
-            • Immobilisations → module <b>AM (Asset Management)</b> SAP<br />
+            • Immobilisations → module de <b>gestion des actifs (Asset Management)</b><br />
             • Plans amortissement → dotations annuelles par exercice<br />
             • PV → date de mise en service (MES/DateStart)<br />
             • DOI → règles de décomposition SYSCOHADA

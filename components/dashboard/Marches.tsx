@@ -76,137 +76,15 @@ interface Fournisseur {
 
 
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Données métier ────────────────────────────────────────────────────────────
+// Les marchés, ANOs et fournisseurs sont saisis par les utilisateurs.
+// Aucune donnée hardcodée — état initial vide.
 
-const MARCHES_INIT: Marche[] = [
-  {
-    id: 'm1', reference: 'MRK-DER-2024-001',
-    objet: 'Fourniture & Pose câbles HTA/BT — 19 localités Thiès',
-    entreprise: 'ELEC AFRIQUE SARL', montantHT: 320_000_000,
-    dateSignature: '15/07/2024', dateFin: '31/12/2025',
-    avancement: 42, statut: 'en_cours', direction: 'DER', type: 'Fournitures', bailleur: 'AFD',
-    avenants: [
-      { id: 'av1', numero: 1, objet: 'Prolongation délai — contraintes terrain saison des pluies', montant: 0, delaiJours: 60, date: '10/10/2024' },
-    ],
-    penalites: [],
-    garanties: [
-      { type: 'Caution de bonne exécution', montant: 32_000_000, echeance: '31/01/2026', statut: 'valide' },
-      { type: 'Retenue de garantie',        montant: 16_000_000, echeance: '31/06/2026', statut: 'valide' },
-    ],
-  },
-  {
-    id: 'm2', reference: 'MRK-DER-2024-002',
-    objet: 'Fourniture transformateurs 160 kVA × 38 unités',
-    entreprise: 'ABB SENEGAL SA', montantHT: 155_000_000,
-    dateSignature: '20/07/2024', dateFin: '30/04/2025',
-    avancement: 100, statut: 'termine', direction: 'DER', type: 'Fournitures', bailleur: 'AFD',
-    avenants: [],
-    penalites: [],
-    garanties: [
-      { type: 'Retenue de garantie', montant: 7_750_000, echeance: '30/04/2026', statut: 'a_renouveler' },
-    ],
-  },
-  {
-    id: 'm3', reference: 'MRK-CC26-2024-003',
-    objet: 'Ingénierie & supervision travaux ligne 225 kV Tobène–Thiès–Hann',
-    entreprise: 'TRACTEBEL ENGINEERING SA', montantHT: 4_200_000_000,
-    dateSignature: '15/03/2024', dateFin: '31/12/2026',
-    avancement: 28, statut: 'en_cours', direction: 'CC26', type: 'Services', bailleur: 'MCA',
-    avenants: [
-      { id: 'av2', numero: 1, objet: 'Extension délai mobilisation équipes expatriées', montant: 0, delaiJours: 45, date: '10/06/2024' },
-    ],
-    penalites: [],
-    garanties: [
-      { type: 'Caution de bonne exécution', montant: 210_000_000, echeance: '31/01/2027', statut: 'valide' },
-    ],
-    observations: 'Retard délivrance visas expatriés — plan de rattrapage validé le 15/04/2026.',
-  },
-  {
-    id: 'm4', reference: 'MRK-CPADERAU-2024-001',
-    objet: 'Fourniture & pose réseau HTA/BT PADERAU zones 2-3',
-    entreprise: 'EFACEC ENERGY SPA', montantHT: 8_500_000_000,
-    dateSignature: '20/06/2024', dateFin: '31/07/2026',
-    avancement: 15, statut: 'en_cours', direction: 'CPADERAU', type: 'Travaux', bailleur: 'AFD',
-    avenants: [],
-    penalites: [
-      { id: 'p1', date: '02/04/2026', motif: 'Retard approvisionnement conducteurs ACSR — 45 jours', montant: 85_000_000 },
-    ],
-    garanties: [
-      { type: 'Caution de bonne exécution', montant: 850_000_000, echeance: '31/08/2026', statut: 'valide' },
-      { type: 'Avance de démarrage',        montant: 1_275_000_000, echeance: '31/12/2025', statut: 'expiree' },
-    ],
-    observations: 'Retard approvisionnement conducteurs ACSR. Plan de rattrapage soumis le 15/04/2026.',
-  },
-  {
-    id: 'm5', reference: 'MRK-DEP-2023-001',
-    objet: 'Réhabilitation & maintenance turbines TAG 1-2 Cap des Biches',
-    entreprise: 'GE POWER AFRICA', montantHT: 6_800_000_000,
-    dateSignature: '01/02/2023', dateFin: '30/06/2025',
-    avancement: 95, statut: 'en_cours', direction: 'DEP', type: 'Services', bailleur: 'BM',
-    avenants: [
-      { id: 'av3', numero: 1, objet: 'Extension phase 2 — inspection complete GE 7FA', montant: 320_000_000, delaiJours: 90, date: '15/11/2024' },
-    ],
-    penalites: [],
-    garanties: [
-      { type: 'Caution de bonne exécution', montant: 680_000_000, echeance: '30/09/2025', statut: 'a_renouveler' },
-    ],
-  },
-  {
-    id: 'm6', reference: 'MRK-DIT-2023-002',
-    objet: 'Déploiement 45 000 compteurs AMI Linky-type — Dakar Plateau',
-    entreprise: 'LANDIS+GYR AFRICA', montantHT: 2_100_000_000,
-    dateSignature: '01/09/2023', dateFin: '30/09/2025',
-    avancement: 68, statut: 'en_cours', direction: 'DIT', type: 'Fournitures', bailleur: 'BOAD',
-    avenants: [],
-    penalites: [
-      { id: 'p2', date: '15/03/2026', motif: 'Retard livraison lot 3 — 30 jours', montant: 42_000_000 },
-    ],
-    garanties: [
-      { type: 'Caution de bonne exécution', montant: 210_000_000, echeance: '31/10/2025', statut: 'valide' },
-    ],
-  },
-  {
-    id: 'm7', reference: 'MRK-DGC-2024-001',
-    objet: 'Construction siège régional SENELEC — Saint-Louis',
-    entreprise: 'SABER CONSTRUCTION SARL', montantHT: 1_850_000_000,
-    dateSignature: '10/04/2024', dateFin: '10/04/2026',
-    avancement: 35, statut: 'en_cours', direction: 'DGC', type: 'Travaux', bailleur: 'SENELEC',
-    avenants: [],
-    penalites: [
-      { id: 'p3', date: '12/05/2026', motif: 'Retard gros œuvre — 25 jours', montant: 18_500_000 },
-    ],
-    garanties: [
-      { type: 'Caution de bonne exécution', montant: 185_000_000, echeance: '10/05/2026', statut: 'expiree' },
-    ],
-    observations: 'Retard obtention permis construire zone inondable. Dossier en cours DUA.',
-  },
-  {
-    id: 'm8', reference: 'MRK-CPBM-2022-001',
-    objet: 'Audit financier consolidé PASE — exercices 2023-2024',
-    entreprise: 'KPMG SÉNÉGAL', montantHT: 85_000_000,
-    dateSignature: '01/03/2022', dateFin: '31/03/2025',
-    avancement: 100, statut: 'termine', direction: 'CPBM-UE', type: 'Services', bailleur: 'BM',
-    avenants: [],
-    penalites: [],
-    garanties: [],
-  },
-];
+const MARCHES_INIT: Marche[] = [];
 
-const ANOS_MARCHES: ANOMarche[] = [
-  { id: 'a1', ref: 'ANO-BM-2026-041',  projet: 'PRJ-CC26-2023-002',   type: 'DAO',        dateEnvoi: '02/05/2026', slaBailleur: 21, joursEcoules: 22, statut: 'expire'    },
-  { id: 'a2', ref: 'ANO-AFD-2026-018', projet: 'PRJ-DER-2024-001',    type: 'Évaluation', dateEnvoi: '10/05/2026', slaBailleur: 15, joursEcoules: 14, statut: 'en_attente' },
-  { id: 'a3', ref: 'ANO-MCA-2026-007', projet: 'PRJ-CC26-2023-002',   type: 'Avenant',    dateEnvoi: '14/05/2026', slaBailleur: 10, joursEcoules: 10, statut: 'recu'       },
-  { id: 'a4', ref: 'ANO-BAD-2026-012', projet: 'PRJ-DIT-2023-001',    type: 'DAO',        dateEnvoi: '18/05/2026', slaBailleur: 21, joursEcoules:  6, statut: 'en_attente' },
-  { id: 'a5', ref: 'ANO-BM-2026-044',  projet: 'PRJ-CPBM-2022-001',   type: 'Évaluation', dateEnvoi: '20/05/2026', slaBailleur: 15, joursEcoules:  4, statut: 'en_attente' },
-];
+const ANOS_MARCHES: ANOMarche[] = [];
 
-const FOURNISSEURS: Fournisseur[] = [
-  { id: 'f1', nom: 'GE POWER AFRICA',          note: 4.5, nbMarches: 3, tauxLivraison: 96, contentieux: 0 },
-  { id: 'f2', nom: 'TRACTEBEL ENGINEERING SA',  note: 4.2, nbMarches: 2, tauxLivraison: 91, contentieux: 0 },
-  { id: 'f3', nom: 'EFACEC ENERGY SPA',         note: 3.1, nbMarches: 2, tauxLivraison: 72, contentieux: 1 },
-  { id: 'f4', nom: 'SABER CONSTRUCTION SARL',   note: 2.8, nbMarches: 4, tauxLivraison: 68, contentieux: 1 },
-  { id: 'f5', nom: 'LANDIS+GYR AFRICA',         note: 3.6, nbMarches: 1, tauxLivraison: 83, contentieux: 0 },
-];
+const FOURNISSEURS: Fournisseur[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

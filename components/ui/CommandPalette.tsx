@@ -55,7 +55,7 @@ const ALL_PAGES = [
   { href: '/administration/org-config', icon: Building2,     label: 'Organigramme & Config',          section: 'Paramétrage',           keywords: 'organigramme configuration organisation' },
 ];
 
-const RECENT_KEY = 'sigepp_cmd_recent';
+const RECENT_KEY = 'sigep_cmd_recent';
 const MAX_RECENT = 5;
 
 function loadRecent(): string[] {
@@ -328,7 +328,7 @@ export default function CommandPalette() {
             <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9CA3AF' }}>
               <Command size={28} style={{ margin: '0 auto 10px', display: 'block', color: '#D1D5DB' }} />
               <div style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>Tapez pour rechercher</div>
-              <div style={{ fontSize: 11, marginTop: 4 }}>Naviguez dans toutes les pages de SIGEPP-DPE</div>
+              <div style={{ fontSize: 11, marginTop: 4 }}>Naviguez dans toutes les pages de SIGEP-DPE</div>
             </div>
           )}
         </div>

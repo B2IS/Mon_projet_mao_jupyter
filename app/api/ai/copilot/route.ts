@@ -7,9 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiAuth, checkRateLimit, rateLimitResponse, getClientIp } from '@/lib/apiAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// ── Rate limit : 30 req / 10 min par IP (proxy IA coûteux) ──────────────────
+const RL_COPILOT = { max: 30, windowMs: 10 * 60 * 1000 };
 
 interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -36,9 +40,9 @@ function heuristicResponse(messages: ChatMsg[]): string {
   if (/terrain|géoloc|pointage/.test(last))
     return "Le suivi terrain utilise la géolocalisation GPS. Depuis l'app mobile, le système détecte automatiquement si vous êtes dans un géofence projet et impute le temps en conséquence.";
   if (/kimi|groq|ia|copilot|assistant/.test(last))
-    return "Le copilote IA SIGEPP nécessite une clé API configurée (Kimi ou Groq). Accédez à **Paramètres** → Sécurité pour renseigner votre clé personnelle. Les clés ne sont jamais partagées.";
+    return "Le copilote IA SIGEP nécessite une clé API configurée (Kimi ou Groq). Accédez à **Paramètres** → Sécurité pour renseigner votre clé personnelle. Les clés ne sont jamais partagées.";
 
-  return `Je suis en mode **heuristique local** — aucune clé API IA n'est configurée.\n\nPour activer le copilote IA complet :\n1. Allez dans **Paramètres** → Sécurité\n2. Renseignez votre clé Kimi ou Groq\n3. Les réponses seront alors générées par un modèle IA complet\n\nEn attendant, je peux répondre à des questions simples sur les modules SIGEPP.`;
+  return `Je suis en mode **heuristique local** — aucune clé API IA n'est configurée.\n\nPour activer le copilote IA complet :\n1. Allez dans **Paramètres** → Sécurité\n2. Renseignez votre clé Kimi ou Groq\n3. Les réponses seront alors générées par un modèle IA complet\n\nEn attendant, je peux répondre à des questions simples sur les modules SIGEP.`;
 }
 
 /** Domaines autorisés pour l'endpoint Azure/OpenAI (prévention SSRF). */
@@ -52,6 +56,20 @@ function isEndpointAllowed(url: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit avant auth (évite les attaques par énumération)
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`copilot:${ip}`, RL_COPILOT);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
+
+  const guard = await requireApiAuth(req);
+  if (!guard.ok) return guard.response;
+
+  // Limite taille body (4 Ko max pour les messages)
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (contentLength > 32 * 1024) {
+    return NextResponse.json({ error: 'Corps de requête trop volumineux (max 32 Ko).' }, { status: 413 });
+  }
+
   let body: {
     messages?: ChatMsg[];
     endpoint?: string;

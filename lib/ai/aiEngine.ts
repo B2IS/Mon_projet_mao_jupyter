@@ -1,5 +1,5 @@
 /**
- * aiEngine.ts — Moteur IA Multimodal SIGEPP-DPE
+ * aiEngine.ts — Moteur IA Multimodal SIGEP-DPE
  * Support : texte, image, document (PDF/Word/Excel), audio
  * Intégration RÉELLE Microsoft Copilot / Azure OpenAI (si compte lié),
  * sinon repli sur le moteur heuristique local.
@@ -154,7 +154,7 @@ export interface AIGenerationOptions {
 // ─── Prompts système métier DPE ─────────────────────────────────────────────
 
 export const SYSTEM_PROMPTS: Record<string, string> = {
-  default: `Tu es SIGEPP-IA, l'assistant intelligent du Système Intégré de Gestion des Projets et Programmes (SIGEPP) de la Direction des Projets d'Équipement (DPE) de SENELEC.
+  default: `Tu es SIGEP-IA, l'assistant intelligent du Système Intégré de Gestion des Projets et Programmes (SIGEP) de la Direction des Projets d'Équipement (DPE) de SENELEC.
 
 Règles de réponse :
 - Réponds en langage professionnel, clair et structuré
@@ -334,7 +334,7 @@ export async function generateTable(
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function buildReportPrompt(topic: string, data: Record<string, any>): string {
-  return `Génère un rapport complet sur le sujet suivant dans le contexte SIGEPP-DPE SENELEC.
+  return `Génère un rapport complet sur le sujet suivant dans le contexte SIGEP-DPE SENELEC.
 
 SUJET : ${topic}
 
@@ -731,7 +731,7 @@ Le portefeuille projets de la DPE présente un avancement global de **68%** avec
 4. **Préparer le budget 2027** dès maintenant avec projection des besoins
 
 ---
-*Généré par SIGEPP-IA — ${new Date().toLocaleDateString('fr-FR')}*`;
+*Généré par SIGEP-IA — ${new Date().toLocaleDateString('fr-FR')}*`;
 }
 
 function generateTableResponse(): string {
@@ -880,7 +880,7 @@ La **DIT** présente la meilleure performance :
 }
 
 function generateGenericRichResponse(): string {
-  return `Bonjour ! Je suis SIGEPP-IA, votre assistant intelligent pour la gestion des projets et programmes DPE.
+  return `Bonjour ! Je suis SIGEP-IA, votre assistant intelligent pour la gestion des projets et programmes DPE.
 
 Je peux vous aider sur de nombreux sujets :
 

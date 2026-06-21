@@ -9,10 +9,11 @@ import {
 import {
   Activity, Target, CheckCircle2, AlertTriangle, Clock,
   Camera, FileText, MapPin, Download, Filter, Plus,
-  ChevronRight, Eye, Zap, Bell, ArrowUpRight,
+  ChevronRight, ChevronLeft, Eye, Zap, Bell, ArrowUpRight,
   RefreshCw, BarChart3, Upload,
 } from 'lucide-react';
 import { downloadExcel } from '@/lib/exportUtils';
+import { useRouter } from 'next/navigation';
 import { useProjectStore, DOMAINE_CFG, type Domaine } from '@/lib/projectStore';
 import { useCanPerform } from '@/lib/hooks/useUserScope';
 import { useAuth } from '@/lib/authStore';
@@ -135,10 +136,10 @@ const { trimestre: TRIMESTRE_COURANT, annee: ANNEE_COURANTE } = getCurrentPeriod
 function getSyntheseLabel(role?: string): string {
   switch (role) {
     case 'DIR_DPE':   return 'Tableau de Bord Exécutif — Portefeuille DPE';
-    case 'PMO':       return 'Cockpit PMO — Multi-Projets';
+    case 'CHEF_CELLULE':       return 'Cockpit PMO — Multi-Projets';
     case 'CHEF_DEPT': return 'Tableau de Direction';
     case 'CHEF_PROJ': return 'Cockpit Projet — Bilan';
-    case 'CTRL_FIN':  return 'Synthèse Financière';
+    case 'RAF':  return 'Synthèse Financière';
     case 'AUDIT':     return 'Audit & Conformité';
     default:          return 'Suivi & Évaluation';
   }
@@ -166,6 +167,7 @@ const PERF_INDICATEURS: Array<{ libelle: string; cible: string; compute: (data: 
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════ */
 export default function SuiviEvaluation() {
+  const router = useRouter();
   const { user } = useAuth();
   const store = useProjectStore();
   const canGlobal = useCanPerform('VOIR_TOUT_PORTEFEUILLE');
@@ -286,21 +288,26 @@ export default function SuiviEvaluation() {
         background: '#fff', borderBottom: '1px solid #E2E8F0', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 7, border: '1px solid #E2E8F0', background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, marginTop: 2 }}>
+              <ChevronLeft size={13} /> Retour
+            </button>
+            <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
               <Activity size={22} style={{ color: NAVY }} /> {getSyntheseLabel(user?.role)}
             </h1>
             <p style={{ fontSize: 12.5, color: '#64748B', margin: '3px 0 0' }}>
               {user?.role === 'DIR_DPE'
                 ? 'Vue exécutive — portefeuille global DPE · performance · risques · programmes'
-                : user?.role === 'PMO' || user?.role === 'CHEF_DEPT'
+                : user?.role === 'CHEF_CELLULE' || user?.role === 'CHEF_DEPT'
                   ? 'Multi-projets · consolidation · CPI/SPI · jalons · arbitrages en attente'
                   : user?.role === 'CHEF_PROJ'
                     ? 'Mon périmètre projet · avancement · marchés · risques · équipe'
-                    : user?.role === 'CTRL_FIN'
+                    : user?.role === 'RAF'
                       ? 'Contrôle financier · budget · engagements · décaissements · écarts'
                       : 'Vue de travail : indicateurs à consolider · preuves attendues · anomalies · validations en attente'}
             </p>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <MatriceExport
@@ -798,9 +805,9 @@ export default function SuiviEvaluation() {
             {(() => {
               const role = user?.role;
               const isExec  = role === 'DIR_DPE';
-              const isPMO   = role === 'PMO' || role === 'CHEF_DEPT';
+              const isPMO   = role === 'CHEF_CELLULE' || role === 'CHEF_DEPT';
               const isProj  = role === 'CHEF_PROJ';
-              const isFin   = role === 'CTRL_FIN';
+              const isFin   = role === 'RAF';
               const gd = store.globalDomaine;
               const p = gd === 'tous' ? store.projets : store.projets.filter(x => x.domaine === gd);
               const cpiMoy  = p.length ? (p.reduce((s,x) => s + x.cpi, 0) / p.length).toFixed(2) : '—';

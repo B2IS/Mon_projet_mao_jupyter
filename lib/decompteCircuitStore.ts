@@ -3,7 +3,7 @@
  *
  * Le circuit de référence (étapes, responsables, ordre) est paramétrable par les profils
  * habilités (DPE / PMO / Contrôle financier / Admin). Il sert de modèle aux nouveaux
- * décomptes. Persisté dans localStorage (clé `sigepp-decompte-circuit`).
+ * décomptes. Persisté dans localStorage (clé `sigep-decompte-circuit`).
  *
  * Circuit par défaut : CDC §18 — 5 étapes.
  */
@@ -57,6 +57,6 @@ export const useDecompteCircuit = create<DecompteCircuitState>()(
       }),
       resetCircuit: () => set({ circuit: DEFAULT_CIRCUIT.map(e => ({ ...e })) }),
     }),
-    { name: 'sigepp-decompte-circuit', partialize: (s) => ({ circuit: s.circuit }) }
+    { name: 'sigep-decompte-circuit', partialize: (s) => ({ circuit: s.circuit }) }
   )
 );

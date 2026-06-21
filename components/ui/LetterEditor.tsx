@@ -165,7 +165,7 @@ function SignaturePad({ onSave, onCancel }: {
         </div>
 
         <div style={{ marginTop: 12, padding: '8px 12px', background: '#F0FDF4', borderRadius: 7, fontSize: 10, color: '#15803D' }}>
-          La signature est chiffrée et stockée localement dans votre profil SIGEPP. Elle ne quitte pas votre navigateur.
+          La signature est chiffrée et stockée localement dans votre profil SIGEP. Elle ne quitte pas votre navigateur.
         </div>
       </div>
     </div>
@@ -254,7 +254,7 @@ ${sigImgTag}
 <div style="font-size:10.5px;font-weight:700;color:#1E293B;">${user.prenom} ${user.nom}</div>
 <div style="font-size:9px;color:#64748B;">${user.poste ?? ''}</div>
 <div style="margin-top:8px;padding-top:5px;border-top:1px dashed #CBD5E1;font-size:7px;color:#94A3B8;font-family:monospace;line-height:1.6;">
-✓ Signé électroniquement · SIGEPP-DPE v2 · ${today} · Réf&nbsp;: SIG-${hash}
+✓ Signé électroniquement · SIGEP-DPE v2 · ${today} · Réf&nbsp;: SIG-${hash}
 </div></div>`;
     editorRef.current?.focus();
     // eslint-disable-next-line @typescript-eslint/no-deprecated
@@ -379,7 +379,7 @@ ${sigImgTag}
 <div class="objet-line"><strong>Objet :</strong> ${objet || '—'}</div>
 <hr />
 <div class="body">${body}</div>
-<div class="foot">Document SIGEPP-DPE · SENELEC · ${refNum} · ${today}</div>
+<div class="foot">Document SIGEP-DPE · SENELEC · ${refNum} · ${today}</div>
 </body>
 </html>`;
 
@@ -491,7 +491,7 @@ ${sigImgTag}
             </button>
 
             <button
-              onClick={() => navigator.clipboard?.writeText(`Réf SIGEPP : ${refNum}`).then(() => {}).catch(() => {})}
+              onClick={() => navigator.clipboard?.writeText(`Réf SIGEP : ${refNum}`).then(() => {}).catch(() => {})}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 7, background: 'rgba(255,255,255,0.13)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', cursor: 'pointer', fontSize: 12 }}>
               <Share2 size={13} />
             </button>
@@ -761,7 +761,7 @@ ${sigImgTag}
 
             {/* Pied de page */}
             <div style={{ borderTop: '1px solid #CBD5E1', marginTop: 36, paddingTop: 8, fontSize: 7.5, color: '#94A3B8', textAlign: 'center', fontFamily: 'sans-serif' }}>
-              Document généré par SIGEPP-DPE · SENELEC · Réf {refNum} · {today}
+              Document généré par SIGEP-DPE · SENELEC · Réf {refNum} · {today}
             </div>
           </div>
         </div>
@@ -772,7 +772,7 @@ ${sigImgTag}
           <span><kbd style={{ background: '#334155', color: '#94A3B8', padding: '1px 5px', borderRadius: 3, fontSize: 9 }}>Ctrl+I</kbd> Italique</span>
           <span><kbd style={{ background: '#334155', color: '#94A3B8', padding: '1px 5px', borderRadius: 3, fontSize: 9 }}>Ctrl+U</kbd> Souligné</span>
           <span style={{ marginLeft: 'auto', color: '#475569' }}>
-            {user ? `${user.prenom} ${user.nom} · ${user.poste ?? user.role}` : 'SIGEPP-DPE'}
+            {user ? `${user.prenom} ${user.nom} · ${user.poste ?? user.role}` : 'SIGEP-DPE'}
           </span>
         </div>
       </div>

@@ -2,14 +2,16 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Layers, MapPin, Download, CheckCircle2, Clock, ChevronRight, X, RefreshCw, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { Layers, MapPin, Download, CheckCircle2, Clock, ChevronRight, X, RefreshCw, AlertTriangle, Network, ClipboardCheck } from 'lucide-react';
 import { useProjectStore, DOMAINE_CFG } from '@/lib/projectStore';
 import { useZonesStore } from '@/lib/zonesQuantitesStore';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
-import { MapContainer, TileLayer, Polygon, CircleMarker, Popup, useMapEvent } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, CircleMarker, Polyline, Popup, useMapEvent } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { LatLngExpression } from 'leaflet';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { useUNNetworkStore, featureTierColor, isLineFeature } from '@/lib/gis/unNetworkStore';
+import { UN_LAYERS, UN_TIERS, MIGRATION_CHECKLIST, layersByDomainAndTier } from '@/lib/gis/unModel';
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES & MOCK DATA
@@ -38,7 +40,7 @@ interface ArcgisConfig {
   token: string;         // jeton OAuth2 / API key
   layers: string;        // couches à synchroniser (CSV) : HTA, BT, Postes, Compteurs
 }
-const ARCGIS_KEY = 'sigepp-arcgis-config';
+const ARCGIS_KEY = 'sigep-arcgis-config';
 const DEFAULT_ARCGIS: ArcgisConfig = {
   enabled: false,
   portalUrl: 'https://gis.senelec.sn/portal',
@@ -51,14 +53,7 @@ const DEFAULT_ARCGIS: ArcgisConfig = {
 // EXCLUSIVEMENT par `store.projets` (déjà filtré par la MMH : unité + affectation
 // + implication), afin qu'aucun profil ne voie les projets d'autres unités.
 
-const SAISIES: SaisiesTerrain[] = [
-  { id: 's1', code: 'SAI-2026-047', projet: 'PRJ-DER-2024-001', localite: 'Niaguis', typeHTA: 2.4, postes: 2, dateMES: '15/05/2026', statut: 'a_promouvoir' },
-  { id: 's2', code: 'SAI-2026-048', projet: 'PRJ-DER-2024-001', localite: 'Boutoupa', typeHTA: 1.8, postes: 1, dateMES: '18/05/2026', statut: 'a_promouvoir' },
-  { id: 's3', code: 'SAI-2026-051', projet: 'PRJ-DEP-2024-007', localite: 'Diourbel-N', typeHTA: 0.6, postes: 1, dateMES: '20/05/2026', statut: 'a_promouvoir' },
-  { id: 's4', code: 'SAI-2026-053', projet: 'PRJ-DER-2023-005', localite: 'Kaolack-Sud', typeHTA: 3.2, postes: 3, dateMES: '22/05/2026', statut: 'a_promouvoir' },
-  { id: 's5', code: 'SAI-2026-041', projet: 'PRJ-DEP-2025-003', localite: 'Taiba-Est', typeHTA: 4.0, postes: 4, dateMES: '10/05/2026', statut: 'promue' },
-  { id: 's6', code: 'SAI-2026-039', projet: 'PRJ-DER-2023-005', localite: 'Kaolack-Nord', typeHTA: 2.0, postes: 2, dateMES: '05/05/2026', statut: 'promue' },
-];
+const SAISIES: SaisiesTerrain[] = [];
 
 const STATUS_COLOR: Record<RagStatus, string> = {
   critique: 'var(--red)',
@@ -217,7 +212,7 @@ export default function Cartographie() {
     const win = window.open('', '_blank');
     if (!win) { alert('Veuillez autoriser les popups.'); return; }
     win.document.write(`<!DOCTYPE html><html lang="fr"><head>
-      <meta charset="UTF-8"><title>Carte SIG — SIGEPP-DPE — ${new Date().toLocaleDateString('fr-FR')}</title>
+      <meta charset="UTF-8"><title>Carte SIG — SIGEP-DPE — ${new Date().toLocaleDateString('fr-FR')}</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 40px; color: #1E293B; }
         h1 { font-size: 22px; font-weight: 800; color: #0E3460; border-bottom: 3px solid #F47920; padding-bottom: 8px; }
@@ -234,7 +229,7 @@ export default function Cartographie() {
       </style>
     </head><body>
       <div style="margin-bottom:12px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:46px;width:auto;display:block" /></div>
-      <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:#888;text-transform:uppercase;margin-bottom:16px">SENELEC · SIGEPP-DPE · Direction Principale Équipement</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:#888;text-transform:uppercase;margin-bottom:16px">SENELEC · SIGEP-DPE · Direction Principale Équipement</div>
       <h1>Rapport SIG — Carte Portefeuille Projets</h1>
       <div style="font-size:12px;color:#64748B;margin-bottom:20px">Généré le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
       <div>
@@ -257,7 +252,7 @@ export default function Cartographie() {
           ${SAISIES.map(s => `<tr><td>${s.code}</td><td>${s.projet}</td><td>${s.localite}</td><td>HTA ${s.typeHTA} km · ${s.postes} poste(s)</td><td>${s.dateMES}</td><td>${s.statut === 'promue' ? 'Promue' : 'En attente'}</td></tr>`).join('')}
         </tbody>
       </table>
-      <div class="footer">CONFIDENTIEL — Usage interne SENELEC · SIGEPP-DPE uniquement · Rapport généré automatiquement</div>
+      <div class="footer">CONFIDENTIEL — Usage interne SENELEC · SIGEP-DPE uniquement · Rapport généré automatiquement</div>
     </body></html>`);
     win.document.close();
     win.focus();
@@ -273,7 +268,7 @@ export default function Cartographie() {
     const csv = [...headers, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `SIGEPP-DPE_Cartographie_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = `SIGEP-DPE_Cartographie_${new Date().toISOString().split('T')[0]}.csv`; a.click();
     URL.revokeObjectURL(url);
   }, [storePins]);
 
@@ -320,7 +315,34 @@ export default function Cartographie() {
   const [promoted, setPromoted] = useState<string[]>([]);
   const [showStorePins, setShowStorePins] = useState(true);
 
+  // ── Mode réseau : GN (legacy) / UN (nouveau) / Les deux ──────────────────
+  const [reseauMode, setReseauMode] = useState<'GN' | 'UN' | 'BOTH'>('GN');
+
+  // ── UN Network state ───────────────────────────────────────────────────────
+  const unStore = useUNNetworkStore();
+  const [showUNPanel, setShowUNPanel] = useState(false);
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [migCategoryFilter, setMigCategoryFilter] = useState<string>('all');
+  const unGroups = useMemo(() => layersByDomainAndTier(), []);
+  const unProgress = useMemo(() => unStore.migrationProgress(), [unStore.migrationStatus]);
+
+  // Lines and points filtered by active layers
+  const visibleLines  = useMemo(() =>
+    unStore.lines.filter(l => unStore.activeLayers.has(l.layerId)),
+    [unStore.lines, unStore.activeLayers]);
+  const visiblePoints = useMemo(() =>
+    unStore.points.filter(p => unStore.activeLayers.has(p.layerId)),
+    [unStore.points, unStore.activeLayers]);
+
   // ── Configuration ArcGIS (persistée localement) ───────────────────────────
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   const [showArcgisConfig, setShowArcgisConfig] = useState(false);
   const [arcgis, setArcgis] = useState<ArcgisConfig>(() => {
     if (typeof window === 'undefined') return DEFAULT_ARCGIS;
@@ -353,9 +375,26 @@ export default function Cartographie() {
   const saisiesDisplay = SAISIES.filter(s => filterProjet === 'tous' || s.projet === filterProjet);
 
   return (
-    <div className="page-content" style={{ flexDirection: 'row', gap: 14, overflow: 'hidden', padding: '12px 16px', minHeight: 0 }}>
+    <div className="page-content" style={{ flexDirection: isMobile ? 'column' : 'row', gap: 14, overflow: isMobile ? 'auto' : 'hidden', padding: '12px 16px', minHeight: 0, position: 'relative' }}>
       {/* ── Panneau gauche ─────────────────────────────────────────── */}
-      <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+      <div style={{ width: isMobile ? '100%' : 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, overflowY: isMobile ? 'visible' : 'auto' }}>
+
+        {/* ── Toggle mode réseau GN / UN ────────────────────────── */}
+        <div className="card" style={{ padding: '8px 12px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Mode Réseau Électrique</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
+            {([['GN', 'Géo. Network', '#1B4F8A'], ['UN', 'Utility Net.', '#f97316'], ['BOTH', 'GN + UN', '#7C3AED']] as const).map(([m, l, c]) => (
+              <button key={m} onClick={() => setReseauMode(m)}
+                style={{ fontSize: 9, fontWeight: 700, padding: '4px 2px', borderRadius: 5, border: `1.5px solid ${reseauMode === m ? c : 'var(--border)'}`, background: reseauMode === m ? `${c}22` : 'transparent', color: reseauMode === m ? c : 'var(--muted)', cursor: 'pointer', transition: 'all 0.15s', textAlign: 'center', lineHeight: 1.3 }}>
+                {m}<br /><span style={{ fontWeight: 400, fontSize: 8 }}>{l}</span>
+              </button>
+            ))}
+          </div>
+          {reseauMode === 'GN' && <div style={{ fontSize: 9, color: '#1B4F8A', marginTop: 5 }}>Réseau Géométrique Senelec (legacy ArcFM)</div>}
+          {reseauMode === 'UN' && <div style={{ fontSize: 9, color: '#f97316', marginTop: 5 }}>Utility Network v7 — ArcGIS Enterprise 11.5</div>}
+          {reseauMode === 'BOTH' && <div style={{ fontSize: 9, color: '#7C3AED', marginTop: 5 }}>Superposition GN + UN (comparaison migration)</div>}
+        </div>
+
         {/* KPIs SIG */}
         <div className="card">
           <div className="card-header" style={{ padding: '8px 12px' }}>
@@ -364,8 +403,12 @@ export default function Cartographie() {
           <div className="card-body" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
               { label: 'Projets store', value: String(store.projets.length), color: 'var(--navy)' },
+              {
+                label: 'Géolocalisés (SIG)',
+                value: `${store.projets.filter(p => p.lat && p.lng && p.localite).length}/${store.projets.length}`,
+                color: store.projets.every(p => p.lat && p.lng) ? 'var(--green)' : 'var(--orange)',
+              },
               { label: 'MES à cartographier', value: '17', color: 'var(--orange)' },
-              { label: 'Délai moyen màj', value: '4.2j', color: 'var(--navy)' },
               { label: 'SLA OK', value: '89%', color: 'var(--green)' },
               { label: 'Saisies chantier', value: '3', color: 'var(--red)' },
             ].map(k => (
@@ -377,10 +420,10 @@ export default function Cartographie() {
           </div>
         </div>
 
-        {/* Couches */}
-        <div className="card">
+        {/* Couches GN — visibles en mode GN ou BOTH */}
+        {(reseauMode === 'GN' || reseauMode === 'BOTH') && <div className="card">
           <div className="card-header" style={{ padding: '8px 12px' }}>
-            <span className="card-title"><Layers size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Couches ArcGIS</span>
+            <span className="card-title"><Layers size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Couches GN — ArcGIS</span>
           </div>
           <div className="card-body" style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {/* Store projects layer toggle */}
@@ -388,7 +431,7 @@ export default function Cartographie() {
               <div onClick={() => setShowStorePins(s => !s)} style={{ width: 32, height: 16, borderRadius: 8, background: showStorePins ? '#1B4F8A' : '#CBD5E1', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                 <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: showStorePins ? 18 : 2, transition: 'left 0.2s' }} />
               </div>
-              <span style={{ fontSize: 10, fontWeight: 700, color: showStorePins ? 'var(--navy)' : 'var(--muted)', flex: 1 }}>Projets SIGEPP-DPE</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: showStorePins ? 'var(--navy)' : 'var(--muted)', flex: 1 }}>Projets SIGEP-DPE</span>
               <span style={{ fontSize: 9, background: '#EFF6FF', color: '#1B4F8A', padding: '1px 4px', borderRadius: 4, fontWeight: 700 }}>{store.projets.length}</span>
             </label>
             {couches.map(c => (
@@ -411,7 +454,7 @@ export default function Cartographie() {
               </label>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Filtres */}
         <div className="card">
@@ -464,6 +507,76 @@ export default function Cartographie() {
             </button>
           </div>
         </div>
+
+        {/* ── Réseau Utility Network UN — visible en mode UN ou BOTH ── */}
+        {(reseauMode === 'UN' || reseauMode === 'BOTH') && <div className="card" style={{ border: '1px solid #f9731633' }}>
+          <div
+            className="card-header"
+            style={{ padding: '8px 12px', cursor: 'pointer', background: 'transparent' }}
+            onClick={() => setShowUNPanel(s => !s)}>
+            <span className="card-title" style={{ color: '#f97316', fontSize: 11 }}>
+              <Network size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+              Réseau UN — SENELEC
+            </span>
+            <span style={{ fontSize: 9, color: 'var(--muted)', transform: showUNPanel ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▶</span>
+          </div>
+          {showUNPanel && (
+            <div className="card-body" style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {/* Tiers legend */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 2, flexWrap: 'wrap' }}>
+                {UN_TIERS.map(t => (
+                  <span key={t.code} style={{ fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: t.bgColor, color: t.color, border: `1px solid ${t.color}33` }}>
+                    {t.code} {t.voltageRange.split(' ')[0]}
+                  </span>
+                ))}
+              </div>
+
+              {/* Electric domain layers by tier */}
+              {unGroups.electric.map(({ tier, layers }) => (
+                <div key={tier.code}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: tier.color, textTransform: 'uppercase', marginBottom: 2, letterSpacing: 0.5 }}>
+                    {tier.code} — {tier.voltageRange}
+                  </div>
+                  {layers.map(layer => (
+                    <label key={layer.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 2 }}>
+                      <div
+                        onClick={() => unStore.toggleLayer(layer.id)}
+                        style={{ width: 28, height: 14, borderRadius: 7, background: unStore.activeLayers.has(layer.id) ? layer.color : 'var(--border-2)', position: 'relative', transition: 'background 0.15s', flexShrink: 0 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: unStore.activeLayers.has(layer.id) ? 16 : 2, transition: 'left 0.15s' }} />
+                      </div>
+                      <span style={{ fontSize: 9, color: unStore.activeLayers.has(layer.id) ? 'var(--text)' : 'var(--muted)', flex: 1, lineHeight: 1.2 }}>
+                        {layer.dashArray ? `- - ${layer.name}` : layer.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              ))}
+
+              {/* Structure domain */}
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', marginBottom: 2, letterSpacing: 0.5 }}>Structure</div>
+                {unGroups.structure.map(layer => (
+                  <label key={layer.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 2 }}>
+                    <div
+                      onClick={() => unStore.toggleLayer(layer.id)}
+                      style={{ width: 28, height: 14, borderRadius: 7, background: unStore.activeLayers.has(layer.id) ? layer.color : 'var(--border-2)', position: 'relative', transition: 'background 0.15s', flexShrink: 0 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: unStore.activeLayers.has(layer.id) ? 16 : 2, transition: 'left 0.15s' }} />
+                    </div>
+                    <span style={{ fontSize: 9, color: unStore.activeLayers.has(layer.id) ? 'var(--text)' : 'var(--muted)', flex: 1, lineHeight: 1.2 }}>{layer.name}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Migration checklist button */}
+              <button
+                onClick={() => setShowMigrationModal(true)}
+                style={{ marginTop: 4, fontSize: 9.5, padding: '5px 8px', borderRadius: 5, border: `1px solid ${unProgress.mandatoryDone === unProgress.mandatoryTotal ? '#22c55e' : '#f97316'}`, background: 'transparent', color: unProgress.mandatoryDone === unProgress.mandatoryTotal ? '#22c55e' : '#f97316', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <ClipboardCheck size={10} />
+                Migration GN→UN : {unProgress.mandatoryDone}/{unProgress.mandatoryTotal} obligatoires
+              </button>
+            </div>
+          )}
+        </div>}
 
         {/* ArcGIS Enterprise */}
         <div className="card" style={{ border: '1px solid #7C3AED33', background: '#FAFAFF' }}>
@@ -542,7 +655,7 @@ export default function Cartographie() {
       )}
 
       {/* ── Zone carte principale ───────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, minHeight: isMobile ? 420 : 0 }}>
         {/* Carte SVG */}
         <div className="card" style={{ flex: 1, overflow: 'hidden', minHeight: 380 }}>
           <div className="card-header">
@@ -588,15 +701,33 @@ export default function Cartographie() {
                     pathOptions={{ fillColor: color, fillOpacity: 0.9, color: '#fff', weight: 2 }}
                     eventHandlers={{ click: () => setSelectedPin(isSelected ? null : p) }}>
                     <Popup>
-                      <div style={{ fontFamily: 'Inter,sans-serif', minWidth: 200 }}>
+                      <div style={{ fontFamily: 'Inter,sans-serif', minWidth: 220 }}>
                         <div style={{ fontSize: 9, color: color, fontWeight: 700, marginBottom: 2 }}>{p.code}</div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#0E3460', marginBottom: 4 }}>{p.nom}</div>
-                        <div style={{ fontSize: 10, color: '#64748B', marginBottom: 6 }}>{p.region}</div>
-                        <div style={{ fontSize: 10, color: '#374151' }}>{p.description}</div>
+                        {(() => {
+                          const proj = store.projets.find(x => x.id === p.id);
+                          return proj?.localite ? (
+                            <div style={{ fontSize: 10, color: '#0D9488', fontWeight: 600, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <MapPin size={10} />{proj.localite}{proj.commune ? `, ${proj.commune}` : ''}
+                            </div>
+                          ) : null;
+                        })()}
+                        <div style={{ fontSize: 10, color: '#64748B', marginBottom: 4 }}>{p.region}</div>
+                        <div style={{ fontSize: 10, color: '#374151', marginBottom: 4 }}>{p.description}</div>
+                        {(() => {
+                          const proj = store.projets.find(x => x.id === p.id);
+                          return proj?.infrasImpactees?.length ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
+                              {proj.infrasImpactees.map(inf => (
+                                <span key={inf} style={{ fontSize: 9, background: '#0D948815', color: '#0D9488', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>{inf}</span>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
                         <button
                           onClick={() => router.push(`/cockpit-projet?code=${encodeURIComponent(p.code)}`)}
                           className="btn btn-navy btn-sm"
-                          style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}>
+                          style={{ marginTop: 4, width: '100%', justifyContent: 'center' }}>
                           Ouvrir cockpit <ChevronRight size={10} />
                         </button>
                       </div>
@@ -637,6 +768,62 @@ export default function Cartographie() {
                   </Popup>
                 </CircleMarker>
               ))}
+
+              {/* ── UN Network — Lignes (HTB / HTA / BT) ── uniquement modes UN ou BOTH */}
+              {(reseauMode === 'UN' || reseauMode === 'BOTH') && visibleLines.map(line => {
+                const layerDef = UN_LAYERS.find(l => l.id === line.layerId);
+                const color = layerDef?.color ?? featureTierColor(line.tier);
+                return (
+                  <Polyline
+                    key={line.id}
+                    positions={line.coords as [number,number][]}
+                    pathOptions={{
+                      color,
+                      weight: line.tier === 'HTB' ? 3 : line.tier === 'HTA' ? 2 : 1.5,
+                      opacity: 0.85,
+                      dashArray: layerDef?.dashArray,
+                    }}
+                    eventHandlers={{ click: () => unStore.setSelectedFeature(line) }}>
+                    <Popup>
+                      <div style={{ fontFamily: 'Inter,sans-serif', minWidth: 180 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color, textTransform: 'uppercase', marginBottom: 2 }}>{line.tier} · {line.assetType}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#0E3460', marginBottom: 4 }}>{line.name}</div>
+                        <div style={{ fontSize: 10, color: '#64748B' }}>Feeder : <b>{line.feederID ?? '—'}</b></div>
+                        <div style={{ fontSize: 10, color: '#64748B' }}>Tension : {line.voltageKV} kV</div>
+                        {line.attributes.longueurKm && <div style={{ fontSize: 10, color: '#64748B' }}>Longueur : {line.attributes.longueurKm} km</div>}
+                        {line.attributes.etat && <div style={{ fontSize: 10, color: '#64748B' }}>État : {line.attributes.etat}</div>}
+                      </div>
+                    </Popup>
+                  </Polyline>
+                );
+              })}
+
+              {/* ── UN Network — Points (Devices, Assemblies, Junctions) ── */}
+              {(reseauMode === 'UN' || reseauMode === 'BOTH') && visiblePoints.map(pt => {
+                const color = featureTierColor(pt.tier);
+                const isHTB = pt.tier === 'HTB';
+                return (
+                  <CircleMarker
+                    key={pt.id}
+                    center={[pt.lat, pt.lng]}
+                    radius={isHTB ? 8 : pt.assetGroup === 'RMU' || pt.assetGroup === 'LVBoard' ? 6 : 5}
+                    pathOptions={{ fillColor: color, fillOpacity: 0.9, color: '#fff', weight: isHTB ? 2 : 1.5 }}
+                    eventHandlers={{ click: () => unStore.setSelectedFeature(pt) }}>
+                    <Popup>
+                      <div style={{ fontFamily: 'Inter,sans-serif', minWidth: 190 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color, textTransform: 'uppercase', marginBottom: 2 }}>{pt.tier ?? 'Structure'} · {pt.assetGroup}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#0E3460', marginBottom: 4 }}>{pt.name}</div>
+                        <div style={{ fontSize: 10, color: '#64748B' }}>Type : {pt.assetType}</div>
+                        {pt.feederID && <div style={{ fontSize: 10, color: '#64748B' }}>Feeder : <b>{pt.feederID}</b></div>}
+                        {pt.voltageKV > 0 && <div style={{ fontSize: 10, color: '#64748B' }}>Tension : {pt.voltageKV} kV</div>}
+                        {pt.attributes.puissanceMVA && <div style={{ fontSize: 10, color: '#64748B' }}>Puissance : {pt.attributes.puissanceMVA} MVA</div>}
+                        {pt.attributes.puissanceKVA && <div style={{ fontSize: 10, color: '#64748B' }}>Puissance : {pt.attributes.puissanceKVA} kVA</div>}
+                        {pt.attributes.etat && <div style={{ fontSize: 10, fontWeight: 700, color: String(pt.attributes.etat) === 'EN_SERVICE' ? '#16a34a' : '#ef4444', marginTop: 4 }}>{pt.attributes.etat}</div>}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
             </MapContainer>
 
             {/* Popup pin (HTML overlay) */}
@@ -717,6 +904,100 @@ export default function Cartographie() {
           </div>
         </div>
       </div>
+
+      {/* ── Modale Checklist Migration GN → UN ─────────────────────────── */}
+    {showMigrationModal && (
+      <div
+        onClick={() => setShowMigrationModal(false)}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', zIndex: 2100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '4vh 16px', overflow: 'auto' }}>
+        <div onClick={e => e.stopPropagation()}
+          style={{ background: 'var(--bg-card, #fff)', borderRadius: 12, width: '100%', maxWidth: 700, boxShadow: '0 20px 60px rgba(0,0,0,0.35)', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border, #E2E8F0)', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#f97316' }}>Checklist Pré-migration — Réseau Géométrique → Utility Network</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                Source : ATOS GIS Data Model Specification · Schneider Electric · 15 mars 2026
+              </div>
+            </div>
+            <button onClick={() => setShowMigrationModal(false)} style={{ background: 'var(--bg, #F1F5F9)', border: 'none', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}><X size={15} /></button>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border, #E2E8F0)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap' }}>
+              {[
+                { label: 'Obligatoires', val: `${unProgress.mandatoryDone}/${unProgress.mandatoryTotal}`, color: unProgress.mandatoryDone === unProgress.mandatoryTotal ? '#22c55e' : '#f97316' },
+                { label: 'Total', val: `${unProgress.done}/${unProgress.total}`, color: '#3b82f6' },
+              ].map(k => (
+                <span key={k.label} style={{ fontSize: 11, fontWeight: 700, color: k.color }}>{k.label} : {k.val}</span>
+              ))}
+            </div>
+            <div style={{ height: 6, background: 'var(--border, #E2E8F0)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${(unProgress.mandatoryDone / unProgress.mandatoryTotal) * 100}%`, background: unProgress.mandatoryDone === unProgress.mandatoryTotal ? '#22c55e' : '#f97316', borderRadius: 3, transition: 'width 0.3s' }} />
+            </div>
+            {/* Category filter */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              {(['all', 'feeder', 'geometry', 'attributes', 'topology'] as const).map(cat => (
+                <button key={cat} onClick={() => setMigCategoryFilter(cat)}
+                  style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border, #CBD5E1)', background: migCategoryFilter === cat ? '#f97316' : 'transparent', color: migCategoryFilter === cat ? '#fff' : 'var(--muted)', cursor: 'pointer', fontWeight: 600 }}>
+                  {cat === 'all' ? 'Tout' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </button>
+              ))}
+              <button onClick={() => unStore.resetMigration()}
+                style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}>
+                Réinitialiser
+              </button>
+            </div>
+          </div>
+
+          {/* Checklist items */}
+          <div style={{ overflowY: 'auto', flex: 1, padding: '8px 18px' }}>
+            {MIGRATION_CHECKLIST
+              .filter(item => migCategoryFilter === 'all' || item.category === migCategoryFilter)
+              .map(item => {
+                const status = unStore.migrationStatus[item.id];
+                const done = status?.done ?? false;
+                return (
+                  <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--border-2, #F1F5F9)' }}>
+                    <button
+                      onClick={() => unStore.setMigrationItem(item.id, !done)}
+                      style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 4, border: `2px solid ${done ? '#22c55e' : item.mandatory ? '#f97316' : '#CBD5E1'}`, background: done ? '#22c55e' : 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', marginTop: 1 }}>
+                      {done && <CheckCircle2 size={12} color="#fff" />}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: item.category === 'feeder' ? '#dbeafe' : item.category === 'geometry' ? '#d1fae5' : item.category === 'attributes' ? '#fef3c7' : '#fce7f3', color: item.category === 'feeder' ? '#1d4ed8' : item.category === 'geometry' ? '#065f46' : item.category === 'attributes' ? '#92400e' : '#9d174d', textTransform: 'uppercase' }}>
+                          {item.category}
+                        </span>
+                        {item.mandatory && <span style={{ fontSize: 8, color: '#f97316', fontWeight: 700 }}>OBLIGATOIRE</span>}
+                        <span style={{ fontSize: 8, color: 'var(--muted)', fontFamily: 'monospace' }}>{item.id}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: done ? 'var(--muted)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none', fontWeight: 500 }}>{item.description}</div>
+                      {item.detail && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, lineHeight: 1.4 }}>{item.detail}</div>}
+                      {status?.note && <div style={{ fontSize: 10, color: '#3b82f6', marginTop: 3 }}>📝 {status.note}</div>}
+                    </div>
+                    {!done && (
+                      <AlertTriangle size={12} color={item.mandatory ? '#f97316' : '#CBD5E1'} style={{ flexShrink: 0, marginTop: 3 }} />
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+
+          {/* Footer */}
+          <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border, #E2E8F0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: 'var(--muted)' }}>
+              ArcGIS Pro 3.5 · Outil : &quot;Load Data Using Workspace&quot; · UN v7
+            </div>
+            <button onClick={() => setShowMigrationModal(false)}
+              style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#f97316', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

@@ -27,17 +27,25 @@ export const CONTEXTE_TRANSVERSE = 'Transverse — Direction & Admin';
  *  attribué au projet ouvert (le composant écran appelle setProjetActif). */
 const ROUTES_PROJET = ['/cockpit-projet', '/gantt', '/gestion-projet', '/evm', '/wbs', '/taches'];
 
-/** POST best-effort vers le backend (ignore les échecs : app offline-first). */
+const DJANGO_URL = process.env.NEXT_PUBLIC_DJANGO_API_URL;
+
+/** POST best-effort vers le backend Django (offline-first : silencieux si indisponible). */
 async function sync(path: string, body: unknown) {
+  if (!DJANGO_URL) {
+    // Backend Django non configuré — sync locale uniquement (données dans le store Zustand).
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[tempsTracker] NEXT_PUBLIC_DJANGO_API_URL non défini — sync ignorée', path);
+    }
+    return;
+  }
   try {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('sigepp_access') : null;
-    const base = process.env.NEXT_PUBLIC_DJANGO_API_URL ?? 'http://localhost:8000/api';
-    await fetch(`${base}${path}`, {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sigep_access') : null;
+    await fetch(`${DJANGO_URL}${path}`, {
       method: 'POST', keepalive: true,
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(body),
     });
-  } catch { /* silencieux */ }
+  } catch { /* silencieux — l'app fonctionne offline-first */ }
 }
 
 /** Hook global : à monter une fois dans le layout dashboard. */

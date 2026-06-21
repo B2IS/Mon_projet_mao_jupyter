@@ -323,7 +323,7 @@ export async function syncProjetVersSIG(
   // 3. Envoyer en batch via applyEdits
   const log: SyncLog = {
     id: `ags-${projetId}-${Date.now()}`,
-    systemeSource: 'SIGEPP',
+    systemeSource: 'SIGEP',
     systemeCible: 'ARCGIS',
     typeOperation: 'PUSH',
     entite: 'RESEAU_HTA_BT',

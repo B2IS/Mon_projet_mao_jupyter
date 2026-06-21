@@ -1,4 +1,4 @@
-# SIGEPP — Modules à affecter par poste (fondé sur la Note de Direction N°005/2023)
+# SIGEP — Modules à affecter par poste (fondé sur la Note de Direction N°005/2023)
 
 > Source : ND 005/2023 portant organisation de la DPE (missions & activités par structure).
 > Principe : **organization-driven** — Organisation (1er niveau) → Projets (2e) → Fonctionnalités (3e).

@@ -1,6 +1,6 @@
 'use client';
 /**
- * ZonesQuantites — Module Zones & Quantités d'un projet (SIGEPP-DPE).
+ * ZonesQuantites — Module Zones & Quantités d'un projet (SIGEP-DPE).
  *
  * Couvre :
  *   #25 — séparation Zones (lignes géo) / Quantités (matrice zones × items),
@@ -14,7 +14,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import {
   Plus, Trash2, Upload, Download, Printer, MapPin, Settings, RotateCcw,
   Save, Table2, Coins, Layers,

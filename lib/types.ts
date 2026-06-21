@@ -33,7 +33,7 @@ export type PhaseCode =
 
 export type StatutPhase = 'non_demarre' | 'en_cours' | 'termine' | 'en_retard';
 
-export type BailleurCode = 'BM' | 'AFD' | 'UE' | 'MCA' | 'BEI' | 'BOAD' | 'KFW' | 'SENELEC' | 'ASER' | 'AUTRE';
+export type BailleurCode = 'BM' | 'AFD' | 'UE' | 'MCA' | 'BEI' | 'BOAD' | 'BAD' | 'KFW' | 'PROPARCO' | 'FVC' | 'SENELEC' | 'ASER' | 'AUTRE';
 
 export type GraviteIncident = 'faible' | 'modere' | 'grave' | 'bloquant';
 

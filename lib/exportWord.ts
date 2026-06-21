@@ -1,6 +1,6 @@
 'use client';
 /**
- * exportWord.ts — Export rapport SIGEPP-DPE en .docx réel (package docx v9)
+ * exportWord.ts — Export rapport SIGEP-DPE en .docx réel (package docx v9)
  */
 
 import {
@@ -175,7 +175,7 @@ export async function exportRapportWord(sections: SectionDocx[], meta: MetaRappo
             new Paragraph({
               alignment: AlignmentType.CENTER,
               children: [
-                new TextRun({ text: `${meta.confidentiel !== false ? 'CONFIDENTIEL — ' : ''}SIGEPP-DPE · Page `, size: 16, color: '94A3B8', font: 'Calibri' }),
+                new TextRun({ text: `${meta.confidentiel !== false ? 'CONFIDENTIEL — ' : ''}SIGEP-DPE · Page `, size: 16, color: '94A3B8', font: 'Calibri' }),
                 new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8', font: 'Calibri' }),
               ],
             }),

@@ -1,4 +1,4 @@
-# SIGEPP-X — Architecture Fonctionnelle Complète (Étape 1)
+# SIGEP-X — Architecture Fonctionnelle Complète (Étape 1)
 
 > **Système Intégré de Gouvernance, d’Exécution et de Pilotage des Projets et Investissements**  
 > Direction Principale Équipement — SENELEC  
@@ -8,11 +8,11 @@
 
 ## 1. Vision & Positionnement Stratégique
 
-SIGEPP-X **n’est pas** un logiciel de gestion de projets.  
+SIGEP-X **n’est pas** un logiciel de gestion de projets.  
 C’est la **plateforme officielle unique de gouvernance des investissements** de la DPE.
 
 **Règle absolue** :  
-Aucun projet, marché, immobilisation, budget, reporting officiel ou décision d’investissement ne doit exister en dehors de SIGEPP-X.
+Aucun projet, marché, immobilisation, budget, reporting officiel ou décision d’investissement ne doit exister en dehors de SIGEP-X.
 
 ### 1.1 Objectifs Stratégiques
 - Source unique de vérité (SSOT) pour l’ensemble du cycle de vie des investissements DPE.
@@ -32,7 +32,7 @@ Aucun projet, marché, immobilisation, budget, reporting officiel ou décision d
 
 ## 2. Périmètre Fonctionnel (20 Modules Cibles)
 
-| # | Module | Description | Couverture SIGEPP V1 (existante) | Gap critique pour X |
+| # | Module | Description | Couverture SIGEP V1 (existante) | Gap critique pour X |
 |---|--------|-------------|----------------------------------|---------------------|
 | 1 | **Organisation & Référentiels** | Structure DPE, postes, affectations, hiérarchie | Partiel (dpeOrgStructure, dpePersonnel) | MDM complet, affectations multiples, historique |
 | 2 | **Portefeuille & Programmes** | EPS, programmes, alignement stratégique | Portefeuille + Programmes | Consolidation multi-programmes, scoring stratégique |
@@ -87,7 +87,7 @@ Chaque étape génère des **Domain Events** tracés.
 1. **Visibilité Organisationnelle** : Un utilisateur ne voit que son unité + ses sous-unités. Jamais les unités parallèles.
 2. **Responsabilité Unique** : Chaque projet/marché/immobilisation a un Chef de Projet / Responsable unique + liste de délégués explicites.
 3. **Modification** : Seul le responsable + délégués + ADMIN peuvent modifier. Les autres consultent ou proposent.
-4. **Source Unique de Vérité** : Toute donnée officielle (budget, planning, rapport) provient de SIGEPP-X.
+4. **Source Unique de Vérité** : Toute donnée officielle (budget, planning, rapport) provient de SIGEP-X.
 5. **Traçabilité Complète** : Toute modification = événement + acteur + horodatage + motif (si requis).
 6. **Validation Humaine IA** : L’IA propose ; l’humain valide (sauf règles automatiques configurées).
 
@@ -153,7 +153,7 @@ Tout objet configurable sans code :
 
 ---
 
-## 8. Gap Analysis — SIGEPP V1 → SIGEPP-X
+## 8. Gap Analysis — SIGEP V1 → SIGEP-X
 
 **Points forts V1 (à conserver et industrialiser)** :
 - Modèle de données projets très complet (phases pondérées, jalons, WBS, EVM, zones & quantités)
@@ -179,9 +179,9 @@ Tout objet configurable sans code :
 
 ## 9. Indicateurs de Succès (KPI Cibles)
 
-- 100 % des projets DPE dans SIGEPP-X (zéro hors plateforme)
-- 100 % des marchés suivis dans SIGEPP-X
-- 100 % des immobilisations créées depuis SIGEPP-X
+- 100 % des projets DPE dans SIGEP-X (zéro hors plateforme)
+- 100 % des marchés suivis dans SIGEP-X
+- 100 % des immobilisations créées depuis SIGEP-X
 - Délai de production de reporting officiel divisé par 5
 - Taux de conformité DPE ≥ 95 % (automatiquement mesuré)
 - Traçabilité complète : 0 décision sans journal
@@ -197,4 +197,4 @@ Tout objet configurable sans code :
 
 ---
 
-*Document produit conformément au mandat SIGEPP-X — 31 mai 2026.*
+*Document produit conformément au mandat SIGEP-X — 31 mai 2026.*

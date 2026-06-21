@@ -1,5 +1,5 @@
 /**
- * types.ts — Types communs pour les intégrations externes SIGEPP-DPE
+ * types.ts — Types communs pour les intégrations externes SIGEP-DPE
  * Oracle EBS R12, ArcGIS Enterprise, SAP, SCADA, AMI, etc.
  */
 
@@ -33,7 +33,7 @@ export interface OracleFacture {
   statut: 'VALIDEE' | 'PAYEE' | 'EN_ATTENTE' | 'REJETEE';
   fournisseurId: string;
   fournisseurNom: string;
-  projetId?: string;       // lien SIGEPP
+  projetId?: string;       // lien SIGEP
   directionCode: string;
   ligneBudgetaire?: string;
   compteGeneral?: string;  // Compte Oracle GL
@@ -70,7 +70,7 @@ export interface OracleImmobilisation {
   valeurResiduelle: number;
   montantAmortiCumule: number;
   valeurNetteComptable: number; // VNC = cout - cumul
-  projetOrigineId?: string;    // lien projet SIGEPP
+  projetOrigineId?: string;    // lien projet SIGEP
   localisationGeo?: { lat: number; lng: number };
   directionAffectataire: string;
   compteAmortissement: string;
@@ -271,8 +271,8 @@ export interface ApiResult<T> {
 
 export interface SyncLog {
   id: string;
-  systemeSource: 'SIGEPP' | 'ORACLE_R12' | 'ARCGIS' | 'SCADA' | 'SAP' | 'AMI';
-  systemeCible: 'SIGEPP' | 'ORACLE_R12' | 'ARCGIS';
+  systemeSource: 'SIGEP' | 'ORACLE_R12' | 'ARCGIS' | 'SCADA' | 'SAP' | 'AMI';
+  systemeCible: 'SIGEP' | 'ORACLE_R12' | 'ARCGIS';
   typeOperation: 'PULL' | 'PUSH' | 'BIDIRECTIONAL';
   entite: string;          // ex: "FACTURES", "IMMOBILISATIONS", "RESEAU_HTA"
   statut: 'SUCCES' | 'ECHEC_PARTIEL' | 'ECHEC_TOTAL';

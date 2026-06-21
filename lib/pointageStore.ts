@@ -97,6 +97,6 @@ export const usePointage = create<PointageState>()(
       valider: (id, etape, par) => set(s => ({ bulletins: s.bulletins.map(b => b.id === id ? { ...b, statut: etape, historique: [...b.historique, { etape: `Validé (${etape})`, par, date: new Date().toISOString() }] } : b) })),
       rejeter: (id, par, motif) => set(s => ({ bulletins: s.bulletins.map(b => b.id === id ? { ...b, statut: 'rejete', motifRejet: motif, historique: [...b.historique, { etape: 'Rejeté', par, date: new Date().toISOString() }] } : b) })),
     }),
-    { name: 'sigepp-pointage' },
+    { name: 'sigep-pointage' },
   ),
 );

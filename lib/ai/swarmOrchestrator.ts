@@ -1,5 +1,5 @@
 /**
- * swarmOrchestrator.ts — Coordinateur pipeline SIGEPP-DPE
+ * swarmOrchestrator.ts — Coordinateur pipeline SIGEP-DPE
  *
  * Pipeline 3 phases (18 agents) :
  *   Phase 0 : LLM pre-enrichment (Kimi K2.6 Docker → Kimi K2 cloud → Ollama → heuristique)

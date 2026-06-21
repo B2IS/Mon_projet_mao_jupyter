@@ -1,9 +1,9 @@
 /**
- * middleware.ts — Auth.js v5 middleware SIGEPP-DPE
+ * middleware.ts — Auth.js v5 middleware SIGEP-DPE
  * Utilise auth.config.ts (Edge-compatible, sans Node.js APIs).
  * La logique RBAC (canAccess) est dans le callback `authorized` de auth.config.ts.
  *
- * Compatibilité ascendante : l'ancien cookie sigepp_session est toujours accepté
+ * Compatibilité ascendante : l'ancien cookie sigep_session est toujours accepté
  * comme fallback pendant la période de transition (voir bloc legacy ci-dessous).
  */
 import NextAuth from 'next-auth';
@@ -14,28 +14,38 @@ import authConfig from './auth.config';
 const { auth } = NextAuth(authConfig);
 
 // ── Fallback legacy : si pas de session NextAuth, vérifier l'ancien JWT ──────
-// Conservé pour les sessions existantes (cookie sigepp_session) qui n'ont pas
+// Conservé pour les sessions existantes (cookie sigep_session) qui n'ont pas
 // encore été ré-authentifiées via Auth.js.
 import { jwtVerify } from 'jose';
 import { SESSION_COOKIE, canAccess } from '@/lib/authTypes';
 import type { RoleCode, SessionPayload } from '@/lib/authTypes';
 
-const _jwtSecret = process.env.SIGEPP_JWT_SECRET;
-if (!_jwtSecret && process.env.NODE_ENV === 'production') {
-  throw new Error('[SIGEPP] SIGEPP_JWT_SECRET must be set in production. Refusing to start with default secret.');
+// Secret résolu à runtime (pas au build) — évite l'échec du `next build` sans env
+function getSecretKey(): Uint8Array {
+  const secret = process.env.SIGEP_JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('[SIGEP] SIGEP_JWT_SECRET must be set in production. Refusing to process request without secret.');
+  }
+  return new TextEncoder().encode(secret ?? 'sigep-dpe-dev-secret-change-in-production-2026');
 }
-const SECRET_KEY = new TextEncoder().encode(
-  _jwtSecret ?? 'sigepp-dpe-dev-secret-change-in-production-2026'
-);
 
-const PUBLIC_PREFIXES = ['/login', '/api/', '/_next/', '/favicon', '/icons/', '/images/'];
+// Routes statiques et auth : toujours publiques
+const PUBLIC_PREFIXES = ['/login', '/_next/', '/favicon', '/icons/', '/images/'];
+
+// Routes API qui ne nécessitent PAS de session middleware
+// (ouvertes par design — les routes protégées ont requireApiAuth() dans leur handler)
+const PUBLIC_API_ROUTES = [
+  '/api/auth/',       // Auth.js callbacks (OAuth, credentials, /auth/me)
+];
 
 function isPublicPath(pathname: string): boolean {
-  return (
-    pathname === '/' ||
-    pathname.includes('.') ||
-    PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
-  );
+  if (pathname === '/' || pathname.includes('.')) return true;
+  if (PUBLIC_PREFIXES.some(p => pathname.startsWith(p))) return true;
+  // API : laisser passer uniquement les routes explicitement publiques
+  if (pathname.startsWith('/api/')) {
+    return PUBLIC_API_ROUTES.some(p => pathname.startsWith(p));
+  }
+  return false;
 }
 
 export default auth(async (req) => {
@@ -51,15 +61,16 @@ export default auth(async (req) => {
   const legacyToken = (req as unknown as NextRequest).cookies.get(SESSION_COOKIE)?.value;
   if (legacyToken) {
     try {
-      const { payload } = await jwtVerify(legacyToken, SECRET_KEY, {
-        issuer: 'sigepp-dpe',
-        audience: 'sigepp-dpe-client',
+      const { payload } = await jwtVerify(legacyToken, getSecretKey(), {
+        issuer: 'sigep-dpe',
+        audience: 'sigep-dpe-client',
       });
       const session = payload as unknown as SessionPayload;
       const role = session.role as RoleCode;
 
-      // RBAC : vérifier que le rôle a accès à cette route
-      if (role && role !== 'ADMIN' && role !== 'AUDIT') {
+      // RBAC pages : canAccess() est conçu pour les routes UI, pas /api/*.
+      // Les routes API ont leur propre RBAC via requireApiAuth(req, allowedRoles).
+      if (!pathname.startsWith('/api/') && role && role !== 'ADMIN' && role !== 'AUDIT') {
         if (!canAccess(role, pathname)) {
           return NextResponse.redirect(new URL('/tableau-de-bord', req.url));
         }

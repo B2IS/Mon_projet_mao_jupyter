@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useAuth } from '@/lib/authStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
@@ -344,7 +345,7 @@ function handleExportPDF(title: string) {
     </style></head><body>
       <div class="bar"></div>
       <div style="margin-bottom:12px"><img src="${SENELEC_LOGO_DATA_URI}" alt="SENELEC" style="height:44px;width:auto;display:block" /></div>
-      <div class="logo">SENELEC · SIGEPP-DPE · Analytique & Indicateurs</div>
+      <div class="logo">SENELEC · SIGEP-DPE · Analytique & Indicateurs</div>
       <h1>${title}</h1>
       <div class="meta">Généré le ${new Date().toLocaleDateString('fr-FR')} · Portefeuille DPE</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0">
@@ -387,7 +388,7 @@ function handleExportPDF(title: string) {
       </tbody></table>
       <h2 style="color:#0F172A;font-size:13px;font-weight:700;border-bottom:1.5px solid #E2E8F0;padding-bottom:6px;margin:24px 0 10px">Tableau des projets</h2>
       <table><thead><tr><th>Projet</th><th>Domaine</th><th style="text-align:right">Budget prévu</th><th style="text-align:right">Réalisé</th><th style="text-align:right">Taux</th></tr></thead><tbody>${projRows}</tbody></table>
-      <div class="footer">CONFIDENTIEL — Usage interne SENELEC · Document généré par SIGEPP-DPE · ${new Date().toLocaleDateString('fr-FR')}</div>
+      <div class="footer">CONFIDENTIEL — Usage interne SENELEC · Document généré par SIGEP-DPE · ${new Date().toLocaleDateString('fr-FR')}</div>
     </body></html>
   `);
   printWindow.document.close();
@@ -398,10 +399,47 @@ function handleExportPDF(title: string) {
 
 export default function Analytique() {
   const store = useProjectStore();
+  const { user, isRole } = useAuth();
   const [period, setPeriod] = useState<Period>('Trimestre');
   const [year, setYear] = useState<number>(2026);
-  const [subPeriod, setSubPeriod] = useState<string>('T2'); // trimestre ou mois sélectionné dans l'année
+  const [subPeriod, setSubPeriod] = useState<string>('T2');
   const [domain, setDomain] = useState<Domain>('Tous');
+
+  // Périmètre métier — détermine domaine par défaut et indicateurs visibles
+  const userDept = ((user?.departement ?? '') as string).toUpperCase();
+  const isDPD  = userDept.includes('DPD') || userDept.includes('DISTRIBUTION');
+  const isDPT  = userDept.includes('DPT') || userDept.includes('TRANSPORT');
+  const isProdENR = userDept.includes('PER');
+  const isProdConv = userDept.includes('PEC');
+  const isProd = isProdENR || isProdConv;
+  const isDGC  = userDept.includes('DGC');
+  const isDIT  = userDept.includes('DIT') || (user?.direction ?? '').toUpperCase() === 'DIT';
+  const isConsolidated = isRole('DIR_DPE', 'ADMIN') ||
+    (isRole('DIRECTEUR', 'COORDINATEUR', 'CHEF_CELLULE', 'CONSEILLER') && !isDPD && !isDPT && !isProd && !isDGC && !isDIT);
+
+  // Domaines accessibles selon le profil
+  const allowedDomains = useMemo((): Domain[] => {
+    if (isConsolidated) return ['Tous', 'Production', 'Transport', 'Distribution', 'Commercial', 'Génie Civil'];
+    const d: Domain[] = ['Tous'];
+    if (isDPD) d.push('Distribution');
+    if (isDPT) d.push('Transport');
+    if (isProd) d.push('Production');
+    if (isDGC) d.push('Génie Civil');
+    if (isDIT) d.push('Commercial');
+    return d;
+  }, [isConsolidated, isDPD, isDPT, isProd, isDGC, isDIT]);
+
+  // Synchronise le domaine par défaut avec le profil utilisateur (une seule fois au chargement)
+  useEffect(() => {
+    if (!user) return;
+    if (isDPD) setDomain('Distribution');
+    else if (isDPT) setDomain('Transport');
+    else if (isProd) setDomain('Production');
+    else if (isDGC) setDomain('Génie Civil');
+    else if (isDIT) setDomain('Commercial');
+    // else 'Tous' reste (DIR_DPE, ADMIN, profils transverses)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.departement]);
   const YEARS = [2024, 2025, 2026];
   const MOIS_OPTS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
   const TRIM_OPTS = ['T1', 'T2', 'T3', 'T4'];
@@ -544,19 +582,22 @@ export default function Analytique() {
           </select>
         </div>
 
-        {/* Domain filter — seuls les domaines ayant des projets réels sont actifs */}
+        {/* Domain filter — restreint au périmètre du profil + données réelles */}
         <div style={{ display: 'flex', gap: 0, border: `1px solid ${ORANGE}30`, borderRadius: 7, overflow: 'hidden' }}>
           {(['Tous', 'Production', 'Transport', 'Distribution', 'Commercial', 'Génie Civil'] as Domain[]).map(d => {
-            const hasData = d === 'Tous' || store.projets.some(p => p.domaine === DOMAIN_TO_DOMAINE[d]);
+            const inScope  = allowedDomains.includes(d);
+            const hasData  = d === 'Tous' || store.projets.some(p => p.domaine === DOMAIN_TO_DOMAINE[d]);
+            const enabled  = inScope && hasData;
+            if (!inScope) return null; // cacher les domaines hors périmètre
             return (
-              <button key={d} onClick={() => hasData && setDomain(d)} style={{
+              <button key={d} onClick={() => enabled && setDomain(d)} style={{
                 padding: '7px 12px', fontSize: 11, fontWeight: 600,
-                cursor: hasData ? 'pointer' : 'not-allowed', border: 'none',
+                cursor: enabled ? 'pointer' : 'not-allowed', border: 'none',
                 background: domain === d ? ORANGE : '#fff',
-                color: domain === d ? '#fff' : hasData ? ORANGE : '#CBD5E1',
-                opacity: hasData ? 1 : 0.55,
+                color: domain === d ? '#fff' : enabled ? ORANGE : '#CBD5E1',
+                opacity: enabled ? 1 : 0.55,
                 transition: 'all .15s',
-              }} title={hasData ? undefined : 'Aucun projet dans ce domaine'}>
+              }} title={!hasData ? 'Aucun projet dans ce domaine' : undefined}>
                 {d}{!hasData && ' (0)'}
               </button>
             );
@@ -610,30 +651,58 @@ export default function Analytique() {
       )}
 
       {/* ── Indicateurs personnalisés ────────────────────────────────────────── */}
-      <IndicatorWidget showLink compact={false} />
+      <IndicatorWidget showLink compact={false} maxItems={6} />
 
-      {/* ── ROW 0 — M&E Utility KPIs ────────────────────────────────────────── */}
-      <div style={{ background: NAVY + '08', borderRadius: 10, border: `1px solid ${NAVY}20`, padding: '12px 16px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 4, height: 14, background: ORANGE, borderRadius: 2, display: 'inline-block' }} />
-          Indicateurs Sectoriels M&amp;E — Suivi Performance Réseau
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-          <KPICard label="MW installés (renouvelable)" value="342 MW" sub="Cible: 500 MW (68.4%)" trend="+28 MW vs T-1" trendUp accent={GREEN} badge="68%" badgeColor={GREEN} />
-          <KPICard label="km réseau HTA/BT déployés" value="1 248 km" sub="Cible: 2 000 km" trend="+84 km vs T-1" trendUp accent={NAVY} badge="62%" badgeColor={NAVY} />
-          <KPICard label="Ménages raccordés" value="48 600" sub="Cible: 80 000 ménages" trend="+3 200 vs T-1" trendUp accent={ORANGE} badge="61%" badgeColor={ORANGE} />
-          <KPICard label="CO2 évité (tCO2/an)" value="184 250" sub="Cible: 250 000 t" trend="+12 400 vs T-1" trendUp accent={GREEN} badge="ECO" badgeColor={GREEN} />
-        </div>
-      </div>
+      {/* ── ROW 0 — M&E Utility KPIs (scopés au domaine / profil) ──────────── */}
+      {(() => {
+        // Indicateurs M&E adaptés au domaine actif et au périmètre métier de l'utilisateur
+        type MEKpi = { label: string; value: string; sub: string; trend: string; trendUp: boolean; accent: string; badge: string; badgeColor: string };
+        const meKpis: MEKpi[] = domain === 'Distribution' || (domain === 'Tous' && isDPD) ? [
+          { label: 'km réseau HTA/BT déployés',  value: '1 248 km',  sub: 'Cible: 2 000 km',           trend: '+84 km vs T-1',    trendUp: true,  accent: NAVY,   badge: '62%',  badgeColor: NAVY   },
+          { label: 'Postes HTA/BT installés',     value: '124',       sub: 'PTD + Cabines réseau',      trend: '+8 vs T-1',        trendUp: true,  accent: NAVY2,  badge: '+8',   badgeColor: NAVY2  },
+          { label: 'Ménages raccordés',            value: '48 600',    sub: 'Cible: 80 000 ménages',     trend: '+3 200 vs T-1',    trendUp: true,  accent: ORANGE, badge: '61%',  badgeColor: ORANGE },
+          { label: 'Compteurs AMI posés',          value: '12 450',    sub: 'Comptage intelligent actif', trend: '+850 vs T-1',     trendUp: true,  accent: PURPLE, badge: 'AMI',  badgeColor: PURPLE },
+        ] : domain === 'Transport' || (domain === 'Tous' && isDPT) ? [
+          { label: 'km lignes HTB déployées',     value: '842 km',    sub: 'Cible: 1 200 km (HTB)',     trend: '+22 km vs T-1',    trendUp: true,  accent: NAVY,   badge: '70%',  badgeColor: NAVY   },
+          { label: 'Postes sources construits',   value: '18',        sub: 'HTB 90/30 kV · 225/90 kV', trend: '+2 vs T-1',        trendUp: true,  accent: ORANGE, badge: '+2',   badgeColor: ORANGE },
+          { label: 'Pertes techn. évitées',       value: '48 GWh',    sub: 'Réseau renforcé / an',      trend: '+6 GWh vs T-1',    trendUp: true,  accent: GREEN,  badge: '↓',    badgeColor: GREEN  },
+          { label: 'Disponibilité réseau HTB',    value: '97.2%',     sub: 'Cible: 99% (fiabilité)',    trend: '+0.4% vs T-1',     trendUp: true,  accent: NAVY2,  badge: 'HTB',  badgeColor: NAVY2  },
+        ] : domain === 'Production' || (domain === 'Tous' && isProd) ? [
+          { label: 'MW installés (renouvelable)', value: '342 MW',    sub: 'Cible: 500 MW (68.4%)',     trend: '+28 MW vs T-1',    trendUp: true,  accent: GREEN,  badge: '68%',  badgeColor: GREEN  },
+          { label: 'MW installés (conventionnel)',value: '1 825 MW',  sub: 'Parc thermique SENELEC',    trend: 'Stable',           trendUp: false, accent: ORANGE, badge: 'CONV', badgeColor: ORANGE },
+          { label: 'CO2 évité (tCO2/an)',         value: '184 250',   sub: 'Cible: 250 000 t (ENR)',    trend: '+12 400 vs T-1',   trendUp: true,  accent: GREEN,  badge: 'ECO',  badgeColor: GREEN  },
+          { label: 'GWh produits (ENR)',           value: '612 GWh',  sub: 'Solaire + Éolien cumulé',   trend: '+48 GWh vs T-1',   trendUp: true,  accent: NAVY2,  badge: 'ENR',  badgeColor: NAVY2  },
+        ] : [
+          // Vue consolidée (Tous) pour DIR_DPE/ADMIN et profils transverses
+          { label: 'MW installés (renouvelable)', value: '342 MW',    sub: 'Cible: 500 MW (68.4%)',     trend: '+28 MW vs T-1',    trendUp: true,  accent: GREEN,  badge: '68%',  badgeColor: GREEN  },
+          { label: 'km réseau HTA/BT déployés',  value: '1 248 km',  sub: 'Cible: 2 000 km',           trend: '+84 km vs T-1',    trendUp: true,  accent: NAVY,   badge: '62%',  badgeColor: NAVY   },
+          { label: 'Ménages raccordés',            value: '48 600',    sub: 'Cible: 80 000 ménages',     trend: '+3 200 vs T-1',    trendUp: true,  accent: ORANGE, badge: '61%',  badgeColor: ORANGE },
+          { label: 'CO2 évité (tCO2/an)',         value: '184 250',   sub: 'Cible: 250 000 t',          trend: '+12 400 vs T-1',   trendUp: true,  accent: GREEN,  badge: 'ECO',  badgeColor: GREEN  },
+        ];
+        const domainLabel = domain === 'Tous'
+          ? (isDPD ? 'Distribution / DPD' : isDPT ? 'Transport / DPT' : isProd ? 'Production / DEP' : 'Portefeuille DPE')
+          : domain;
+        return (
+          <div style={{ background: NAVY + '08', borderRadius: 10, border: `1px solid ${NAVY}20`, padding: '12px 16px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 4, height: 14, background: ORANGE, borderRadius: 2, display: 'inline-block' }} />
+              Indicateurs M&amp;E — {domainLabel}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+              {meKpis.map(k => (
+                <KPICard key={k.label} label={k.label} value={k.value} sub={k.sub} trend={k.trend} trendUp={k.trendUp} accent={k.accent} badge={k.badge} badgeColor={k.badgeColor} />
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
-      {/* ── ROW 1 — KPI cards from real store data ──────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10 }}>
-        <KPICard label="Projets actifs (store)" value={String(storeKpis.total)} sub={`Portefeuille en vie${domain !== 'Tous' ? ' · domaine ' + domain : ''}`} accent={NAVY} badge="STORE" badgeColor={NAVY} />
-        <KPICard label="Budget total (MFCFA)" value={`${storeKpis.totalBudget.toFixed(0)} M`} sub={`Décaissé : ${storeKpis.decPct.toFixed(1)}%`} accent={ORANGE} badge={`${storeKpis.decPct.toFixed(0)}%`} badgeColor={ORANGE} />
-        <KPICard label="CPI moyen réel" value={storeKpis.avgCpi.toFixed(2)} sub={storeKpis.avgCpi >= 0.95 ? 'Performance coûts satisfaisante (≥ 0.95)' : 'Attention : dépassement coûts probable (< 0.95)'} accent={storeKpis.avgCpi >= 0.95 ? GREEN : RED} badge={storeKpis.avgCpi >= 0.95 ? 'BON' : 'ATTN'} badgeColor={storeKpis.avgCpi >= 0.95 ? GREEN : RED} />
-        <KPICard label="SPI moyen réel" value={storeKpis.avgSpi.toFixed(2)} sub={storeKpis.avgSpi >= 0.90 ? 'Planning globalement respecté (≥ 0.90)' : 'Retard de planning détecté (< 0.90)'} accent={storeKpis.avgSpi >= 0.90 ? GREEN : AMBER} badge={storeKpis.avgSpi >= 0.90 ? 'OK' : 'ATTN'} badgeColor={storeKpis.avgSpi >= 0.90 ? GREEN : AMBER} />
-        <KPICard label="Avancement moyen" value={`${storeKpis.avgAvancement}%`} sub="Physique consolidé — pondéré par nombre de projets" accent={PURPLE} badge="AVG" badgeColor={PURPLE} />
-        <KPICard label="Projets en retard" value={`${storeKpis.enRetard} / ${storeKpis.total}`} sub={storeKpis.enRetard > 0 ? `${storeKpis.enRetard} projet(s) avec statut en_retard` : 'Aucun projet en retard'} accent={storeKpis.enRetard > 0 ? RED : GREEN} badge={storeKpis.enRetard > 0 ? 'ALERTE' : 'OK'} badgeColor={storeKpis.enRetard > 0 ? RED : GREEN} />
+      {/* ── ROW 1 — 4 KPIs décisionnels clés (données store filtrées par domaine) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+        <KPICard label="Projets actifs" value={String(storeKpis.total)} sub={`Portefeuille${domain !== 'Tous' ? ' · ' + domain : ' DPE'}`} accent={NAVY} badge="PORT." badgeColor={NAVY} />
+        <KPICard label="Exécution budgétaire" value={`${storeKpis.decPct.toFixed(1)}%`} sub={`${storeKpis.totalBudget.toFixed(0)} M FCFA · ${storeKpis.totalDecaisse.toFixed(0)} M décaissé`} accent={storeKpis.decPct >= 80 ? GREEN : storeKpis.decPct >= 50 ? AMBER : RED} badge={storeKpis.decPct >= 80 ? 'BON' : storeKpis.decPct >= 50 ? 'MOYEN' : 'FAIBLE'} badgeColor={storeKpis.decPct >= 80 ? GREEN : storeKpis.decPct >= 50 ? AMBER : RED} />
+        <KPICard label="CPI moyen" value={storeKpis.avgCpi.toFixed(2)} sub={storeKpis.avgCpi >= 1 ? 'Coûts maîtrisés (≥ 1.0)' : storeKpis.avgCpi >= 0.9 ? 'Légère dérive coûts (0.90–1.0)' : 'Dépassement coûts (< 0.90)'} accent={storeKpis.avgCpi >= 1 ? GREEN : storeKpis.avgCpi >= 0.9 ? AMBER : RED} badge={storeKpis.avgCpi >= 1 ? 'OK' : 'ATTN'} badgeColor={storeKpis.avgCpi >= 1 ? GREEN : storeKpis.avgCpi >= 0.9 ? AMBER : RED} />
+        <KPICard label="Projets en retard" value={`${storeKpis.enRetard} / ${storeKpis.total}`} sub={storeKpis.enRetard === 0 ? 'Aucun projet en retard' : `${storeKpis.enRetard} projet(s) nécessitent arbitrage`} accent={storeKpis.enRetard === 0 ? GREEN : storeKpis.enRetard <= 2 ? AMBER : RED} badge={storeKpis.enRetard === 0 ? 'OK' : 'ALERTE'} badgeColor={storeKpis.enRetard === 0 ? GREEN : RED} />
       </div>
 
       {/* ── S-CURVE SECTION — PV / EV / AC (Courbes S CDC §21.1) ───────────── */}

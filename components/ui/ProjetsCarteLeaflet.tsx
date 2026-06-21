@@ -6,7 +6,7 @@
  * • Un marqueur par projet, positionné sur sa région (jitter si plusieurs/région).
  * • Couleur = domaine ; popup = référence SIG, code, avancement, budget.
  * • Couches ArcGIS Enterprise superposées si une configuration active existe
- *   (localStorage `sigepp-arcgis-config`).
+ *   (localStorage `sigep-arcgis-config`).
  *
  * À importer dynamiquement (ssr:false) — Leaflet touche `window`.
  */
@@ -68,7 +68,7 @@ export default function ProjetsCarteLeaflet({
   // Lecture (sans crash SSR car composant client) de la config ArcGIS active.
   const arcgis = useMemo<ArcgisConfig | null>(() => {
     try {
-      const raw = window.localStorage.getItem('sigepp-arcgis-config');
+      const raw = window.localStorage.getItem('sigep-arcgis-config');
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   }, []);
