@@ -130,14 +130,14 @@ export default function Springboard() {
     const verts  = total - rouges - oranges;
     const budgetTotal   = projets.reduce((s, p) => s + (p.budget ?? 0), 0);
     const decaisse      = projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0);
-    const avMoyen       = projets.length ? projets.reduce((s, p) => s + p.avancement, 0) / projets.length : 0;
-    const cpiMoyen      = projets.length ? projets.reduce((s, p) => s + p.cpi, 0) / projets.length : 1;
-    const spiMoyen      = projets.length ? projets.reduce((s, p) => s + p.spi, 0) / projets.length : 1;
+    const avMoyen       = projets.length ? projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / projets.length : 0;
+    const cpiMoyen      = projets.length ? projets.reduce((s, p) => s + (p.cpi ?? 1), 0) / projets.length : 1;
+    const spiMoyen      = projets.length ? projets.reduce((s, p) => s + (p.spi ?? 1), 0) / projets.length : 1;
 
     // Prochains jalons
     const today = new Date();
     const prochains = projets
-      .flatMap(p => p.jalons.filter(j => !j.atteint && new Date(j.date) >= today).map(j => ({ ...j, projetNom: p.nom, projetCode: p.code })))
+      .flatMap(p => (p.jalons ?? []).filter(j => !j.atteint && new Date(j.date) >= today).map(j => ({ ...j, projetNom: p.nom, projetCode: p.code })))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 6);
 
@@ -149,7 +149,7 @@ export default function Springboard() {
 
     // Affectations hebdo : compter les ressources assignées
     const affectations = store.ressources.slice(0, 6).map(r => {
-      const assigned = projets.filter(p => p.equipe.includes(r.id)).length;
+      const assigned = projets.filter(p => (p.equipe ?? []).includes(r.id)).length;
       return { id: r.id, nom: `${r.prenom} ${r.nom}`.trim(), projetsCount: assigned, heuresW: assigned * 8, heuresW1: Math.round(assigned * 7.5), heuresW2: Math.round(assigned * 8.2), heuresW3: Math.round(assigned * 6) };
     });
 
@@ -196,7 +196,13 @@ export default function Springboard() {
       <div style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #1B4F8A 100%)`, padding: '16px 24px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ color: '#fff', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>Portail Projet — Tableau de Bord Chef de Projet</div>
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>
+              {user?.role === 'DIR_DPE'     ? 'Portefeuille DPE — Cockpit Exécutif'       :
+               user?.role === 'DIRECTEUR'   ? 'Portail Projet — Tableau de Bord Direction' :
+               user?.role === 'COORDINATEUR'? 'Portail Projet — Tableau de Bord Programme' :
+               user?.role === 'EXPERT_PMO'  ? 'Portail Projet — Tableau de Bord PMO'       :
+                                              'Portail Projet — Tableau de Bord Chef de Projet'}
+            </div>
             <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 2 }}>
               Portefeuille DPE · {kpis.total} projets actifs · Mis à jour {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
             </div>
@@ -225,7 +231,7 @@ export default function Springboard() {
       {/* ── SUMMARY ROW ── */}
       <div style={{ display: 'flex', gap: 12, padding: '14px 24px', flexShrink: 0, flexWrap: 'wrap' }}>
         {[
-          { icon: <TrendingUp size={16} />, label: 'Avancement moyen', value: fmtPct(kpis.avMoyen), sub: `Planifié : ${fmtPct(projets.length ? projets.reduce((s,p)=>s+p.avancementPlanifie,0)/projets.length : 0)}`, color: NAVY, title: `Avancement physique moyen : ${fmtPct(kpis.avMoyen)}` },
+          { icon: <TrendingUp size={16} />, label: 'Avancement moyen', value: fmtPct(kpis.avMoyen), sub: `Planifié : ${fmtPct(projets.length ? projets.reduce((s,p)=>s+(p.avancementPlanifie ?? 0),0)/projets.length : 0)}`, color: NAVY, title: `Avancement physique moyen : ${fmtPct(kpis.avMoyen)}` },
           { icon: <BarChart3 size={16} />, label: 'Budget total', value: fmtM(kpis.budgetTotal), sub: `Décaissé : ${fmtM(kpis.decaisse)}`, color: '#0F766E', title: `Budget total : ${fmtM(kpis.budgetTotal)} — Décaissé : ${fmtM(kpis.decaisse)}` },
           { icon: <Activity size={16} />, label: 'CPI moyen', value: kpis.cpiMoyen.toFixed(2), sub: kpis.cpiMoyen >= 1 ? '✓ Dans les coûts' : '⚠ Dépassement coût', color: kpis.cpiMoyen >= 1 ? '#16A34A' : '#DC2626', title: `Cost Performance Index moyen : ${kpis.cpiMoyen.toFixed(2)} (cible ≥ 1,00)` },
           { icon: <Clock size={16} />, label: 'SPI moyen', value: kpis.spiMoyen.toFixed(2), sub: kpis.spiMoyen >= 1 ? '✓ Dans les délais' : '⚠ Retard planning', color: kpis.spiMoyen >= 1 ? '#16A34A' : '#DC2626', title: `Schedule Performance Index moyen : ${kpis.spiMoyen.toFixed(2)} (cible ≥ 1,00)` },
@@ -296,10 +302,13 @@ export default function Springboard() {
             </div>
           )}
           {projets.map(p => {
-              const rag = p.statutGlobal ?? calculerStatutGlobal({ cpi: p.cpi, spi: p.spi, avancement: p.avancement, avancementPlanifie: p.avancementPlanifie });
+              const cpi = p.cpi ?? 1; const spi = p.spi ?? 1;
+              const av = p.avancement ?? 0; const avp = p.avancementPlanifie ?? 0;
+              const bgt = p.budget ?? 0; const dec = p.budgetDecaisse ?? 0; const eng = p.budgetEngage ?? 0;
+              const rag = p.statutGlobal ?? calculerStatutGlobal({ cpi, spi, avancement: av, avancementPlanifie: avp });
               const rc  = ragColor(rag);
-              const tauxDec = p.budget > 0 ? (p.budgetDecaisse / p.budget) * 100 : 0;
-              const tauxEngage = p.budget > 0 ? (p.budgetEngage / p.budget) * 100 : 0;
+              const tauxDec = bgt > 0 ? (dec / bgt) * 100 : 0;
+              const tauxEngage = bgt > 0 ? (eng / bgt) * 100 : 0;
               return (
                 <div key={p.id}
                   onClick={() => setDetailProjet(p)}
@@ -326,27 +335,27 @@ export default function Springboard() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', width: 40, textAlign: 'right' }}>CIBLE</span>
                         <div style={{ flex: 1, height: 6, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
-                          <div style={{ height: 6, width: `${p.avancementPlanifie}%`, background: '#CBD5E1', borderRadius: 4 }} />
+                          <div style={{ height: 6, width: `${avp}%`, background: '#CBD5E1', borderRadius: 4 }} />
                         </div>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: '#64748B', width: 32 }}>{p.avancementPlanifie}%</span>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#64748B', width: 32 }}>{avp}%</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', width: 40, textAlign: 'right' }}>RÉEL</span>
                         <div style={{ flex: 1, height: 6, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
-                          <div style={{ height: 6, width: `${p.avancement}%`, background: p.avancement >= p.avancementPlanifie ? '#16A34A' : ORANGE, borderRadius: 4, transition: 'width 0.5s' }} />
+                          <div style={{ height: 6, width: `${av}%`, background: av >= avp ? '#16A34A' : ORANGE, borderRadius: 4, transition: 'width 0.5s' }} />
                         </div>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: NAVY, width: 32 }}>{p.avancement}%</span>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: NAVY, width: 32 }}>{av}%</span>
                       </div>
                     </div>
 
                     {/* KPI chips */}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {[
-                        { label: `CPI ${p.cpi.toFixed(2)}`, ok: p.cpi >= 1 },
-                        { label: `SPI ${p.spi.toFixed(2)}`, ok: p.spi >= 1 },
+                        { label: `CPI ${cpi.toFixed(2)}`, ok: cpi >= 1 },
+                        { label: `SPI ${spi.toFixed(2)}`, ok: spi >= 1 },
                         { label: `Décaissé ${tauxDec.toFixed(0)}%`, ok: true },
                         { label: `Engagé ${tauxEngage.toFixed(0)}%`, ok: true },
-                        { label: `${p.jalons.filter(j => j.atteint).length}/${p.jalons.length} jalons`, ok: true },
+                        { label: `${(p.jalons ?? []).filter(j => j.atteint).length}/${(p.jalons ?? []).length} jalons`, ok: true },
                       ].map((chip, ci) => (
                         <span key={ci} style={{ padding: '2px 8px', borderRadius: 8, fontSize: 9, fontWeight: 700, background: chip.ok ? '#F0FDF4' : '#FEE2E2', color: chip.ok ? '#16A34A' : '#DC2626', border: `1px solid ${chip.ok ? '#BBF7D0' : '#FCA5A5'}` }}>
                           {chip.label}
@@ -370,7 +379,7 @@ export default function Springboard() {
                       </div>
                     </div>
                     <div style={{ fontSize: 9, color: '#64748B', marginTop: 4, fontWeight: 700 }}>
-                      {fmtM(p.budgetDecaisse)}<br />/{fmtM(p.budget)}
+                      {fmtM(dec)}<br />/{fmtM(bgt)}
                     </div>
                   </div>
                 </div>
@@ -822,11 +831,14 @@ export default function Springboard() {
     {/* ── MODAL DÉTAIL PROJET ── */}
     {detailProjet && (() => {
       const p = detailProjet;
-      const rag = p.statutGlobal ?? calculerStatutGlobal({ cpi: p.cpi, spi: p.spi, avancement: p.avancement, avancementPlanifie: p.avancementPlanifie });
+      const cpi = p.cpi ?? 1; const spi = p.spi ?? 1;
+      const av = p.avancement ?? 0; const avp = p.avancementPlanifie ?? 0;
+      const bgt = p.budget ?? 0; const dec = p.budgetDecaisse ?? 0; const eng = p.budgetEngage ?? 0;
+      const rag = p.statutGlobal ?? calculerStatutGlobal({ cpi, spi, avancement: av, avancementPlanifie: avp });
       const rc = ragColor(rag);
-      const tauxDec = p.budget > 0 ? (p.budgetDecaisse / p.budget) * 100 : 0;
-      const tauxEngage = p.budget > 0 ? (p.budgetEngage / p.budget) * 100 : 0;
-      const jalonsAtteints = p.jalons.filter(j => j.atteint).length;
+      const tauxDec = bgt > 0 ? (dec / bgt) * 100 : 0;
+      const tauxEngage = bgt > 0 ? (eng / bgt) * 100 : 0;
+      const jalonsAtteints = (p.jalons ?? []).filter(j => j.atteint).length;
       const incidents = (p.incidents ?? []).filter(i => i.statut !== 'Ferme' && i.statut !== 'Resolu');
       return (
         <div
@@ -855,11 +867,11 @@ export default function Springboard() {
               {/* KPIs row */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
                 {[
-                  { icon: <TrendingUp size={14} />, label: 'Avancement', value: `${p.avancement}%`, sub: `Cible ${p.avancementPlanifie}%`, color: NAVY },
-                  { icon: <Activity size={14} />, label: 'CPI', value: p.cpi.toFixed(2), sub: p.cpi >= 1 ? '✓ Dans les coûts' : '⚠ Dépassement', color: p.cpi >= 1 ? '#16A34A' : '#DC2626' },
-                  { icon: <Clock size={14} />, label: 'SPI', value: p.spi.toFixed(2), sub: p.spi >= 1 ? '✓ Dans les délais' : '⚠ Retard', color: p.spi >= 1 ? '#16A34A' : '#DC2626' },
-                  { icon: <DollarSign size={14} />, label: 'Décaissé', value: `${tauxDec.toFixed(0)}%`, sub: fmtM(p.budgetDecaisse), color: ORANGE },
-                  { icon: <Flag size={14} />, label: 'Jalons', value: `${jalonsAtteints}/${p.jalons.length}`, sub: `${p.jalons.length - jalonsAtteints} restants`, color: '#7C3AED' },
+                  { icon: <TrendingUp size={14} />, label: 'Avancement', value: `${av}%`, sub: `Cible ${avp}%`, color: NAVY },
+                  { icon: <Activity size={14} />, label: 'CPI', value: cpi.toFixed(2), sub: cpi >= 1 ? '✓ Dans les coûts' : '⚠ Dépassement', color: cpi >= 1 ? '#16A34A' : '#DC2626' },
+                  { icon: <Clock size={14} />, label: 'SPI', value: spi.toFixed(2), sub: spi >= 1 ? '✓ Dans les délais' : '⚠ Retard', color: spi >= 1 ? '#16A34A' : '#DC2626' },
+                  { icon: <DollarSign size={14} />, label: 'Décaissé', value: `${tauxDec.toFixed(0)}%`, sub: fmtM(dec), color: ORANGE },
+                  { icon: <Flag size={14} />, label: 'Jalons', value: `${jalonsAtteints}/${(p.jalons ?? []).length}`, sub: `${(p.jalons ?? []).length - jalonsAtteints} restants`, color: '#7C3AED' },
                   { icon: <AlertTriangle size={14} />, label: 'Incidents', value: String(incidents.length), sub: incidents.filter(i => i.priorite === 'Urgente').length > 0 ? `${incidents.filter(i => i.priorite === 'Urgente').length} urgents` : 'Aucun urgent', color: incidents.length > 0 ? '#DC2626' : '#16A34A' },
                 ].map((k, i) => (
                   <div key={i} style={{ background: '#F8FAFC', borderRadius: 10, padding: '10px 12px' }}>
@@ -875,8 +887,8 @@ export default function Springboard() {
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', marginBottom: 8, textTransform: 'uppercase' }}>Avancement physique</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {[
-                    { label: 'Cible planifiée', pct: p.avancementPlanifie, color: '#CBD5E1' },
-                    { label: 'Réel', pct: p.avancement, color: p.avancement >= p.avancementPlanifie ? '#16A34A' : ORANGE },
+                    { label: 'Cible planifiée', pct: avp, color: '#CBD5E1' },
+                    { label: 'Réel', pct: av, color: av >= avp ? '#16A34A' : ORANGE },
                     { label: 'Budget décaissé', pct: tauxDec, color: ORANGE },
                     { label: 'Budget engagé', pct: tauxEngage, color: '#3B82F6' },
                   ].map(b => (
@@ -895,7 +907,7 @@ export default function Springboard() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {[
                   { icon: <Briefcase size={12} />, label: 'Chef de projet', value: p.chefProjet },
-                  { icon: <MapPin size={12} />, label: 'Budget total', value: fmtM(p.budget) },
+                  { icon: <MapPin size={12} />, label: 'Budget total', value: fmtM(bgt) },
                   { icon: <Calendar size={12} />, label: 'Début', value: new Date(p.dateDebut).toLocaleDateString('fr-FR') },
                   { icon: <Calendar size={12} />, label: 'Fin prévue', value: new Date(p.dateFinPrevue).toLocaleDateString('fr-FR') },
                   ...(p.bailleurs?.[0]?.nom ? [{ icon: <Target size={12} />, label: 'Bailleur', value: p.bailleurs?.[0]?.nom }] : []),
@@ -912,13 +924,13 @@ export default function Springboard() {
               </div>
 
               {/* Jalons récents */}
-              {p.jalons.length > 0 && (
+              {(p.jalons ?? []).length > 0 && (
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <ListChecks size={12} style={{ color: ORANGE }} /> Jalons ({jalonsAtteints}/{p.jalons.length} atteints)
+                    <ListChecks size={12} style={{ color: ORANGE }} /> Jalons ({jalonsAtteints}/{(p.jalons ?? []).length} atteints)
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {p.jalons.slice(0, 6).map((j, ji) => {
+                    {(p.jalons ?? []).slice(0, 6).map((j, ji) => {
                       const dLeft = Math.ceil((new Date(j.date).getTime() - Date.now()) / 86400000);
                       return (
                         <div key={ji} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 7, background: j.atteint ? '#F0FDF4' : dLeft < 0 ? '#FEE2E2' : '#F0F9FF', border: `1px solid ${j.atteint ? '#BBF7D0' : dLeft < 0 ? '#FCA5A5' : '#BAE6FD'}` }}>

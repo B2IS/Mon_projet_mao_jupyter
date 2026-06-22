@@ -260,7 +260,7 @@ const DOMAINS: Domain[] = [
           {
             href: '/terrain', icon: MapPin,
             label: 'Terrain & Avancement',
-            hideRoles: ['DIR_DPE', 'CHAUFFEUR', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
+            hideRoles: ['DIR_DPE', 'DIRECTEUR', 'CHEF_DEPT', 'CHAUFFEUR', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'COMPTABLE'],
           },
           {
             href: '/risques', icon: ShieldAlert,
@@ -395,12 +395,13 @@ const DOMAINS: Domain[] = [
             href: '/flotte', icon: Car,
             label: 'Flotte & Chauffeurs',
             labelByRole: { CHAUFFEUR: 'Mon véhicule' },
-            hideRoles: ['CHEF_DEPT'],
+            hideRoles: ['DIR_DPE', 'DIRECTEUR', 'CHEF_DEPT', 'COORDINATEUR', 'CONSEILLER', 'AUDIT'],
           },
           {
             href: '/odm', icon: ClipboardList,
             label: 'Ordres de mission',
             labelByRole: { CHAUFFEUR: 'Mes missions' },
+            hideRoles: ['DIR_DPE'],
           },
           {
             href: '/reservation-salle', icon: DoorOpen,
@@ -416,6 +417,7 @@ const DOMAINS: Domain[] = [
             href: '/suivi-temps', icon: Clock,
             label: 'Feuille de temps',
             labelByRole: { CHEF_PROJ: 'Feuilles équipe', CHEF_DEPT: 'Feuilles équipe', RESP_LOG: 'Temps équipe' },
+            hideRoles: ['DIR_DPE', 'DIRECTEUR', 'COORDINATEUR', 'CONSEILLER', 'AUDIT'],
           },
           {
             href: '/pointage', icon: CheckSquare2,
@@ -436,7 +438,7 @@ const DOMAINS: Domain[] = [
           {
             href: '/rh', icon: Users2,
             label: 'Ressources humaines',
-            hideRoles: ['CHEF_DEPT', 'CHAUFFEUR', 'SECRETAIRE', 'COMMUNICATION'],
+            hideRoles: ['DIR_DPE', 'DIRECTEUR', 'CHEF_DEPT', 'CHAUFFEUR', 'SECRETAIRE', 'COMMUNICATION'],
           },
         ],
       },
@@ -485,42 +487,43 @@ const DOMAINS: Domain[] = [
           {
             href: '/agents-ia', icon: Sparkles,
             label: 'Agents IA Copilot',
-            labelByRole: { DIR_DPE: 'Copilot exécutif' },
+            labelByRole: { DIR_DPE: 'Copilot exécutif', DIRECTEUR: 'Copilot Direction' },
             hideRoles: ['CHAUFFEUR', 'RESP_LOG', 'SECRETAIRE', 'ASSISTANT_DIR', 'COMMUNICATION', 'DESSINATEUR', 'COMPTABLE'],
           },
           {
             href: '/migration', icon: Database,
             label: 'Swarm IA',
-            onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'CHEF_PROJ', 'INGENIEUR', 'EXPERT_PMO', 'COORDINATEUR'],
+            onlyRoles: ['ADMIN', 'EXPERT_PMO', 'COORDINATEUR', 'CHEF_CELLULE'],
           },
         ],
       },
       {
-        label: 'Administration',
+        label: 'Administration Système',
         items: [
           {
             href: '/administration', icon: Settings,
             label: 'Utilisateurs & Rôles',
-            onlyRoles: ['ADMIN', 'DIR_DPE', 'CHEF_CELLULE', 'AUDIT'],
+            onlyRoles: ['ADMIN', 'AUDIT'],
           },
           {
             href: '/parametrage', icon: Settings,
-            label: 'Paramétrage',
+            label: 'Paramétrage système',
+            onlyRoles: ['ADMIN'],
           },
           {
             href: '/administration/acces', icon: ShieldCheck,
             label: 'Habilitations',
-            onlyRoles: ['ADMIN', 'DIR_DPE'],
+            onlyRoles: ['ADMIN'],
           },
           {
             href: '/administration/org-config', icon: Building2,
             label: 'Organigramme',
-            onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN'],
+            onlyRoles: ['ADMIN'],
           },
           {
             href: '/erp-interface', icon: Plug2,
             label: 'Connecteurs ERP',
-            onlyRoles: ['DIR_DPE', 'CHEF_CELLULE', 'ADMIN', 'RAF'],
+            onlyRoles: ['ADMIN'],
           },
         ],
       },

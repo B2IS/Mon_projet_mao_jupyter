@@ -133,9 +133,9 @@ export default function ConstructeurIndicateurs() {
     // ── Portefeuille projets ────────────────────────────────────────────────
     const pf = {
       NB_PROJETS:        projets.length,
-      BUDGET_TOTAL:      sum(projets.map(p => p.budget)),
-      BUDGET_ENGAGE:     sum(projets.map(p => p.budgetEngage)),
-      BUDGET_DECAISSE:   sum(projets.map(p => p.budgetDecaisse)),
+      BUDGET_TOTAL:      sum(projets.map(p => p.budget ?? 0)),
+      BUDGET_ENGAGE:     sum(projets.map(p => p.budgetEngage ?? 0)),
+      BUDGET_DECAISSE:   sum(projets.map(p => p.budgetDecaisse ?? 0)),
       NB_PROJETS_RETARD: projets.filter(p => p.statut === 'en_retard').length,
       NB_PROJETS_TERMINE:projets.filter(p => p.statut === 'termine').length,
       NB_PROJETS_ACTIF:  projets.filter(p => p.statut === 'en_cours').length,
@@ -448,9 +448,9 @@ export default function ConstructeurIndicateurs() {
                                 {p.domaine}{p.programme ? ` · ${p.programme}` : ''}
                               </span>
                             </td>
-                            <td style={{ ...tdStyle, textAlign: 'right' }}>{p.budget.toLocaleString('fr-FR')}</td>
-                            <td style={{ ...tdStyle, textAlign: 'right' }}>{p.budgetDecaisse.toLocaleString('fr-FR')}</td>
-                            <td style={{ ...tdStyle, textAlign: 'right' }}>{p.avancement}%</td>
+                            <td style={{ ...tdStyle, textAlign: 'right' }}>{(p.budget ?? 0).toLocaleString('fr-FR')}</td>
+                            <td style={{ ...tdStyle, textAlign: 'right' }}>{(p.budgetDecaisse ?? 0).toLocaleString('fr-FR')}</td>
+                            <td style={{ ...tdStyle, textAlign: 'right' }}>{p.avancement ?? 0}%</td>
                             <td style={{ ...tdStyle, textAlign: 'left', color: '#64748B' }}>{p.statut}</td>
                           </tr>
                         );

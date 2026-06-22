@@ -486,6 +486,11 @@ header :focus-visible { outline-color: #F9B96F; box-shadow: 0 0 0 4px rgba(249,1
   display: flex;
   align-items: center;
   gap: 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  word-break: normal;
+  overflow-wrap: normal;
+  min-width: max-content;
 }
 .card-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .card-body { padding: 16px; }
@@ -1323,7 +1328,6 @@ html, body {
   min-width: 0;
 }
 
-.card-title,
 .card-subtitle,
 .kpi-label,
 .kpi-value,

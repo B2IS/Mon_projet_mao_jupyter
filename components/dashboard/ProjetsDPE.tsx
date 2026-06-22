@@ -84,13 +84,14 @@ const WBS_TEMPLATES: Record<Domaine, string[]> = {
 
 /* ─────────────────────────── HELPERS ────────────────────────────────────── */
 
-function fmtMFCFA(n: number): string {
-  return `${n.toFixed(1)} MFCFA`;
+function fmtMFCFA(n: number | undefined | null): string {
+  return `${(n ?? 0).toFixed(1)} MFCFA`;
 }
 
-function cpiColor(cpi: number): string {
-  if (cpi >= 1.0) return '#16A34A';
-  if (cpi >= 0.9) return '#F47920';
+function cpiColor(cpi: number | undefined | null): string {
+  const v = cpi ?? 0;
+  if (v >= 1.0) return '#16A34A';
+  if (v >= 0.9) return '#F47920';
   return '#EF3340';
 }
 
@@ -153,8 +154,8 @@ function ProjectCard({ projet, onOpen, onStatusChange }: ProjectCardProps) {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatut, setNewStatut] = useState<StatutProjet>(projet.statut);
   const [reason, setReason] = useState('');
-  const cfg = DOMAINE_CFG[projet.domaine];
-  const stCfg = STATUT_CFG[projet.statut];
+  const cfg   = DOMAINE_CFG[projet.domaine] ?? { color: '#64748B', label: projet.domaine ?? '—', emoji: '📁', desc: '' };
+  const stCfg = STATUT_CFG[projet.statut]   ?? { color: '#64748B', label: projet.statut ?? '—' };
 
   return (
   <>
@@ -233,8 +234,8 @@ function ProjectCard({ projet, onOpen, onStatusChange }: ProjectCardProps) {
       {/* Dates + CPI/SPI */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', gap: 4 }}>
-          <KpiBadge label="CPI" value={projet.cpi.toFixed(2)} color={cpiColor(projet.cpi)} />
-          <KpiBadge label="SPI" value={projet.spi.toFixed(2)} color={cpiColor(projet.spi)} />
+          <KpiBadge label="CPI" value={(projet.cpi ?? 0).toFixed(2)} color={cpiColor(projet.cpi)} />
+          <KpiBadge label="SPI" value={(projet.spi ?? 0).toFixed(2)} color={cpiColor(projet.spi)} />
         </div>
         <div style={{ display: 'flex', gap: 4, fontSize: 9, color: '#9CA3AF' }}>
           <span>Début: {projet.dateDebut}</span>
@@ -402,8 +403,8 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
   const [tab, setTab] = useState<DrawerTab>('general');
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Projet>>({});
-  const cfg = DOMAINE_CFG[projet.domaine];
-  const stCfg = STATUT_CFG[projet.statut];
+  const cfg   = DOMAINE_CFG[projet.domaine] ?? { color: '#64748B', label: projet.domaine ?? '—', emoji: '📁', desc: '' };
+  const stCfg = STATUT_CFG[projet.statut]   ?? { color: '#64748B', label: projet.statut ?? '—' };
 
   const openEdit = () => {
     setEditForm({
@@ -489,8 +490,8 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 12 }}>
             {[
               { label: 'Avancement', value: `${projet.avancement}%` },
-              { label: 'CPI', value: projet.cpi.toFixed(2) },
-              { label: 'SPI', value: projet.spi.toFixed(2) },
+              { label: 'CPI', value: (projet.cpi ?? 0).toFixed(2) },
+              { label: 'SPI', value: (projet.spi ?? 0).toFixed(2) },
               { label: 'Budget', value: `${projet.budget}M` },
             ].map(k => (
               <div key={k.label} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}>
@@ -613,7 +614,7 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
           {tab === 'planning' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Jalons principaux</div>
-              {projet.jalons.map((j, i) => (
+              {(projet.jalons ?? []).map((j, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid #E5E7EB' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: cfg.color, color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
                   <div style={{ flex: 1 }}>
@@ -655,8 +656,8 @@ function DetailDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <KpiBadge label="CPI" value={projet.cpi.toFixed(2)} color={cpiColor(projet.cpi)} />
-                <KpiBadge label="SPI" value={projet.spi.toFixed(2)} color={cpiColor(projet.spi)} />
+                <KpiBadge label="CPI" value={(projet.cpi ?? 0).toFixed(2)} color={cpiColor(projet.cpi)} />
+                <KpiBadge label="SPI" value={(projet.spi ?? 0).toFixed(2)} color={cpiColor(projet.spi)} />
               </div>
             </div>
           )}

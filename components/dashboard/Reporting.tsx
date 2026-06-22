@@ -202,15 +202,15 @@ export default function Reporting() {
 
   function buildSections(): ReportSection[] {
     const projets = store.projets;
-    const totalBudget = projets.reduce((s, p) => s + p.budget, 0);
-    const totalDecaisse = projets.reduce((s, p) => s + p.budgetDecaisse, 0);
-    const avgAvancement = projets.length > 0 ? Math.round(projets.reduce((s, p) => s + p.avancement, 0) / projets.length) : 0;
-    const avgCpi = projets.length > 0 ? (projets.reduce((s, p) => s + p.cpi, 0) / projets.length).toFixed(2) : '1.00';
-    const avgSpi = projets.length > 0 ? (projets.reduce((s, p) => s + p.spi, 0) / projets.length).toFixed(2) : '1.00';
+    const totalBudget = projets.reduce((s, p) => s + (p.budget ?? 0), 0);
+    const totalDecaisse = projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0);
+    const avgAvancement = projets.length > 0 ? Math.round(projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / projets.length) : 0;
+    const avgCpi = projets.length > 0 ? (projets.reduce((s, p) => s + (p.cpi ?? 1), 0) / projets.length).toFixed(2) : '1.00';
+    const avgSpi = projets.length > 0 ? (projets.reduce((s, p) => s + (p.spi ?? 1), 0) / projets.length).toFixed(2) : '1.00';
     const enRetard = projets.filter(p => p.statut === 'en_retard').length;
-    const critiques = projets.filter(p => p.cpi < 0.85 || p.spi < 0.8).length;
+    const critiques = projets.filter(p => (p.cpi ?? 1) < 0.85 || (p.spi ?? 1) < 0.8).length;
     const tauxDecaiss = totalBudget > 0 ? ((totalDecaisse / totalBudget) * 100).toFixed(1) : '0';
-    const tauxEngage = totalBudget > 0 ? ((projets.reduce((s, p) => s + p.budgetEngage, 0) / totalBudget) * 100).toFixed(1) : '0';
+    const tauxEngage = totalBudget > 0 ? ((projets.reduce((s, p) => s + (p.budgetEngage ?? 0), 0) / totalBudget) * 100).toFixed(1) : '0';
     const nf = (n: number) => n.toLocaleString('fr-FR');
 
     const base: Array<{h: string; p: string}> = [
@@ -310,7 +310,7 @@ export default function Reporting() {
     } else if (/tradui|anglais|english|en\s+anglais/i.test(lower)) {
       const targetSection = section || reportSections[0];
       const sIdx = section ? sectionIdx : 0;
-      newContent = `Executive Summary: As of ${selectedPeriode}, the DPE portfolio consists of ${store.projets.length} active projects with an average physical progress of ${store.projets.length > 0 ? Math.round(store.projets.reduce((s, p) => s + p.avancement, 0) / store.projets.length) : 0}%. The CPI/SPI indicators confirm satisfactory overall performance. Immediate attention is required on ${store.projets.filter(p => p.cpi < 0.9).length} project(s) showing cost overrun risk. Full compliance with World Bank fiduciary standards has been maintained.`;
+      newContent = `Executive Summary: As of ${selectedPeriode}, the DPE portfolio consists of ${store.projets.length} active projects with an average physical progress of ${store.projets.length > 0 ? Math.round(store.projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / store.projets.length) : 0}%. The CPI/SPI indicators confirm satisfactory overall performance. Immediate attention is required on ${store.projets.filter(p => (p.cpi ?? 1) < 0.9).length} project(s) showing cost overrun risk. Full compliance with World Bank fiduciary standards has been maintained.`;
       setReportSections(prev => prev.map((s, i) => i === sIdx ? { ...s, p: newContent, edited: true } : s));
       response = `✅ J'ai **traduit la section "${targetSection.h}"** en anglais.\n\nLa traduction suit les conventions IFR/ISR de la Banque Mondiale. Pour traduire toutes les sections, dites *"Traduis tout en anglais"*.`;
     } else if (/tradui.*tout|all\s+sections|toutes.*sections/i.test(lower)) {
@@ -344,7 +344,7 @@ export default function Reporting() {
         response = `Je n'ai pas trouvé de section Risques dans ce rapport. Régénérez un rapport incluant l'analyse des risques.`;
       }
     } else if (/kpi|indicateur|tableau de bord/i.test(lower)) {
-      response = `📊 **KPIs clés du portefeuille DPE (${selectedPeriode}) :**\n\n• Projets actifs : **${store.projets.length}**\n• Avancement moyen : **${store.projets.length > 0 ? Math.round(store.projets.reduce((s, p) => s + p.avancement, 0) / store.projets.length) : 0}%**\n• Budget total : **${(store.projets.reduce((s, p) => s + p.budget, 0) / 1000).toFixed(1)} Mds FCFA**\n• CPI moyen : **${store.projets.length > 0 ? (store.projets.reduce((s, p) => s + p.cpi, 0) / store.projets.length).toFixed(2) : '1.00'}**\n• SPI moyen : **${store.projets.length > 0 ? (store.projets.reduce((s, p) => s + p.spi, 0) / store.projets.length).toFixed(2) : '1.00'}**\n• Taux décaissement : **${store.projets.reduce((s, p) => s + p.budget, 0) > 0 ? ((store.projets.reduce((s, p) => s + p.budgetDecaisse, 0) / store.projets.reduce((s, p) => s + p.budget, 0)) * 100).toFixed(1) : '0'}%**\n\nSouhaitez-vous que j'intègre ces KPIs dans une section spécifique ?`;
+      response = `📊 **KPIs clés du portefeuille DPE (${selectedPeriode}) :**\n\n• Projets actifs : **${store.projets.length}**\n• Avancement moyen : **${store.projets.length > 0 ? Math.round(store.projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / store.projets.length) : 0}%**\n• Budget total : **${(store.projets.reduce((s, p) => s + (p.budget ?? 0), 0) / 1000).toFixed(1)} Mds FCFA**\n• CPI moyen : **${store.projets.length > 0 ? (store.projets.reduce((s, p) => s + (p.cpi ?? 1), 0) / store.projets.length).toFixed(2) : '1.00'}**\n• SPI moyen : **${store.projets.length > 0 ? (store.projets.reduce((s, p) => s + (p.spi ?? 1), 0) / store.projets.length).toFixed(2) : '1.00'}**\n• Taux décaissement : **${store.projets.reduce((s, p) => s + (p.budget ?? 0), 0) > 0 ? ((store.projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0) / store.projets.reduce((s, p) => s + (p.budget ?? 0), 0)) * 100).toFixed(1) : '0'}%**\n\nSouhaitez-vous que j'intègre ces KPIs dans une section spécifique ?`;
     } else {
       response = `💡 Compris. Voici ce que je peux faire pour vous :\n\n**Modification de sections :**\n• *"Reformule la section 1"* — réécriture plus concise\n• *"Développe la section 4 risques"* — ajout de détails\n• *"Ajoute des risques"* — enrichit la section risques\n\n**Traduction & Ton :**\n• *"Traduis en anglais"* — format BM/IFR\n• *"Adapte le ton stratégique"* — pour la Direction\n\n**Données & KPIs :**\n• *"Affiche les KPIs du portefeuille"*\n• *"Annule les modifications"* — restaure l'original\n\nQue souhaitez-vous faire avec votre rapport **${typeInfo.label}** ?`;
     }
@@ -359,31 +359,36 @@ export default function Reporting() {
     if (!printWindow) { alert('Veuillez autoriser les popups pour télécharger le rapport.'); return; }
 
     const projets = store.projets;
-    const totalBudget = projets.reduce((s, p) => s + p.budget, 0);
-    const totalEngage = projets.reduce((s, p) => s + p.budgetEngage, 0);
-    const totalDecaisse = projets.reduce((s, p) => s + p.budgetDecaisse, 0);
-    const avgAvancement = projets.length > 0 ? Math.round(projets.reduce((s, p) => s + p.avancement, 0) / projets.length) : 0;
-    const avgCpi = projets.length > 0 ? (projets.reduce((s, p) => s + p.cpi, 0) / projets.length).toFixed(2) : '1.00';
-    const avgSpi = projets.length > 0 ? (projets.reduce((s, p) => s + p.spi, 0) / projets.length).toFixed(2) : '1.00';
+    const totalBudget = projets.reduce((s, p) => s + (p.budget ?? 0), 0);
+    const totalEngage = projets.reduce((s, p) => s + (p.budgetEngage ?? 0), 0);
+    const totalDecaisse = projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0);
+    const avgAvancement = projets.length > 0 ? Math.round(projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / projets.length) : 0;
+    const avgCpi = projets.length > 0 ? (projets.reduce((s, p) => s + (p.cpi ?? 1), 0) / projets.length).toFixed(2) : '1.00';
+    const avgSpi = projets.length > 0 ? (projets.reduce((s, p) => s + (p.spi ?? 1), 0) / projets.length).toFixed(2) : '1.00';
     const enRetard = projets.filter(p => p.statut === 'en_retard').length;
-    const critiques = projets.filter(p => p.cpi < 0.85 || p.spi < 0.8).length;
+    const critiques = projets.filter(p => (p.cpi ?? 1) < 0.85 || (p.spi ?? 1) < 0.8).length;
     const tauxDecaiss = totalBudget > 0 ? ((totalDecaisse / totalBudget) * 100).toFixed(1) : '0';
     const tauxEngage = totalBudget > 0 ? ((totalEngage / totalBudget) * 100).toFixed(1) : '0';
 
     const statutLabels: Record<string, string> = { en_cours:'En cours', planifie:'Planifié', termine:'Terminé', en_retard:'En retard', suspendu:'Suspendu', archive:'Archivé' };
 
-    const rowsHtml = projets.map(p => `
+    const rowsHtml = projets.map(p => {
+      const bgt = p.budget ?? 0; const dec = p.budgetDecaisse ?? 0;
+      const av = p.avancement ?? 0; const avp = p.avancementPlanifie ?? 0;
+      const cpi = p.cpi ?? 1; const spi = p.spi ?? 1;
+      return `
       <tr>
         <td style="font-weight:700;color:#0E3460">${p.code}</td>
         <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.nom}">${p.nom.substring(0,60)}</td>
         <td style="font-size:10px">${DOMAINE_CFG[p.domaine]?.label ?? p.domaine}</td>
-        <td style="text-align:center;font-weight:700;color:${p.avancement>=p.avancementPlanifie?'#16A34A':'#F59E0B'}">${p.avancement}%</td>
-        <td style="text-align:right">${p.budget.toLocaleString('fr-FR')}</td>
-        <td style="text-align:right;color:${p.budget > 0 && p.budgetDecaisse/p.budget>0.5?'#16A34A':'#F59E0B'}">${p.budgetDecaisse.toLocaleString('fr-FR')}</td>
-        <td style="text-align:center;font-weight:700;color:${p.cpi>=0.9?'#16A34A':p.cpi>=0.8?'#F59E0B':'#EF4444'}">${p.cpi.toFixed(2)}</td>
-        <td style="text-align:center;color:${p.spi>=0.85?'#16A34A':'#F59E0B'}">${p.spi.toFixed(2)}</td>
+        <td style="text-align:center;font-weight:700;color:${av>=avp?'#16A34A':'#F59E0B'}">${av}%</td>
+        <td style="text-align:right">${bgt.toLocaleString('fr-FR')}</td>
+        <td style="text-align:right;color:${bgt > 0 && dec/bgt>0.5?'#16A34A':'#F59E0B'}">${dec.toLocaleString('fr-FR')}</td>
+        <td style="text-align:center;font-weight:700;color:${cpi>=0.9?'#16A34A':cpi>=0.8?'#F59E0B':'#EF4444'}">${cpi.toFixed(2)}</td>
+        <td style="text-align:center;color:${spi>=0.85?'#16A34A':'#F59E0B'}">${spi.toFixed(2)}</td>
         <td><span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;background:${p.statut==='en_retard'?'#FEE2E2':p.statut==='termine'?'#DCFCE7':'#EFF6FF'};color:${p.statut==='en_retard'?'#DC2626':p.statut==='termine'?'#16A34A':'#1D4ED8'}">${statutLabels[p.statut]??p.statut}</span></td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     // Analyse analytique spécifique par type de rapport
     const analyses: Record<string, { titre: string; sections: Array<{ h: string; p: string }> }> = {
@@ -486,9 +491,9 @@ export default function Reporting() {
           + (parseFloat(avgSpi) >= 0.95 ? 'Le rythme d\'exécution est globalement conforme à la planification de référence.' : 'Un retard de planning est constaté ; un rattrapage ciblé est requis sur les projets sous SPI 0,85.') },
         { h: '0.3 Projets prioritaires & critiques (données réelles)', p:
           (critiquesList.length
-            ? '<strong>À surveiller :</strong> ' + critiquesList.map(p => `${p.code || p.nom.slice(0, 28)} (${p.nom.slice(0, 34)} — CPI ${p.cpi.toFixed(2)} / SPI ${p.spi.toFixed(2)}, ${p.avancement}%)`).join(' ; ') + '. '
+            ? '<strong>À surveiller :</strong> ' + critiquesList.map(p => `${p.code || p.nom.slice(0, 28)} (${p.nom.slice(0, 34)} — CPI ${(p.cpi ?? 1).toFixed(2)} / SPI ${(p.spi ?? 1).toFixed(2)}, ${p.avancement ?? 0}%)`).join(' ; ') + '. '
             : 'Aucun projet critique. ')
-          + '<br/><strong>Plus forts budgets :</strong> ' + topBudget.map(p => `${p.code || p.nom.slice(0, 24)} (${nf(p.budget)} MFCFA, ${p.avancement}%)`).join(' ; ') + '.'
+          + '<br/><strong>Plus forts budgets :</strong> ' + topBudget.map(p => `${p.code || p.nom.slice(0, 24)} (${nf(p.budget ?? 0)} MFCFA, ${p.avancement ?? 0}%)`).join(' ; ') + '.'
           + (suspendus.length ? `<br/><strong>Suspendus :</strong> ${suspendus.map(p => p.code || p.nom.slice(0, 24)).join(', ')} — relance contractuelle à instruire.` : '') },
         { h: '0.4 Recommandations PMO (actionnables)', p:
           '(1) ' + (critiquesList.length ? `Plan de redressement coûts/délais sur ${critiquesList.length} projet(s) en zone rouge (revue hebdomadaire dédiée). ` : 'Maintenir le pilotage standard. ')
@@ -688,7 +693,7 @@ export default function Reporting() {
           <div className="kpi-label">Avancement moyen</div>
           <div className="kpi-value amber">
             {store.projets.length > 0
-              ? Math.round(store.projets.reduce((s, p) => s + p.avancement, 0) / store.projets.length)
+              ? Math.round(store.projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / store.projets.length)
               : 0}%
           </div>
           <div className="kpi-sub">portefeuille pondéré</div>
@@ -696,7 +701,7 @@ export default function Reporting() {
         <div className="kpi-card green">
           <div className="kpi-label">Budget total</div>
           <div className="kpi-value green" style={{ fontSize: 18 }}>
-            {(store.projets.reduce((s, p) => s + p.budget, 0) / 1000).toFixed(1)} Md
+            {(store.projets.reduce((s, p) => s + (p.budget ?? 0), 0) / 1000).toFixed(1)} Md
           </div>
           <div className="kpi-sub">FCFA — tous projets</div>
         </div>
@@ -911,9 +916,9 @@ export default function Reporting() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
                     {[
                       { l: 'Projets actifs', v: String(store.projets.length) },
-                      { l: 'Avancement moyen', v: store.projets.length > 0 ? `${Math.round(store.projets.reduce((s, p) => s + p.avancement, 0) / store.projets.length)}%` : '0%' },
-                      { l: 'Budget total', v: `${(store.projets.reduce((s, p) => s + p.budget, 0) / 1000).toFixed(1)} Md` },
-                      { l: 'Taux décaissement', v: store.projets.reduce((s, p) => s + p.budget, 0) > 0 ? `${((store.projets.reduce((s, p) => s + p.budgetDecaisse, 0) / (store.projets.reduce((s, p) => s + p.budget, 0) || 1)) * 100).toFixed(1)}%` : '0%' },
+                      { l: 'Avancement moyen', v: store.projets.length > 0 ? `${Math.round(store.projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / store.projets.length)}%` : '0%' },
+                      { l: 'Budget total', v: `${(store.projets.reduce((s, p) => s + (p.budget ?? 0), 0) / 1000).toFixed(1)} Md` },
+                      { l: 'Taux décaissement', v: store.projets.reduce((s, p) => s + (p.budget ?? 0), 0) > 0 ? `${((store.projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0) / (store.projets.reduce((s, p) => s + (p.budget ?? 0), 0) || 1)) * 100).toFixed(1)}%` : '0%' },
                     ].map(k => (
                       <div key={k.l} style={{ background: '#F4F6F9', borderRadius: 4, padding: '5px 8px', borderLeft: `2px solid ${typeInfo.color}` }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#0E3460' }}>{k.v}</div>
@@ -1626,11 +1631,11 @@ export default function Reporting() {
         const projets = store.projets;
         const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
         const nbEnCours = projets.filter(p => p.statut === 'en_cours').length;
-        const nbAlerte  = projets.filter(p => p.cpi < 0.90 || p.spi < 0.85).length;
-        const totalBudget = projets.reduce((s, p) => s + p.budget, 0);
-        const totalDecaisse = projets.reduce((s, p) => s + p.budgetDecaisse, 0);
-        const avgCPI = projets.length > 0 ? projets.reduce((s, p) => s + p.cpi, 0) / projets.length : 1;
-        const avgSPI = projets.length > 0 ? projets.reduce((s, p) => s + p.spi, 0) / projets.length : 1;
+        const nbAlerte  = projets.filter(p => (p.cpi ?? 1) < 0.90 || (p.spi ?? 1) < 0.85).length;
+        const totalBudget = projets.reduce((s, p) => s + (p.budget ?? 0), 0);
+        const totalDecaisse = projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0);
+        const avgCPI = projets.length > 0 ? projets.reduce((s, p) => s + (p.cpi ?? 1), 0) / projets.length : 1;
+        const avgSPI = projets.length > 0 ? projets.reduce((s, p) => s + (p.spi ?? 1), 0) / projets.length : 1;
         // Livrables depuis les tâches WBS de chaque projet
         const livrables = store.projets.flatMap(p => p.taches ?? []);
         const nbLivrablesRetard = livrables.filter(t => t.statutTache === 'bloque').length;
@@ -1653,10 +1658,10 @@ export default function Reporting() {
             icon: '📊',
             kpiTable: projets.slice(0, 8).map(p => ({
               code: p.code, nom: p.nom.slice(0, 30),
-              cpi: p.cpi, spi: p.spi,
-              av: p.avancement,
-              budget: (p.budget / 1000).toFixed(0),
-              decaisse: (p.budgetDecaisse / 1000).toFixed(0),
+              cpi: p.cpi ?? 1, spi: p.spi ?? 1,
+              av: p.avancement ?? 0,
+              budget: ((p.budget ?? 0) / 1000).toFixed(0),
+              decaisse: ((p.budgetDecaisse ?? 0) / 1000).toFixed(0),
             })),
           },
           {

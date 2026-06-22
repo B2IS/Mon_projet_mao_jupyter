@@ -463,8 +463,9 @@ export default function Budget() {
   const storeProjects = useMemo<ProjectRow[]>(() => {
     return store.projets.map(p => {
       const dom = DOMAIN_MAP[p.domaine] ?? 'Production';
-      const decaissePct = p.budget > 0 ? p.budgetDecaisse / p.budget : 0;
-      const cpiOk = p.cpi >= 0.95 && p.spi >= 0.90;
+      const bgt = p.budget ?? 0; const eng = p.budgetEngage ?? 0; const dec = p.budgetDecaisse ?? 0;
+      const decaissePct = bgt > 0 ? dec / bgt : 0;
+      const cpiOk = (p.cpi ?? 1) >= 0.95 && (p.spi ?? 1) >= 0.90;
       const statut: ProjectRow['statut'] = p.statut === 'termine' ? 'Achevé'
         : p.statut === 'en_retard' ? 'Critique'
         : decaissePct < 0.3 ? 'Attention'
@@ -473,9 +474,9 @@ export default function Budget() {
         code: p.code,
         nom: p.nom.length > 40 ? p.nom.slice(0, 40) + '…' : p.nom,
         domain: dom,
-        prevu: p.budget / 1000,       // MFCFA → Mrd
-        marches: p.budgetEngage / 1000,
-        decaisse: p.budgetDecaisse / 1000,
+        prevu: bgt / 1000,       // MFCFA → Mrd
+        marches: eng / 1000,
+        decaisse: dec / 1000,
         statut,
       };
     });
@@ -600,7 +601,7 @@ export default function Budget() {
         const overlapMs = Math.max(0, Math.min(phEnd, qEnd) - Math.max(phStart, qStart));
         const frac = overlapMs / totalMs;
         const rowAny = row as unknown as Record<string, number>;
-        rowAny[dom] = +((rowAny[dom] ?? 0) + (p.budgetDecaisse / 1_000) * frac).toFixed(3);
+        rowAny[dom] = +((rowAny[dom] ?? 0) + ((p.budgetDecaisse ?? 0) / 1_000) * frac).toFixed(3);
       });
       row.cumul = +(row.Production + row.Transport + row.Distribution + row.Commercial).toFixed(3);
       return row;
@@ -621,7 +622,7 @@ export default function Budget() {
       phases.forEach(ph => {
         const cat = PHASE_TO_CAT[ph.id] ?? 'Divers';
         const fraction = ph.poids / totalPoids;
-        acc[cat][dom] = (acc[cat][dom] ?? 0) + (p.budgetEngage / 1_000) * fraction;
+        acc[cat][dom] = (acc[cat][dom] ?? 0) + ((p.budgetEngage ?? 0) / 1_000) * fraction;
       });
     });
     return Object.entries(acc).map(([cat, vals]) => ({

@@ -148,7 +148,7 @@ export default function Cartographie() {
       return {
         id: p.id, code: p.code, nom: p.nom.substring(0, 30), region: p.region,
         lat: p.lat ?? jitter.lat, lng: p.lng ?? jitter.lng, status,
-        description: `${cfg.emoji} ${cfg.label} · ${p.avancement}% · ${p.budget.toFixed(0)} MFCFA`,
+        description: `${cfg.emoji} ${cfg.label} · ${p.avancement ?? 0}% · ${(p.budget ?? 0).toFixed(0)} MFCFA`,
       };
     }), [store.projets]);
 

@@ -457,9 +457,9 @@ export default function Analytique() {
   const storeKpis = useMemo(() => {
     const projets = filteredStoreProjets;
     const total = projets.length;
-    const totalBudget = projets.reduce((s, p) => s + p.budget, 0);
-    const totalDecaisse = projets.reduce((s, p) => s + p.budgetDecaisse, 0);
-    const avgAvancement = total > 0 ? Math.round(projets.reduce((s, p) => s + p.avancement, 0) / total) : 0;
+    const totalBudget = projets.reduce((s, p) => s + (p.budget ?? 0), 0);
+    const totalDecaisse = projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0);
+    const avgAvancement = total > 0 ? Math.round(projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / total) : 0;
     const avgCpi = total > 0 ? (projets.reduce((s, p) => s + (p.cpi ?? 1), 0) / total) : 1;
     const avgSpi = total > 0 ? (projets.reduce((s, p) => s + (p.spi ?? 1), 0) / total) : 1;
     const enRetard = projets.filter(p => p.statut === 'en_retard').length;
@@ -495,9 +495,9 @@ export default function Analytique() {
       nom: p.nom.substring(0, 28),
       code: p.code,
       domaine: DOMAINE_CFG[p.domaine] ?? DOMAINE_FALLBACK,
-      avancement: p.avancement,
-      budget: p.budget,
-      decaisse: p.budgetDecaisse,
+      avancement: p.avancement ?? 0,
+      budget: p.budget ?? 0,
+      decaisse: p.budgetDecaisse ?? 0,
       cpi: (p.cpi ?? 1).toFixed(2),
       spi: (p.spi ?? 1).toFixed(2),
       statut: STATUT_CFG[p.statut] ?? STATUT_FALLBACK,
