@@ -376,7 +376,7 @@ export default function Reporting() {
       <tr>
         <td style="font-weight:700;color:#0E3460">${p.code}</td>
         <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.nom}">${p.nom.substring(0,60)}</td>
-        <td style="font-size:10px">${DOMAINE_CFG[p.domaine].label}</td>
+        <td style="font-size:10px">${DOMAINE_CFG[p.domaine]?.label ?? p.domaine}</td>
         <td style="text-align:center;font-weight:700;color:${p.avancement>=p.avancementPlanifie?'#16A34A':'#F59E0B'}">${p.avancement}%</td>
         <td style="text-align:right">${p.budget.toLocaleString('fr-FR')}</td>
         <td style="text-align:right;color:${p.budget > 0 && p.budgetDecaisse/p.budget>0.5?'#16A34A':'#F59E0B'}">${p.budgetDecaisse.toLocaleString('fr-FR')}</td>
@@ -478,7 +478,7 @@ export default function Reporting() {
         { h: '0.1 Synthèse exécutive (analyse IA)', p:
           `Au ${selectedPeriode}, le périmètre analysé compte <strong>${projets.length} projet(s)</strong> (${termines} terminé(s), ${enRetard} en retard, ${suspendus.length} suspendu(s)) pour une enveloppe de <strong>${nf(totalBudget)} MFCFA</strong>, décaissée à <strong>${tauxDecaiss}%</strong>. `
           + `L'avancement physique moyen pondéré atteint <strong>${avgAvancement}%</strong>. Répartition par domaine : `
-          + parDomaine.map(x => `${DOMAINE_CFG[x.d].label} (${x.n} projets, ${nf(x.b)} MFCFA)`).join(' · ') + '. '
+          + parDomaine.map(x => `${DOMAINE_CFG[x.d]?.label ?? x.d} (${x.n} projets, ${nf(x.b)} MFCFA)`).join(' · ') + '. '
           + (critiquesList.length ? `<strong>${critiquesList.length} projet(s) appellent une attention immédiate</strong> (CPI/SPI sous seuil ou retard).` : `Aucun projet en situation critique sur le périmètre.`) },
         { h: '0.2 Performance EVM consolidée', p:
           `CPI moyen <strong>${avgCpi}</strong>, SPI moyen <strong>${avgSpi}</strong>. Estimation à l'achèvement (EAC) ≈ <strong>${nf(eac)} MFCFA</strong>, soit un écart à terminaison (VAC) de <strong>${nf(vac)} MFCFA</strong> ${vac >= 0 ? '(favorable)' : '(défavorable — surcoût projeté)'}. `

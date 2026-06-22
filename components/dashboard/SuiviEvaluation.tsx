@@ -409,7 +409,7 @@ export default function SuiviEvaluation() {
                 </div>
               )}
               {scopedIndicateurs.map((kpi, i) => {
-                const dcfg  = DOMAINE_CFG[kpi.domaine];
+                const dcfg  = DOMAINE_CFG[kpi.domaine] ?? { color: '#64748B', label: kpi.domaine ?? '—', emoji: '📁', desc: '' };
                 const scfg  = KPI_STATUT[kpi.statut];
                 const isSel = selectedKPI === kpi.id;
                 return (
@@ -672,7 +672,7 @@ export default function SuiviEvaluation() {
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#7F1D1D' }}>Anomalies détectées</span>
               </div>
               {scopedIndicateurs.filter(k => k.statut === 'anomalie').map((k, i, arr) => {
-                const dcfg = DOMAINE_CFG[k.domaine];
+                const dcfg = DOMAINE_CFG[k.domaine] ?? { color: '#64748B', label: k.domaine ?? '—', emoji: '📁', desc: '' };
                 return (
                   <div key={k.id} style={{
                     padding: '12px 16px',
@@ -714,7 +714,7 @@ export default function SuiviEvaluation() {
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>Alertes KPI portefeuille</span>
               </div>
               {(store.globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === store.globalDomaine)).filter(p => p.cpi < 0.90 || p.spi < 0.85).map((p, i, arr) => {
-                const dcfg = DOMAINE_CFG[p.domaine as Domaine];
+                const dcfg = DOMAINE_CFG[p.domaine as Domaine] ?? { color: '#64748B', label: p.domaine ?? '—', emoji: '📁', desc: '' };
                 return (
                   <div key={p.id} style={{
                     padding: '10px 16px', borderBottom: i < arr.length - 1 ? '1px solid #F1F5F9' : 'none',

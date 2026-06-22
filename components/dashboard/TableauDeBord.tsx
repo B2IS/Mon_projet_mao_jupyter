@@ -71,7 +71,7 @@ const SCURVE = [
 /* ─── Drawer projet ──────────────────────────────────────── */
 function ProjetDrawer({ projet, onClose, ressources }: { projet: Projet; onClose: () => void; ressources: { id: string; nom: string; prenom: string }[] }) {
   const dcfg = DOMAINE_CFG[projet.domaine as Domaine] ?? { color: '#64748B', label: projet.domaine ?? 'Inconnu', emoji: '📁', desc: '' };
-  const scfg = STATUT_CFG[projet.statut as StatutProjet];
+  const scfg = STATUT_CFG[projet.statut as StatutProjet] ?? { color: '#64748B', label: projet.statut ?? '—' };
   const engPct = projet.budget > 0 ? Math.round((projet.budgetDecaisse / projet.budget) * 100) : 0;
   const jalonsAtteints = (projet.jalons ?? []).filter(j => j.atteint).length;
   return (
@@ -934,7 +934,7 @@ export default function TableauDeBord() {
               )}
               {metrics.filtered.map((p, i) => {
                 const dcfg  = DOMAINE_CFG[p.domaine as Domaine] ?? { color: '#64748B', label: p.domaine ?? 'Inconnu', emoji: '📁', desc: '' };
-                const scfg  = STATUT_CFG[p.statut as StatutProjet];
+                const scfg  = STATUT_CFG[p.statut as StatutProjet] ?? { color: '#64748B', label: p.statut ?? '—' };
                 const rag   = ragColor(p.cpi, p.spi);
                 const engPct = p.budget > 0 ? Math.round((p.budgetDecaisse / p.budget) * 100) : 0;
                 return (

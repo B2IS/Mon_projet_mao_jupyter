@@ -144,7 +144,7 @@ export default function Cartographie() {
       const center = REGION_CENTERS[p.region] ?? { lat: 14.5 + ((i % 7) - 3) * 0.25, lng: -14.5 + ((i % 5) - 2) * 0.25 };
       const jitter = { lat: center.lat + (i % 5 - 2) * 0.12, lng: center.lng + (Math.floor(i / 3) % 3 - 1) * 0.12 };
       const status: RagStatus = p.statut === 'en_retard' ? 'critique' : p.statut === 'termine' ? 'ok' : 'en_cours';
-      const cfg = DOMAINE_CFG[p.domaine];
+      const cfg = DOMAINE_CFG[p.domaine] ?? { emoji: '📁', label: p.domaine ?? '—', color: '#64748B', desc: '' };
       return {
         id: p.id, code: p.code, nom: p.nom.substring(0, 30), region: p.region,
         lat: p.lat ?? jitter.lat, lng: p.lng ?? jitter.lng, status,

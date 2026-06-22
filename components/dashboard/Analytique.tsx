@@ -487,18 +487,20 @@ export default function Analytique() {
   }, [storeKpis, period]);
 
   /* ── Real CPI/SPI per project (domain-filtered) ──────────────────────────── */
+  const DOMAINE_FALLBACK = { label: '—', color: '#64748B', emoji: '📁', desc: '' };
+  const STATUT_FALLBACK  = { label: '—', color: '#64748B' };
   const projectEVTable = useMemo(() =>
     filteredStoreProjets.map(p => ({
       id: p.id,
       nom: p.nom.substring(0, 28),
       code: p.code,
-      domaine: DOMAINE_CFG[p.domaine],
+      domaine: DOMAINE_CFG[p.domaine] ?? DOMAINE_FALLBACK,
       avancement: p.avancement,
       budget: p.budget,
       decaisse: p.budgetDecaisse,
       cpi: (p.cpi ?? 1).toFixed(2),
       spi: (p.spi ?? 1).toFixed(2),
-      statut: STATUT_CFG[p.statut],
+      statut: STATUT_CFG[p.statut] ?? STATUT_FALLBACK,
     })),
     [filteredStoreProjets]
   );
