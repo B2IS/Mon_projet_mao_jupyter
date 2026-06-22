@@ -33,7 +33,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { login, changePassword } = useAuth();
 
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
   const [email,      setEmail]    = useState(isDev ? 'directeur@dpe.sn' : '');
   const [password,   setPassword] = useState(isDev ? 'dpe2026' : '');
   const [showPwd,    setShowPwd]  = useState(false);
