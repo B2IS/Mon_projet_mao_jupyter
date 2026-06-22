@@ -310,7 +310,7 @@ export default function Header() {
 
       {/* Filtre domaine global — visible sur toutes les pages métier, masqué si mono-domaine */}
       {isMultiDomain && (
-        <div style={{ position: 'relative', flexShrink: 0 }} className="hide-mobile">
+        <div style={{ position: 'relative', flexShrink: 0 }} className="hide-tablet">
           <select
             value={globalDomaine}
             onChange={e => setGlobalDomaine(e.target.value)}
@@ -596,7 +596,7 @@ export default function Header() {
         border: '1px solid rgba(255,255,255,0.16)',
         borderRadius: 5, padding: '3px 9px', flexShrink: 0,
       }}
-        className="hide-mobile"
+        className="hide-tablet"
       >
         <span style={{ width: 5, height: 5, borderRadius: '50%',
           background: '#16A34A', boxShadow: '0 0 0 2px rgba(22,163,74,0.3)' }} />

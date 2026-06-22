@@ -741,31 +741,31 @@ export default function GED() {
               <div style={{ fontSize: 15, fontWeight: 800, color: PURPLE, marginBottom: 4 }}>Les 4 Piliers du Cycle de Vie Documentaire</div>
               <div style={{ fontSize: 11, color: '#64748B', marginBottom: 18 }}>Norme GED DPE SENELEC — SIGEP-DPE v3.0</div>
               {/* Pipeline arrow */}
-              <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, overflowX: 'auto', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
                 {PILLARS.map((p, i) => (
-                  <div key={p.num} style={{ flex: '1 0 150px', display: 'flex', alignItems: 'stretch' }}>
-                    <div style={{ flex: 1, minWidth: 0, background: p.color + '0E', border: `1px solid ${p.color}30`, borderRadius: i === 0 ? '10px 0 0 10px' : i === 3 ? '0 10px 10px 0' : 0, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: p.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>{p.icon}</div>
+                  <div key={p.num} style={{ flex: 1, display: 'flex', alignItems: 'stretch', minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: 0, background: p.color + '0E', border: `1px solid ${p.color}30`, borderRadius: i === 0 ? '10px 0 0 10px' : i === 3 ? '0 10px 10px 0' : 0, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 7, background: p.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{p.icon}</div>
                         <div>
-                          <div style={{ fontSize: 9, color: '#94A3B8', letterSpacing: '.05em' }}>Pilier {p.num}</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: p.color }}>{p.label}</div>
+                          <div style={{ fontSize: 8, color: '#94A3B8', letterSpacing: '.05em' }}>Pilier {p.num}</div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: p.color, lineHeight: 1.2 }}>{p.label}</div>
                         </div>
                       </div>
-                      <div style={{ fontSize: 10, color: '#475569', lineHeight: 1.4 }}>{p.desc}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                        {p.actions.map((a, j) => (
-                          <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 10, color: '#475569' }}>
-                            <span style={{ color: p.color, flexShrink: 0, marginTop: 1 }}>›</span>
-                            {a}
+                      <div style={{ fontSize: 9, color: '#475569', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.desc}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {p.actions.slice(0, 4).map((a, j) => (
+                          <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 4, fontSize: 9, color: '#475569', lineHeight: 1.3 }}>
+                            <span style={{ color: p.color, flexShrink: 0 }}>›</span>
+                            <span style={{ wordBreak: 'break-word' }}>{a}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{ marginTop: 'auto', paddingTop: 10, fontSize: 9, fontWeight: 700, color: p.color, background: p.color + '10', borderRadius: 4, padding: '4px 8px', textAlign: 'center' }}>{p.kpi}</div>
+                      <div style={{ marginTop: 'auto', fontSize: 8, fontWeight: 700, color: p.color, background: p.color + '10', borderRadius: 4, padding: '3px 6px', textAlign: 'center' }}>{p.kpi}</div>
                     </div>
                     {i < 3 && (
-                      <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', flexShrink: 0, zIndex: 1 }}>
-                        <div style={{ width: 0, height: 0, borderTop: '20px solid transparent', borderBottom: '20px solid transparent', borderLeft: `14px solid ${PILLARS[i].color}40` }} />
+                      <div style={{ display: 'flex', alignItems: 'center', padding: '0 1px', flexShrink: 0, zIndex: 1 }}>
+                        <div style={{ width: 0, height: 0, borderTop: '16px solid transparent', borderBottom: '16px solid transparent', borderLeft: `10px solid ${PILLARS[i].color}40` }} />
                       </div>
                     )}
                   </div>

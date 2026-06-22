@@ -977,6 +977,8 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
   .topbar-search { width: 160px; }
+  /* Masquer les éléments non-essentiels du header pour éviter le débordement */
+  .hide-tablet { display: none !important; }
 }
 
 @media (max-width: 768px) {
