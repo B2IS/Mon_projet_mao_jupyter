@@ -165,6 +165,62 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Hero SIGEPP — production uniquement */}
+        {!isDev && (
+          <div style={{ width: '100%', maxWidth: 420, marginTop: 8 }}>
+            {/* Accroche */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 21, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px', lineHeight: 1.2, marginBottom: 10 }}>
+                Pilotez votre portefeuille<br />
+                <span style={{ color: '#F47920' }}>projets en temps réel</span>
+              </div>
+              <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.65)', margin: 0, lineHeight: 1.65 }}>
+                SIGEPP-DPE centralise la gestion de tous les projets d&apos;investissement de la Direction Principale Équipement — suivi budgétaire, planning, conformité et reporting, en un seul espace sécurisé.
+              </p>
+            </div>
+
+            {/* Fonctionnalités clés */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+              {[
+                { icon: '📊', label: 'Tableau de bord consolidé', sub: 'KPI temps réel par domaine et direction' },
+                { icon: '💰', label: 'Suivi budgétaire & financier', sub: 'Budget, décaissements, CPI/SPI par projet' },
+                { icon: '🗂️', label: 'GED & documents projets', sub: 'Centralisation et cycle de vie documentaire' },
+                { icon: '📅', label: 'Planning & alertes proactives', sub: 'Jalons, délais, risques automatiquement surveillés' },
+                { icon: '📋', label: 'Rapports CSE & exports DPE', sub: 'Génération PDF/Excel conforme à la matrice DPD' },
+              ].map(f => (
+                <div key={f.label} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 10,
+                }}>
+                  <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{f.label}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)' }}>{f.sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Badge organisations */}
+            <div style={{
+              padding: '10px 14px',
+              background: 'rgba(244,121,32,0.10)',
+              border: '1px solid rgba(244,121,32,0.25)',
+              borderRadius: 10,
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#F47920', flexShrink: 0 }} />
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.70)', lineHeight: 1.5 }}>
+                <strong style={{ color: '#F47920' }}>SENELEC / DPE</strong> — Accès réservé aux agents habilités.<br />
+                Gestion RBAC par rôle, direction et département.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Comptes rapides — dev uniquement */}
         {isDev && <div style={{ width: '100%', maxWidth: 420 }}>
           <div style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.32)',

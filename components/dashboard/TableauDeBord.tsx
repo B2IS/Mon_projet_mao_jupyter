@@ -20,7 +20,7 @@ import {
   DollarSign, Activity, Target, Layers, Fuel,
   Cable, Gauge, Building2, ShieldCheck, Check,
 } from 'lucide-react';
-import { downloadExcel } from '@/lib/exportUtils';
+import { downloadExcel, downloadMatriceSuivi } from '@/lib/exportUtils';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import { useProjectStore, DOMAINE_CFG, STATUT_CFG, type Domaine, type StatutProjet, type Projet } from '@/lib/projectStore';
 import { useAuth, getDirectionLabel, isAssistantProjet } from '@/lib/authStore';
@@ -528,6 +528,32 @@ export default function TableauDeBord() {
               });
             }} aria-label="Exporter le tableau de bord en Excel" className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={13} /> Excel
+            </button>
+            <button onClick={() => {
+              downloadMatriceSuivi(
+                metrics.filtered.map(p => ({
+                  code: p.code,
+                  codeImputation: (p as Projet & { codeImputation?: string }).codeImputation,
+                  nom: p.nom,
+                  description: p.description,
+                  unite: (p as Projet & { unite?: string }).unite,
+                  domaine: p.domaine,
+                  programme: (p as Projet & { programme?: string }).programme,
+                  chefProjet: p.chefProjet,
+                  statut: p.statut,
+                  budget: p.budget,
+                  montantMarche: (p as Projet & { montantMarche?: number }).montantMarche,
+                  montantFacture: (p as Projet & { montantFacture?: number }).montantFacture ?? p.budgetDecaisse,
+                  dateDebut: p.dateDebut,
+                  dateODS: (p as Projet & { dateODS?: string }).dateODS,
+                  dateFinPrevue: p.dateFinPrevue,
+                  dateFinEstimee: p.dateFinEstimee,
+                  avancement: p.avancement,
+                })),
+                String(new Date().getFullYear())
+              );
+            }} aria-label="Exporter la matrice de suivi DPD" className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.navy}`, background: `${C.navy}12`, fontSize: 12.5, color: C.navy, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+              <Download size={13} /> Matrice DPD
             </button>
             </>)}
             <button onClick={handleRefresh} disabled={refreshing} aria-label="Actualiser le tableau de bord" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, border: 'none', background: C.navy, fontSize: 12.5, color: '#fff', cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit', fontWeight: 700, opacity: refreshing ? 0.75 : 1 }}>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import {
   PenTool, Plus, Trash2, ArrowUp, ArrowDown, Download,
   Eye, Share2, Save, FileText, BarChart3, Map, Image,
@@ -8,7 +8,10 @@ import {
   Clock, Bot, Edit3, ChevronDown, ChevronUp,
   Layers, TrendingUp, X, Search, Send, Activity,
   BarChart2, LineChart, PieChart, TableProperties, AreaChart, Sparkles,
+  ClipboardList,
 } from 'lucide-react';
+
+const PlanifierRapportCSE = lazy(() => import('./PlanifierRapportCSE'));
 import {
   useProjectStore, DOMAINE_CFG, type Domaine,
   computeAvancementReel, PHASES_DEFAUT,
@@ -1087,6 +1090,7 @@ export default function StudioRapports() {
   const [indPickerFor, setIndPickerFor]     = useState<string | null>(null);
   const [aiGenerating, setAiGenerating]     = useState(false);
   const [exportingWord, setExportingWord]   = useState(false);
+  const [showCSEModal, setShowCSEModal]     = useState(false);
 
   const projet = useMemo(
     () => store.projets.find(p => p.id === selectedProjet) ?? store.projets[0],
@@ -1211,9 +1215,10 @@ export default function StudioRapports() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F8FAFD' }}>
       {showShareModal && <ShareModal titreRapport={titreRapport} projet={projet} onClose={() => setShowShareModal(false)} />}
       {indPickerSection && <IndicatorPickerModal section={indPickerSection} indicators={indStore.indicators} onClose={() => setIndPickerFor(null)} onSave={ids => { updateSection(indPickerSection.id, { selectedIndicatorIds: ids }); }} />}
+      {showCSEModal && <Suspense fallback={null}><PlanifierRapportCSE onClose={() => setShowCSEModal(false)} /></Suspense>}
 
       {/* ─── Main Tab Bar ─── */}
-      <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '0 20px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '0 20px', flexShrink: 0, alignItems: 'center' }}>
         {[
           { id: 'studio',       label: '🎨 Studio de Rapports',      desc: 'Rapport projet composable' },
           { id: 'trimestriel',  label: '📋 Rapport Trimestriel',      desc: 'Par domaine · Format DPE' },
@@ -1224,6 +1229,11 @@ export default function StudioRapports() {
             <span style={{ fontSize: 9, color: '#94A3B8', fontWeight: 400, marginTop: 1 }}>{tab.desc}</span>
           </button>
         ))}
+        {/* Rapport CSE */}
+        <button onClick={() => setShowCSEModal(true)}
+          style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: `1.5px solid ${NAVY}`, background: NAVY, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+          <ClipboardList size={14} /> Rapport CSE consolidé
+        </button>
       </div>
 
       {/* ─── Tab Content ─── */}
