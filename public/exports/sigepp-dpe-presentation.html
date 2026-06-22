@@ -750,7 +750,7 @@
 <!-- PAGE RECETTE -->
 <div class="page" id="recette">
   <div class="section-title">Tests de recette — Juin 2026</div>
-  <div class="section-sub">Campagne complète effectuée le 21 juin 2026 — 25+ pages · 3 breakpoints · 4 profils utilisateurs</div>
+  <div class="section-sub">Campagne complète — 25+ pages · 3 breakpoints · 4 profils utilisateurs · Dernière mise à jour 22 juin 2026</div>
 
   <div class="archi-row">
     <div class="pillar">
@@ -764,7 +764,8 @@
         <li><span class="dot" style="background:#16A34A"></span>Agents IA — Copilot, Groq, swarm</li>
         <li><span class="dot" style="background:#16A34A"></span>Migration Numérique — digitalisation docs</li>
         <li><span class="dot" style="background:#16A34A"></span>Cartographie SIG — ArcGIS, localités</li>
-        <li><span class="dot" style="background:#16A34A"></span>GED & Recherche — téléversement, indexation</li>
+        <li><span class="dot" style="background:#16A34A"></span>GED & Recherche — UniversalDocViewer, annotations, workflows</li>
+        <li><span class="dot" style="background:#16A34A"></span>GED Cycle de Vie — 4 piliers simultanés (Acquisition → Diffusion)</li>
         <li><span class="dot" style="background:#16A34A"></span>Reporting & Exports — PDF, Excel</li>
         <li><span class="dot" style="background:#16A34A"></span>Administration — RBAC, org-config</li>
         <li><span class="dot" style="background:#16A34A"></span>Interface ERP Oracle — synchronisation</li>
@@ -774,8 +775,9 @@
       <div class="pillar-title">📱 Breakpoints validés</div>
       <ul class="pillar-list">
         <li><span class="dot" style="background:#1B4F8A"></span>Mobile 375px — MobileTopbar, menu drawer</li>
-        <li><span class="dot" style="background:#1B4F8A"></span>Tablette 900px — sidebar inline push (272px)</li>
+        <li><span class="dot" style="background:#1B4F8A"></span>Tablette 769–1024px — hide-tablet : CommandPalette, filtre domaine, badge PROD masqués ✓</li>
         <li><span class="dot" style="background:#1B4F8A"></span>Desktop 1280px — rail + sous-panneau complet</li>
+        <li><span class="dot" style="background:#F47920"></span>Header overflow — aucun débordement sur tous les breakpoints ✓</li>
         <li><span class="dot" style="background:#F47920"></span>Overflow horizontal — document.body.scrollWidth = false ✓</li>
         <li><span class="dot" style="background:#F47920"></span>Notifications bell — ouverture/fermeture sans erreur JS</li>
         <li><span class="dot" style="background:#F47920"></span>Sous-menu sidebar — ouverture inline tablette ✓</li>
@@ -799,7 +801,17 @@
   </div>
 
   <div class="pillar" style="margin-top:16px">
-    <div class="pillar-title">📊 Résumé chiffré — État au 21 juin 2026</div>
+    <div class="pillar-title">🔧 Correctifs 22 juin 2026</div>
+    <ul class="pillar-list" style="columns:2;gap:24px">
+      <li><span class="dot" style="background:#16A34A"></span>GED — 4 piliers Cycle de Vie alignés sans scroll (layout vertical compact, flex:1)</li>
+      <li><span class="dot" style="background:#16A34A"></span>GED — UniversalDocViewer câblé (30+ formats : PDF, DOCX, XLSX, KML, ZIP…)</li>
+      <li><span class="dot" style="background:#16A34A"></span>Header — règle .hide-tablet ajoutée dans @media ≤1024px (CSS manquant)</li>
+      <li><span class="dot" style="background:#16A34A"></span>Header — filtre domaine + badge PROD masqués sur tablette (libèrent 200px)</li>
+    </ul>
+  </div>
+
+  <div class="pillar" style="margin-top:12px">
+    <div class="pillar-title">📊 Résumé chiffré — État au 22 juin 2026</div>
     <div style="display:flex;flex-wrap:wrap;gap:0;margin-top:8px;">
       <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">79 projets chargés</span>
       <span class="tech-pill" style="background:#F0FDF4;color:#16A34A">497.9 Md FCFA budget</span>
@@ -816,7 +828,7 @@
     </div>
   </div>
 
-  <div class="footer">SIGEP-DPE · SENELEC Direction Principale Equipement · Recette Juin 2026 · Confidentiel</div>
+  <div class="footer">SIGEP-DPE · SENELEC Direction Principale Equipement · Recette 22 juin 2026 · Confidentiel</div>
 </div>
 
 <script>
