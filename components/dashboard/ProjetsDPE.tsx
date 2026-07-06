@@ -1663,7 +1663,7 @@ export default function ProjetsDPE() {
     en_cours: filtered.filter(p => p.statut === 'en_cours').length,
     termines: filtered.filter(p => p.statut === 'termine').length,
     en_retard: filtered.filter(p => p.statut === 'en_retard').length,
-    budget: filtered.reduce((acc, p) => acc + p.budget, 0),
+    budget: filtered.reduce((acc, p) => acc + (Number.isFinite(p.budget) ? p.budget : 0), 0),
   }), [filtered]);
 
   // DPE energy KPIs — calculés sur les projets filtrés par domaine actif
