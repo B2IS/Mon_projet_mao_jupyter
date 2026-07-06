@@ -48,8 +48,8 @@ const DOMAINES: Domaine[] = ['production', 'transport', 'distribution', 'commerc
 // ───────────────────────── SHARED: PROJECT DRAWER ─────────────────────────────
 
 function ProjetDrawer({ projet, onClose }: { projet: Projet; onClose: () => void }) {
-  const cfg = DOMAINE_CFG[projet.domaine];
-  const scfg = STATUT_CFG[projet.statut];
+  const cfg  = DOMAINE_CFG[projet.domaine] ?? { color: '#64748B', label: projet.domaine ?? '—', emoji: '📁', desc: '' };
+  const scfg = STATUT_CFG[projet.statut]   ?? { color: '#64748B', label: projet.statut ?? '—' };
 
   return (
     <>
@@ -218,7 +218,7 @@ interface BubblePoint {
 function StrategiqueBubbleTooltip({ active, payload }: { active?: boolean; payload?: { payload: BubblePoint }[] }) {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload;
-  const cfg = DOMAINE_CFG[d.domaine];
+  const cfg = DOMAINE_CFG[d.domaine] ?? { color: '#64748B', label: d.domaine ?? '—', emoji: '📁', desc: '' };
   return (
     <div style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0', fontSize: 12 }}>
       <div style={{ fontWeight: 800, color: '#1B4F8A', marginBottom: 4 }}>{d.code}</div>
@@ -785,8 +785,8 @@ function VueOperationnelle({ projets, onSelectProjet }: { projets: Projet[]; onS
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {filtered.map(p => {
-              const cfg = DOMAINE_CFG[p.domaine];
-              const scfg = STATUT_CFG[p.statut];
+              const cfg  = DOMAINE_CFG[p.domaine] ?? { color: '#64748B', label: p.domaine ?? '—', emoji: '📁', desc: '' };
+              const scfg = STATUT_CFG[p.statut]   ?? { color: '#64748B', label: p.statut ?? '—' };
               const isCollapsed = collapsed[p.id] ?? false;
               return (
                 <div key={p.id} style={{ border: '1px solid #F1F5F9', borderRadius: 10, overflow: 'hidden', borderLeft: `4px solid ${cfg.color}` }}>
@@ -1333,7 +1333,7 @@ export default function Portefeuille() {
                 {isExpanded && (
                   <div style={{ padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {prog.projets.map(p => {
-                      const scfg = STATUT_CFG[p.statut];
+                      const scfg = STATUT_CFG[p.statut] ?? { color: '#64748B', label: p.statut ?? '—' };
                       return (
                         <div key={p.id}
                           onClick={() => setDrawerProjet(p)}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, Legend,
@@ -14,7 +14,45 @@ import {
 } from 'lucide-react';
 import { useOdmConfig } from '@/lib/odmConfigStore';
 import { DPE_ORG } from '@/lib/dpeOrgStructure';
-import { getDirectionLabel } from '@/lib/authStore';
+import { getDirectionLabel, useAuth } from '@/lib/authStore';
+
+// ─── Mapping département → code UAGL ─────────────────────────────────────────
+// Utilisé pour restreindre la vue RESP_LOG à son unité.
+
+const DEPT_TO_UAGL: Record<string, string> = {
+  DPD_DISTRIBUTION: 'UAGL/DPD',
+  DPT_TRANSPORT:    'UAGL/DPT',
+  DEP_PEC:          'UAGL/DEP',
+  DEP_PER:          'UAGL/DEP',
+  DEP:              'UAGL/DEP',
+  DIT:              'UAGL/DIT',
+  DIT_COMMERCIAL:   'UAGL/DIT',
+  DGC:              'UAGL/DGC',
+  DGC_ETUDES:       'UAGL/DGC',
+  DGC_INVEST:       'UAGL/DGC',
+  EM_DPE:           'UAGL/EM',
+};
+
+const DIR_TO_UAGL: Record<string, string> = {
+  DER:        'UAGL/DER',
+  DEP:        'UAGL/DEP',
+  DIT:        'UAGL/DIT',
+  DGC:        'UAGL/DGC',
+  EM_DPE:     'UAGL/EM',
+};
+
+/** Dérive le code UAGL d'un utilisateur RESP_LOG (dept en priorité, sinon direction). */
+function deriveUaglCode(departement?: string, direction?: string): string {
+  if (departement) {
+    const code = DEPT_TO_UAGL[departement.toUpperCase()];
+    if (code) return code;
+  }
+  if (direction) {
+    const code = DIR_TO_UAGL[direction.toUpperCase()];
+    if (code) return code;
+  }
+  return '';
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +177,15 @@ const CONSO_PAR_VEHICULE: ConsoVehicule[] = [
 
 // ─── Ressources disponibles dans les autres UAGLs ─────────────────────────────
 const RESSOURCES_UAGLS: RessourceUagl[] = [
+  // UAGL/DPD (DER — Département Distribution)
+  { id: 'RU-09', type: 'vehicule', nom: 'Toyota Hilux Double Cab', details: 'SN-3301-DPD · 2023 · 18 750 km', uaglCode: 'UAGL/DPD', uaglLabel: 'UAGL — DPD Distribution', statut: 'Disponible' },
+  { id: 'RU-10', type: 'vehicule', nom: 'Nissan Patrol Safari', details: 'SN-5502-DPD · 2021 · 52 300 km', uaglCode: 'UAGL/DPD', uaglLabel: 'UAGL — DPD Distribution', statut: 'Disponible' },
+  { id: 'RU-11', type: 'chauffeur', nom: 'Demba BA', details: 'Permis B+C · Exp. 2027 · Tél. 77 450 22 11', uaglCode: 'UAGL/DPD', uaglLabel: 'UAGL — DPD Distribution', statut: 'Disponible' },
+  { id: 'RU-12', type: 'chauffeur', nom: 'Moussa DIOUF', details: 'Permis B · Exp. 2028 · Tél. 76 890 34 56', uaglCode: 'UAGL/DPD', uaglLabel: 'UAGL — DPD Distribution', statut: 'Disponible' },
+  // UAGL/DPT (DER — Département Transport)
+  { id: 'RU-13', type: 'vehicule', nom: 'Mitsubishi L200 Triton', details: 'SN-7720-DPT · 2022 · 34 100 km', uaglCode: 'UAGL/DPT', uaglLabel: 'UAGL — DPT Transport', statut: 'Disponible' },
+  { id: 'RU-14', type: 'vehicule', nom: 'Toyota Land Cruiser 200', details: 'SN-0044-DPT · 2020 · 88 600 km', uaglCode: 'UAGL/DPT', uaglLabel: 'UAGL — DPT Transport', statut: 'Disponible' },
+  { id: 'RU-15', type: 'chauffeur', nom: 'Ibrahima DIALLO', details: 'Permis B+C+D · Exp. 2029 · Tél. 77 102 55 88', uaglCode: 'UAGL/DPT', uaglLabel: 'UAGL — DPT Transport', statut: 'Disponible' },
   // UAGL/DEP
   { id: 'RU-01', type: 'vehicule', nom: 'Toyota Hilux Revo', details: 'SN-4408-KD · 2022 · 41 230 km', uaglCode: 'UAGL/DEP', uaglLabel: 'Direction Études & Programmation', statut: 'Disponible' },
   { id: 'RU-02', type: 'vehicule', nom: 'Nissan Navara NP300', details: 'SN-7712-ZK · 2021 · 68 900 km', uaglCode: 'UAGL/DEP', uaglLabel: 'Direction Études & Programmation', statut: 'Disponible' },
@@ -156,6 +203,10 @@ const UAGL_COLORS: Record<string, string> = {
   'UAGL/DEP': '#0F766E',
   'UAGL/DIT': '#1D4ED8',
   'UAGL/DGC': '#7C3AED',
+  'UAGL/DPD': '#0891B2',
+  'UAGL/DPT': '#0369A1',
+  'UAGL/EM':  '#3D1A6B',
+  'UAGL/DER': '#1B4F8A',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -189,8 +240,17 @@ function assuranceUrgent(joursRestants: number): boolean {
 type OngletFlotte = 'parc' | 'carnet' | 'chauffeurs' | 'alertes' | 'stats' | 'emprunts' | 'affectation';
 
 export default function Flotte() {
+  const { user } = useAuth();
+  const isRespLog = user?.role === 'RESP_LOG';
+
+  // Dériver le code UAGL de l'utilisateur connecté (pour RESP_LOG)
+  const monUaglCode = useMemo(
+    () => isRespLog ? deriveUaglCode(user?.departement, user?.direction) : '',
+    [isRespLog, user?.departement, user?.direction],
+  );
+
   const [onglet, setOnglet] = useState<OngletFlotte>('parc');
-  const [selectedVehicule, setSelectedVehicule] = useState(VEHICULES[0].id);
+  const [selectedVehicule, setSelectedVehicule] = useState(VEHICULES[0]?.id ?? '');
 
   // Données modifiables (workflow alertes + ajout maintenance)
   const [alertes, setAlertes] = useState<AlerteVehicule[]>(ALERTES_VEHICULE);
@@ -198,9 +258,27 @@ export default function Flotte() {
   const [showMaintForm, setShowMaintForm] = useState(false);
 
   // ─ Emprunts inter-UAGL
+  // RESP_LOG : filtre initialisé sur son UAGL — non modifiable
   const [demandes, setDemandes] = useState<DemandeEmprunt[]>([]);
   const [empruntModal, setEmpruntModal] = useState<RessourceUagl | null>(null);
-  const [filtreUagl, setFiltreUagl] = useState<string>('tous');
+  const [filtreUagl, setFiltreUagl] = useState<string>(
+    isRespLog && monUaglCode ? monUaglCode : 'tous',
+  );
+
+  // Ressources visibles dans l'onglet Emprunts :
+  // RESP_LOG ne voit que les ressources des AUTRES UAGLs (pas la sienne, elle gère son parc séparément)
+  // Les rôles supérieurs voient tout.
+  const ressourcesVisibles = useMemo(() => {
+    if (!isRespLog || !monUaglCode) return RESSOURCES_UAGLS;
+    // On exclut les ressources appartenant à son propre UAGL (son parc = onglet Parc auto)
+    return RESSOURCES_UAGLS.filter(r => r.uaglCode !== monUaglCode);
+  }, [isRespLog, monUaglCode]);
+
+  // Codes UAGL disponibles pour le sélecteur (calculé depuis les ressources visibles)
+  const uaglOptionsDisponibles = useMemo(
+    () => [...new Set(ressourcesVisibles.map(r => r.uaglCode))].sort(),
+    [ressourcesVisibles],
+  );
 
   const traiterAlerte = (id: string) => {
     setAlertes(prev => prev.filter(a => a.id !== id));
@@ -641,25 +719,37 @@ export default function Flotte() {
             </div>
           </div>
 
-          {/* Filtre UAGL */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>Filtrer par UAGL :</span>
-            {['tous', 'UAGL/DEP', 'UAGL/DIT', 'UAGL/DGC'].map(u => (
-              <button key={u} onClick={() => setFiltreUagl(u)} style={{
-                padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: '1px solid', fontFamily: 'inherit',
-                background: filtreUagl === u ? (UAGL_COLORS[u] ?? '#0E3460') : '#fff',
-                color: filtreUagl === u ? '#fff' : '#64748B',
-                borderColor: filtreUagl === u ? (UAGL_COLORS[u] ?? '#0E3460') : '#E2E8F0',
-              }}>
-                {u === 'tous' ? 'Toutes les UAGLs' : u}
-              </button>
-            ))}
-          </div>
+          {/* Filtre UAGL — masqué pour RESP_LOG (scope fixe à son unité) */}
+          {!isRespLog && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>Filtrer par UAGL :</span>
+              {['tous', ...uaglOptionsDisponibles].map(u => (
+                <button key={u} onClick={() => setFiltreUagl(u)} style={{
+                  padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  border: '1px solid', fontFamily: 'inherit',
+                  background: filtreUagl === u ? (UAGL_COLORS[u] ?? '#0E3460') : '#fff',
+                  color: filtreUagl === u ? '#fff' : '#64748B',
+                  borderColor: filtreUagl === u ? (UAGL_COLORS[u] ?? '#0E3460') : '#E2E8F0',
+                }}>
+                  {u === 'tous' ? 'Toutes les UAGLs' : u}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Badge d'info scope RESP_LOG */}
+          {isRespLog && monUaglCode && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '6px 14px', background: `${UAGL_COLORS[monUaglCode] ?? '#0E3460'}15`, borderRadius: 20, border: `1px solid ${UAGL_COLORS[monUaglCode] ?? '#0E3460'}40` }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: UAGL_COLORS[monUaglCode] ?? '#0E3460', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: UAGL_COLORS[monUaglCode] ?? '#0E3460' }}>
+                Votre unité : {monUaglCode} — ressources des autres UAGLs disponibles ci-dessous
+              </span>
+            </div>
+          )}
 
           {/* Grille des ressources disponibles */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 14, marginBottom: 28 }}>
-            {RESSOURCES_UAGLS
+            {ressourcesVisibles
               .filter(r => filtreUagl === 'tous' || r.uaglCode === filtreUagl)
               .map(r => (
                 <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', border: '1px solid #E2E8F0' }}>

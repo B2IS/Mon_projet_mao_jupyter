@@ -252,15 +252,15 @@ function KPICard({ label, value, sub, progress, progressColor = ORANGE, accent =
       display: 'flex', flexDirection: 'column', gap: 5,
       boxShadow: '0 1px 4px rgba(0,0,0,.06)',
     }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {label}
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
+        <span style={{ minWidth: 0, lineHeight: 1.3 }}>{label}</span>
         {badge && (
-          <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: (badgeColor ?? NAVY) + '18', color: badgeColor ?? NAVY, fontWeight: 800 }}>
+          <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 4, background: (badgeColor ?? NAVY) + '18', color: badgeColor ?? NAVY, fontWeight: 800, flexShrink: 0, whiteSpace: 'nowrap' }}>
             {badge}
           </span>
         )}
       </div>
-      <div style={{ fontSize: 'clamp(13px, 3.5vw, 22px)', fontWeight: 800, color: accent, lineHeight: 1.2, wordBreak: 'break-word' }}>{value}</div>
+      <div style={{ fontSize: 'clamp(11px, 1.6vw, 16px)', fontWeight: 800, color: accent, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: '#94A3B8' }}>{sub}</div>}
       {progress !== undefined && (
         <div style={{ height: 5, background: '#F1F5F9', borderRadius: 3, marginTop: 4 }}>
@@ -463,8 +463,9 @@ export default function Budget() {
   const storeProjects = useMemo<ProjectRow[]>(() => {
     return store.projets.map(p => {
       const dom = DOMAIN_MAP[p.domaine] ?? 'Production';
-      const decaissePct = p.budget > 0 ? p.budgetDecaisse / p.budget : 0;
-      const cpiOk = p.cpi >= 0.95 && p.spi >= 0.90;
+      const bgt = p.budget ?? 0; const eng = p.budgetEngage ?? 0; const dec = p.budgetDecaisse ?? 0;
+      const decaissePct = bgt > 0 ? dec / bgt : 0;
+      const cpiOk = (p.cpi ?? 1) >= 0.95 && (p.spi ?? 1) >= 0.90;
       const statut: ProjectRow['statut'] = p.statut === 'termine' ? 'Achevé'
         : p.statut === 'en_retard' ? 'Critique'
         : decaissePct < 0.3 ? 'Attention'
@@ -473,9 +474,9 @@ export default function Budget() {
         code: p.code,
         nom: p.nom.length > 40 ? p.nom.slice(0, 40) + '…' : p.nom,
         domain: dom,
-        prevu: p.budget / 1000,       // MFCFA → Mrd
-        marches: p.budgetEngage / 1000,
-        decaisse: p.budgetDecaisse / 1000,
+        prevu: bgt / 1000,       // MFCFA → Mrd
+        marches: eng / 1000,
+        decaisse: dec / 1000,
         statut,
       };
     });
@@ -600,7 +601,7 @@ export default function Budget() {
         const overlapMs = Math.max(0, Math.min(phEnd, qEnd) - Math.max(phStart, qStart));
         const frac = overlapMs / totalMs;
         const rowAny = row as unknown as Record<string, number>;
-        rowAny[dom] = +((rowAny[dom] ?? 0) + (p.budgetDecaisse / 1_000) * frac).toFixed(3);
+        rowAny[dom] = +((rowAny[dom] ?? 0) + ((p.budgetDecaisse ?? 0) / 1_000) * frac).toFixed(3);
       });
       row.cumul = +(row.Production + row.Transport + row.Distribution + row.Commercial).toFixed(3);
       return row;
@@ -621,7 +622,7 @@ export default function Budget() {
       phases.forEach(ph => {
         const cat = PHASE_TO_CAT[ph.id] ?? 'Divers';
         const fraction = ph.poids / totalPoids;
-        acc[cat][dom] = (acc[cat][dom] ?? 0) + (p.budgetEngage / 1_000) * fraction;
+        acc[cat][dom] = (acc[cat][dom] ?? 0) + ((p.budgetEngage ?? 0) / 1_000) * fraction;
       });
     });
     return Object.entries(acc).map(([cat, vals]) => ({
@@ -686,30 +687,30 @@ export default function Budget() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICard
               label="Budget total portefeuille"
-              value={`${totalBudget.toFixed(2)} Mrd FCFA`}
-              sub={`${visibleProjets.length} projets — Données réelles`}
-              accent={NAVY} badge="PORTEFEUILLE" badgeColor={NAVY}
+              value={`${totalBudget.toFixed(1)} Mrd`}
+              sub={`${visibleProjets.length} projets · FCFA`}
+              accent={NAVY} badge="PTF" badgeColor={NAVY}
             />
             <KPICard
               label="Engagements / Marchés"
-              value={`${totalMarches.toFixed(2)} Mrd FCFA`}
-              sub={`${pct(totalMarches, totalBudget)}% du budget`}
+              value={`${totalMarches.toFixed(1)} Mrd`}
+              sub={`${pct(totalMarches, totalBudget)}% du budget · FCFA`}
               progress={pct(totalMarches, totalBudget)}
               progressColor={ORANGE} accent={ORANGE}
               badge={`${pct(totalMarches, totalBudget)}%`} badgeColor={ORANGE}
             />
             <KPICard
               label="Décaissements cumulés"
-              value={`${totalDecaisse.toFixed(2)} Mrd FCFA`}
-              sub={`${pct(totalDecaisse, totalBudget)}% du budget`}
+              value={`${totalDecaisse.toFixed(1)} Mrd`}
+              sub={`${pct(totalDecaisse, totalBudget)}% du budget · FCFA`}
               progress={pct(totalDecaisse, totalBudget)}
               progressColor={GREEN} accent={GREEN}
               badge={`${pct(totalDecaisse, totalBudget)}%`} badgeColor={GREEN}
             />
             <KPICard
               label="Solde disponible"
-              value={`${solde.toFixed(2)} Mrd FCFA`}
-              sub={`${pct(solde, totalBudget)}% non engagé`}
+              value={`${solde.toFixed(1)} Mrd`}
+              sub={`${pct(solde, totalBudget)}% non engagé · FCFA`}
               accent={AMBER} badge="SOLDE" badgeColor={AMBER}
             />
           </div>

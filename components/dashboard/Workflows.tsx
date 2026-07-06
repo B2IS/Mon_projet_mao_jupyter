@@ -355,8 +355,8 @@ function DossierCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const tc = TYPE_CFG[dossier.type];
-  const pc = PRIO_CFG[dossier.priorite];
+  const tc = TYPE_CFG[dossier.type as TypeDossier] ?? { label: dossier.type, color: C.slate, bg: '#F8FAFC', icon: <FileText size={13} /> };
+  const pc = PRIO_CFG[dossier.priorite] ?? { label: dossier.priorite, color: C.slate, bg: '#F1F5F9' };
   const sc = slaColor(dossier.heuresRestantes);
 
   return (
@@ -428,8 +428,8 @@ function DetailPanel({
   const { addNotification } = useNotificationStore();
   const [signatureHash, setSignatureHash] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const tc = TYPE_CFG[dossier.type];
-  const pc = PRIO_CFG[dossier.priorite];
+  const tc = TYPE_CFG[dossier.type as TypeDossier] ?? { label: dossier.type, color: C.slate, bg: '#F8FAFC', icon: <FileText size={13} /> };
+  const pc = PRIO_CFG[dossier.priorite] ?? { label: dossier.priorite, color: C.slate, bg: '#F1F5F9' };
 
   const isPV = dossier.type === 'pv_reception';
 

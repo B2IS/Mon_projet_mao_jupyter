@@ -130,6 +130,133 @@ export function downloadExcel(filenameBase: string, sheets: ExcelSheet | ExcelSh
   XLSX.writeFile(wb, `${sanitizeFilename(filenameBase)}.xlsx`);
 }
 
+/* ─── Export Matrice de Suivi DPD (structure exacte du fichier DPD) ──────── */
+
+export interface ProjetMatrice {
+  code?: string;
+  codeImputation?: string;
+  nom: string;
+  description?: string;
+  unite?: string;
+  domaine?: string;
+  programme?: string;
+  chefProjet?: string;
+  statut?: string;
+  budget?: number;
+  montantMarche?: number;
+  budgetAnnee?: number;
+  budgetDecaissePrecedent?: number;
+  factuAnneeCourante?: number;
+  montantFacture?: number;
+  dateDebut?: string;
+  dateODS?: string;
+  dateFinPrevue?: string;
+  dateFinEstimee?: string;
+  dateFinReelle?: string;
+  avancementFinancierBudget?: number;
+  avancementFinancierMarche?: number;
+  avancement?: number;
+  faitsMajeurs?: string;
+  problemesMajeurs?: string;
+  perspectives?: string;
+  observations?: string;
+}
+
+function fmtDate(d?: string): string {
+  if (!d) return '';
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString('fr-FR');
+  } catch { return d; }
+}
+
+function fmtPct(v?: number): string {
+  if (v === undefined || v === null || isNaN(v)) return '';
+  return `${Math.round(v * 100)}%`;
+}
+
+function fmtMFCFA(v?: number): string | number {
+  if (v === undefined || v === null || isNaN(v)) return '';
+  return Math.round(v * 100) / 100;
+}
+
+export function downloadMatriceSuivi(projets: ProjetMatrice[], anneeLabel = '2026'): void {
+  const titre = `Matrice de Suivi des Projets DPE — ${anneeLabel}`;
+  const dateGen = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const headers = [
+    'Référence Projet (DPM)',
+    'Code Projet (BIT)',
+    'Libellé du Projet',
+    'Réalisation à date',
+    'Unité de Gestion de Projet (Dép. ou Cellule)',
+    'Domaine',
+    'Programme',
+    'Chef de projet',
+    'Statut',
+    `Budget global (M FCFA)`,
+    'Montant attribué (M FCFA)',
+    `Budget ${anneeLabel} (M FCFA)`,
+    `Facturation cumulée au 31/12/${Number(anneeLabel) - 1} (M FCFA)`,
+    `Facturation ${anneeLabel} (M FCFA)`,
+    'Montant total Facturé à date (M FCFA)',
+    'Date démarrage prévisionnelle',
+    'Date démarrage réelle (ODS)',
+    'Date Fin prévisionnelle',
+    'Date Fin actualisée',
+    'Fin réelle',
+    '% Avancement financier / Budget',
+    '% Avancement financier / Marché',
+    '% Avancement physique à date',
+    'Faits majeurs',
+    'Problèmes majeurs',
+    'Perspectives',
+    'Observations',
+  ];
+
+  const rows: Cell[][] = projets.map(p => [
+    p.code ?? '',
+    p.codeImputation ?? '',
+    p.nom ?? '',
+    p.description ?? '',
+    p.unite ?? '',
+    p.domaine ?? '',
+    p.programme ?? '',
+    p.chefProjet ?? '',
+    p.statut ?? '',
+    fmtMFCFA(p.budget),
+    fmtMFCFA(p.montantMarche ?? p.budget),
+    fmtMFCFA(p.budgetAnnee),
+    fmtMFCFA(p.budgetDecaissePrecedent ?? p.montantFacture),
+    fmtMFCFA(p.factuAnneeCourante),
+    fmtMFCFA(p.montantFacture ?? p.montantMarche),
+    fmtDate(p.dateDebut),
+    fmtDate(p.dateODS),
+    fmtDate(p.dateFinPrevue),
+    fmtDate(p.dateFinEstimee),
+    fmtDate(p.dateFinReelle),
+    fmtPct(p.avancementFinancierBudget ?? (p.budget && p.montantFacture ? p.montantFacture / p.budget : undefined)),
+    fmtPct(p.avancementFinancierMarche ?? (p.montantMarche && p.montantFacture ? p.montantFacture / p.montantMarche : undefined)),
+    fmtPct(p.avancement !== undefined ? p.avancement / 100 : undefined),
+    p.faitsMajeurs ?? 'RAS',
+    p.problemesMajeurs ?? '',
+    p.perspectives ?? '',
+    p.observations ?? '',
+  ]);
+
+  const colWidths = [18, 22, 40, 30, 28, 14, 16, 22, 18, 14, 14, 14, 20, 16, 20, 18, 18, 18, 18, 14, 16, 16, 16, 30, 30, 30, 30];
+
+  downloadExcel(`Matrice_Suivi_DPE_${anneeLabel}`, {
+    sheetName: 'Matrice de Suivi',
+    title: titre,
+    subtitle: `Édité le ${dateGen} — SENELEC · Direction Principale Équipement (DPE)`,
+    headers,
+    rows,
+    colWidths,
+  });
+}
+
 /* ─── Impression / PDF avec charte SENELEC ─────────────────────────────── */
 
 export interface PrintTable {

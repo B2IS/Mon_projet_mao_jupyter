@@ -234,7 +234,7 @@ export default function AgentsIA() {
 
   // Options de sélection de projet
   const projOptions = useMemo<ProjetOption[]>(() => {
-    return store.projets.map(p => ({ code: p.code, nom: p.nom, avancement: p.avancement, cpi: p.cpi, spi: p.spi }));
+    return store.projets.map(p => ({ code: p.code, nom: p.nom, avancement: p.avancement ?? 0, cpi: p.cpi ?? 1, spi: p.spi ?? 1 }));
   }, [store.projets]);
 
   // Données du projet sélectionné
@@ -246,21 +246,23 @@ export default function AgentsIA() {
   function buildProjectContext(): string {
     const ps = selectedProjets;
     const total = ps.length;
-    const tb = ps.reduce((s, p) => s + p.budget, 0);
-    const td = ps.reduce((s, p) => s + p.budgetDecaisse, 0);
-    const avgCpi = total > 0 ? (ps.reduce((s, p) => s + p.cpi, 0) / total).toFixed(2) : 'N/A';
-    const avgSpi = total > 0 ? (ps.reduce((s, p) => s + p.spi, 0) / total).toFixed(2) : 'N/A';
-    const critiques = ps.filter(p => p.cpi < 0.90 || p.spi < 0.80);
+    const _n = (v: unknown, def = 0) => (Number.isFinite(v as number) ? (v as number) : def);
+    const tb = ps.reduce((s, p) => s + _n(p.budget), 0);
+    const td = ps.reduce((s, p) => s + _n(p.budgetDecaisse), 0);
+    const avgCpi = total > 0 ? (ps.reduce((s, p) => s + _n(p.cpi, 1), 0) / total).toFixed(2) : 'N/A';
+    const avgSpi = total > 0 ? (ps.reduce((s, p) => s + _n(p.spi, 1), 0) / total).toFixed(2) : 'N/A';
+    const critiques = ps.filter(p => _n(p.cpi, 1) < 0.90 || _n(p.spi, 1) < 0.80);
 
     // Top 10 most critical projects (lowest CPI+SPI) — keep token budget under ~500
-    const sorted = [...ps].sort((a, b) => (a.cpi + a.spi) - (b.cpi + b.spi)).slice(0, 10);
+    const sorted = [...ps].sort((a, b) => ((a.cpi ?? 1) + (a.spi ?? 1)) - ((b.cpi ?? 1) + (b.spi ?? 1))).slice(0, 10);
 
     // Ultra-compact single-line format
     const header = 'CODE|CPI|SPI|AVA%|VAC_M|REG|DOM';
     const rows = sorted.map(p => {
-      const EAC = p.cpi > 0 ? p.budget / p.cpi : p.budget;
-      const VAC = Math.round(p.budget - EAC);
-      return `${p.code}|${p.cpi.toFixed(2)}|${p.spi.toFixed(2)}|${p.avancement}|${VAC}|${p.region.slice(0,6)}|${p.domaine.slice(0,6)}`;
+      const cpi = p.cpi ?? 1; const bgt = p.budget ?? 0;
+      const EAC = cpi > 0 ? bgt / cpi : bgt;
+      const VAC = Math.round(bgt - EAC);
+      return `${p.code}|${cpi.toFixed(2)}|${(p.spi ?? 1).toFixed(2)}|${p.avancement ?? 0}|${VAC}|${p.region.slice(0,6)}|${p.domaine.slice(0,6)}`;
     }).join('\n');
 
     return `SIGEP-DPE SÉNÉGAL — ${selectedCode === 'all' ? 'PORTEFEUILLE' : `PROJET ${selectedCode}`} — ${new Date().toLocaleDateString('fr-FR')}
@@ -423,11 +425,12 @@ ${rows}`;
           <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Portefeuille sélectionné</div>
           {(() => {
             const ps = selectedProjets;
-            const tb = ps.reduce((s, p) => s + p.budget, 0);
-            const td = ps.reduce((s, p) => s + p.budgetDecaisse, 0);
-            const avgCpi = ps.length > 0 ? (ps.reduce((s, p) => s + p.cpi, 0) / ps.length).toFixed(2) : '—';
-            const avgSpi = ps.length > 0 ? (ps.reduce((s, p) => s + p.spi, 0) / ps.length).toFixed(2) : '—';
-            const alertes = ps.filter(p => p.cpi < 0.9 || p.spi < 0.85).length;
+            const _n = (v: unknown, def = 0) => (Number.isFinite(v as number) ? (v as number) : def);
+            const tb = ps.reduce((s, p) => s + _n(p.budget), 0);
+            const td = ps.reduce((s, p) => s + _n(p.budgetDecaisse), 0);
+            const avgCpi = ps.length > 0 ? (ps.reduce((s, p) => s + _n(p.cpi, 1), 0) / ps.length).toFixed(2) : '—';
+            const avgSpi = ps.length > 0 ? (ps.reduce((s, p) => s + _n(p.spi, 1), 0) / ps.length).toFixed(2) : '—';
+            const alertes = ps.filter(p => _n(p.cpi, 1) < 0.9 || _n(p.spi, 1) < 0.85).length;
             return [
               { l: 'Projets',    v: String(ps.length),                                    c: NAVY      },
               { l: 'Budget',     v: `${(tb / 1000).toFixed(1)} Md FCFA`,                  c: '#475569'  },

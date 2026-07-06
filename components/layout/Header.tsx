@@ -75,6 +75,7 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { lang, t } = useTranslation();
   const info = TITLES[path] || { labelKey: 'app.title' as TranslationKey, subKey: 'app.subtitle' as TranslationKey };
+  const [mounted, setMounted] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [bellPos, setBellPos] = useState<{ top: number; right: number; width: number } | null>(null);
   const [today, setToday] = useState('');
@@ -133,6 +134,7 @@ export default function Header() {
   const [alertesSeen, setAlertesSeen] = useState(false);
   const [parapheurSeen, setParapheurSeen] = useState(0);
   useEffect(() => {
+    setMounted(true);
     try { const v = JSON.parse(localStorage.getItem('sigep_badge_seen') || '{}'); setAlertesSeen(!!v.alertes); setParapheurSeen(Number(v.parapheur) || 0); } catch { /* ignore */ }
   }, []);
   const persistSeen = (patch: { alertes?: boolean; parapheur?: number }) => {
@@ -315,6 +317,7 @@ export default function Header() {
             value={globalDomaine}
             onChange={e => setGlobalDomaine(e.target.value)}
             title="Filtre domaine global — appliqué sur toutes les pages"
+            suppressHydrationWarning
             style={{
               appearance: 'none',
               padding: '5px 28px 5px 10px',
@@ -352,7 +355,7 @@ export default function Header() {
         }}
       >
         <Stamp size={15} />
-        {parapheurBadge > 0 && (
+        {mounted && parapheurBadge > 0 && (
           <span style={{
             position: 'absolute', top: -5, right: -5,
             minWidth: 17, height: 17, borderRadius: 9,
@@ -381,7 +384,7 @@ export default function Header() {
           }}
         >
           <Bell size={15} />
-          {newAlertes > 0 && (
+          {mounted && newAlertes > 0 && (
             <span style={{
               position: 'absolute', top: -5, right: -5,
               width: 17, height: 17, borderRadius: '50%',

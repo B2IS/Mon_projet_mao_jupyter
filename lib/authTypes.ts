@@ -234,16 +234,19 @@ const R_CHEF_TEAM = [
 
 export const ROLE_ROUTES: Record<RoleCode, string[]> = {
   // ── Direction générale ──────────────────────────────────────────────────────
-  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/migration', '/administration', ...R_LOG, ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  // DIR_DPE : vue exécutive consolidée — portefeuille, finances, analytics, IA. Pas de terrain, WBS, admin système, logistique opérationnelle.
+  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/reservation-salle', '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
-  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/odm', '/gestion-temps', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  // DIRECTEUR : vue direction — consolidé par direction, décisions, reporting. Pas de terrain.
+  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/odm', '/gestion-temps', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
+  // COORDINATEUR : vue programme — multi-projets, finances, risques. Pas de terrain.
   COORDINATEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', '/agents-ia', ...R_GED, ...R_RPT, '/courriers', '/migration', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   // ── Management ──────────────────────────────────────────────────────────────
   CHEF_DEPT: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/odm', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
-  CHEF_CELLULE: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/administration', ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  CHEF_CELLULE: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   CHEF_PROJ: ['/alertes', '/springboard', ...R_CHEF_TEAM, '/migration', '/agents-ia'],
 
@@ -302,15 +305,17 @@ export const ROLE_ROUTES: Record<RoleCode, string[]> = {
 };
 
 export const ROLE_NAV_ITEMS: Record<RoleCode, string[]> = {
-  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, ...R_EXEC, ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/courriers', '/workflows', '/migration', '/administration', ...R_LOG, ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  // DIR_DPE : vue exécutive — portefeuille, finances, analytics, IA. Pas de terrain, WBS, admin système, logistique opérationnelle.
+  DIR_DPE:   [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/bordereaux', '/receptions', '/dashboard-builder', '/gestion-temps', '/reservation-salle', '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
-  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', '/odm', '/gestion-temps', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  // DIRECTEUR : vue direction — portefeuille, finances, analytics, rapports. Pas de terrain.
+  DIRECTEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', '/odm', '/gestion-temps', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   COORDINATEUR: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', '/risques', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', '/agents-ia', ...R_GED, ...R_RPT, '/courriers', '/workflows', '/migration', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   CHEF_DEPT: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_EXEC.slice(1), ...R_CARTO, ...R_FIN, ...R_STUDIO, ...R_GED, ...R_RPT, '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
-  CHEF_CELLULE: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', '/administration', ...R_SYS, ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
+  CHEF_CELLULE: [R_TBL, '/alertes', '/springboard', ...R_PORT, ...R_PROJ, ...R_WBS, '/suivi-evaluation', ...R_CARTO, ...R_FIN, '/bordereaux', '/receptions', ...R_STUDIO.slice(0, 2), ...R_GED, ...R_RPT, '/courriers', '/workflows', ...R_ETUDES, ...R_RECOLEMENT, ...R_MES],
 
   CHEF_PROJ: ['/alertes', '/springboard', ...R_CHEF_TEAM, '/migration', '/agents-ia', '/courriers', '/workflows'],
 

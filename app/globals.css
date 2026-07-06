@@ -486,6 +486,11 @@ header :focus-visible { outline-color: #F9B96F; box-shadow: 0 0 0 4px rgba(249,1
   display: flex;
   align-items: center;
   gap: 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  word-break: normal;
+  overflow-wrap: normal;
+  min-width: max-content;
 }
 .card-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .card-body { padding: 16px; }
@@ -1094,6 +1099,11 @@ h3 { font-size: clamp(13.5px, 1.6vw, 16px); }
   /* ── Toolbar labels: hide text, keep icons ──────────────────────────────  */
   .hide-label-mobile { font-size: 0 !important; }
   .hide-label-mobile svg { display: inline-block !important; }
+
+  /* ── TableauDeBord mobile compact ───────────────────────────────────────── */
+  .tdb-header-row { padding: 10px 14px 0 !important; }
+  .tdb-kpi-row    { padding: 8px 14px 0 !important; }
+  .tdb-body       { padding: 12px 14px !important; }
 }
 @media (max-width: 480px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1318,7 +1328,6 @@ html, body {
   min-width: 0;
 }
 
-.card-title,
 .card-subtitle,
 .kpi-label,
 .kpi-value,

@@ -26,23 +26,23 @@ interface Msg { id: string; role: 'user' | 'assistant'; content: string; ts: Dat
 function buildSystemPrompt(projets: ReturnType<typeof useProjectStore>['projets'], userName: string): string {
   const total  = projets.length;
   const actifs = projets.filter(p => p.statut === 'en_cours');
-  const avgAv  = total > 0 ? Math.round(projets.reduce((s, p) => s + p.avancement, 0) / total) : 0;
-  const avgCpi = total > 0 ? (projets.reduce((s, p) => s + p.cpi, 0) / total).toFixed(2) : '1.00';
-  const avgSpi = total > 0 ? (projets.reduce((s, p) => s + p.spi, 0) / total).toFixed(2) : '1.00';
-  const tBudget = projets.reduce((s, p) => s + p.budget, 0);
-  const tDec    = projets.reduce((s, p) => s + p.budgetDecaisse, 0);
-  const enRetard = projets.filter(p => p.spi < 0.85 || p.statut === 'en_retard');
-  const critiques = projets.filter(p => p.cpi < 0.90 || p.spi < 0.80);
+  const avgAv  = total > 0 ? Math.round(projets.reduce((s, p) => s + (p.avancement ?? 0), 0) / total) : 0;
+  const avgCpi = total > 0 ? (projets.reduce((s, p) => s + (p.cpi ?? 1), 0) / total).toFixed(2) : '1.00';
+  const avgSpi = total > 0 ? (projets.reduce((s, p) => s + (p.spi ?? 1), 0) / total).toFixed(2) : '1.00';
+  const tBudget = projets.reduce((s, p) => s + (p.budget ?? 0), 0);
+  const tDec    = projets.reduce((s, p) => s + (p.budgetDecaisse ?? 0), 0);
+  const enRetard = projets.filter(p => (p.spi ?? 1) < 0.85 || p.statut === 'en_retard');
+  const critiques = projets.filter(p => (p.cpi ?? 1) < 0.90 || (p.spi ?? 1) < 0.80);
 
   const projList = projets.slice(0, 40).map(p => {
     const bailleur = p.bailleurs?.[0]?.nom ?? 'SENELEC';
     const jalonsAtteints = (p.jalons ?? []).filter(j => j.atteint).length;
     const jalonsTotal    = (p.jalons ?? []).length;
-    return `- ${p.code} | ${p.nom.slice(0, 50)} | ${p.domaine} | ${p.region} | Av:${p.avancement}% | CPI:${p.cpi.toFixed(2)} | SPI:${p.spi.toFixed(2)} | Budget:${p.budget}MFCFA | Décaissé:${p.budgetDecaisse}MFCFA | Statut:${p.statut} | Chef:${p.chefProjet} | Bailleur:${bailleur} | Jalons:${jalonsAtteints}/${jalonsTotal}`;
+    return `- ${p.code} | ${p.nom.slice(0, 50)} | ${p.domaine} | ${p.region} | Av:${p.avancement ?? 0}% | CPI:${(p.cpi ?? 1).toFixed(2)} | SPI:${(p.spi ?? 1).toFixed(2)} | Budget:${p.budget ?? 0}MFCFA | Décaissé:${p.budgetDecaisse ?? 0}MFCFA | Statut:${p.statut} | Chef:${p.chefProjet} | Bailleur:${bailleur} | Jalons:${jalonsAtteints}/${jalonsTotal}`;
   }).join('\n');
 
   const retardList = enRetard.slice(0, 10).map(p =>
-    `- ${p.code} | SPI:${p.spi.toFixed(2)} | CPI:${p.cpi.toFixed(2)} | ${p.nom.slice(0, 40)} | Chef:${p.chefProjet}`
+    `- ${p.code} | SPI:${(p.spi ?? 1).toFixed(2)} | CPI:${(p.cpi ?? 1).toFixed(2)} | ${p.nom.slice(0, 40)} | Chef:${p.chefProjet}`
   ).join('\n');
 
   return `Tu es le **Copilot IA officiel de SIGEP-DPE** — la plateforme de gouvernance de projets de SENELEC (Direction Principale Équipement, Sénégal).
@@ -176,8 +176,8 @@ function MarkdownBlock({ text }: { text: string }) {
 
 /* ─── Suggestions dynamiques ─────────────────────────── */
 function buildSuggestions(projets: ReturnType<typeof useProjectStore>['projets']) {
-  const retards   = projets.filter(p => p.spi < 0.85).slice(0, 2);
-  const topBudget = [...projets].sort((a, b) => b.budget - a.budget)[0];
+  const retards   = projets.filter(p => (p.spi ?? 1) < 0.85).slice(0, 2);
+  const topBudget = [...projets].sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0))[0];
 
   return [
     { icon: <BarChart3 size={12} />, label: 'Performance portefeuille', q: 'Analyse complète des KPIs du portefeuille DPE avec tableau comparatif CPI/SPI par domaine et par région' },
@@ -221,12 +221,12 @@ export default function Copilot() {
   useEffect(() => {
     if (messages.length === 0) {
       const p  = store.projets;
-      const tb = p.reduce((s, x) => s + x.budget, 0);
-      const td = p.reduce((s, x) => s + x.budgetDecaisse, 0);
-      const alertes = p.filter(x => x.cpi < 0.9 || x.spi < 0.85).length;
+      const tb = p.reduce((s, x) => s + (x.budget ?? 0), 0);
+      const td = p.reduce((s, x) => s + (x.budgetDecaisse ?? 0), 0);
+      const alertes = p.filter(x => (x.cpi ?? 1) < 0.9 || (x.spi ?? 1) < 0.85).length;
       const decPct  = tb > 0 ? Math.round((td / tb) * 100) : 0;
-      const avgCpi  = p.length > 0 ? (p.reduce((s, x) => s + x.cpi, 0) / p.length).toFixed(2) : '—';
-      const avgSpi  = p.length > 0 ? (p.reduce((s, x) => s + x.spi, 0) / p.length).toFixed(2) : '—';
+      const avgCpi  = p.length > 0 ? (p.reduce((s, x) => s + (x.cpi ?? 1), 0) / p.length).toFixed(2) : '—';
+      const avgSpi  = p.length > 0 ? (p.reduce((s, x) => s + (x.spi ?? 1), 0) / p.length).toFixed(2) : '—';
       setMessages([{
         id: 'welcome',
         role: 'assistant',
@@ -344,11 +344,12 @@ export default function Copilot() {
         <div style={{ padding: '10px 12px', borderTop: `1px solid ${BORDER}` }}>
           {(() => {
             const p  = store.projets;
-            const tb = p.reduce((s, x) => s + x.budget, 0);
-            const td = p.reduce((s, x) => s + x.budgetDecaisse, 0);
+            const _n = (v: unknown, d = 0) => (Number.isFinite(v as number) ? (v as number) : d);
+            const tb = p.reduce((s, x) => s + _n(x.budget), 0);
+            const td = p.reduce((s, x) => s + _n(x.budgetDecaisse), 0);
             return [
-              { l: 'Projets',         v: String(p.length),                                                           c: NAVY      },
-              { l: 'Alertes CPI/SPI', v: String(p.filter(x => x.cpi < 0.9 || x.spi < 0.85).length),                 c: '#EF3340' },
+              { l: 'Projets',         v: String(p.length),                                                                        c: NAVY      },
+              { l: 'Alertes CPI/SPI', v: String(p.filter(x => _n(x.cpi, 1) < 0.9 || _n(x.spi, 1) < 0.85).length),               c: '#EF3340' },
               { l: 'Budget',          v: `${(tb / 1000).toFixed(1)} Md`,                                             c: '#7C3AED' },
               { l: 'Décaissé',        v: `${tb > 0 ? Math.round((td / tb) * 100) : 0}%`,                             c: '#16A34A' },
             ].map(s => (

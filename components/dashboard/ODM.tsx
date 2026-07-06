@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/authStore';
 import { useOdmConfig, tauxHoraire, coutHeuresSup, perdiemFCFA } from '@/lib/odmConfigStore';
 import { useProjectStore } from '@/lib/projectStore';
@@ -1434,6 +1434,28 @@ export default function ODM() {
     ? odms.filter(o => o.participants.some(p => p.toLowerCase().includes(user?.nom?.toLowerCase() ?? '__')))
     : odms;
 
+  // RESP_LOG : filtre silencieux — ne voit que les ODM de sa direction/département
+  // Les rôles supérieurs (ADMIN, DIR_DPE, DIRECTEUR) voient tout.
+  const odmsVisibles = useMemo(() => {
+    if (user?.role !== 'RESP_LOG') return mesOdmsChauffeur;
+    const myDir = (user.direction ?? '').toUpperCase();
+    const myDept = (user.departement ?? '').toUpperCase();
+    return mesOdmsChauffeur.filter(o => {
+      // Correspondance sur direction de l'ODM (si disponible) ou sur agentDemandeur
+      // Les ODMs ont une ref avec la direction (ex. ODM-DER-2026-046)
+      if (myDept) {
+        // ex. DPD_DISTRIBUTION → DPD ; DPT_TRANSPORT → DPT
+        const deptShort = myDept.replace(/_.*/, '');
+        if (o.ref.toUpperCase().includes(deptShort)) return true;
+      }
+      if (myDir && o.ref.toUpperCase().includes(myDir)) return true;
+      // Fallback : toujours inclure les ODM créés par l'utilisateur lui-même
+      if (user.nom && o.agentDemandeur?.toLowerCase().includes(user.nom.toLowerCase())) return true;
+      // Si la liste est vide on laisse passer (pas de données filtrables)
+      return mesOdmsChauffeur.length === 0;
+    });
+  }, [user, mesOdmsChauffeur]);
+
   const ONGLETS: { key: OngletODM; label: string; icon?: React.ReactNode; badge?: number }[] = isChauffeur
     ? [
         { key: 'mes-odm',  label: 'Mes Missions' },
@@ -1706,7 +1728,7 @@ export default function ODM() {
           ) : (
             // ── Liste ODM ──
             (() => {
-              const odmsFiltered = mesOdmsChauffeur.filter(o => {
+              const odmsFiltered = odmsVisibles.filter(o => {
                 if (odmStatutFilter !== 'tous' && o.statut !== odmStatutFilter) return false;
                 if (odmSearchQ.trim()) {
                   const q = odmSearchQ.toLowerCase();

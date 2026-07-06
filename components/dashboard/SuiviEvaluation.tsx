@@ -208,9 +208,9 @@ export default function SuiviEvaluation() {
     const globalDomaine = store.globalDomaine;
     const p = globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === globalDomaine);
     if (p.length === 0) return KPI_TOP;
-    const avgPhys = Math.round(p.reduce((s, x) => s + x.avancement, 0) / p.length);
-    const avgFin  = Math.round(p.reduce((s, x) => s + (x.budgetDecaisse / (x.budget || 1)) * 100, 0) / p.length);
-    const anomaliesStore = p.filter(x => x.spi < 0.85 || x.cpi < 0.90).length;
+    const avgPhys = Math.round(p.reduce((s, x) => s + (x.avancement ?? 0), 0) / p.length);
+    const avgFin  = Math.round(p.reduce((s, x) => s + ((x.budgetDecaisse ?? 0) / ((x.budget ?? 0) || 1)) * 100, 0) / p.length);
+    const anomaliesStore = p.filter(x => (x.spi ?? 1) < 0.85 || (x.cpi ?? 1) < 0.90).length;
     const kpiValides = scopedIndicateurs.filter(k => k.statut === 'valide').length;
     const anomaliesKpi = scopedIndicateurs.filter(k => k.statut === 'anomalie').length;
     return [
@@ -409,7 +409,7 @@ export default function SuiviEvaluation() {
                 </div>
               )}
               {scopedIndicateurs.map((kpi, i) => {
-                const dcfg  = DOMAINE_CFG[kpi.domaine];
+                const dcfg  = DOMAINE_CFG[kpi.domaine] ?? { color: '#64748B', label: kpi.domaine ?? '—', emoji: '📁', desc: '' };
                 const scfg  = KPI_STATUT[kpi.statut];
                 const isSel = selectedKPI === kpi.id;
                 return (
@@ -672,7 +672,7 @@ export default function SuiviEvaluation() {
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#7F1D1D' }}>Anomalies détectées</span>
               </div>
               {scopedIndicateurs.filter(k => k.statut === 'anomalie').map((k, i, arr) => {
-                const dcfg = DOMAINE_CFG[k.domaine];
+                const dcfg = DOMAINE_CFG[k.domaine] ?? { color: '#64748B', label: k.domaine ?? '—', emoji: '📁', desc: '' };
                 return (
                   <div key={k.id} style={{
                     padding: '12px 16px',
@@ -713,8 +713,8 @@ export default function SuiviEvaluation() {
                 <Bell size={14} style={{ color: AMBER }} />
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>Alertes KPI portefeuille</span>
               </div>
-              {(store.globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === store.globalDomaine)).filter(p => p.cpi < 0.90 || p.spi < 0.85).map((p, i, arr) => {
-                const dcfg = DOMAINE_CFG[p.domaine as Domaine];
+              {(store.globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === store.globalDomaine)).filter(p => (p.cpi ?? 1) < 0.90 || (p.spi ?? 1) < 0.85).map((p, i, arr) => {
+                const dcfg = DOMAINE_CFG[p.domaine as Domaine] ?? { color: '#64748B', label: p.domaine ?? '—', emoji: '📁', desc: '' };
                 return (
                   <div key={p.id} style={{
                     padding: '10px 16px', borderBottom: i < arr.length - 1 ? '1px solid #F1F5F9' : 'none',
@@ -726,20 +726,20 @@ export default function SuiviEvaluation() {
                         {p.nom.slice(0, 45)}
                       </div>
                     </div>
-                    {p.cpi < 0.90 && (
+                    {(p.cpi ?? 1) < 0.90 && (
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: '#FEE2E2', color: RED }}>
-                        CPI {p.cpi.toFixed(2)}
+                        CPI {(p.cpi ?? 1).toFixed(2)}
                       </span>
                     )}
-                    {p.spi < 0.85 && (
+                    {(p.spi ?? 1) < 0.85 && (
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: '#FFF7ED', color: AMBER }}>
-                        SPI {p.spi.toFixed(2)}
+                        SPI {(p.spi ?? 1).toFixed(2)}
                       </span>
                     )}
                   </div>
                 );
               })}
-              {(store.globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === store.globalDomaine)).filter(p => p.cpi < 0.90 || p.spi < 0.85).length === 0 && (
+              {(store.globalDomaine === 'tous' ? store.projets : store.projets.filter(x => x.domaine === store.globalDomaine)).filter(p => (p.cpi ?? 1) < 0.90 || (p.spi ?? 1) < 0.85).length === 0 && (
                 <div style={{ padding: 24, textAlign: 'center', color: GREEN, fontSize: 13 }}>
                   ✅ Tous les projets respectent les seuils CPI/SPI
                 </div>
@@ -810,8 +810,8 @@ export default function SuiviEvaluation() {
               const isFin   = role === 'RAF';
               const gd = store.globalDomaine;
               const p = gd === 'tous' ? store.projets : store.projets.filter(x => x.domaine === gd);
-              const cpiMoy  = p.length ? (p.reduce((s,x) => s + x.cpi, 0) / p.length).toFixed(2) : '—';
-              const spiMoy  = p.length ? (p.reduce((s,x) => s + x.spi, 0) / p.length).toFixed(2) : '—';
+              const cpiMoy  = p.length ? (p.reduce((s,x) => s + (x.cpi ?? 1), 0) / p.length).toFixed(2) : '—';
+              const spiMoy  = p.length ? (p.reduce((s,x) => s + (x.spi ?? 1), 0) / p.length).toFixed(2) : '—';
               const budgetTotal = (p.reduce((s,x) => s + (x.budget||0), 0) / 1e9).toFixed(1);
               const decaisseTotal = (p.reduce((s,x) => s + (x.budgetDecaisse||0), 0) / 1e9).toFixed(1);
               const retards = p.filter(x => x.statut === 'en_retard').length;
@@ -829,7 +829,7 @@ export default function SuiviEvaluation() {
                 { label: 'Retards',            val: String(retards),  sub: 'Projets en retard',  color: retards > 0 ? RED : GREEN },
               ] : isProj ? [
                 { label: 'Mes projets',        val: String(p.length), sub: 'Portefeuille personnel', color: NAVY },
-                { label: 'Avancement moyen',   val: `${p.length ? Math.round(p.reduce((s,x)=>s+x.avancement,0)/p.length) : 0}%`, sub: 'Physique', color: GREEN },
+                { label: 'Avancement moyen',   val: `${p.length ? Math.round(p.reduce((s,x)=>s+(x.avancement??0),0)/p.length) : 0}%`, sub: 'Physique', color: GREEN },
                 { label: 'Mon CPI',            val: cpiMoy,           sub: 'Indice coût',        color: parseFloat(cpiMoy) >= 1 ? GREEN : RED },
               ] : isFin ? [
                 { label: 'Budget total',       val: `${budgetTotal} Md FCFA`, sub: 'Tous projets', color: NAVY },

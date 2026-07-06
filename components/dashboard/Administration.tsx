@@ -708,18 +708,18 @@ export default function Administration() {
       ═══════════════════════════════════════════════════════════════ */}
       {tab === 'utilisateurs' && (
         <div className="card">
-          <div className="card-header">
-            <span className="card-title">Utilisateurs ({filteredUsers.length})</span>
-            <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', flexShrink: 0, minWidth: 'max-content', wordBreak: 'normal', overflowWrap: 'normal' }}>Utilisateurs ({filteredUsers.length})</span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <Search size={11} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                <input className="form-input" style={{ paddingLeft: 24, width: 160 }} placeholder="Chercher..." value={search} onChange={e => setSearch(e.target.value)} />
+                <input className="form-input" style={{ paddingLeft: 24, width: 140 }} placeholder="Chercher..." value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <select className="form-input" style={{ width: 'auto' }} value={filterTenant} onChange={e => setFilterTenant(e.target.value)}>
                 <option value="tous">Toutes directions</option>
                 {[...new Set(UTILISATEURS.map(u => u.tenant))].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-              <select className="form-input" style={{ width: 'auto', flexShrink: 0 }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+              <select className="form-input" style={{ width: 'auto' }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
                 <option value="tous">Tous rôles</option>
                 {ROLES_LIST.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
               </select>

@@ -20,7 +20,7 @@ import {
   DollarSign, Activity, Target, Layers, Fuel,
   Cable, Gauge, Building2, ShieldCheck, Check,
 } from 'lucide-react';
-import { downloadExcel } from '@/lib/exportUtils';
+import { downloadExcel, downloadMatriceSuivi } from '@/lib/exportUtils';
 import { SENELEC_LOGO_DATA_URI } from '@/lib/senelecLogo';
 import { useProjectStore, DOMAINE_CFG, STATUT_CFG, type Domaine, type StatutProjet, type Projet } from '@/lib/projectStore';
 import { useAuth, getDirectionLabel, isAssistantProjet } from '@/lib/authStore';
@@ -70,10 +70,10 @@ const SCURVE = [
 
 /* ─── Drawer projet ──────────────────────────────────────── */
 function ProjetDrawer({ projet, onClose, ressources }: { projet: Projet; onClose: () => void; ressources: { id: string; nom: string; prenom: string }[] }) {
-  const dcfg = DOMAINE_CFG[projet.domaine as Domaine];
-  const scfg = STATUT_CFG[projet.statut as StatutProjet];
+  const dcfg = DOMAINE_CFG[projet.domaine as Domaine] ?? { color: '#64748B', label: projet.domaine ?? 'Inconnu', emoji: '📁', desc: '' };
+  const scfg = STATUT_CFG[projet.statut as StatutProjet] ?? { color: '#64748B', label: projet.statut ?? '—' };
   const engPct = projet.budget > 0 ? Math.round((projet.budgetDecaisse / projet.budget) * 100) : 0;
-  const jalonsAtteints = projet.jalons.filter(j => j.atteint).length;
+  const jalonsAtteints = (projet.jalons ?? []).filter(j => j.atteint).length;
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 299, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(2px)' }} />
@@ -121,7 +121,7 @@ function ProjetDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
             {[
               { label: 'Avancement', value: `${projet.avancement}%`, color: projet.avancement >= 70 ? C.green : C.amber },
               { label: 'Budget décaissé', value: `${engPct}%`, color: engPct >= 70 ? C.green : C.amber },
-              { label: 'Jalons atteints', value: `${jalonsAtteints}/${projet.jalons.length}`, color: C.navy },
+              { label: 'Jalons atteints', value: `${jalonsAtteints}/${(projet.jalons ?? []).length}`, color: C.navy },
               { label: 'Budget', value: fmtM(projet.budget) + ' FCFA', color: C.slate },
               { label: 'Engagé', value: fmtM(projet.budgetEngage) + ' FCFA', color: C.slate },
               { label: 'Décaissé', value: fmtM(projet.budgetDecaisse) + ' FCFA', color: C.purple },
@@ -150,8 +150,8 @@ function ProjetDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
 
           {/* Jalons */}
           <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>Jalons ({projet.jalons.length})</div>
-            {projet.jalons.map((j, i) => (
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>Jalons ({(projet.jalons ?? []).length})</div>
+            {(projet.jalons ?? []).map((j, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #F8FAFC' }}>
                 <div style={{
                   width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
@@ -173,11 +173,11 @@ function ProjetDrawer({ projet, onClose, ressources }: { projet: Projet; onClose
           </div>
 
           {/* Équipe */}
-          {projet.equipe.length > 0 && (
+          {(projet.equipe ?? []).length > 0 && (
             <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Équipe ({projet.equipe.length})</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Équipe ({(projet.equipe ?? []).length})</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {projet.equipe.map(id => {
+                {(projet.equipe ?? []).map(id => {
                   const r = ressources.find(res => res.id === id);
                   const name = r ? `${r.prenom} ${r.nom}`.trim() : id;
                   return (
@@ -290,7 +290,7 @@ export default function TableauDeBord() {
 
   /* ── Computed metrics ── */
   const metrics = useMemo(() => {
-    const p = projetsPerimetre;
+    const p = projetsPerimetre.filter(pr => pr.id && pr.code && pr.nom && pr.domaine && pr.statut);
     const filtered = p
       .filter(pr => filtreDomaine === 'tous' || pr.domaine === filtreDomaine)
       .filter(pr => filtreStatut  === 'tous' || pr.statut  === filtreStatut);
@@ -305,12 +305,13 @@ export default function TableauDeBord() {
     const avgAv  = filtered.length > 0 ? filtered.reduce((s, x) => s + x.avancement, 0) / filtered.length : 0;
     const now = Date.now();
     const ms30 = 30 * 24 * 60 * 60 * 1000;
-    const jalonsSoon = filtered.flatMap(pr => pr.jalons.filter(j => !j.atteint && new Date(j.date).getTime() - now <= ms30)).slice(0, 5);
+    const jalonsSoon = filtered.flatMap(pr => (pr.jalons ?? []).filter(j => !j.atteint && new Date(j.date).getTime() - now <= ms30)).slice(0, 5);
 
     /* Domaine breakdown for bar chart — always from full portfolio */
     const domaineMap: Record<string, { budget: number; decaisse: number; count: number; color: string; label: string }> = {};
     p.forEach(pr => {
-      const dcfg = DOMAINE_CFG[pr.domaine as Domaine];
+      if (!pr.domaine) return;
+      const dcfg = DOMAINE_CFG[pr.domaine as Domaine] ?? { color: '#64748B', label: pr.domaine, emoji: '📁', desc: '' };
       if (!domaineMap[pr.domaine]) domaineMap[pr.domaine] = { budget: 0, decaisse: 0, count: 0, color: dcfg.color, label: dcfg.label };
       domaineMap[pr.domaine].budget   += pr.budget;
       domaineMap[pr.domaine].decaisse += pr.budgetDecaisse;
@@ -349,9 +350,9 @@ export default function TableauDeBord() {
 
   // Indicateurs SENELEC officiels + cartes du cockpit ADAPTÉES AU PROFIL (Accueil intelligent).
   const indSenelec = useMemo(() => computeIndicateursSenelec(
-    store.projets.map(p => ({
-      domaine: p.domaine, budget: p.budget, budgetEngage: p.budgetEngage, budgetDecaisse: p.budgetDecaisse,
-      avancement: p.avancement, cpi: p.cpi, spi: p.spi, statut: p.statut,
+    store.projets.filter(p => p.id && p.domaine && p.statut).map(p => ({
+      domaine: p.domaine, budget: p.budget ?? 0, budgetEngage: p.budgetEngage ?? 0, budgetDecaisse: p.budgetDecaisse ?? 0,
+      avancement: p.avancement ?? 0, cpi: p.cpi ?? 1, spi: p.spi ?? 1, statut: p.statut,
     })),
   ), [store.projets]);
   const cockpitCards = useMemo(() => cockpitCardsForRole(user?.role ?? '', indSenelec), [user?.role, indSenelec]);
@@ -431,7 +432,7 @@ export default function TableauDeBord() {
       <div style={{ background: '#fff', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
 
         {/* Title bar + Global KPIs */}
-        <div style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div className="tdb-header-row" style={{ padding: '14px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ minWidth: 0, flex: '1 1 200px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: 19, fontWeight: 900, color: '#0F172A', margin: 0 }}>{scope.titre}</h1>
@@ -514,7 +515,7 @@ export default function TableauDeBord() {
                 <script>window.onload=()=>window.print()</script>
               </body></html>`);
               w.document.close();
-            }} aria-label="Exporter le tableau de bord en PDF" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
+            }} aria-label="Exporter le tableau de bord en PDF" className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={13} /> PDF
             </button>
             <button onClick={() => {
@@ -525,8 +526,34 @@ export default function TableauDeBord() {
                 headers: ['Code', 'Projet', 'Avancement', 'CPI', 'SPI', 'Domaine', 'Budget prévu', 'Budget décaissé', 'Statut'],
                 rows: metrics.filtered.map(p => [p.code ?? '', p.nom, p.avancement, +p.cpi.toFixed(2), +p.spi.toFixed(2), p.domaine, p.budget, p.budgetDecaisse, p.statut]),
               });
-            }} aria-label="Exporter le tableau de bord en Excel" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
+            }} aria-label="Exporter le tableau de bord en Excel" className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', fontSize: 12.5, color: '#475569', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={13} /> Excel
+            </button>
+            <button onClick={() => {
+              downloadMatriceSuivi(
+                metrics.filtered.map(p => ({
+                  code: p.code,
+                  codeImputation: (p as Projet & { codeImputation?: string }).codeImputation,
+                  nom: p.nom,
+                  description: p.description,
+                  unite: (p as Projet & { unite?: string }).unite,
+                  domaine: p.domaine,
+                  programme: (p as Projet & { programme?: string }).programme,
+                  chefProjet: p.chefProjet,
+                  statut: p.statut,
+                  budget: p.budget,
+                  montantMarche: (p as Projet & { montantMarche?: number }).montantMarche,
+                  montantFacture: (p as Projet & { montantFacture?: number }).montantFacture ?? p.budgetDecaisse,
+                  dateDebut: p.dateDebut,
+                  dateODS: (p as Projet & { dateODS?: string }).dateODS,
+                  dateFinPrevue: p.dateFinPrevue,
+                  dateFinEstimee: p.dateFinEstimee,
+                  avancement: p.avancement,
+                })),
+                String(new Date().getFullYear())
+              );
+            }} aria-label="Exporter la matrice de suivi DPD" className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.navy}`, background: `${C.navy}12`, fontSize: 12.5, color: C.navy, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+              <Download size={13} /> Matrice DPD
             </button>
             </>)}
             <button onClick={handleRefresh} disabled={refreshing} aria-label="Actualiser le tableau de bord" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, border: 'none', background: C.navy, fontSize: 12.5, color: '#fff', cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit', fontWeight: 700, opacity: refreshing ? 0.75 : 1 }}>
@@ -537,7 +564,7 @@ export default function TableauDeBord() {
 
         {/* ── KPI Row (6 cartes PROJET) — masquée pour les profils SUPPORT (UAGL/assistante/secrétaire/chauffeur) ── */}
         {!isSupportProfile && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', padding: '12px 24px 0' }}>
+        <div className="tdb-kpi-row" style={{ display: 'flex', flexWrap: 'wrap', padding: '12px 24px 0' }}>
           {[
             { label: 'Projets actifs',        value: String(metrics.tot),             sub: `${metrics.filtered.length} filtrés`, color: C.navy,   icon: <Folder size={15} style={{ color: C.navy   }} />, alert: false, title: `${metrics.tot} projets au total — ${metrics.filtered.length} visibles avec les filtres actuels`, href: '/portefeuille', pfFilter: null },
             { label: 'Budget engagé',         value: fmtPct(metrics.engPct),          sub: `${fmtM(metrics.td)} / ${fmtM(metrics.tb)}`, color: C.green,  icon: <BarChart3 size={15} style={{ color: C.green  }} />, alert: false, title: `Décaissé : ${fmtM(metrics.td)} sur budget total ${fmtM(metrics.tb)} FCFA`, href: '/budget', pfFilter: null },
@@ -576,7 +603,7 @@ export default function TableauDeBord() {
         )}
 
         {/* Onglets */}
-        <div style={{ display: 'flex', flexWrap: 'nowrap', padding: '0 24px', marginTop: 4, overflowX: 'auto', scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', padding: '0 24px', marginTop: 4, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id as typeof activeTab)} style={{
               padding: '8px 16px', border: 'none', flexShrink: 0, whiteSpace: 'nowrap',
@@ -591,7 +618,7 @@ export default function TableauDeBord() {
       </div>
 
       {/* ══ BODY ════════════════════════════════════════════════ */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+      <div className="tdb-body" style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
 
         {/* ── DPE Energy & Indicateurs Métier (dans le flux scrollable, compact) ── */}
         {canSeeConsolidated && (
@@ -668,7 +695,7 @@ export default function TableauDeBord() {
                 </div>
 
                 {metrics.prioritaires.map(p => {
-                  const dcfg = DOMAINE_CFG[p.domaine as Domaine];
+                  const dcfg = DOMAINE_CFG[p.domaine as Domaine] ?? { color: '#64748B', label: p.domaine ?? 'Inconnu', emoji: '📁', desc: '' };
                   const rag  = ragColor(p.cpi, p.spi);
                   const cpiOk = p.cpi >= 0.90;
                   const spiOk = p.spi >= 0.85;
@@ -839,11 +866,11 @@ export default function TableauDeBord() {
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Prochains jalons</span>
                 </div>
                 {metrics.filtered.flatMap(pr =>
-                  pr.jalons.filter(j => !j.atteint).map(j => ({
+                  (pr.jalons ?? []).filter(j => !j.atteint).map(j => ({
                     ...j, code: pr.code, dom: pr.domaine as Domaine,
                   }))
                 ).slice(0, 6).map((j, i) => {
-                  const dcfg = DOMAINE_CFG[j.dom];
+                  const dcfg = DOMAINE_CFG[j.dom] ?? { color: '#64748B', label: j.dom ?? 'Inconnu', emoji: '📁', desc: '' };
                   return (
                     <div key={i} style={{ padding: '9px 14px', borderBottom: `1px solid #F8FAFC`, display: 'flex', gap: 10, alignItems: 'center' }}>
                       <div style={{ width: 28, height: 28, borderRadius: 7, background: `${dcfg.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{dcfg.emoji}</div>
@@ -855,7 +882,7 @@ export default function TableauDeBord() {
                     </div>
                   );
                 })}
-                {metrics.filtered.flatMap(pr => pr.jalons.filter(j => !j.atteint)).length === 0 && (
+                {metrics.filtered.flatMap(pr => (pr.jalons ?? []).filter(j => !j.atteint)).length === 0 && (
                   <div style={{ padding: 24, textAlign: 'center', color: C.slate, fontSize: 12 }}>Aucun jalon à venir</div>
                 )}
               </div>
@@ -906,8 +933,8 @@ export default function TableauDeBord() {
                 </div>
               )}
               {metrics.filtered.map((p, i) => {
-                const dcfg  = DOMAINE_CFG[p.domaine as Domaine];
-                const scfg  = STATUT_CFG[p.statut as StatutProjet];
+                const dcfg  = DOMAINE_CFG[p.domaine as Domaine] ?? { color: '#64748B', label: p.domaine ?? 'Inconnu', emoji: '📁', desc: '' };
+                const scfg  = STATUT_CFG[p.statut as StatutProjet] ?? { color: '#64748B', label: p.statut ?? '—' };
                 const rag   = ragColor(p.cpi, p.spi);
                 const engPct = p.budget > 0 ? Math.round((p.budgetDecaisse / p.budget) * 100) : 0;
                 return (
@@ -955,7 +982,7 @@ export default function TableauDeBord() {
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: '#FEE2E2', color: C.red }}>{metrics.critiques.length}</span>
               </div>
               {metrics.critiques.map((p, i, arr) => {
-                const dcfg = DOMAINE_CFG[p.domaine as Domaine];
+                const dcfg = DOMAINE_CFG[p.domaine as Domaine] ?? { color: '#64748B', label: p.domaine ?? 'Inconnu', emoji: '📁', desc: '' };
                 return (
                   <div key={p.id} onClick={() => setDrawer(p)} style={{ padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid #FEE2E2' : 'none', display: 'flex', gap: 12, cursor: 'pointer', transition: 'background 0.1s' }}
                     onMouseEnter={e => (e.currentTarget.style.background = '#FFF8F8')}
